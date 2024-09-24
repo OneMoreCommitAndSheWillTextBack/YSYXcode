@@ -28,7 +28,7 @@ void invalid_inst(vaddr_t thispc);
 
 // the code add by smy
 void set_state_quit();
-void cmd_si_check(int n);
+int cmd_si_check(int n);
 // end
 
 #endif

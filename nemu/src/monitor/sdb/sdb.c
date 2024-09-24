@@ -60,7 +60,8 @@ static int cmd_si(char *args) {
     printf("[error]: get a wrong arg %s\n", args);
   for (int i = 0; i < times; i++) {
     cpu_exec(1);
-    cmd_si_check(i);
+    if (cmd_si_check(i) == -1)
+      break;
   }
   return 0;
 }
