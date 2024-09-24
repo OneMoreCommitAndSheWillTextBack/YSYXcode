@@ -18,6 +18,7 @@
 #include <isa.h>
 #include <readline/history.h>
 #include <readline/readline.h>
+#include <stdio.h>
 
 static int is_batch_mode = false;
 
@@ -53,6 +54,17 @@ static int cmd_q(char *args) {
   return -1;
 }
 
+static int cmd_si(char *args) {
+  int times = atoi(args);
+  if (times <= 0)
+    printf("[error]: get a wrong arg %s\n", args);
+  for (int i = 0; i < times; i++) {
+    cpu_exec(1);
+    cmd_si_check(i);
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -65,8 +77,7 @@ static struct {
     {"q", "Exit NEMU", cmd_q},
 
     /* TODO: Add more commands */
-
-};
+    {"si", "run the program N steps, default is 1", cmd_si}};
 
 #define NR_CMD ARRLEN(cmd_table)
 
@@ -117,8 +128,6 @@ void sdb_mainloop() {
       args = NULL;
     }
 
-    printf("the cmd get is %s\n", cmd);
-    printf("the args is %s\n", args);
 #ifdef CONFIG_DEVICE
     extern void sdl_clear_event_queue();
     sdl_clear_event_queue();

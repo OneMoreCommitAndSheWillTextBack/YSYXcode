@@ -148,7 +148,20 @@ void cpu_exec(uint64_t n) {
   }
 }
 
+#ifndef CONFIG_TARGET_AM
 void set_state_quit() {
   nemu_state.state = NEMU_QUIT;
   return;
 }
+
+int check_state() { return nemu_state.state; }
+
+void cmd_si_check(int n) {
+  // this function used for si command in sdb
+  int sta = check_state();
+  if (sta == NEMU_ABORT || sta == NEMU_END) {
+    char *info = (sta == NEMU_END ? "NEMU_END" : "NEMU_ABORT");
+    printf("the program [%s] at step %d\n", info, n);
+  }
+}
+#endif
