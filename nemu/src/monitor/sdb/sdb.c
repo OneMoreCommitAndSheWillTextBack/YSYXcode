@@ -117,6 +117,8 @@ void sdb_mainloop() {
       args = NULL;
     }
 
+    printf("the cmd get is %s\n", cmd);
+    printf("the args is %s\n", args);
 #ifdef CONFIG_DEVICE
     extern void sdl_clear_event_queue();
     sdl_clear_event_queue();
