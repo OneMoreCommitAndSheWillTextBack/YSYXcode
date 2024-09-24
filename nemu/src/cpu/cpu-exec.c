@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "utils.h"
 #include <cpu/cpu.h>
 #include <cpu/decode.h>
 #include <cpu/difftest.h>
@@ -145,4 +146,9 @@ void cpu_exec(uint64_t n) {
   case NEMU_QUIT:
     statistic();
   }
+}
+
+void set_state_quit() {
+  nemu_state.state = NEMU_QUIT;
+  return;
 }
