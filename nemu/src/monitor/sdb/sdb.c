@@ -80,7 +80,6 @@ static int cmd_info(char *args) {
 int strtox(char *arg) {
   if (arg[1] == 'x')
     arg = arg + 2;
-  printf("the arg is %s\n", arg);
   char *table = "0123456789abcdef";
   int len = strlen(arg);
   int sum = 0;
@@ -93,6 +92,7 @@ int strtox(char *arg) {
         break;
       }
     }
+    printf("get to here\n");
   }
   return sum;
 }
