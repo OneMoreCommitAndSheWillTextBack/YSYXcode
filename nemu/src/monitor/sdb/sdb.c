@@ -105,10 +105,7 @@ static int cmd_x(char *args) {
   }
   char *arg2 = arg1 + strlen(arg1) + 1;
   int addr = strtox(arg2);
-  if (addr == -1) {
-    printf("[error] get a wrong args %s\n", args);
-    return 0;
-  }
+  printf("the addr is %d\n", addr);
   for (int i = 0; i < times; i++) {
     int ret = paddr_read((uint32_t)addr, 4);
     printf("0x%x: %x", addr, ret);
