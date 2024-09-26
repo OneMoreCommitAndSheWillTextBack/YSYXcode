@@ -77,6 +77,25 @@ static int cmd_info(char *args) {
   return 0;
 }
 
+int strtox(char *arg) {
+  if (arg[1] == 'x')
+    arg = arg + 2;
+  char *table = "0123456789abcdef";
+  int len = strlen(arg);
+  int sum = 0;
+  int times = 1;
+  for (int i = 0; i < len; i++) {
+    for (int j = 0; j < 16; j++) {
+      if (arg[len - i] == table[j]) {
+        sum = sum + j * times;
+        times = times * 16;
+        break;
+      }
+    }
+  }
+  return sum;
+}
+
 static int cmd_x(char *args) {
   char *arg1 = strtok(args, " ");
   int times = atoi(arg1);
@@ -85,9 +104,13 @@ static int cmd_x(char *args) {
     return 0;
   }
   char *arg2 = arg1 + strlen(arg1) + 1;
-  paddr_t addr = (uint32_t)atoi(arg2);
+  int addr = strtox(arg2);
+  if (addr == -1) {
+    printf("[error] get a wrong args %s\n", args);
+    return 0;
+  }
   for (int i = 0; i < times; i++) {
-    int ret = paddr_read(addr, 4);
+    int ret = paddr_read((uint32_t)addr, 4);
     printf("0x%x: %x", addr, ret);
   }
   return 0;
