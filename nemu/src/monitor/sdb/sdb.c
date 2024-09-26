@@ -80,6 +80,7 @@ static int cmd_info(char *args) {
 int strtox(char *arg) {
   if (arg[1] == 'x')
     arg = arg + 2;
+  printf("the arg is %s\n", arg);
   char *table = "0123456789abcdef";
   int len = strlen(arg);
   int sum = 0;
@@ -104,7 +105,6 @@ static int cmd_x(char *args) {
     return 0;
   }
   char *arg2 = arg1 + strlen(arg1) + 1;
-  printf("the arg2 is %s\n", arg2);
   int addr = strtox(arg2);
   for (int i = 0; i < times; i++) {
     int ret = paddr_read((uint32_t)addr, 4);
