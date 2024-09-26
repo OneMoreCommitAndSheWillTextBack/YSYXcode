@@ -96,7 +96,7 @@ static int cmd_x(char *args) {
   int addr = strtox(arg2);
   for (int i = 0; i < times; i++) {
     printf("0x%x: ", addr);
-    for (int j = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
       int ret = paddr_read((uint32_t)(addr + 4 * i + j), 1);
       printf("%2x ", ret);
     }
