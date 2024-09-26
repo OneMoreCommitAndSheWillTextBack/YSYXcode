@@ -89,10 +89,9 @@ int strtox(char *arg) {
       if (arg[len - i] == table[j]) {
         sum = sum + j * times;
         times = times * 16;
-        break;
+        continue;
       }
     }
-    printf("get to here\n");
   }
   return sum;
 }
