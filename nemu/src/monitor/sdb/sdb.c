@@ -14,11 +14,14 @@
  ***************************************************************************************/
 
 #include "sdb.h"
+#include "common.h"
 #include <cpu/cpu.h>
 #include <isa.h>
 #include <readline/history.h>
 #include <readline/readline.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 static int is_batch_mode = false;
 
@@ -74,6 +77,22 @@ static int cmd_info(char *args) {
   return 0;
 }
 
+static int cmd_x(char *args) {
+  char *arg1 = strtok(args, " ");
+  int times = atoi(arg1);
+  if (times == 0) {
+    printf("[error] get a wrong args %s\n", args);
+    return 0;
+  }
+  char *arg2 = arg1 + strlen(arg1) + 1;
+  paddr_t addr = (uint32_t)atoi(arg2);
+  for (int i = 0; i < times; i++) {
+    int ret = paddr_read(addr, 4);
+    printf("0x%x: %x", addr, ret);
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -87,7 +106,8 @@ static struct {
 
     /* TODO: Add more commands */
     {"si", "run the program N steps, default is 1", cmd_si},
-    {"info", "r:print reg  w:print watchpoint", cmd_info}};
+    {"info", "r:print reg  w:print watchpoint", cmd_info},
+    {"x", "scan the memory", cmd_x}};
 
 #define NR_CMD ARRLEN(cmd_table)
 
