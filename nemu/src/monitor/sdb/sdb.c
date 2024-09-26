@@ -80,20 +80,9 @@ static int cmd_info(char *args) {
 int strtox(char *arg) {
   if (arg[1] == 'x')
     arg = arg + 2;
-  char *table = "0123456789abcdef";
-  int len = strlen(arg);
-  int sum = 0;
-  int times = 1;
-  for (int i = 0; i < len; i++) {
-    for (int j = 0; j < 16; j++) {
-      if (arg[len - i] == table[j]) {
-        sum = sum + j * times;
-        times = times * 16;
-        continue;
-      }
-    }
-  }
-  return sum;
+  int ret;
+  sscanf(arg, "%x", &ret);
+  return ret;
 }
 
 static int cmd_x(char *args) {
