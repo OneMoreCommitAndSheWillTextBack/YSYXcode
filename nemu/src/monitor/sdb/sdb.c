@@ -66,6 +66,14 @@ static int cmd_si(char *args) {
   return 0;
 }
 
+static int cmd_info(char *args) {
+  if (strcmp("r", args) == 0)
+    isa_reg_display();
+  else
+    printf("the args is not r");
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -78,7 +86,8 @@ static struct {
     {"q", "Exit NEMU", cmd_q},
 
     /* TODO: Add more commands */
-    {"si", "run the program N steps, default is 1", cmd_si}};
+    {"si", "run the program N steps, default is 1", cmd_si},
+    {"info", "r:print reg  w:print watchpoint", cmd_info}};
 
 #define NR_CMD ARRLEN(cmd_table)
 
