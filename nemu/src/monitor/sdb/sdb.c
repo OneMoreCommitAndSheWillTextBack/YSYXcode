@@ -98,7 +98,7 @@ static int cmd_x(char *args) {
     printf("0x%x: ", addr);
     for (int j = 0; j < 4; j++) {
       int ret = paddr_read((uint32_t)(addr + 4 * i + j), 1);
-      printf("%2x ", ret);
+      printf("%02x ", ret);
     }
     printf("\n");
   }
