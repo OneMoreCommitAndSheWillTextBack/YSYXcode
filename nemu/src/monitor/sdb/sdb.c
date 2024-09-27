@@ -105,6 +105,14 @@ static int cmd_x(char *args) {
   return 0;
 }
 
+static int cmd_p(char *args) {
+  bool success = true;
+  expr(args, &success);
+  if (success == false)
+    printf("get invaild args\n");
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -119,7 +127,8 @@ static struct {
     /* TODO: Add more commands */
     {"si", "run the program N steps, default is 1", cmd_si},
     {"info", "r:print reg  w:print watchpoint", cmd_info},
-    {"x", "scan the memory", cmd_x}};
+    {"x", "scan the memory", cmd_x},
+    {"p", "evaluate the expr", cmd_p}};
 
 #define NR_CMD ARRLEN(cmd_table)
 
