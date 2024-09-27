@@ -143,6 +143,7 @@ bool check_parenthese(int p, int q, int mod) {
     p++;
     q--;
   }
+  printf("get here\n");
   int record = 0;
   while (p <= q) {
     if (tokens[p].type == LEFT_PARENTAHESE)
