@@ -170,6 +170,7 @@ int eval(int p, int q) {
 
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
+    printf("get invailed tokens\n");
     *success = false;
     return 0;
   }
@@ -178,7 +179,7 @@ word_t expr(char *e, bool *success) {
   // TODO();
   if (check_parenthese(0, nr_token) == false) {
     printf("unmatched parenthese\n");
-    success = false;
+    *success = false;
     return 0;
   }
 

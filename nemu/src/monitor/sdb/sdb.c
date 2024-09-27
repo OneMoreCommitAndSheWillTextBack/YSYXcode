@@ -107,9 +107,10 @@ static int cmd_x(char *args) {
 
 static int cmd_p(char *args) {
   bool success = true;
-  expr(args, &success);
-  if (success == false)
-    printf("get invaild args\n");
+  word_t res = expr(args, &success);
+  if (success == true) {
+    printf("%d", res);
+  }
   return 0;
 }
 
