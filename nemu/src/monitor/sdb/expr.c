@@ -141,8 +141,6 @@ bool check_parenthese(int p, int q) {
     if (record < 0)
       return false;
 
-    printf("#pos[%d]:record %d\n", p, record);
-
     p++;
   }
   if (record != 0)
@@ -150,7 +148,12 @@ bool check_parenthese(int p, int q) {
   return true;
 }
 
-int find_operator(int p, int q) { return 0; }
+int find_operator(int p, int q) {
+  /* TODO
+   * find the operator and return the pos
+   */
+  return 0;
+}
 
 int eval(int p, int q) {
   if (p > q) {
