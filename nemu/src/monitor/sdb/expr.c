@@ -18,6 +18,7 @@
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
  */
+#include <readline/readline.h>
 #include <regex.h>
 #include <string.h>
 
@@ -128,6 +129,45 @@ static bool make_token(char *e) {
   return true;
 }
 
+bool check_parenthese(int p, int q) {
+  assert(p < q);
+  int record = 0;
+  while (p > q) {
+    if (tokens[p].type == LEFT_PARENTAHESE)
+      record++;
+    else if (tokens[p].type == RIGHT_PARENTHESE)
+      record--;
+
+    if (record < 0)
+      return false;
+
+    p++;
+  }
+  if (record != 0)
+    return false;
+  return true;
+}
+
+int find_operator(int p, int q) { return 0; }
+
+int eval(int p, int q) {
+  if (p > q) {
+    // bad expression
+    assert(0);
+  } else if (p == q) {
+    // signal expression
+    // assume every input is dec integer
+    return atoi(tokens[p].str);
+  } else if (tokens[p].type == LEFT_PARENTAHESE &&
+             tokens[q].type == RIGHT_PARENTHESE) {
+    return eval(p + 1, q - 1);
+  } else {
+    int pos = find_operator(p, q);
+    // TODO eval expression
+    return pos;
+  }
+}
+
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
@@ -136,10 +176,13 @@ word_t expr(char *e, bool *success) {
 
   /* TODO: Insert codes to evaluate the expression. */
   // TODO();
-  for (int i = 0; i < nr_token; i++) {
-    printf("%s ", tokens[i].str);
+  if (check_parenthese(0, nr_token) == false) {
+    printf("unmatched parenthese\n");
+    success = false;
+    return 0;
   }
-  printf("\n");
+
+  // return eval(0, nr_token);
 
   return 0;
 }
