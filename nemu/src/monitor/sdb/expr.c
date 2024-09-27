@@ -105,6 +105,7 @@ static bool make_token(char *e) {
         default:
           strncpy(tokens[nr_token].str, substr_start, substr_len);
           tokens[nr_token].type = rules[i].token_type;
+          printf("%s", tokens[nr_token].str);
         }
 
         break;
