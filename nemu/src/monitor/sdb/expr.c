@@ -20,6 +20,7 @@
  */
 #include <readline/readline.h>
 #include <regex.h>
+#include <stdbool.h>
 #include <string.h>
 
 enum {
@@ -131,8 +132,13 @@ static bool make_token(char *e) {
   return true;
 }
 
-bool check_parenthese(int p, int q) {
+bool check_parenthese(int p, int q, int mod) {
   assert(p < q);
+  assert(mod == 0 || mod == 1);
+
+  if (mod == 1 && tokens[p].type != LEFT_PARENTAHESE)
+    return false;
+
   int record = 0;
   while (p <= q) {
     if (tokens[p].type == LEFT_PARENTAHESE)
@@ -141,6 +147,9 @@ bool check_parenthese(int p, int q) {
       record--;
 
     if (record < 0)
+      return false;
+
+    if (mod == 1 && record == 0)
       return false;
 
     p++;
@@ -165,8 +174,7 @@ int eval(int p, int q) {
     // signal expression
     // assume every input is dec integer
     return atoi(tokens[p].str);
-  } else if (tokens[p].type == LEFT_PARENTAHESE &&
-             tokens[q].type == RIGHT_PARENTHESE) {
+  } else if (check_parenthese(p, q, 1)) {
     return eval(p + 1, q - 1);
   } else {
     int pos = find_operator(p, q);
@@ -184,7 +192,7 @@ word_t expr(char *e, bool *success) {
 
   /* TODO: Insert codes to evaluate the expression. */
   // TODO();
-  if (check_parenthese(0, nr_token) == false) {
+  if (check_parenthese(0, nr_token, 0) == false) {
     printf("unmatched parenthese\n");
     *success = false;
     return 0;
