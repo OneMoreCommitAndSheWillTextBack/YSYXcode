@@ -141,7 +141,7 @@ bool check_parenthese(int p, int q) {
     if (record < 0)
       return false;
 
-    printf("#pos[%d]:record %d", p, record);
+    printf("#pos[%d]:record %d\n", p, record);
 
     p++;
   }
