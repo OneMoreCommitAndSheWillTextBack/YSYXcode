@@ -132,7 +132,7 @@ static bool make_token(char *e) {
 bool check_parenthese(int p, int q) {
   assert(p < q);
   int record = 0;
-  while (p > q) {
+  while (p <= q) {
     if (tokens[p].type == LEFT_PARENTAHESE)
       record++;
     else if (tokens[p].type == RIGHT_PARENTHESE)
