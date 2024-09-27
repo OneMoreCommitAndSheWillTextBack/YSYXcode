@@ -136,8 +136,10 @@ bool check_parenthese(int p, int q, int mod) {
   assert(p < q);
   assert(mod == 0 || mod == 1);
 
-  if (mod == 1 && tokens[p].type != LEFT_PARENTAHESE)
-    return false;
+  if (mod == 1) {
+    p++;
+    q--;
+  }
 
   int record = 0;
   while (p <= q) {
@@ -147,9 +149,6 @@ bool check_parenthese(int p, int q, int mod) {
       record--;
 
     if (record < 0)
-      return false;
-
-    if (mod == 1 && record == 0)
       return false;
 
     p++;
