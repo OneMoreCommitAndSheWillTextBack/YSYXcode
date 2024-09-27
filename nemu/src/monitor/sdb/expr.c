@@ -45,7 +45,7 @@ static struct rule {
     {" +", TK_NOTYPE}, // spaces
     {"\\+", '+'},      // plus
     {"==", TK_EQ},     // equal
-    {"[0-9]+", NUM},
+    {"[0-9]{1,32}", NUM},
     {"\\(", LEFT_PARENTAHESE}, // left_ph
     {"\\)", RIGHT_PARENTHESE}, // right_ph
     {"\\*", TK_MUL},
