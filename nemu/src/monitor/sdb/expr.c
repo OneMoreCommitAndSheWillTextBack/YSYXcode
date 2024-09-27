@@ -46,8 +46,8 @@ static struct rule {
     {"\\+", '+'},      // plus
     {"==", TK_EQ},     // equal
     {"[0-9]+", NUM},
-    {"(", LEFT_PARENTAHESE}, // left_ph
-    {")", RIGHT_PARENTHESE}, // right_ph
+    {"\\(", LEFT_PARENTAHESE}, // left_ph
+    {"\\)", RIGHT_PARENTHESE}, // right_ph
     {"\\*", TK_MUL},
     {"/", TK_DIV},
 };
