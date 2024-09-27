@@ -195,10 +195,7 @@ word_t expr(char *e, bool *success) {
   /* TODO: Insert codes to evaluate the expression. */
   // TODO();
   //
-  for (int i = 0; i < nr_token; i++) {
-    printf("[%d]: %s\n", i, tokens[i].str);
-  }
-  if (check_parenthese(0, nr_token, 1) == false) {
+  if (check_parenthese(0, nr_token - 1, 1) == false) {
     printf("unmatched parenthese\n");
     *success = false;
     return 0;
