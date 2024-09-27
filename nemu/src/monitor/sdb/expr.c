@@ -137,6 +137,9 @@ bool check_parenthese(int p, int q, int mod) {
   assert(mod == 0 || mod == 1);
 
   if (mod == 1) {
+    if (tokens[p].type != LEFT_PARENTAHESE ||
+        tokens[q].type != RIGHT_PARENTHESE)
+      return false;
     p++;
     q--;
   }
