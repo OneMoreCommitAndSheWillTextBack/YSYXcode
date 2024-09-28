@@ -128,7 +128,18 @@ static int test_p(char *args) {
     return 0;
   }
   while ((c = getline(&line, &len, fp)) != -1) {
-    printf("%s", line);
+    char *res_str = strtok(line, " ");
+    char *exprees = res_str + strlen(res_str) + 1;
+    word_t ans = (word_t)atoi(res_str);
+    bool success = true;
+    word_t res = expr(exprees, &success);
+    if (success == false) {
+      printf("something wrong encounter\n");
+    } else if (res != ans) {
+      printf("Failed!\n");
+    } else if (res == ans) {
+      printf("Pass!\n");
+    }
   }
   return 0;
 }
