@@ -145,6 +145,10 @@ static bool make_token(char *e) {
     }
   }
 
+  for (int i = 0; i < nr_token; i++)
+    printf("%s ", tokens[i].str);
+  printf("\n");
+
   return true;
 }
 
