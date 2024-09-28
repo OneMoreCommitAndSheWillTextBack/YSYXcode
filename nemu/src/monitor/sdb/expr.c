@@ -214,12 +214,13 @@ int eval(int p, int q, bool *success) {
   } else if (p == q) {
     // signal expression
     // assume every input is dec integer
-    if (tokens[p].type != NUM) {
-      printf("invalid expression\n");
-      *success = false;
-      return 0;
-    }
-    return atoi(tokens[p].str);
+    if (tokens[p].type == NUM)
+      return atoi(tokens[p].str);
+    if (tokens[p].type == NEG_NUM)
+      return -atoi(tokens[p].str);
+    *success = false;
+    printf("invalid expression\n");
+    return 0;
   } else if (check_parenthese(p, q, 1)) {
     return eval(p + 1, q - 1, success);
   } else {
