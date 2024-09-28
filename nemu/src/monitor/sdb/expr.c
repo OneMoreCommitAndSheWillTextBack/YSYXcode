@@ -256,15 +256,12 @@ word_t expr(char *e, bool *success) {
 
   /* TODO: Insert codes to evaluate the expression. */
   // TODO();
-  //
+  printf("the nr token is %d\n", nr_token);
   if (check_parenthese(0, nr_token - 1, 0) == false) {
     printf("unmatched parenthese\n");
     *success = false;
     return 0;
   }
-
-  printf("the nrtoken is %d\n", nr_token);
-
   int res = eval(0, nr_token - 1, success);
   return (word_t)res;
 }
