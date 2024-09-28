@@ -122,8 +122,11 @@ static bool make_token(char *e) {
               (tokens[nr_token - 1].type != NUM &&
                tokens[nr_token - 1].type != RIGHT_PARENTHESE)) {
             // if not num - expr or ) - expr
-            //  - is neg signal
-            neg_flag = 1 ^ neg_flag;
+            //  - is neg signal tansform it to -1*
+            tokens[nr_token].type = NUM;
+            strcpy(tokens[nr_token++].str, "-1");
+            tokens[nr_token].type = TK_MUL;
+            strcpy(tokens[nr_token++].str, "*");
             break;
           }
         default:
@@ -187,17 +190,24 @@ bool check_parenthese(int p, int q, int mod) {
 int find_operator(int p, int q, bool *success) {
   int pos = -1;
   int level = 0;
+  int parenthese_deep = 0;
   while (p <= q) {
-    if (tokens[p].type == TK_EQ && level == 0)
+    if (tokens[p].type == TK_EQ && level == 0 && parenthese_deep == 0)
       pos = p;
-    if ((tokens[p].type == TK_MUL || tokens[p].type == TK_DIV) && level <= 1) {
+    if ((tokens[p].type == TK_MUL || tokens[p].type == TK_DIV) && level <= 1 &&
+        parenthese_deep == 0) {
       level = 1;
       pos = p;
     }
-    if (tokens[p].type == TK_ADD || tokens[p].type == TK_SUB) {
+    if ((tokens[p].type == TK_ADD || tokens[p].type == TK_SUB) &&
+        parenthese_deep == 0) {
       level = 2;
       pos = p;
     }
+    if (tokens[p].type == LEFT_PARENTAHESE)
+      parenthese_deep++;
+    if (tokens[p].type == RIGHT_PARENTHESE)
+      parenthese_deep--;
     p++;
   }
   if (pos == -1)
