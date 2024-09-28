@@ -204,6 +204,7 @@ int eval(int p, int q, bool *success) {
     return eval(p + 1, q - 1, success);
   } else {
     int pos = find_operator(p, q, success);
+    printf("the get operator is %s\n", tokens[pos].str);
     switch (tokens[pos].type) {
     case TK_ADD:
       return eval(p, pos - 1, success) + eval(pos + 1, q, success);
