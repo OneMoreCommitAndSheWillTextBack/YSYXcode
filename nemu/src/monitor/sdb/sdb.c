@@ -120,7 +120,7 @@ static int test_p(char *args) {
   size_t len = 0;
   ssize_t c;
   if (args == NULL) {
-    args = "~/project/ysyx-workbench/nemu/tools/gen-expr/build/input\n";
+    args = "./tools/gen-expr/build/input\n";
   }
   FILE *fp = fopen(args, "r");
   if (fp == NULL) {
