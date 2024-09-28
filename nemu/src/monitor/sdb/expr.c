@@ -57,8 +57,7 @@ static struct rule {
     {"\\)", RIGHT_PARENTHESE}, // right_ph
     {"\\*", TK_MUL},
     {"/", TK_DIV},
-    {"-", TK_SUB},
-    {"\\n", TK_NOTYPE}};
+};
 
 #define NR_REGEX ARRLEN(rules)
 
