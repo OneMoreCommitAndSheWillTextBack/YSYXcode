@@ -251,7 +251,7 @@ int eval(int p, int q, bool *success) {
       return eval(p, pos - 1, success) == eval(pos + 1, q, success);
       break;
     default:
-      Log("meet a unhanded \"%s\"", tokens[pos].str);
+      Log("meet a unhanded \"%d\"", tokens[pos].type);
       assert(0);
       break;
     }
