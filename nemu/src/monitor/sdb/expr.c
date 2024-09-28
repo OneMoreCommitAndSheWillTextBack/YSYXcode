@@ -56,6 +56,7 @@ static struct rule {
     {"\\*", TK_MUL},
     {"/", TK_DIV},
     {"-", TK_SUB},
+    {"-[0-9]{1,32}", NUM},
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -115,6 +116,14 @@ static bool make_token(char *e) {
         switch (rules[i].token_type) {
         case TK_NOTYPE:
           break;
+        case TK_SUB:
+          if ((tokens[nr_token].type != NUM) ||
+              (tokens[nr_token].type != RIGHT_PARENTHESE)) {
+            // if not num - expr or ) - expr
+            //  - is neg signal
+            position = position - substr_len;
+            break;
+          }
         default:
           strncpy(tokens[nr_token].str, substr_start, substr_len);
           tokens[nr_token].type = rules[i].token_type;
@@ -135,6 +144,8 @@ static bool make_token(char *e) {
 }
 
 bool check_parenthese(int p, int q, int mod) {
+  // mod 0: check the parenthese match
+  // mod 1: check BNF rule "(<expr>)"
   assert(p < q);
   assert(mod == 0 || mod == 1);
 
@@ -203,6 +214,7 @@ int eval(int p, int q, bool *success) {
   } else if (check_parenthese(p, q, 1)) {
     return eval(p + 1, q - 1, success);
   } else {
+    // need to find the main operator
     int pos = find_operator(p, q, success);
     switch (tokens[pos].type) {
     case TK_ADD:
