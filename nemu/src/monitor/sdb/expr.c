@@ -170,7 +170,7 @@ int find_operator(int p, int q, bool *success) {
       pos = p;
     if ((tokens[p].type == TK_MUL || tokens[p].type == TK_MUL) && level <= 1) {
       level = 1;
-      pos = 0;
+      pos = p;
     }
     if (tokens[p].type == TK_ADD || tokens[p].type == TK_SUB) {
       level = 2;
