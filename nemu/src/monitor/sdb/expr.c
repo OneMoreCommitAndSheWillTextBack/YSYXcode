@@ -263,6 +263,8 @@ word_t expr(char *e, bool *success) {
     return 0;
   }
 
+  printf("the nrtoken is %d\n", nr_token);
+
   int res = eval(0, nr_token - 1, success);
   return (word_t)res;
 }
