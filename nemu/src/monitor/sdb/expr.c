@@ -176,6 +176,7 @@ int find_operator(int p, int q, bool *success) {
       level = 2;
       pos = p;
     }
+    p++;
   }
   if (pos == -1)
     *success = false;
@@ -223,7 +224,7 @@ int eval(int p, int q, bool *success) {
       assert(0);
       break;
     }
-    return pos;
+    return 0;
   }
 }
 
