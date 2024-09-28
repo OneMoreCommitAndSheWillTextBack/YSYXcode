@@ -222,6 +222,7 @@ int eval(int p, int q, bool *success) {
   } else {
     // need to find the main operator
     int pos = find_operator(p, q, success);
+    int dividend = 0;
     switch (tokens[pos].type) {
     case TK_ADD:
       return eval(p, pos - 1, success) + eval(pos + 1, q, success);
@@ -233,7 +234,13 @@ int eval(int p, int q, bool *success) {
       return eval(p, pos - 1, success) * eval(pos + 1, q, success);
       break;
     case TK_DIV:
-      return eval(p, pos - 1, success) / eval(pos + 1, q, success);
+      dividend = eval(pos + 1, q, success);
+      if (dividend == 0) {
+        *success = false;
+        printf("0 can be used as dividend\n");
+        return 0;
+      }
+      return eval(p, pos - 1, success) / dividend;
       break;
     case TK_EQ:
       return eval(p, pos - 1, success) == eval(pos + 1, q, success);
