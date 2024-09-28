@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
   int i;
   for (i = 0; i < loop; i++) {
     pos = 0;
-    gen_rand_expr(10);
+    gen_rand_expr(4);
     buf[pos] = '\0';
 
     sprintf(code_buf, code_format, buf);
