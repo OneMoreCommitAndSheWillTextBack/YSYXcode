@@ -168,7 +168,7 @@ int find_operator(int p, int q, bool *success) {
   while (p <= q) {
     if (tokens[p].type == TK_EQ && level == 0)
       pos = p;
-    if ((tokens[p].type == TK_MUL || tokens[p].type == TK_MUL) && level <= 1) {
+    if ((tokens[p].type == TK_MUL || tokens[p].type == TK_DIV) && level <= 1) {
       level = 1;
       pos = p;
     }
@@ -180,7 +180,7 @@ int find_operator(int p, int q, bool *success) {
   }
   if (pos == -1)
     *success = false;
-  return 0;
+  return pos;
 }
 
 int eval(int p, int q, bool *success) {
@@ -204,7 +204,6 @@ int eval(int p, int q, bool *success) {
     return eval(p + 1, q - 1, success);
   } else {
     int pos = find_operator(p, q, success);
-    printf("the get operator is %s\n", tokens[pos].str);
     switch (tokens[pos].type) {
     case TK_ADD:
       return eval(p, pos - 1, success) + eval(pos + 1, q, success);
