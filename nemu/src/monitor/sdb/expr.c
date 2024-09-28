@@ -117,11 +117,12 @@ static bool make_token(char *e) {
         case TK_NOTYPE:
           break;
         case TK_SUB:
-          if ((tokens[nr_token - 1].type != NUM) &&
-              (tokens[nr_token - 1].type != RIGHT_PARENTHESE)) {
+          if ((nr_token == 0) ||
+              (tokens[nr_token - 1].type != NUM &&
+               tokens[nr_token - 1].type != RIGHT_PARENTHESE)) {
             // if not num - expr or ) - expr
             //  - is neg signal
-            neg_flag = 1;
+            neg_flag = 1 ^ neg_flag;
             break;
           }
         default:
@@ -144,10 +145,6 @@ static bool make_token(char *e) {
       return false;
     }
   }
-
-  for (int i = 0; i < nr_token; i++)
-    printf("%s ", tokens[i].str);
-  printf("\n");
 
   return true;
 }
