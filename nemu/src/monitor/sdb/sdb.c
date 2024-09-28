@@ -120,11 +120,11 @@ static int test_p(char *args) {
   size_t len = 0;
   ssize_t c;
   if (args == NULL) {
-    args = "./tools/gen-expr/build/input\n";
+    args = "./tools/gen-expr/build/input";
   }
   FILE *fp = fopen(args, "r");
   if (fp == NULL) {
-    printf("[error] cant open file \"%s\"", args);
+    printf("[error] cant open file \"%s\"\n", args);
     return 0;
   }
   while ((c = getline(&line, &len, fp)) != -1) {
