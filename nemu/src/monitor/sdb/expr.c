@@ -117,7 +117,7 @@ static bool make_token(char *e) {
         case TK_NOTYPE:
           break;
         case TK_SUB:
-          if ((tokens[nr_token - 1].type != NUM) ||
+          if ((tokens[nr_token - 1].type != NUM) &&
               (tokens[nr_token - 1].type != RIGHT_PARENTHESE)) {
             // if not num - expr or ) - expr
             //  - is neg signal
