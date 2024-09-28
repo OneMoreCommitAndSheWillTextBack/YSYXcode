@@ -30,12 +30,13 @@ enum {
 
   /* TODO: Add more token types */
   NUM,
+  NEG_NUM,
   LEFT_PARENTAHESE,
   RIGHT_PARENTHESE,
-  TK_MUL, // 261
-  TK_DIV, // 262
-  TK_SUB, // 263
-  TK_ADD, // 264
+  TK_MUL,
+  TK_DIV,
+  TK_SUB,
+  TK_ADD,
 };
 
 static struct rule {
@@ -56,7 +57,6 @@ static struct rule {
     {"\\*", TK_MUL},
     {"/", TK_DIV},
     {"-", TK_SUB},
-    {"-[0-9]{1,32}", NUM},
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -92,6 +92,7 @@ static bool make_token(char *e) {
   int position = 0;
   int i;
   regmatch_t pmatch;
+  int neg_flag = 0;
 
   nr_token = 0;
 
@@ -112,21 +113,24 @@ static bool make_token(char *e) {
          * to record the token in the array `tokens'. For certain types
          * of tokens, some extra actions should be performed.
          */
-
         switch (rules[i].token_type) {
         case TK_NOTYPE:
           break;
         case TK_SUB:
-          if ((tokens[nr_token].type != NUM) ||
-              (tokens[nr_token].type != RIGHT_PARENTHESE)) {
+          if ((tokens[nr_token - 1].type != NUM) ||
+              (tokens[nr_token - 1].type != RIGHT_PARENTHESE)) {
             // if not num - expr or ) - expr
             //  - is neg signal
-            position = position - substr_len;
-            break;
+            neg_flag = 1;
           }
         default:
           strncpy(tokens[nr_token].str, substr_start, substr_len);
-          tokens[nr_token].type = rules[i].token_type;
+          if (rules[i].token_type == NUM && neg_flag == 1) {
+            tokens[nr_token].type = NEG_NUM;
+            neg_flag = 0;
+          } else {
+            tokens[nr_token].type = rules[i].token_type;
+          }
           nr_token++;
         }
 
