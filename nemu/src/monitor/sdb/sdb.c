@@ -128,7 +128,6 @@ static int test_p(char *args) {
     return 0;
   }
   while ((c = getline(&line, &len, fp)) != -1) {
-    line[strlen(line)] = '\0';
     char *res_str = strtok(line, " ");
     char *exprees = res_str + strlen(res_str) + 1;
     word_t ans = (word_t)atoi(res_str);
