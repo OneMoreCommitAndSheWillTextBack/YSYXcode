@@ -161,8 +161,6 @@ bool check_parenthese(int p, int q, int mod) {
     p++;
     q--;
   }
-  if (p == q)
-    return true;
   int record = 0;
   while (p <= q) {
     if (tokens[p].type == LEFT_PARENTAHESE)
@@ -257,7 +255,6 @@ word_t expr(char *e, bool *success) {
 
   /* TODO: Insert codes to evaluate the expression. */
   // TODO();
-  printf("the nr token is %d\n", nr_token);
   if (check_parenthese(0, nr_token - 1, 0) == false) {
     printf("unmatched parenthese\n");
     *success = false;
