@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "common.h"
 #include <isa.h>
 
 /* We use the POSIX regex functions to process regular expressions.
@@ -31,9 +32,10 @@ enum {
   NUM,
   LEFT_PARENTAHESE,
   RIGHT_PARENTHESE,
-  TK_MUL,
-  TK_DIV,
-  TK_SUB,
+  TK_MUL, // 261
+  TK_DIV, // 262
+  TK_SUB, // 263
+  TK_ADD, // 264
 };
 
 static struct rule {
@@ -46,7 +48,7 @@ static struct rule {
      */
 
     {" +", TK_NOTYPE}, // spaces
-    {"\\+", '+'},      // plus
+    {"\\+", TK_ADD},   // plus
     {"==", TK_EQ},     // equal
     {"[0-9]{1,32}", NUM},
     {"\\(", LEFT_PARENTAHESE}, // left_ph
@@ -160,26 +162,67 @@ bool check_parenthese(int p, int q, int mod) {
   return true;
 }
 
-int find_operator(int p, int q) {
-  /* TODO
-   * find the operator and return the pos
-   */
+int find_operator(int p, int q, bool *success) {
+  int pos = -1;
+  int level = 0;
+  while (p <= q) {
+    if (tokens[p].type == TK_EQ && level == 0)
+      pos = p;
+    if ((tokens[p].type == TK_MUL || tokens[p].type == TK_MUL) && level <= 1) {
+      level = 1;
+      pos = 0;
+    }
+    if (tokens[p].type == TK_ADD || tokens[p].type == TK_SUB) {
+      level = 2;
+      pos = p;
+    }
+  }
+  if (pos == -1)
+    *success = false;
   return 0;
 }
 
-int eval(int p, int q) {
+int eval(int p, int q, bool *success) {
+  if (*success == false)
+    return 0;
+
   if (p > q) {
-    // bad expression
-    assert(0);
+    printf("invalid expression\n");
+    *success = false;
+    return 0;
   } else if (p == q) {
     // signal expression
     // assume every input is dec integer
+    if (tokens[p].type != NUM) {
+      printf("invalid expression\n");
+      *success = false;
+      return 0;
+    }
     return atoi(tokens[p].str);
   } else if (check_parenthese(p, q, 1)) {
-    return eval(p + 1, q - 1);
+    return eval(p + 1, q - 1, success);
   } else {
-    int pos = find_operator(p, q);
-    // TODO eval expression
+    int pos = find_operator(p, q, success);
+    switch (tokens[pos].type) {
+    case TK_ADD:
+      return eval(p, pos - 1, success) + eval(pos + 1, q, success);
+      break;
+    case TK_SUB:
+      return eval(p, pos - 1, success) - eval(pos + 1, q, success);
+      break;
+    case TK_MUL:
+      return eval(p, pos - 1, success) * eval(pos + 1, q, success);
+      break;
+    case TK_DIV:
+      return eval(p, pos - 1, success) / eval(pos + 1, q, success);
+      break;
+    case TK_EQ:
+      return eval(p, pos - 1, success) == eval(pos + 1, q, success);
+      break;
+    default:
+      assert(0);
+      break;
+    }
     return pos;
   }
 }
@@ -200,7 +243,6 @@ word_t expr(char *e, bool *success) {
     return 0;
   }
 
-  // return eval(0, nr_token-1);
-
-  return 0;
+  int res = eval(0, nr_token - 1, success);
+  return (word_t)res;
 }
