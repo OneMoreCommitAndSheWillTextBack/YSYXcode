@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
 
 static int is_batch_mode = false;
 
@@ -114,6 +115,24 @@ static int cmd_p(char *args) {
   return 0;
 }
 
+static int test_p(char *args) {
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t c;
+  if (args == NULL) {
+    args = "~/project/ysyx-workbench/nemu/tools/gen-expr/build/input";
+  }
+  FILE *fp = fopen(args, "r");
+  if (fp == NULL) {
+    printf("[error] cant open file \"%s\"", args);
+    return 0;
+  }
+  while ((c = getline(&line, &len, fp)) != -1) {
+    printf("%s\n", line);
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -129,7 +148,8 @@ static struct {
     {"si", "run the program N steps, default is 1", cmd_si},
     {"info", "r:print reg  w:print watchpoint", cmd_info},
     {"x", "scan the memory", cmd_x},
-    {"p", "evaluate the expr", cmd_p}};
+    {"p", "evaluate the expr", cmd_p},
+    {"test", "test the function of p", test_p}};
 
 #define NR_CMD ARRLEN(cmd_table)
 

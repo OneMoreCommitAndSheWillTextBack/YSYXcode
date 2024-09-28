@@ -29,13 +29,21 @@ static char *code_format = "#include <stdio.h>\n"
                            "  printf(\"%%u\", result); "
                            "  return 0; "
                            "}";
-char buffer[10] = {};
+
 int pos = 0;
 void gen_num() {
+  char buffer[4];
   int counts = rand() % 1000;
-  sprintf(buffer + 2, "%d  ", counts);
-  strcpy(buf + pos, buffer);
-  pos = pos + strlen(buffer);
+  int i = 0;
+  while (counts > 0) {
+    buffer[i] = counts % 10 + '0';
+    i++;
+    counts = counts / 10;
+  }
+  for (; i > 0; i--) {
+    buf[pos] = buffer[i - 1];
+    pos++;
+  }
 }
 
 void gen_op() {
@@ -63,7 +71,7 @@ void gen(char c) {
 }
 
 static void gen_rand_expr(int time) {
-  switch (rand() % 2) {
+  switch (rand() % 3) {
   case 0:
     gen_num();
     break;
@@ -91,7 +99,9 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i++) {
+    pos = 0;
     gen_rand_expr(10);
+    buf[pos] = '\0';
 
     sprintf(code_buf, code_format, buf);
 
