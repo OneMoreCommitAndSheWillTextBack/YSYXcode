@@ -122,6 +122,7 @@ static bool make_token(char *e) {
             // if not num - expr or ) - expr
             //  - is neg signal
             neg_flag = 1;
+            break;
           }
         default:
           strncpy(tokens[nr_token].str, substr_start, substr_len);
