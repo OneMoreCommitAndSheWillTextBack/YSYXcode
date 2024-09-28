@@ -128,7 +128,7 @@ static int test_p(char *args) {
     return 0;
   }
   while ((c = getline(&line, &len, fp)) != -1) {
-    printf("%s\n", line);
+    printf("%s", line);
   }
   return 0;
 }
