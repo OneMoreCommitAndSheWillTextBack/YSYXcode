@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include "common.h"
+#include "debug.h"
 #include <isa.h>
 
 /* We use the POSIX regex functions to process regular expressions.
@@ -104,8 +105,8 @@ static bool make_token(char *e) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s", i,
-            rules[i].regex, position, substr_len, substr_len, substr_start);
+        // Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s", i,
+        //   rules[i].regex, position, substr_len, substr_len, substr_start);
 
         position += substr_len;
 
@@ -246,6 +247,7 @@ int eval(int p, int q, bool *success) {
       return eval(p, pos - 1, success) == eval(pos + 1, q, success);
       break;
     default:
+      Log("meet a unhanded %s", tokens[pos].str);
       assert(0);
       break;
     }
