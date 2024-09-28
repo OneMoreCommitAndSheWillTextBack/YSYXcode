@@ -152,9 +152,8 @@ static bool make_token(char *e) {
 bool check_parenthese(int p, int q, int mod) {
   // mod 0: check the parenthese match
   // mod 1: check BNF rule "(<expr>)"
-  assert(p < q);
+  assert(p <= q);
   assert(mod == 0 || mod == 1);
-
   if (mod == 1) {
     if (tokens[p].type != LEFT_PARENTAHESE ||
         tokens[q].type != RIGHT_PARENTHESE)
@@ -162,6 +161,8 @@ bool check_parenthese(int p, int q, int mod) {
     p++;
     q--;
   }
+  if (p == q)
+    return true;
   int record = 0;
   while (p <= q) {
     if (tokens[p].type == LEFT_PARENTAHESE)
