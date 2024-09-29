@@ -300,7 +300,7 @@ int eval(int p, int q, bool *success) {
       addr = (paddr_t)eval(p, q, success);
       return (int)paddr_read(addr, 4);
     default:
-      Log("meet a unhanded \"%d\"", tokens[pos].type);
+      Log("meet a unhanded \"%d\"", tokens[p].type);
       assert(0);
       break;
     }
