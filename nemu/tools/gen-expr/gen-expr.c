@@ -71,6 +71,10 @@ void gen(char c) {
 }
 
 static void gen_rand_expr(int time) {
+  if (time <= 0) {
+    gen_num();
+    return;
+  }
   switch (rand() % 3) {
   case 0:
     gen_num();
