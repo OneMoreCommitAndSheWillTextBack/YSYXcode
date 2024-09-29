@@ -78,6 +78,8 @@ static void gen_rand_expr(int time) {
   case 1:
     gen('(');
     gen_rand_expr(time - 1);
+    gen('+');
+    gen('1');
     gen(')');
     break;
   case 2:
