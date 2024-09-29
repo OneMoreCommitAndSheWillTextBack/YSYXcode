@@ -299,6 +299,7 @@ int eval(int p, int q, bool *success) {
     case DEPOINT:
       addr = (paddr_t)eval(p, q, success);
       return (int)paddr_read(addr, 4);
+      break;
     default:
       Log("meet a unhanded \"%d\"", tokens[p].type);
       assert(0);
