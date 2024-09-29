@@ -93,7 +93,6 @@ static bool make_token(char *e) {
   int position = 0;
   int i;
   regmatch_t pmatch;
-  int neg_flag = 0;
 
   nr_token = 0;
 
@@ -132,12 +131,7 @@ static bool make_token(char *e) {
         default:
           strncpy(tokens[nr_token].str, substr_start, substr_len);
           tokens[nr_token].str[substr_len] = '\0';
-          if (rules[i].token_type == NUM && neg_flag == 1) {
-            tokens[nr_token].type = NEG_NUM;
-            neg_flag = 0;
-          } else {
-            tokens[nr_token].type = rules[i].token_type;
-          }
+          tokens[nr_token].type = rules[i].token_type;
           nr_token++;
         }
 
@@ -151,9 +145,11 @@ static bool make_token(char *e) {
     }
   }
 
+  /* used for test
   for (int i = 0; i < nr_token; i++)
     printf("%s ", tokens[i].str);
-  printf("\n");
+   printf("\n");
+  */
 
   return true;
 }
