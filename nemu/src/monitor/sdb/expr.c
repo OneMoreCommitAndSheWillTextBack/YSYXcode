@@ -53,16 +53,16 @@ static struct rule {
      * Pay attention to the precedence level of different rules.
      */
 
-    {" +", TK_NOTYPE}, // spaces
-    {"\\+", TK_ADD},   // plus
-    {"==", TK_EQ},     // equal
-    {"[0-9]{1,32}", NUM},
+    {" +", TK_NOTYPE},         // spaces
+    {"\\+", TK_ADD},           // plus
+    {"==", TK_EQ},             // equal
     {"\\(", LEFT_PARENTAHESE}, // left_ph
     {"\\)", RIGHT_PARENTHESE}, // right_ph
     {"\\*", TK_MUL},
     {"/", TK_DIV},
     {"-", TK_SUB},
     {"0x[0-9|a-f]{1,8}", HEX_NUM},
+    {"[0-9]{1,32}", NUM},
     {"\\$[a-z|0-9]{2,3}", REG},
     {"!=", TK_UNEQ},
     {"&&", TK_AND},
