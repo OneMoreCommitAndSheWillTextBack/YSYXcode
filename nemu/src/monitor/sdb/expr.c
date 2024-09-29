@@ -211,6 +211,14 @@ int find_operator(int p, int q, bool *success) {
       pos = p;
       level = 3;
     }
+    if (tokens[p].type == TK_UNEQ && level <= 3 && parenthese_deep == 0) {
+      pos = p;
+      level = 3;
+    }
+    if (tokens[p].type == TK_AND && level <= 4 && parenthese_deep == 0) {
+      pos = p;
+      level = 4;
+    }
     if ((tokens[p].type == TK_MUL || tokens[p].type == TK_DIV) && level <= 1 &&
         parenthese_deep == 0) {
       level = 1;
@@ -219,6 +227,9 @@ int find_operator(int p, int q, bool *success) {
     if ((tokens[p].type == TK_ADD || tokens[p].type == TK_SUB) &&
         parenthese_deep == 0 && level <= 2) {
       level = 2;
+      pos = p;
+    }
+    if (tokens[p].type == DEPOINT && level == 0 && parenthese_deep == 0) {
       pos = p;
     }
     if (tokens[p].type == LEFT_PARENTAHESE)
@@ -297,11 +308,11 @@ int eval(int p, int q, bool *success) {
       return eval(p, pos - 1, success) && eval(pos + 1, q, success);
       break;
     case DEPOINT:
-      addr = (paddr_t)eval(p, q, success);
+      addr = (paddr_t)eval(p + 1, q, success);
       return (int)paddr_read(addr, 4);
       break;
     default:
-      Log("meet a unhanded \"%d\"", tokens[p].type);
+      Log("meet a unhanded %d:\"%s\"", tokens[p].type, tokens[p].str);
       assert(0);
       break;
     }
