@@ -31,13 +31,17 @@ enum {
 
   /* TODO: Add more token types */
   NUM,
-  NEG_NUM,
+  HEX_NUM,
   LEFT_PARENTAHESE,
   RIGHT_PARENTHESE,
   TK_MUL,
   TK_DIV,
   TK_SUB,
   TK_ADD,
+  REG,
+  DEPOINT,
+  TK_AND,
+  TK_UNEQ,
 };
 
 static struct rule {
@@ -58,6 +62,10 @@ static struct rule {
     {"\\*", TK_MUL},
     {"/", TK_DIV},
     {"-", TK_SUB},
+    {"0x[0-9|a-f]{1,8}", HEX_NUM},
+    {"\\$[a-z|0-9]{2,3}", REG},
+    {"!=", TK_UNEQ},
+    {"&&", TK_AND},
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -86,7 +94,7 @@ typedef struct token {
   char str[32];
 } Token;
 
-static Token tokens[64] __attribute__((used)) = {};
+static Token tokens[32] __attribute__((used)) = {};
 static int nr_token __attribute__((used)) = 0;
 
 static bool make_token(char *e) {
@@ -126,6 +134,17 @@ static bool make_token(char *e) {
             strcpy(tokens[nr_token++].str, "-1");
             tokens[nr_token].type = TK_MUL;
             strcpy(tokens[nr_token++].str, "*");
+            break;
+          }
+        case TK_MUL:
+          if ((nr_token == 0) ||
+              (tokens[nr_token - 1].type != NUM &&
+               tokens[nr_token - 1].type != RIGHT_PARENTHESE)) {
+            // if not num * expr or ) * expr
+            // * is depointer
+            tokens[nr_token].type = DEPOINT;
+            strcpy(tokens[nr_token].str, "*");
+            nr_token++;
             break;
           }
         default:
@@ -188,15 +207,17 @@ int find_operator(int p, int q, bool *success) {
   int level = 0;
   int parenthese_deep = 0;
   while (p <= q) {
-    if (tokens[p].type == TK_EQ && level == 0 && parenthese_deep == 0)
+    if (tokens[p].type == TK_EQ && level <= 3 && parenthese_deep == 0) {
       pos = p;
+      level = 3;
+    }
     if ((tokens[p].type == TK_MUL || tokens[p].type == TK_DIV) && level <= 1 &&
         parenthese_deep == 0) {
       level = 1;
       pos = p;
     }
     if ((tokens[p].type == TK_ADD || tokens[p].type == TK_SUB) &&
-        parenthese_deep == 0) {
+        parenthese_deep == 0 && level <= 2) {
       level = 2;
       pos = p;
     }
@@ -224,8 +245,19 @@ int eval(int p, int q, bool *success) {
     // assume every input is dec integer
     if (tokens[p].type == NUM)
       return atoi(tokens[p].str);
-    if (tokens[p].type == NEG_NUM)
-      return -atoi(tokens[p].str);
+    if (tokens[p].type == REG) {
+      word_t ret = isa_reg_str2val(tokens[p].str, success);
+      if (success == false) {
+        printf("failed to read the given reg %s\n", tokens[p].str);
+        return 0;
+      }
+      return (int)ret;
+    }
+    if (tokens[p].type == HEX_NUM) {
+      int res;
+      sscanf(tokens[p].str, "%x", &res);
+      return res;
+    }
     *success = false;
     printf("invalid expression\n");
     return 0;
@@ -235,6 +267,7 @@ int eval(int p, int q, bool *success) {
     // need to find the main operator
     int pos = find_operator(p, q, success);
     int dividend = 0;
+    paddr_t addr;
     switch (tokens[pos].type) {
     case TK_ADD:
       return eval(p, pos - 1, success) + eval(pos + 1, q, success);
@@ -257,6 +290,15 @@ int eval(int p, int q, bool *success) {
     case TK_EQ:
       return eval(p, pos - 1, success) == eval(pos + 1, q, success);
       break;
+    case TK_UNEQ:
+      return eval(p, pos - 1, success) != eval(pos + 1, q, success);
+      break;
+    case TK_AND:
+      return eval(p, pos - 1, success) && eval(pos + 1, q, success);
+      break;
+    case DEPOINT:
+      addr = (paddr_t)eval(p, q, success);
+      return (int)paddr_read(addr, 4);
     default:
       Log("meet a unhanded \"%d\"", tokens[pos].type);
       assert(0);
