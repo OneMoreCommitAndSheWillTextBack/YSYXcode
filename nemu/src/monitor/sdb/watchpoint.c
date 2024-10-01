@@ -71,7 +71,7 @@ void new_wp(char *exp) {
     head_tmp->next = tmp;
     tmp->next = NULL;
   }
-  tmp->expr = exp;
+  strcpy(tmp->expr, exp);
   tmp->val = val;
   printf("create a watchpoint[%d] expr:%s val:%d\n", tmp->NO, tmp->expr,
          tmp->val);
