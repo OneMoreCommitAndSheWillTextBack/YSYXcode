@@ -154,6 +154,11 @@ void set_state_quit() {
   return;
 }
 
+void set_state_stop() {
+  nemu_state.state = NEMU_STOP;
+  return;
+}
+
 int check_state() { return nemu_state.state; }
 
 int cmd_si_check(int n) {

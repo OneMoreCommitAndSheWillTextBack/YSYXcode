@@ -73,8 +73,10 @@ static int cmd_si(char *args) {
 static int cmd_info(char *args) {
   if (strcmp("r", args) == 0)
     isa_reg_display();
+  else if (strcmp("w", args) == 0)
+    info_wp();
   else
-    printf("the args is not r");
+    printf("invlid args %s\n", args);
   return 0;
 }
 
@@ -112,6 +114,17 @@ static int cmd_p(char *args) {
   if (success == true) {
     printf("%d\n", res);
   }
+  return 0;
+}
+
+static int cmd_b(char *args) {
+  new_wp(args);
+  return 0;
+}
+
+static int cmd_d(char *args) {
+  int no = atoi(args);
+  free_wp(no);
   return 0;
 }
 
@@ -161,7 +174,9 @@ static struct {
     {"info", "r:print reg  w:print watchpoint", cmd_info},
     {"x", "scan the memory", cmd_x},
     {"p", "evaluate the expr", cmd_p},
-    {"test", "test the function of p", test_p}};
+    {"test", "test the function of p", test_p},
+    {"b", "create a watchpoint", cmd_b},
+    {"d", "delete a watchpoint", cmd_d}};
 
 #define NR_CMD ARRLEN(cmd_table)
 
