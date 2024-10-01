@@ -27,9 +27,13 @@ void invalid_inst(vaddr_t thispc);
 #define INV(thispc) invalid_inst(thispc)
 
 // the code add by smy
+// from cpu.c
 void set_state_quit();
 void set_state_stop();
 int cmd_si_check(int n);
+
+// from watchpoint.c
+void exe_wp();
 // end
 
 #endif

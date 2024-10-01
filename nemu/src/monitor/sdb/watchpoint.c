@@ -82,7 +82,7 @@ void new_wp(char *exp) {
 void free_wp(int wp_num) {
   // move a wp from head to free_
   if (head == NULL) {
-    printf("there is not ant watchpoint\n");
+    printf("there is not any watchpoint\n");
     return;
   }
   WP *finder = head;
