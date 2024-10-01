@@ -71,6 +71,7 @@ void new_wp(char *exp) {
     head_tmp->next = tmp;
     tmp->next = NULL;
   }
+  tmp->expr = (char *)malloc(sizeof(char) * strlen(exp));
   strcpy(tmp->expr, exp);
   tmp->val = val;
   printf("create a watchpoint[%d] expr:%s val:%d\n", tmp->NO, tmp->expr,
@@ -86,6 +87,8 @@ void free_wp(int wp_num) {
   }
   WP *finder = head;
   if (finder->NO == wp_num) {
+    free(finder->expr);
+    finder->expr = NULL;
     head = finder->next;
     finder->next = free_;
     free_ = finder;
@@ -96,6 +99,8 @@ void free_wp(int wp_num) {
         finder->next = tmp->next;
         tmp->next = free_;
         free_ = tmp;
+        free(tmp->expr);
+        tmp->expr = NULL;
         return;
       }
       finder = finder->next;
