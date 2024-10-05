@@ -59,7 +59,11 @@ static int cmd_q(char *args) {
 }
 
 static int cmd_si(char *args) {
-  int times = atoi(args);
+  int times = 0;
+  if (args == NULL)
+    times = 1;
+  else
+    times = atoi(args);
   if (times <= 0)
     printf("[error]: get a wrong arg %s\n", args);
   for (int i = 0; i < times; i++) {
