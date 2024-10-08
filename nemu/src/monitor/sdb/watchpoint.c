@@ -126,7 +126,6 @@ void info_wp() {
 
 void exe_wp() {
   if (head == NULL) {
-    printf("there is no any watchpoint\n");
     return;
   }
   WP *tmp = head;
