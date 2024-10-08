@@ -65,8 +65,8 @@ static int cmd_si(char *args) {
   else
     times = atoi(args);
   if (times <= 0)
-    printf("[error]: get a wrong arg %s\n", args);
-  for (int i = 0; i < times; i++) {
+    times = -1;
+  for (unsigned int i = 0; i < times; i++) {
     cpu_exec(1);
     if (cmd_si_check(i) == -1)
       break;
