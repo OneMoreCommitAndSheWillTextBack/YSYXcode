@@ -55,7 +55,7 @@ static int cmd_c(char *args) {
 
 static int cmd_q(char *args) {
   set_state_quit();
-  return 0;
+  return -1;
 }
 
 static int cmd_si(char *args) {
