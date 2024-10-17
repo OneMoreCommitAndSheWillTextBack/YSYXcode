@@ -55,7 +55,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
         }
         for (i = 0; intarg > 0; intarg = intarg / 10)
           buf[i++] = (intarg % 10) + '0';
-        for (i--; i >= 0; i--)
+        for (i = i - 1; i >= 0; i--)
           out[outn++] = buf[i];
         break;
       case 's':
