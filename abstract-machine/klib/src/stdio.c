@@ -57,17 +57,22 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
           buf[i++] = (intarg % 10) + '0';
         for (i = i - 1; i >= 0; i--)
           out[outn++] = buf[i];
+        fmtn++;
         break;
       case 's':
         chararg = va_arg(ap, char *);
         i = 0;
         while (chararg[i] != '\0')
           out[outn++] = chararg[i++];
+        fmtn++;
         break;
       default:
         return -1;
       }
       break;
+    case '\0':
+      out[outn] = fmt[fmtn];
+      return outn;
     default:
       out[outn++] = fmt[fmtn++];
     }
