@@ -38,7 +38,7 @@ static word_t pmem_read(paddr_t addr, int len) {
 static void pmem_write(paddr_t addr, int len, word_t data) {
   host_write(guest_to_host(addr), len, data);
 #ifdef CONFIG_MTRACE
-  printf("[memory write] %u to 0x%08x", data, addr);
+  printf("[memory write] %u to 0x%08x\n", data, addr);
 #endif
 }
 
