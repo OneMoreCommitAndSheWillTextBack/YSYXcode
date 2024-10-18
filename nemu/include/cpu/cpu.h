@@ -16,6 +16,7 @@
 #ifndef __CPU_CPU_H__
 #define __CPU_CPU_H__
 
+#include "decode.h"
 #include <common.h>
 
 void cpu_exec(uint64_t n);
@@ -35,5 +36,10 @@ int cmd_si_check(int n);
 // from watchpoint.c
 void exe_wp();
 // end
+
+// from ftrace.c
+#ifdef CONFIG_FTRACE
+void dealftrace(Decode *s);
+#endif
 
 #endif
