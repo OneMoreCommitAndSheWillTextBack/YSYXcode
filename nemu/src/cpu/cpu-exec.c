@@ -33,11 +33,25 @@ static bool g_print_step = false;
 
 void device_update();
 
+#ifdef CONFIG_IRINGBUF
+#define MAX_IRINGBUF_SIZE 10
+char iringbuf[10][64];
+size_t iringbuf_count = 0;
+
+#endif
+
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) {
     log_write("%s\n", _this->logbuf);
   }
+#endif
+
+#ifdef CONFIG_IRINGBUF
+  strcpy(iringbuf[iringbuf_count], _this->logbuf);
+  iringbuf_count++;
+  if (iringbuf_count >= MAX_IRINGBUF_SIZE)
+    iringbuf_count = 0;
 #endif
 
 #ifdef CONFIG_WATCHPOINT
@@ -95,6 +109,16 @@ static void execute(uint64_t n) {
 }
 
 static void statistic() {
+#ifdef CONFIG_IRINGBUF
+  int pointer_pos =
+      (MAX_IRINGBUF_SIZE + iringbuf_count - 1) % MAX_IRINGBUF_SIZE;
+  for (int i = 0; i < MAX_IRINGBUF_SIZE; i++) {
+    if (i == pointer_pos)
+      printf("-> ");
+    printf("%s \n", iringbuf[i]);
+  }
+#endif
+
   IFNDEF(CONFIG_TARGET_AM, setlocale(LC_NUMERIC, ""));
 #define NUMBERIC_FMT MUXDEF(CONFIG_TARGET_AM, "%", "%'") PRIu64
   Log("host time spent = " NUMBERIC_FMT " us", g_timer);
