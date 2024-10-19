@@ -113,7 +113,7 @@ void dealftrace(Decode *s) {
       func_node->addr = s->dnpc;
       size_t str_len = strlen(tmp->name);
       func_node->name = (char *)malloc(sizeof(char) * str_len + 1);
-      strcpy(tmp->name, func_node->name);
+      strcpy(func_node->name, tmp->name);
       func_node->next = NULL;
       if (func_stack == NULL) {
         func_stack = func_node;
