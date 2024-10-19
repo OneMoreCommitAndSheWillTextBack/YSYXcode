@@ -86,6 +86,7 @@ static int parse_args(int argc, char *argv[]) {
     case 'f':
       elf_file = optarg;
       ftrace_init(elf_file);
+      break;
     case 'b':
       sdb_set_batch_mode();
       break;
