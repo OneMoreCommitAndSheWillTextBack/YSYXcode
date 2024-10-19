@@ -93,8 +93,6 @@ void ftrace_init(char *elf_path) {
   }
 }
 
-int func_stack_deep = -1;
-
 void dealftrace(Decode *s) {
   Node *tmp = functbl_head;
   if (tmp == NULL) {
@@ -102,12 +100,7 @@ void dealftrace(Decode *s) {
     assert(0);
   }
   if (func_stack != NULL && func_stack->addr == s->dnpc) {
-    func_stack_deep--;
-    if (func_stack_deep > 0) {
-      for (int i = 1; i < func_stack_deep; i++)
-        printf("\t");
-      printf("[ret]%s\n", func_stack->name);
-    }
+    printf("[ret]%s\n", func_stack->name);
     Node *p = func_stack;
     func_stack = p->next;
     free(p->name);
@@ -115,12 +108,7 @@ void dealftrace(Decode *s) {
   }
   while (tmp != NULL) {
     if (tmp->addr == s->dnpc) {
-      if (func_stack_deep > 0) {
-        for (int i = 1; i < func_stack_deep; i++)
-          printf("\t");
-        printf("%x: [call]%s\n", tmp->addr, tmp->name);
-      }
-      func_stack_deep++;
+      printf("%x: [call]%s\n", tmp->addr, tmp->name);
       Node *func_node = (Node *)malloc(sizeof(Node));
       func_node->addr = s->dnpc;
       size_t str_len = strlen(tmp->name);
