@@ -116,7 +116,7 @@ void dealftrace(Decode *s) {
   while (tmp != NULL) {
     if (tmp->addr == s->dnpc) {
       if (func_stack_deep > 0) {
-        for (int i = 0; i < func_stack_deep; i++)
+        for (int i = 1; i < func_stack_deep; i++)
           printf("\t");
         printf("%x: [call]%s\n", tmp->addr, tmp->name);
       }
