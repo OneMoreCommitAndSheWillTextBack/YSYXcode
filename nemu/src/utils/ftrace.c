@@ -19,6 +19,10 @@ Node *func_stack = NULL;
 
 void ftrace_init(char *elf_path) {
   FILE *fp = fopen(elf_path, "r");
+  if (fp == NULL) {
+    printf("cannot open the file\n");
+    assert(0);
+  }
   Elf32_Ehdr ehdr;
   Elf32_Shdr shdr;
   Elf32_Shdr *shdr_sym = NULL;
@@ -65,6 +69,7 @@ void ftrace_init(char *elf_path) {
 
   // here the sym_sym is the symble section
   // and the content is the strtab
+  // init the linkedlist of func name and addr
   fseek(fp, shdr_sym->sh_offset, SEEK_SET);
   size_t len = shdr_sym->sh_size / sizeof(Elf32_Sym);
   free(shdr_sym);
@@ -82,6 +87,7 @@ void ftrace_init(char *elf_path) {
       func_node->name = (char *)malloc(sizeof(char) * str_lenth);
       strcpy(func_node->name, content + sym_sym.st_name);
       func_node->next = NULL;
+      // judge the state of functbl and insert the new func
       if (functbl_head == NULL) {
         functbl_head = func_node;
         functbl_tail = func_node;
