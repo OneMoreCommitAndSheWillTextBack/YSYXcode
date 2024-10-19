@@ -103,6 +103,7 @@ void dealftrace(Decode *s) {
     if (tmp->addr == s->dnpc) {
       printf("%x: [call]%s\n", tmp->addr, tmp->name);
     }
+    tmp = tmp->next;
   }
 }
 
