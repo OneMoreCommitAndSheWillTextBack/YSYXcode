@@ -83,9 +83,12 @@ static int parse_args(int argc, char *argv[]) {
   int o;
   while ((o = getopt_long(argc, argv, "-bhl:d:p:f:", table, NULL)) != -1) {
     switch (o) {
+
     case 'f':
+#ifdef CONFIG_FTRACE
       elf_file = optarg;
       ftrace_init(elf_file);
+#endif
       break;
     case 'b':
       sdb_set_batch_mode();

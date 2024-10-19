@@ -99,9 +99,26 @@ void dealftrace(Decode *s) {
     printf("the ftrace encounter a NULL func linkedlist\n");
     assert(0);
   }
+  if (func_stack != NULL && func_stack->addr == s->dnpc) {
+    printf("[ret]%s\n", func_stack->name);
+    Node *p = func_stack;
+    func_stack = p->next;
+    free(p->name);
+    free(p);
+  }
   while (tmp != NULL) {
     if (tmp->addr == s->dnpc) {
       printf("%x: [call]%s\n", tmp->addr, tmp->name);
+      Node *func_node = (Node *)malloc(sizeof(Node));
+      func_node->addr = s->dnpc;
+      strcpy(tmp->name, func_node->name);
+      func_node->next = NULL;
+      if (func_stack == NULL) {
+        func_stack = func_node;
+      } else {
+        func_node->next = func_stack;
+        func_stack = func_node;
+      }
     }
     tmp = tmp->next;
   }
