@@ -104,7 +104,7 @@ void dealftrace(Decode *s) {
   if (func_stack != NULL && func_stack->addr == s->dnpc) {
     func_stack_deep--;
     if (func_stack_deep > 0) {
-      for (int i = 0; i < func_stack_deep; i++)
+      for (int i = 1; i < func_stack_deep; i++)
         printf("\t");
       printf("[ret]%s\n", func_stack->name);
     }
