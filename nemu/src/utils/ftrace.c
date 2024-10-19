@@ -110,7 +110,7 @@ void dealftrace(Decode *s) {
     if (tmp->addr == s->dnpc) {
       printf("%x: [call]%s\n", tmp->addr, tmp->name);
       Node *func_node = (Node *)malloc(sizeof(Node));
-      func_node->addr = s->dnpc;
+      func_node->addr = s->snpc;
       size_t str_len = strlen(tmp->name);
       func_node->name = (char *)malloc(sizeof(char) * str_len + 1);
       strcpy(func_node->name, tmp->name);
