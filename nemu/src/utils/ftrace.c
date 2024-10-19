@@ -93,7 +93,7 @@ void ftrace_init(char *elf_path) {
   }
 }
 
-int func_stack_deep = -2;
+int func_stack_deep = -1;
 
 void dealftrace(Decode *s) {
   Node *tmp = functbl_head;
