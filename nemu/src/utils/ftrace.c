@@ -105,7 +105,7 @@ void dealftrace(Decode *s) {
     func_stack_deep--;
     if (func_stack_deep > 0) {
       for (int i = 1; i < func_stack_deep; i++)
-        printf("\t");
+        printf("  ");
       printf("[ret]%s\n", func_stack->name);
     }
     Node *p = func_stack;
@@ -117,7 +117,7 @@ void dealftrace(Decode *s) {
     if (tmp->addr == s->dnpc) {
       if (func_stack_deep > 0) {
         for (int i = 1; i < func_stack_deep; i++)
-          printf("\t");
+          printf("  ");
         printf("%x: [call]%s\n", tmp->addr, tmp->name);
       }
       func_stack_deep++;
