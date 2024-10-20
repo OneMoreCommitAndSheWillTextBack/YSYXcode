@@ -1,8 +1,33 @@
-all:
-	@echo "Write this Makefile by your self."
+TOPNAME=top
+VERILATOR=verilator
+VERILATOR_CFLAGS = --trace --prof-exec --cc --exe --build
+
+VSRC=$(shell find $(abspath ./vsrc/) -name "*.v")
+CSRC=$(shell find $(abspath ./) -name "*.cpp")
+
+BUILDDIR = ./build
+OBJDIR = $(BUILDDIR)/obj_dir
+BIN = $(BUILDDIR)/$(TOPNAME)
+
+$(shell mkdir -p $(BUILDDIR))
+
+$(BIN): $(VSRC) $(CSRC)
+	@rm -rf $(OBJDIR)
+	$(VERILATOR) $(VERILATOR_CFLAGS) $^ \
+		--top-module $(TOPNAME) \
+		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
+
+run:$(BIN)
+	$(BIN)
+
+clean:
+	rm -rf $(BUILDDIR)
+	rm -rf ./--exe/
 
 sim:
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	gtkwave ,.wave.vcb
+	gtkwave ./wave.vcb
+	
 
 include ../Makefile
+
