@@ -1,0 +1,10 @@
+`define   ADD       4'b0001
+`define   SUB       4'b0011
+`define   SLL       4'b1100
+`define   SLT       4'b1001
+`define   SLTU      4'b1000
+`define   XOR       4'b0110
+`define   SRL       4'b1101
+`define   SRA       4'b1110
+`define   OR        4'b0101
+`define   AND       4'b0100

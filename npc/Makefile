@@ -14,6 +14,7 @@ $(shell mkdir -p $(BUILDDIR))
 $(BIN): $(VSRC) $(CSRC)
 	@rm -rf $(OBJDIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) $^ \
+		-I./vsrc/ \
 		--top-module $(TOPNAME) \
 		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
 

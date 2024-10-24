@@ -6,6 +6,8 @@
 !/nanos-lite/*
 !/navy-apps/*
 !/npc/*
+!/npc/vsrc/*
+!/npc/vsrc/control/*
 !Makefile
 !README.md
 !.gitignore
