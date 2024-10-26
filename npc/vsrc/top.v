@@ -60,7 +60,7 @@ module top(
     .jalsig(jalsig),
     .aluop(aluop)
   );
-  
+
   wire [31:0] regwrite, regout1, regout2;
   regheap regfile(
     .clk(clk),

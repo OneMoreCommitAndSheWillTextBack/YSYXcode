@@ -48,9 +48,9 @@ module decoder(
                type_U ? U_imm :
                32'b0;
 
-  // always @(*) begin
-  // $display("inst:0x%08x", inst);
-  // end
+  always @(*) begin
+      $display("%08x", inst);
+  end
 endmodule
 
 

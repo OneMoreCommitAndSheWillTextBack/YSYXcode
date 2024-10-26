@@ -39,8 +39,9 @@ module branchcontrol(
         default:
           $display("meet a unknown B type inst");
       endcase
-    end else 
+    end else begin
       npc_tmp = pcadd4;
+    end
   end
   assign npc = npc_tmp;
 

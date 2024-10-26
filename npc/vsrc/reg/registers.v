@@ -23,9 +23,9 @@ module registers(
 
   // read op
   assign out = rf;
-  always @(posedge clk) begin
-    $display("rf[1] is %x", rf[1]);
-    $display("out[1] is %x", out[1]);
-  end
+  // always @(posedge clk) begin
+  //  $display("rf[1] is %x", rf[1]);
+  //  $display("out[1] is %x", out[1]);
+  // end
 
 endmodule

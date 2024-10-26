@@ -44,12 +44,16 @@ void init() {
   }
 }
 
-extern "C" void ret() { exit(0); }
+extern "C" void ret() {
+  printf("exit here\n");
+  exit(0);
+}
 extern "C" int pmem_read(int addr) {
   uint32_t *data = (uint32_t *)(pmem + (uint32_t)addr - mbase);
   return *data;
 }
 extern "C" void pmem_write(int addr, int data) {
+  addr = 0x80008ffc;
   printf("the write addr is %08x\n", addr);
   uint32_t *pos = (uint32_t *)(pmem + (uint32_t)addr - mbase);
   *pos = (uint32_t)data;
@@ -65,7 +69,7 @@ int main() {
   top->rst = 1;
   top->eval();
   top->rst = 0;
-  while (1) {
+  while (i < 20) {
     top->clk = 0;
     top->eval();
     top->clk = 1;
