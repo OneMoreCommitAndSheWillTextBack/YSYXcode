@@ -79,6 +79,7 @@ module top(
     .func3(func3_maincontrol),
     .func7(func7_maincontrol),
     .aluop(aluop),
+    .jalrsig(jalrsig),
     .aluopcode(aluopcode)
   );
 
@@ -144,9 +145,8 @@ MuxKey#(2, 1, 32) regormem(muxregormem, regwritemem, {
     1'b1, memread
 });
   
-wire [31:0] muxwritepc;
-MuxKey#(2, 1, 32) muxpc(muxwritepc, regwritepc, {
-    1'b0, res,
+MuxKey#(2, 1, 32) muxpc(regwrite, regwritepc, {
+    1'b0, pcwritereg,
     1'b1, muxregormem
 });
 

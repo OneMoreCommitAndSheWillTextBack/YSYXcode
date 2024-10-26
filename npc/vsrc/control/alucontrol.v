@@ -4,6 +4,7 @@ module alucontrol(
   input [2:0] func3,
   input func7,
   input [1:0] aluop,
+  input jalrsig,
   
   output [3:0] aluopcode
 );
@@ -28,7 +29,12 @@ module alucontrol(
     end
     end
     3'b001: IRop=`SLL;
-		3'b010: IRop=`SLT;
+    3'b010: begin
+      if(jalrsig)
+        IRop = `ADD;
+      else
+        IRop=`SLT;
+    end
 		3'b011: IRop=`SLTU;
 		3'b100: IRop=`XOR;
 		3'b101: begin

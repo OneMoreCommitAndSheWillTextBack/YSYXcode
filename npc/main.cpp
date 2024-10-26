@@ -50,7 +50,7 @@ extern "C" int pmem_read(int addr) {
   return *data;
 }
 extern "C" void pmem_write(int addr, int data) {
-  printf("the write addr is %08x\n", addr);
+  // printf("the write addr is %08x\n", addr);
   uint32_t *pos = (uint32_t *)(pmem + (uint32_t)addr - mbase);
   *pos = (uint32_t)data;
   return;
@@ -65,7 +65,7 @@ int main() {
   top->rst = 1;
   top->eval();
   top->rst = 0;
-  while (i < 8) {
+  while (1) {
     top->clk = 0;
     top->eval();
     top->clk = 1;
