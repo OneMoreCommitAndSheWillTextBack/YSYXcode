@@ -4,7 +4,7 @@ module registers(
   input ew,
   input [4:0] addr,
   input [31:0] data,
-  output reg [31:0] out [31:0]
+  output [31:0] out [31:0]
 );
   
   reg [31:0] rf [31:0];
@@ -22,11 +22,10 @@ module registers(
   end
 
   // read op
+  assign out = rf;
   always @(posedge clk) begin
-    rf[0] = 0;
-    for(i=1;i<32;i=i+1) begin
-      out[i] <= rf[i];
-    end
+    $display("rf[1] is %x", rf[1]);
+    $display("out[1] is %x", out[1]);
   end
 
 endmodule

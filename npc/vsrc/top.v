@@ -146,8 +146,8 @@ MuxKey#(2, 1, 32) regormem(muxregormem, regwritemem, {
 });
   
 MuxKey#(2, 1, 32) muxpc(regwrite, regwritepc, {
-    1'b0, pcwritereg,
-    1'b1, muxregormem
+    1'b1, pcwritereg,
+    1'b0, muxregormem
 });
 
 endmodule
