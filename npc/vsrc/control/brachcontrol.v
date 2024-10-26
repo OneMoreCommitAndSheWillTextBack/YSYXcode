@@ -19,7 +19,7 @@ module branchcontrol(
       npc_tmp = pcaddimm; 
     end else if(jalrsig) begin
       pcwritereg = pcadd4;
-      npc_tmp = {pcaddimm[31:1], 1'b0};
+      npc_tmp = {res[31:1], 1'b0};
     end else if(btypebranch) begin
       case(func3)
         3'b000:

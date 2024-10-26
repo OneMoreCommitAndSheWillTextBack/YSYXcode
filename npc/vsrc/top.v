@@ -8,7 +8,7 @@ module top(
   output [31:0] host_write,
   input [31:0] host_read
 );
-  always @(pc) begin
+  always @(posedge clk) begin
     $display("0x%08x: 0x%08x", pc, inst);
   end
 

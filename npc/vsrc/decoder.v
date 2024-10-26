@@ -37,9 +37,9 @@ module decoder(
 
   assign I_imm={{20{inst[31]}},inst[31:20]}; 
 	assign U_imm={inst[31:12],{12{1'b0}}};
-	assign S_imm={{12{inst[31]}},inst[19:12],inst[20],inst[30:21],1'b0};   
-  assign J_imm={{20{inst[31]}},inst[7],inst[30:25],inst[11:8],1'b0};
-	assign B_imm={{20{inst[31]}},inst[31:25],inst[11:7]};
+	assign S_imm={{20{inst[31]}},inst[31:25],inst[11:7]};
+  assign J_imm={{12{inst[31]}},inst[19:12],inst[20],inst[30:21],1'b0};
+	assign B_imm={{20{inst[31]}},inst[7],inst[30:25],inst[11:8],1'b0};
   
   assign imm = type_I ? I_imm :
                type_J ? J_imm :

@@ -8,6 +8,7 @@
 !/npc/*
 !/npc/vsrc/*
 !/npc/vsrc/control/*
+!/npc/vsrc/pc/*
 !Makefile
 !README.md
 !.gitignore
