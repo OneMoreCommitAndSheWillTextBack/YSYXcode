@@ -50,9 +50,8 @@ module maincontrol(
   assign aluop[1] = type_R | type_B;
   assign aluop[0] = type_I | type_B;
 
-  assign ebreaksig = (opcode == 7'b1110011);
+  assign ebreaksig = (opcode == 7'b1110011) & (func3 == 3'b000);
   always @(*) begin
-    $display("the ebreaksig state is %b", opcode);
     if(ebreaksig)
       ret();
   end

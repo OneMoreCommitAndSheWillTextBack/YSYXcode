@@ -7,10 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint32_t img[] = {
-    0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513, 0x00008067,
-    0xff410113, 0x00000517, 0x01450513, 0x00112423, 0xfe9ff0ef, 0x0000006f,
-};
+uint32_t img[] = {0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513,
+                  0x00008067, 0xff410113, 0x00000517, 0x01450513, 0x00112423,
+                  0xfe9ff0ef, 0x00050513, 0x00100073};
 const unsigned int mbase = 0x80000000;
 const unsigned int msize = 0x8000000;
 const char *filepath = NULL;
@@ -53,7 +52,6 @@ extern "C" int pmem_read(int addr) {
   return *data;
 }
 extern "C" void pmem_write(int addr, int data) {
-  addr = 0x80008ffc;
   printf("the write addr is %08x\n", addr);
   uint32_t *pos = (uint32_t *)(pmem + (uint32_t)addr - mbase);
   *pos = (uint32_t)data;
