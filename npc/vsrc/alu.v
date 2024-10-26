@@ -32,6 +32,7 @@ module alu(
       1'b1: addres = A + B;
       1'b0: addres = A + (~B) + 1;
     endcase
+    $display("%d + %d = %d\n", A, B, addres);
   end
   assign addzero = (addres == 0);
   assign addsig = (addres[31]);
