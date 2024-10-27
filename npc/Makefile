@@ -16,14 +16,13 @@ $(BIN): $(VSRC) $(CSRC)
 	$(VERILATOR) $(VERILATOR_CFLAGS) $^ \
 		-I./vsrc/ \
 		--top-module $(TOPNAME) \
-		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
+		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN))
 
 run:$(BIN)
 	$(BIN)
 
 clean:
 	rm -rf $(BUILDDIR)
-	rm -rf ./--exe/
 
 sim:
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
