@@ -12,7 +12,6 @@ module pcreg(
       pcout <= init;
     end
     else 
-      $display("npc:%x", npc);
       pcout <= npc;
   end
 

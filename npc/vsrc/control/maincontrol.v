@@ -1,9 +1,10 @@
-import "DPI-C" function void ret();
+import "DPI-C" function void ret(int retval);
 
 module maincontrol(
   input [6:0] opcode,
   input [2:0] func3,
   input func7,
+  input [31:0] rega0,
 
   output memew,
   output memer,
@@ -16,7 +17,8 @@ module maincontrol(
   output btypebranch,
   output jalrsig,
   output jalsig,
-  output [1:0] aluop
+  output [1:0] aluop,
+  output auipcsig
 );
   wire type_I, type_R, type_U, type_S, type_J, type_B;
   // here need to judge load and store 
@@ -43,7 +45,8 @@ module maincontrol(
   assign jalrsig = (opcode == 7'b1100111);
   assign muximm = load | store | type_I | jalrsig;
   assign regwritemem = load;
-  assign regwritepc = jalrsig | jalsig;
+  assign regwritepc = jalrsig | jalsig | auipcsig;
+  assign auipcsig = (opcode == 7'b0010111);
 
   assign func3_out = func3;
   assign func7_out = func7;
@@ -53,6 +56,6 @@ module maincontrol(
   assign ebreaksig = (opcode == 7'b1110011) & (func3 == 3'b000);
   always @(*) begin
     if(ebreaksig)
-      ret();
+      ret(rega0);
   end
 endmodule

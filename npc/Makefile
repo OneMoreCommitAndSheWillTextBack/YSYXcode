@@ -19,7 +19,7 @@ $(BIN): $(VSRC) $(CSRC)
 		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN))
 
 run:$(BIN)
-	$(BIN)
+	$(BIN) $(ARGS)
 
 clean:
 	rm -rf $(BUILDDIR)

@@ -24,4 +24,4 @@ image: $(IMAGE).elf
 
 run: image
 	$(MAKE) -C $(NPC_HOME) clean
-	$(MAKE) -C $(NPC_HOME) run
+	$(MAKE) -C $(NPC_HOME) ARGS=$(IMAGE).bin run

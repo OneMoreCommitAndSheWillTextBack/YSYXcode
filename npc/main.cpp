@@ -12,7 +12,6 @@ uint32_t img[] = {0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513,
                   0xfe9ff0ef, 0x00050513, 0x00100073};
 const unsigned int mbase = 0x80000000;
 const unsigned int msize = 0x8000000;
-const char *filepath = NULL;
 uint8_t pmem[msize] = {};
 
 void init_default() {
@@ -20,7 +19,7 @@ void init_default() {
   printf("\033[0m\033[1;32mfinish load memory\033[0m\n");
 }
 
-void init_build() {
+void init_build(char *filepath) {
   FILE *fp = fopen(filepath, "r");
   if (fp == NULL) {
     printf("failed to read the file\n");
@@ -35,16 +34,19 @@ void init_build() {
   fclose(fp);
 }
 
-void init() {
+void init(char *filepath) {
   if (filepath == NULL) {
     init_default();
   } else {
-    init_build();
+    init_build(filepath);
   }
 }
 
-extern "C" void ret() {
-  printf("exit here\n");
+extern "C" void ret(int retval) {
+  if (retval == 0)
+    printf("hit the good-trap\n");
+  else
+    printf("hit the bad-trap\n");
   exit(0);
 }
 extern "C" int pmem_read(int addr) {
@@ -52,14 +54,18 @@ extern "C" int pmem_read(int addr) {
   return *data;
 }
 extern "C" void pmem_write(int addr, int data) {
-  printf("the write addr is %08x\n", addr);
+  // printf("the write addr is %08x\n", addr);
   uint32_t *pos = (uint32_t *)(pmem + (uint32_t)addr - mbase);
   *pos = (uint32_t)data;
   return;
 }
 
-int main() {
-  init();
+int main(int argc, char **argv) {
+  char *filepath = NULL;
+  if (argc > 1) {
+    filepath = argv[1];
+  }
+  init(filepath);
   Vtop *top = new Vtop;
   unsigned int pc = 0;
   int i = 0;
@@ -72,7 +78,7 @@ int main() {
     top->eval();
     top->clk = 1;
     pc = top->pc;
-    printf("0x%08x\n", pc);
+    // printf("0x%08x\n", pc);
     uint32_t *inst = (uint32_t *)(pmem + pc - mbase);
     top->inst = *inst;
     top->eval();

@@ -8,9 +8,9 @@ module top(
   output [31:0] host_write,
   input [31:0] host_read
 );
-  always @(posedge clk) begin
-    $display("0x%08x: 0x%08x", pc, inst);
-  end
+  // always @(posedge clk) begin
+  //  $display("0x%08x: 0x%08x", pc, inst);
+  // end
 
   wire [31:0] npc, pcbridge;
   pcreg pcreg0(
@@ -40,12 +40,14 @@ module top(
   wire regew, memew, memer, muximm, regwritepc, regwritemem;
   wire [2:0] func3_maincontrol;
   wire func7_maincontrol;
-  wire btypebranch, jalsig, jalrsig;
+  wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
+  wire [31:0] rega0;
   maincontrol maincontrol0(
     .opcode(opcode),
     .func3(func3_decoder),
     .func7(func7_decoder),
+    .rega0(rega0),
 
     .memew(memew),
     .memer(memer),
@@ -58,7 +60,8 @@ module top(
     .btypebranch(btypebranch),
     .jalrsig(jalrsig),
     .jalsig(jalsig),
-    .aluop(aluop)
+    .aluop(aluop),
+    .auipcsig(auipcsig)
   );
 
   wire [31:0] regwrite, regout1, regout2;
@@ -70,6 +73,7 @@ module top(
     .src1(src1),
     .src2(src2),
     .data(regwrite),
+    .rega0(rega0),
     .regout1(regout1),
     .regout2(regout2)
   );
@@ -125,6 +129,7 @@ module top(
     .pcaddimm(pcaddimmbridge),
     .jalsig(jalsig),
     .jalrsig(jalrsig),
+    .auipcsig(auipcsig),
 
     .npc(npc),
     .pcwritereg(pcwritereg)

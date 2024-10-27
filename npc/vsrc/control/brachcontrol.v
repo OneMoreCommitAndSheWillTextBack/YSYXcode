@@ -8,6 +8,7 @@ module branchcontrol(
   input [31:0] pcaddimm,
   input jalsig,
   input jalrsig,
+  input auipcsig,
 
   output [31:0] npc,
   output reg [31:0] pcwritereg
@@ -39,6 +40,9 @@ module branchcontrol(
         default:
           $display("meet a unknown B type inst");
       endcase
+    end else if(auipcsig) begin
+      npc_tmp = pcadd4;
+      pcwritereg = pcaddimm;
     end else begin
       npc_tmp = pcadd4;
     end
