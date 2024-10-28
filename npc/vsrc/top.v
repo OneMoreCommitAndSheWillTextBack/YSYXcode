@@ -1,16 +1,15 @@
 module top(
   input clk,
-  input [31:0] inst,
-  output [31:0] pc,
   input rst,
 
   output [31:0] host_get_addr,
   output [31:0] host_write,
   input [31:0] host_read
 );
-  // always @(posedge clk) begin
-  //  $display("0x%08x: 0x%08x", pc, inst);
-  // end
+   always @(posedge clk) begin
+    $display("0x%08x: 0x%08x", pcbridge, inst);
+  end
+  //
 
   wire [31:0] npc, pcbridge;
   pcreg pcreg0(
@@ -19,7 +18,13 @@ module top(
     .npc(npc),
     .pcout(pcbridge)
   );
-  assign pc = pcbridge;
+
+  wire [31:0] inst;
+
+  infetch infetch0(
+    .pc(pcbridge),
+    .inst(inst)
+  );
 
   wire [6:0] opcode;
   wire [2:0] func3_decoder;

@@ -59,6 +59,10 @@ extern "C" void pmem_write(int addr, int data) {
   *pos = (uint32_t)data;
   return;
 }
+extern "C" int get_inst(int pc) {
+  uint32_t *inst = (uint32_t *)(pmem + (uint32_t)pc - mbase);
+  return *inst;
+}
 
 int main(int argc, char **argv) {
   char *filepath = NULL;
@@ -73,14 +77,10 @@ int main(int argc, char **argv) {
   top->rst = 1;
   top->eval();
   top->rst = 0;
-  while (i < 20) {
+  while (1) {
     top->clk = 0;
     top->eval();
     top->clk = 1;
-    pc = top->pc;
-    // printf("0x%08x\n", pc);
-    uint32_t *inst = (uint32_t *)(pmem + pc - mbase);
-    top->inst = *inst;
     top->eval();
     i++;
   }
