@@ -36,17 +36,49 @@ static struct {
 } cmd_table[] = {
     {"help", "Display information about all supported commands", cmd_help},
     {"c", "Continue the execution of the program", cmd_c},
-    {"q", "Exit NEMU", cmd_q},
+    {"q", "Exit NPC", cmd_q},
 
     /* TODO: Add more commands */
     {"si", "run the program N steps, default is 1", cmd_si},
-    {"info", "r:print reg  w:print watchpoint", cmd_info},
-    {"x", "scan the memory", cmd_x},
+    // {"info", "r:print reg  w:print watchpoint", cmd_info},
+    // {"x", "scan the memory", cmd_x},
     // {"p", "evaluate the expr", cmd_p},
-    {"b", "create a watchpoint", cmd_b},
-    {"d", "delete a watchpoint", cmd_d}};
+    // {"b", "create a watchpoint", cmd_b},
+    // {"d", "delete a watchpoint", cmd_d},
+};
 
-int sdb_main() {
-  while () {
+#define NR_CMD sizeof(cmd_table) / sizeof(cmd_table[0])
+
+void sdb_main() {
+  for (char *str; (str = rl_gets()) != NULL;) {
+    char *str_end = str + strlen(str);
+
+    /* extract the first token as the command */
+    char *cmd = strtok(str, " ");
+    if (cmd == NULL) {
+      continue;
+    }
+
+    /* treat the remaining string as the arguments,
+     * which may need further parsing
+     */
+    char *args = cmd + strlen(cmd) + 1;
+    if (args >= str_end) {
+      args = NULL;
+    }
+
+    int i;
+    for (i = 0; i < NR_CMD; i++) {
+      if (strcmp(cmd, cmd_table[i].name) == 0) {
+        if (cmd_table[i].handler(args) < 0) {
+          return;
+        }
+        break;
+      }
+    }
+
+    if (i == NR_CMD) {
+      printf("Unknown command '%s'\n", cmd);
+    }
   }
 }
