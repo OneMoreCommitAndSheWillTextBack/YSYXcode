@@ -10,6 +10,8 @@
 !/npc/vsrc/control/*
 !/npc/vsrc/pc/*
 !/npc/vsrc/reg/*
+!/npc/csrc/*
+!/npc/include/*
 !Makefile
 !README.md
 !.gitignore

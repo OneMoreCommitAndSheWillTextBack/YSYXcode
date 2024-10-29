@@ -1,6 +1,9 @@
 module top(
   input clk,
   input rst,
+  
+  output [31:0] pc_out,
+  output [31:0] inst_out,
 
   output [31:0] host_get_addr,
   output [31:0] host_write,
@@ -25,6 +28,8 @@ module top(
     .pc(pcbridge),
     .inst(inst)
   );
+  assign pc_out = pcbridge;
+  assign inst_out = inst;
 
   wire [6:0] opcode;
   wire [2:0] func3_decoder;
