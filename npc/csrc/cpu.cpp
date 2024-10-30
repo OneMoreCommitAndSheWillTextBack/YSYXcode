@@ -12,6 +12,8 @@ static void exe_once() {
 static void execute(unsigned int n) {
   while (n--) {
     exe_once();
+    if (npc->state != RUNNING)
+      return;
   }
 }
 
@@ -38,14 +40,22 @@ void cpu_exec(int n) {
   case END:
   case ABORT:
     printf("ended at pc = 0x%08x\n", npc->top->pc_out);
+    break;
   default:
     npc->state = STOP;
   }
 }
 
-void set_npc_end(int sig) {
-  if (sig == 0)
+void set_npc_end() {
+  int sig = npc->top->reg_out[10];
+
+  if (sig == 0) {
+    printf("hit th good-trap\n");
     npc->state = END;
-  else
+  } else {
+    printf("hit the bad-trap\n");
     npc->state = ABORT;
+  }
 }
+
+void set_npc_quit() { npc->state = QUIT; }

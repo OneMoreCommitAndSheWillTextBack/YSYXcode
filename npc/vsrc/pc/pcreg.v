@@ -1,3 +1,4 @@
+// import "DPI-C" function void ret();
 module pcreg(
   input clk,
   input [31:0] npc,
@@ -13,6 +14,9 @@ module pcreg(
     end
     else 
       pcout <= npc;
+
+    if(npc == pcout)
+      ret();
   end
 
 endmodule

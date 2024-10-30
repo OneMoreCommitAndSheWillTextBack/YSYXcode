@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
   }
   init(filepath);
 
-  cpu_exec(-1);
+  sdb_main();
 
   return 0;
 }

@@ -4,6 +4,7 @@ module top(
   
   output [31:0] pc_out,
   output [31:0] inst_out,
+  output [31:0] reg_out [31:0],
 
   output [31:0] host_get_addr,
   output [31:0] host_write,
@@ -52,12 +53,10 @@ module top(
   wire func7_maincontrol;
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
-  wire [31:0] rega0;
   maincontrol maincontrol0(
     .opcode(opcode),
     .func3(func3_decoder),
     .func7(func7_decoder),
-    .rega0(rega0),
 
     .memew(memew),
     .memer(memer),
@@ -83,7 +82,7 @@ module top(
     .src1(src1),
     .src2(src2),
     .data(regwrite),
-    .rega0(rega0),
+    .reg_out(reg_out),
     .regout1(regout1),
     .regout2(regout2)
   );

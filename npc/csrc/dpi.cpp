@@ -2,13 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-extern "C" void ret(int retval) {
-  if (retval == 0)
-    printf("hit the good-trap\n");
-  else
-    printf("hit the bad-trap\n");
-  set_npc_end(retval);
-}
+extern "C" void ret() { set_npc_end(); }
+
 extern "C" int pmem_read(int addr) {
   uint32_t *data = (uint32_t *)guest_to_host((uint32_t)addr);
   return *data;

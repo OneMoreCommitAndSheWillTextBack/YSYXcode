@@ -8,7 +8,7 @@ module regheap(
   input [31:0] data,
   output [31:0] regout1,
   output [31:0] regout2,
-  output [31:0] rega0
+  output [31:0] reg_out [31:0]
 );
 
   wire [31:0] rf [31:0];
@@ -24,7 +24,7 @@ module regheap(
 
   assign regout1 = rf[src1];
   assign regout2 = rf[src2];
-  assign rega0 = rf[10];
+  assign reg_out = rf;
 
 endmodule
 
