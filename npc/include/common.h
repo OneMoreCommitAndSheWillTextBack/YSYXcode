@@ -17,6 +17,8 @@ typedef struct {
 
 // memory.cpp
 uint8_t *guest_to_host(uint32_t addr);
+uint32_t pmem_read(uint32_t address, uint32_t len);
+void pmem_write(uint32_t address, uint32_t len, uint32_t data);
 
 // init.cpp
 void init(char *filepath);
@@ -28,3 +30,6 @@ void set_npc_quit();
 
 // sdb.cpp
 void sdb_main();
+
+// reg.cpp
+void display_reg();

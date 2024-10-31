@@ -23,6 +23,7 @@ $(BIN): $(VSRC) $(CSRC)
 		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN))
 
 run:$(BIN)
+	$(call git_commit, "run npc")
 	$(BIN) $(ARGS)
 
 clean:

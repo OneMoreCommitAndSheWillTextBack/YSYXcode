@@ -1,6 +1,8 @@
 #include "common.h"
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -15,6 +17,8 @@ int cmd_help(const std::string &args);
 int cmd_c(const std::string &args);
 int cmd_q(const std::string &args);
 int cmd_si(const std::string &args);
+int cmd_info(const std::string &args);
+int cmd_x(const std::string &args);
 
 struct Command {
   const std::string name;
@@ -27,6 +31,7 @@ const Command cmd_table[] = {
     {"c", "Continue the execution of the program", cmd_c},
     {"q", "Exit NPC", cmd_q},
     {"si", "Run the program N steps, default is 1", cmd_si},
+    {"info", "arg r to print reg, arg w to print watchpoint", cmd_info},
     // Add more commands here
 };
 
@@ -68,6 +73,47 @@ int cmd_si(const std::string &args) {
     }
   }
   cpu_exec(times);
+  return 0;
+}
+
+int cmd_info(const std::string &args) {
+  if (args == "r") {
+    // api to print reg
+    display_reg();
+  } else {
+    // not implement
+  }
+  return 0;
+}
+
+int cmd_x(const std::string &args) {
+  std::vector<std::string> arr;
+  std::stringstream ss(args);
+  std::string item;
+  while (std::getline(ss, item, ' ')) {
+    arr.push_back(item);
+  }
+
+  if (arr.size() != 2) {
+    std::cout << "[error] get a invaild args: " << args << std::endl;
+    return 0;
+  }
+
+  int times = std::stoi(arr[0], nullptr);
+  if (times <= 0) {
+    std::cout << "[error] get a invalid args: " << args << std::endl;
+  }
+
+  int addr = std::stoi(arr[1], nullptr, 16);
+  for (int i = 0; i < times; i++) {
+    std::cout << "0x" << std::hex << std::setfill('0') << std::setw(8) << addr
+              << ' ';
+    for (int j = 0; j < 4; j++) {
+      int ret = pmem_read(addr, 1);
+      std::cout << std::hex << std::setw(2) << std::setfill('0') << ret << ' ';
+    }
+    std::cout << std::dec << std::endl;
+  }
   return 0;
 }
 

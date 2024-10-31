@@ -50,7 +50,7 @@ void set_npc_end() {
   int sig = npc->top->reg_out[10];
 
   if (sig == 0) {
-    printf("hit th good-trap\n");
+    printf("hit the good-trap\n");
     npc->state = END;
   } else {
     printf("hit the bad-trap\n");

@@ -1,5 +1,5 @@
-import "DPI-C" function void pmem_write(int addr, int data);
-import "DPI-C" function int pmem_read(int addr);
+import "DPI-C" function void guest_write(int addr, int data);
+import "DPI-C" function int guest_read(int addr);
 
 module mem(
   input [31:0] addr,
@@ -11,9 +11,9 @@ module mem(
   reg [31:0] readreg;
   always @(ew | er) begin
     if(ew)
-      pmem_write(addr, write);
+      guest_write(addr, write);
     else if (er)
-      readreg = pmem_read(addr);
+      readreg = guest_read(addr);
   end
   assign read = readreg;
 endmodule
