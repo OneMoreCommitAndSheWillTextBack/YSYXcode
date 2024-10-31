@@ -1,4 +1,5 @@
 #include "Vtop.h"
+#include <cstdint>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -33,3 +34,7 @@ void sdb_main();
 
 // reg.cpp
 void display_reg();
+uint32_t npc_reg_str2val(char *regname, bool *success);
+
+// expr.cpp
+uint32_t expr(char *e, bool *success);

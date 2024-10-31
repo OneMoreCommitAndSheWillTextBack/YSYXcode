@@ -1,5 +1,7 @@
 #include "common.h"
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -19,6 +21,7 @@ int cmd_q(const std::string &args);
 int cmd_si(const std::string &args);
 int cmd_info(const std::string &args);
 int cmd_x(const std::string &args);
+int cmd_p(const std::string &args);
 
 struct Command {
   const std::string name;
@@ -32,6 +35,7 @@ const Command cmd_table[] = {
     {"q", "Exit NPC", cmd_q},
     {"si", "Run the program N steps, default is 1", cmd_si},
     {"info", "arg r to print reg, arg w to print watchpoint", cmd_info},
+    {"p", "eval the expreesion", cmd_p},
     // Add more commands here
 };
 
@@ -62,6 +66,18 @@ int cmd_c(const std::string &args) {
 int cmd_q(const std::string &args) {
   set_npc_quit();
   return -1;
+}
+
+int cmd_p(const std::string &args) {
+  char *exp = new char[args.length() + 1];
+  std::strcpy(exp, args.c_str());
+  bool success = true;
+  uint32_t res = expr(exp, &success);
+  if (success == true) {
+    printf("%d\n", res);
+  }
+  delete[] exp;
+  return 0;
 }
 
 int cmd_si(const std::string &args) {

@@ -1,29 +1,9 @@
-/***************************************************************************************
- * Copyright (c) 2014-2022 Zihao Yu, Nanjing University
- *
- * NEMU is licensed under Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan
- *PSL v2. You may obtain a copy of Mulan PSL v2 at:
- *          http://license.coscl.org.cn/MulanPSL2
- *
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY
- *KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
- *NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
- *
- * See the Mulan PSL v2 for more details.
- ***************************************************************************************/
-
 #include "common.h"
-#include "debug.h"
-#include <isa.h>
-
-/* We use the POSIX regex functions to process regular expressions.
- * Type 'man regex' for more information about POSIX regex functions.
- */
-// #include <readline/readline.h>
+#include <cassert>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <regex.h>
-#include <stdbool.h>
-#include <string.h>
 
 enum {
   TK_NOTYPE = 256,
@@ -68,7 +48,7 @@ static struct rule {
     {"&&", TK_AND},
 };
 
-#define NR_REGEX ARRLEN(rules)
+#define NR_REGEX sizeof(rules) / sizeof(rule)
 
 static regex_t re[NR_REGEX] = {};
 
@@ -84,7 +64,8 @@ void init_regex() {
     ret = regcomp(&re[i], rules[i].regex, REG_EXTENDED);
     if (ret != 0) {
       regerror(ret, &re[i], error_msg, 128);
-      panic("regex compilation failed: %s\n%s", error_msg, rules[i].regex);
+      printf("regex compilation failed: %s\n%s", error_msg, rules[i].regex);
+      assert(0);
     }
   }
 }
@@ -107,8 +88,10 @@ static bool make_token(char *e) {
   while (e[position] != '\0') {
     /* Try all rules one by one. */
     for (i = 0; i < NR_REGEX; i++) {
+      printf("get to here, %d\n", NR_REGEX);
       if (regexec(&re[i], e + position, 1, &pmatch, 0) == 0 &&
           pmatch.rm_so == 0) {
+        printf("get to here\n");
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
@@ -257,7 +240,7 @@ int eval(int p, int q, bool *success) {
     if (tokens[p].type == NUM)
       return atoi(tokens[p].str);
     if (tokens[p].type == REG) {
-      word_t ret = isa_reg_str2val(tokens[p].str, success);
+      uint32_t ret = npc_reg_str2val(tokens[p].str, success);
       if (*success == false) {
         printf("failed to read the given reg %s\n", tokens[p].str);
         return 0;
@@ -278,7 +261,7 @@ int eval(int p, int q, bool *success) {
     // need to find the main operator
     int pos = find_operator(p, q, success);
     int dividend = 0;
-    paddr_t addr;
+    uint32_t addr;
     switch (tokens[pos].type) {
     case TK_ADD:
       return eval(p, pos - 1, success) + eval(pos + 1, q, success);
@@ -308,11 +291,11 @@ int eval(int p, int q, bool *success) {
       return eval(p, pos - 1, success) && eval(pos + 1, q, success);
       break;
     case DEPOINT:
-      addr = (paddr_t)eval(p + 1, q, success);
-      return (int)paddr_read(addr, 4);
+      addr = (uint32_t)eval(p + 1, q, success);
+      return (int)pmem_read(addr, 4);
       break;
     default:
-      Log("meet a unhanded %d:\"%s\"", tokens[p].type, tokens[p].str);
+      printf("meet a unhanded %d:\"%s\"", tokens[p].type, tokens[p].str);
       assert(0);
       break;
     }
@@ -320,20 +303,19 @@ int eval(int p, int q, bool *success) {
   }
 }
 
-word_t expr(char *e, bool *success) {
+uint32_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     printf("get invailed tokens\n");
     *success = false;
     return 0;
   }
 
-  /* TODO: Insert codes to evaluate the expression. */
-  // TODO();
   if (check_parenthese(0, nr_token - 1, 0) == false) {
     printf("unmatched parenthese\n");
     *success = false;
     return 0;
   }
+
   int res = eval(0, nr_token - 1, success);
-  return (word_t)res;
+  return (uint32_t)res;
 }
