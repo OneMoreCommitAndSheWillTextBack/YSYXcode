@@ -12,7 +12,7 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
 extern Npc *npc;
 void display_reg() {
   for (int i = 0; i < REGNUM; i++) {
-    std::cout << regs[i];
+    std::cout << std::setfill(' ') << std::setw(3) << regs[i];
     std::cout << " 0x" << std::hex << std::setfill('0') << std::setw(8)
               << npc->top->reg_out[i];
 
