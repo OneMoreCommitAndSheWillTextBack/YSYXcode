@@ -14,6 +14,11 @@ typedef struct {
   enum npcstate state;
 } Npc;
 
+typedef struct {
+  uint32_t gpr[32];
+  uint32_t pc;
+} Cpu;
+
 #endif
 
 // memory.cpp
@@ -28,6 +33,7 @@ void init(char *filepath);
 void cpu_exec(int n);
 void set_npc_end();
 void set_npc_quit();
+void set_npc_stop();
 
 // sdb.cpp
 void sdb_main();
@@ -38,3 +44,11 @@ uint32_t npc_reg_str2val(char *regname, bool *success);
 
 // expr.cpp
 uint32_t expr(char *e, bool *success);
+void init_regex();
+
+// watchpoint.cpp
+void init_wp_pool();
+void exe_wp();
+void new_wp(char *exp);
+void free_wp(int wp_num);
+void info_wp();

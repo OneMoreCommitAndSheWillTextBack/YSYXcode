@@ -1,4 +1,4 @@
-// import "DPI-C" function void ret();
+import "DPI-C" function void host_get_pc(int pc);
 module pcreg(
   input clk,
   input [31:0] npc,
@@ -17,6 +17,7 @@ module pcreg(
 
     if(npc == pcout)
       ret();
+  host_get_pc(pcout);
   end
 
 endmodule

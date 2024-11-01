@@ -24,8 +24,10 @@ void display_reg() {
 }
 
 uint32_t npc_reg_str2val(char *regname, bool *success) {
+	if(strcmp(regname, "$pc") == 0)
+		return npc->top->pc_out;
   for (int i = 0; i < REGNUM; i++) {
-    if (strcmp(regname, regs[i]) == 0)
+    if (strcmp(regname+1, regs[i]) == 0)
       return npc->top->reg_out[i];
   }
   std::cout << "[error]unfind reg name " << regname << std::endl;

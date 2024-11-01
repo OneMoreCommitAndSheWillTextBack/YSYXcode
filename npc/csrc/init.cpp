@@ -32,13 +32,16 @@ void init_build(char *filepath) {
 }
 
 extern Npc *npc;
-
+extern Cpu *cpu;
 void init(char *filepath) {
   if (filepath == NULL) {
     init_default();
   } else {
     init_build(filepath);
   }
+
+  init_regex();
+  init_wp_pool();
 
   npc = new Npc;
   npc->top = new Vtop;
@@ -47,4 +50,6 @@ void init(char *filepath) {
   npc->top->eval();
   npc->top->rst = 0;
   npc->top->eval();
+
+  cpu = new Cpu;
 }

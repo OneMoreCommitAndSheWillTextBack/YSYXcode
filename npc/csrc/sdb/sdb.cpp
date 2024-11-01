@@ -22,6 +22,8 @@ int cmd_si(const std::string &args);
 int cmd_info(const std::string &args);
 int cmd_x(const std::string &args);
 int cmd_p(const std::string &args);
+int cmd_b(const std::string &args);
+int cmd_d(const std::string &args);
 
 struct Command {
   const std::string name;
@@ -36,7 +38,8 @@ const Command cmd_table[] = {
     {"si", "Run the program N steps, default is 1", cmd_si},
     {"info", "arg r to print reg, arg w to print watchpoint", cmd_info},
     {"p", "eval the expreesion", cmd_p},
-    // Add more commands here
+    {"b", "alloc new watchpoint", cmd_b},
+    {"d", "delete a watchpoint", cmd_d},
 };
 
 #define NR_CMD sizeof(cmd_table) / sizeof(cmd_table[0])
@@ -96,9 +99,25 @@ int cmd_info(const std::string &args) {
   if (args == "r") {
     // api to print reg
     display_reg();
+  } else if (args == "w") {
+    info_wp();
   } else {
-    // not implement
+    std::cout << "[error] get a invalid arg: " << args << std::endl;
   }
+  return 0;
+}
+
+int cmd_b(const std::string &args) {
+  char *exp = new char[args.length() + 1];
+  std::strcpy(exp, args.c_str());
+  new_wp(exp);
+  delete[] exp;
+  return 0;
+}
+
+int cmd_d(const std::string &args) {
+  int num = std::stoi(args, nullptr);
+  free_wp(num);
   return 0;
 }
 
