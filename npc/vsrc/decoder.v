@@ -47,7 +47,7 @@ module decoder(
                type_B ? B_imm :
                type_U ? U_imm :
                32'b0;
-
+  
 endmodule
 
 

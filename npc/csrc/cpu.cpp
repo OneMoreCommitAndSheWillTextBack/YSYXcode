@@ -11,11 +11,9 @@ static void exe_once() {
   npc->top->eval();
 }
 
-void check();
-
 void trace_or_diff() {
   exe_wp();
-  check();
+  printf("%08x : %x\n", cpu->pc, cpu->inst);
 }
 
 static void execute(unsigned int n) {
@@ -70,17 +68,3 @@ void set_npc_end() {
 
 void set_npc_quit() { npc->state = QUIT; }
 void set_npc_stop() { npc->state = STOP; }
-
-void check() {
-  if (npc->top->pc_out != cpu->pc) {
-    printf("%08x || %08x\n", npc->top->pc_out, cpu->pc);
-    printf("pc diif failed\n");
-    assert(0);
-  }
-  for (int i = 0; i < 32; i++) {
-    if (cpu->gpr[i] != npc->top->reg_out[i]) {
-      printf("the reg diff %d failed\n", i);
-      assert(0);
-    }
-  }
-}

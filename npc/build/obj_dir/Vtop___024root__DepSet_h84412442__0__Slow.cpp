@@ -39,8 +39,8 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
         = (0x100000000ULL | (QData)((IData)(vlSelf->top__DOT__mem0__DOT__readreg)));
     vlSelf->top__DOT__regormem__DOT__i0__DOT__data_list[0U] 
         = vlSelf->top__DOT__mem0__DOT__readreg;
-    Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__pcbridge, vlSelf->__Vfunc_get_inst__2__Vfuncout);
-    vlSelf->top__DOT__infetch0__DOT__reg_inst = vlSelf->__Vfunc_get_inst__2__Vfuncout;
+    Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__pcbridge, vlSelf->__Vfunc_get_inst__3__Vfuncout);
+    vlSelf->top__DOT__infetch0__DOT__reg_inst = vlSelf->__Vfunc_get_inst__3__Vfuncout;
     vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__out[0x1fU] 
         = vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf
         [0x1fU];

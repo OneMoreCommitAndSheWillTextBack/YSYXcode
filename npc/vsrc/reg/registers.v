@@ -1,6 +1,3 @@
-import "DPI-C" function void host_get_reg(output reg [31:0] data [32]);
-// import "DPI-C" function 
-
 module registers(
   input clk,
   input rst,
@@ -22,7 +19,6 @@ module registers(
     end else if(ew) begin
       rf[addr] <= data;
     end 
-  host_get_reg(rf);
   end
 
   // read op

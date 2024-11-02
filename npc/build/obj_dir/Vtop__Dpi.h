@@ -22,10 +22,10 @@ extern "C" {
     extern int guest_read(int addr);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/mem.v:1:30
     extern void guest_write(int addr, int data);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/pc/pcreg.v:1:30
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/infetch.v:3:30
+    extern void host_get_inst(int inst);
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/infetch.v:2:30
     extern void host_get_pc(int pc);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/reg/registers.v:1:30
-    extern void host_get_reg(svLogicVecVal* data);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/control/maincontrol.v:1:30
     extern void ret();
 

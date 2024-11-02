@@ -27,8 +27,7 @@ extern "C" void host_get_pc(int pc) {
   return;
 }
 
-extern "C" void host_get_reg(const svLogicVecVal reg_array[32]) {
-  for (int i = 0; i < 32; i++) {
-    cpu->gpr[i] = reg_array[i].aval;
-  }
+extern "C" void host_get_inst(int inst) {
+  cpu->inst = (uint32_t)inst;
+  return;
 }

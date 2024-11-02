@@ -15,7 +15,7 @@ typedef struct {
 } Npc;
 
 typedef struct {
-  uint32_t gpr[32];
+  uint32_t inst;
   uint32_t pc;
 } Cpu;
 

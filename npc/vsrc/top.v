@@ -10,8 +10,9 @@ module top(
   output [31:0] host_write,
   input [31:0] host_read
 );
-   always @(posedge clk) begin
-    $display("0x%08x: 0x%08x", pcbridge, inst);
+  always @(posedge clk) begin
+    host_get_pc(pcbridge);
+    host_get_inst(inst);
   end
   //
 

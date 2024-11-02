@@ -1,4 +1,6 @@
 import "DPI-C" function int get_inst(int pc);
+import "DPI-C" function void host_get_pc(int pc);
+import "DPI-C" function void host_get_inst(int inst);
 
 module infetch(
   input [31:0] pc,
@@ -7,6 +9,8 @@ module infetch(
   reg [31:0] reg_inst;
   always @(*) begin
     reg_inst = get_inst(pc);
+    // host_get_pc(pc);
+    // host_get_inst(reg_inst);
   end
 
   assign inst = reg_inst;

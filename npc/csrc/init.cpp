@@ -44,12 +44,12 @@ void init(char *filepath) {
   init_wp_pool();
 
   npc = new Npc;
+  cpu = new Cpu;
+
   npc->top = new Vtop;
   npc->state = STOP;
   npc->top->rst = 1;
   npc->top->eval();
   npc->top->rst = 0;
   npc->top->eval();
-
-  cpu = new Cpu;
 }

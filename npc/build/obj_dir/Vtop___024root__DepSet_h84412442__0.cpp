@@ -43,9 +43,19 @@ void Vtop___024root___eval_triggers__act(Vtop___024root* vlSelf) {
 #endif
 }
 
-void Vtop___024unit____Vdpiimwrap_ret_TOP____024unit();
 void Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(IData/*31:0*/ pc);
-void Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(VlUnpacked<IData/*31:0*/, 32> &data);
+void Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(IData/*31:0*/ inst);
+
+VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) {
+    if (false && vlSelf) {}  // Prevent unused
+    Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__0\n"); );
+    // Body
+    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__pcbridge);
+    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->inst_out);
+}
+
+void Vtop___024unit____Vdpiimwrap_ret_TOP____024unit();
 void Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(IData/*31:0*/ pc, IData/*31:0*/ &get_inst__Vfuncrtn);
 
 VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) {
@@ -53,10 +63,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__1\n"); );
     // Init
-    VlUnpacked<IData/*31:0*/, 32> __Vtask_host_get_reg__4__data;
-    for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
-        __Vtask_host_get_reg__4__data[__Vi0] = 0;
-    }
     CData/*4:0*/ __Vdlyvdim0__top__DOT__regfile__DOT__registers0__DOT__rf__v0;
     __Vdlyvdim0__top__DOT__regfile__DOT__registers0__DOT__rf__v0 = 0;
     IData/*31:0*/ __Vdlyvval__top__DOT__regfile__DOT__registers0__DOT__rf__v0;
@@ -68,7 +74,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
          == vlSelf->top__DOT__pcbridge)) {
         Vtop___024unit____Vdpiimwrap_ret_TOP____024unit();
     }
-    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__pcbridge);
     __Vdlyvset__top__DOT__regfile__DOT__registers0__DOT__rf__v0 = 0U;
     if (vlSelf->rst) {
         vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = 0x20U;
@@ -104,74 +109,10 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
         vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1dU] = 0U;
         vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1eU] = 0U;
         vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1fU] = 0U;
+        vlSelf->top__DOT__pcbridge = 0x80000000U;
+    } else {
+        vlSelf->top__DOT__pcbridge = vlSelf->top__DOT__branchcontrol0__DOT__npc_tmp;
     }
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(__Vtask_host_get_reg__4__data);
-    vlSelf->top__DOT__pcbridge = ((IData)(vlSelf->rst)
-                                   ? 0x80000000U : vlSelf->top__DOT__branchcontrol0__DOT__npc_tmp);
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1fU] 
-        = __Vtask_host_get_reg__4__data[0U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1eU] 
-        = __Vtask_host_get_reg__4__data[1U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1dU] 
-        = __Vtask_host_get_reg__4__data[2U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1cU] 
-        = __Vtask_host_get_reg__4__data[3U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1bU] 
-        = __Vtask_host_get_reg__4__data[4U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x1aU] 
-        = __Vtask_host_get_reg__4__data[5U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x19U] 
-        = __Vtask_host_get_reg__4__data[6U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x18U] 
-        = __Vtask_host_get_reg__4__data[7U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x17U] 
-        = __Vtask_host_get_reg__4__data[8U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x16U] 
-        = __Vtask_host_get_reg__4__data[9U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x15U] 
-        = __Vtask_host_get_reg__4__data[0xaU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x14U] 
-        = __Vtask_host_get_reg__4__data[0xbU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x13U] 
-        = __Vtask_host_get_reg__4__data[0xcU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x12U] 
-        = __Vtask_host_get_reg__4__data[0xdU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x11U] 
-        = __Vtask_host_get_reg__4__data[0xeU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0x10U] 
-        = __Vtask_host_get_reg__4__data[0xfU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0xfU] 
-        = __Vtask_host_get_reg__4__data[0x10U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0xeU] 
-        = __Vtask_host_get_reg__4__data[0x11U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0xdU] 
-        = __Vtask_host_get_reg__4__data[0x12U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0xcU] 
-        = __Vtask_host_get_reg__4__data[0x13U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0xbU] 
-        = __Vtask_host_get_reg__4__data[0x14U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0xaU] 
-        = __Vtask_host_get_reg__4__data[0x15U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[9U] 
-        = __Vtask_host_get_reg__4__data[0x16U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[8U] 
-        = __Vtask_host_get_reg__4__data[0x17U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[7U] 
-        = __Vtask_host_get_reg__4__data[0x18U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[6U] 
-        = __Vtask_host_get_reg__4__data[0x19U];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[5U] 
-        = __Vtask_host_get_reg__4__data[0x1aU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[4U] 
-        = __Vtask_host_get_reg__4__data[0x1bU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[3U] 
-        = __Vtask_host_get_reg__4__data[0x1cU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[2U] 
-        = __Vtask_host_get_reg__4__data[0x1dU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[1U] 
-        = __Vtask_host_get_reg__4__data[0x1eU];
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf[0U] 
-        = __Vtask_host_get_reg__4__data[0x1fU];
     if ((1U & (~ (IData)(vlSelf->rst)))) {
         if (((IData)(vlSelf->top__DOT__decoder0__DOT__type_I) 
              | ((0x33U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
@@ -286,8 +227,8 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
         = vlSelf->top__DOT__regfile__DOT__registers0__DOT__rf
         [0U];
     vlSelf->pc_out = vlSelf->top__DOT__pcbridge;
-    Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__pcbridge, vlSelf->__Vfunc_get_inst__2__Vfuncout);
-    vlSelf->top__DOT__infetch0__DOT__reg_inst = vlSelf->__Vfunc_get_inst__2__Vfuncout;
+    Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__pcbridge, vlSelf->__Vfunc_get_inst__3__Vfuncout);
+    vlSelf->top__DOT__infetch0__DOT__reg_inst = vlSelf->__Vfunc_get_inst__3__Vfuncout;
     vlSelf->top__DOT__regfile__DOT__rf[0x1fU] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__out
         [0x1fU];
     vlSelf->top__DOT__regfile__DOT__rf[0x1eU] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__out
