@@ -1,7 +1,7 @@
 TOPNAME=top
 VERILATOR=verilator
 VERILATOR_CFLAGS = --trace --prof-exec --cc --exe --build
-INCLUDE_PATH = $(abspath ./include/)
+INCLUDE_PATH = $(abspath ./include/) /usr/lib/llvm-14/include
 
 VSRC=$(shell find $(abspath ./vsrc/) -name "*.v")
 CSRC=$(shell find $(abspath ./csrc/) -name "*.cpp")
