@@ -17,6 +17,7 @@ typedef struct {
 typedef struct {
   uint32_t inst;
   uint32_t pc;
+  char logbuf[128];
 } Cpu;
 
 #endif
@@ -52,3 +53,8 @@ void exe_wp();
 void new_wp(char *exp);
 void free_wp(int wp_num);
 void info_wp();
+
+// disasm.cpp
+extern "C" void init_disasm(const char *triple);
+extern "C" void disassemble(char *str, int size, uint64_t pc, uint8_t *code,
+                            int nbyte);

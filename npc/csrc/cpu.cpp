@@ -1,6 +1,8 @@
 #include "common.h"
 #include <cassert>
+#include <cstdint>
 #include <stdio.h>
+#include <string.h>
 
 Npc *npc = NULL;
 Cpu *cpu = NULL;
@@ -9,11 +11,23 @@ static void exe_once() {
   npc->top->eval();
   npc->top->clk = 0;
   npc->top->eval();
+
+#ifndef ITRACE
+  char *p = cpu->logbuf;
+  p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->pc);
+  int i;
+  p += snprintf(p, 10, " %08x", cpu->inst);
+  memset(p, ' ', 1);
+  p += 1;
+  void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
+  disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->pc,
+              (uint8_t *)(&cpu->inst), 4);
+#endif
 }
 
 void trace_or_diff() {
   exe_wp();
-  printf("%08x : %x\n", cpu->pc, cpu->inst);
+  printf("%s\n", cpu->logbuf);
 }
 
 static void execute(unsigned int n) {

@@ -7,6 +7,8 @@
 
 #include "common.h"
 
+void init_disasm(const char *triple);
+
 uint32_t img[] = {0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513,
                   0x00008067, 0xff410113, 0x00000517, 0x01450513, 0x00112423,
                   0xfe9ff0ef, 0x00050513, 0x00100073};
@@ -40,6 +42,7 @@ void init(char *filepath) {
     init_build(filepath);
   }
 
+  init_disasm("riscv32-pc-linux-gnu");
   init_regex();
   init_wp_pool();
 
