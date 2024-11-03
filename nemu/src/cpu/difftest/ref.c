@@ -26,9 +26,10 @@ typedef struct diff_context {
 }diff_context;
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
+  printf("nemuref get a addr 0x%08x \n", addr);
   if (direction == DIFFTEST_TO_REF) {
     for (int i = 0; i < n; i++)
-      paddr_write(addr, 2, *((uint8_t *)buf + i));
+      paddr_write(addr + i, 2, *((uint8_t *)buf + i));
   } else {
     assert(0);
   }

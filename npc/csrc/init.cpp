@@ -79,9 +79,6 @@ void init(int argc, char *argv[]) {
 #endif
   init_regex();
   init_wp_pool();
-#ifdef DIFFTEST
-  init_difftest(diff_ref, img_size, port);
-#endif
 
   npc = new Npc;
   cpu = new Cpu;
@@ -92,4 +89,7 @@ void init(int argc, char *argv[]) {
   npc->top->eval();
   npc->top->rst = 0;
   npc->top->eval();
+#ifdef DIFFTEST
+  init_difftest(diff_ref, img_size, port);
+#endif
 }
