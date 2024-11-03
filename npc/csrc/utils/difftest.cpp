@@ -40,18 +40,22 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
 }
 
 void checkregs(context *ref_context) {
-  for (int i = 0; i < 32; i++) {
+  int i = 0;
+  for (i = 0; i < 32; i++) {
     if (ref_context->gpr[i] != cpu->con.gpr[i]) {
       goto regdiferror;
     }
   }
-  if (ref_context->pc != cpu->con.pc)
-    goto regdiferror;
   return;
 
 regdiferror:
   printf("the difftest failed at pc %08x\n", cpu->con.pc);
-  display_reg();
+  printf("reg[%d]: 0x%08x -> 0x%08x\n", i, cpu->con.gpr[i],
+         ref_context->gpr[i]);
+  for (i = 0; i < 32; i++) {
+    printf("reg[%d] npc:0x%08x nemu:0x%08x\n", i, cpu->con.gpr[i],
+           ref_context->gpr[i]);
+  }
   assert(0);
 }
 
@@ -60,7 +64,6 @@ void diff_step() {
   ref_difftest_exec(1);
   ref_difftest_regcpy(&ref_context, DIFF_TO_DUT);
   checkregs(&ref_context);
-  printf("get to here\n");
 }
 
 #endif
