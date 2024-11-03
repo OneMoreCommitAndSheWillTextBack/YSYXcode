@@ -82,6 +82,7 @@ void init(int argc, char *argv[]) {
 
   npc = new Npc;
   cpu = new Cpu;
+  cpu->con.pc = MBASE;
 
   npc->top = new Vtop;
   npc->state = STOP;
