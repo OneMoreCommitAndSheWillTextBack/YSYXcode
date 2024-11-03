@@ -47,6 +47,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
     for(int i=0;i<32;i++){
       cpu.gpr[i] = diff_ptr->gpr[i];
     }
+    printf("in pc get pc is 0x%08x", diff_ptr->pc);
     cpu.pc = diff_ptr->pc;
   } else {
     diff_context *diff_ptr = (diff_context*)dut;
