@@ -2,11 +2,10 @@
 #include <cstdint>
 #include <iostream>
 
-const unsigned int mbase = 0x80000000;
 const unsigned int msize = 0x8000000;
 static uint8_t pmem[msize] = {};
 
-uint8_t *guest_to_host(uint32_t addr) { return pmem + addr - mbase; }
+uint8_t *guest_to_host(uint32_t addr) { return pmem + addr - MBASE; }
 
 uint32_t pmem_read(uint32_t address, uint32_t len) {
   uint8_t *addr = guest_to_host(address);

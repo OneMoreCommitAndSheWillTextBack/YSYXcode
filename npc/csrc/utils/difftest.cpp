@@ -60,6 +60,7 @@ void diff_step() {
   ref_difftest_exec(1);
   ref_difftest_regcpy(&ref_context, DIFF_TO_DUT);
   checkregs(&ref_context);
+  printf("get to here\n");
 }
 
 #endif
