@@ -16,7 +16,8 @@ CFLAGS += -DMAINARGS=\"$(mainargs)\"
 .PHONY: $(AM_HOME)/am/src/riscv/npc/trm.c
 
 NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
-ARGS = -f$(IMAGE).bin -d$(NEMU_HOME)/build/riscv32-nemu-interpreter-so
+
+ARGS = -f$(IMAGE).bin
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt

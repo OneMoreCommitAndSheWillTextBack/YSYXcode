@@ -40,7 +40,8 @@ extern Npc *npc;
 extern Cpu *cpu;
 
 char *filepath = NULL;
-char *diff_ref = NULL;
+char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
+                  "riscv32-nemu-interpreter-so";
 int port = 0;
 
 void parse_args(int argc, char *argv[]) {
@@ -57,7 +58,6 @@ void parse_args(int argc, char *argv[]) {
       filepath = optarg;
       break;
     case 'd':
-      diff_ref = optarg;
       break;
     case 'p':
       break;

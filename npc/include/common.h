@@ -7,7 +7,7 @@
 #define COMMON_H
 // config
 #define ITRACE
-// #define DIFFTEST
+#define DIFFTEST
 
 #define MBASE 0x80000000
 
