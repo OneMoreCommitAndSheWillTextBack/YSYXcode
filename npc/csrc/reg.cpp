@@ -11,24 +11,24 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
 
 #define REGNUM 32
 
-extern Npc *npc;
+extern Cpu *cpu;
 void display_reg() {
   for (int i = 0; i < REGNUM; i++) {
     std::cout << std::left << std::setfill(' ') << std::setw(3) << regs[i];
     std::cout << " 0x" << std::hex << std::setfill('0') << std::setw(8)
-              << npc->top->reg_out[i];
+              << cpu->con.gpr[i];
 
-    std::cout << " " << std::dec << npc->top->reg_out[i];
+    std::cout << " " << std::dec << cpu->con.gpr[i];
     std::cout << std::endl;
   }
 }
 
 uint32_t npc_reg_str2val(char *regname, bool *success) {
-	if(strcmp(regname, "$pc") == 0)
-		return npc->top->pc_out;
+  if (strcmp(regname, "$pc") == 0)
+    return cpu->con.pc;
   for (int i = 0; i < REGNUM; i++) {
-    if (strcmp(regname+1, regs[i]) == 0)
-      return npc->top->reg_out[i];
+    if (strcmp(regname + 1, regs[i]) == 0)
+      return cpu->con.gpr[i];
   }
   std::cout << "[error]unfind reg name " << regname << std::endl;
   *success = false;

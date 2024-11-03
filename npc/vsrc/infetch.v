@@ -9,8 +9,6 @@ module infetch(
   reg [31:0] reg_inst;
   always @(*) begin
     reg_inst = get_inst(pc);
-    // host_get_pc(pc);
-    // host_get_inst(reg_inst);
   end
 
   assign inst = reg_inst;

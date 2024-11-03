@@ -8,6 +8,18 @@
 #include "Vtop__Syms.h"
 #include "Vtop___024unit.h"
 
+extern "C" void host_get_reg(int regval, int regnum);
+
+VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(IData/*31:0*/ regval, IData/*31:0*/ regnum) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+        Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit\n"); );
+    // Body
+    int regval__Vcvt;
+    for (size_t regval__Vidx = 0; regval__Vidx < 1; ++regval__Vidx) regval__Vcvt = regval;
+    int regnum__Vcvt;
+    for (size_t regnum__Vidx = 0; regnum__Vidx < 1; ++regnum__Vidx) regnum__Vcvt = regnum;
+    host_get_reg(regval__Vcvt, regnum__Vcvt);
+}
+
 extern "C" int get_inst(int pc);
 
 VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(IData/*31:0*/ pc, IData/*31:0*/ &get_inst__Vfuncrtn) {
@@ -40,12 +52,14 @@ VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(IDa
     host_get_inst(inst__Vcvt);
 }
 
-extern "C" void ret();
+extern "C" void ret(int pc);
 
-VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_ret_TOP____024unit() {
+VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(IData/*31:0*/ pc) {
     VL_DEBUG_IF(VL_DBG_MSGF("+        Vtop___024unit____Vdpiimwrap_ret_TOP____024unit\n"); );
     // Body
-    ret();
+    int pc__Vcvt;
+    for (size_t pc__Vidx = 0; pc__Vidx < 1; ++pc__Vidx) pc__Vcvt = pc;
+    ret(pc__Vcvt);
 }
 
 extern "C" void guest_write(int addr, int data);

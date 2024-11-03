@@ -5,6 +5,10 @@
 
 #ifndef COMMON_H
 #define COMMON_H
+// config
+#define ITRACE
+// #define DIFFTEST
+
 #define MBASE 0x80000000
 
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
@@ -15,8 +19,13 @@ typedef struct {
 } Npc;
 
 typedef struct {
-  uint32_t inst;
+  uint32_t gpr[32];
   uint32_t pc;
+} context;
+
+typedef struct {
+  uint32_t inst;
+  context con;
   char logbuf[128];
 } Cpu;
 
@@ -28,7 +37,7 @@ uint32_t pmem_read(uint32_t address, uint32_t len);
 void pmem_write(uint32_t address, uint32_t len, uint32_t data);
 
 // init.cpp
-void init(char *filepath);
+void init(int argc, char *argv[]);
 
 // cpu.cpp
 void cpu_exec(int n);
@@ -58,3 +67,9 @@ void info_wp();
 extern "C" void init_disasm(const char *triple);
 extern "C" void disassemble(char *str, int size, uint64_t pc, uint8_t *code,
                             int nbyte);
+
+// difftest.cpp
+#ifdef DIFFTEST
+void init_difftest(char *ref_so_file, long img_size, int port);
+void diff_step();
+#endif

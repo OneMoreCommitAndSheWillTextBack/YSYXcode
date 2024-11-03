@@ -12,22 +12,27 @@ static void exe_once() {
   npc->top->clk = 0;
   npc->top->eval();
 
-#ifndef ITRACE
+#ifdef ITRACE
   char *p = cpu->logbuf;
-  p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->pc);
+  p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->con.pc);
   int i;
   p += snprintf(p, 10, " %08x", cpu->inst);
   memset(p, ' ', 1);
   p += 1;
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-  disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->pc,
+  disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->con.pc,
               (uint8_t *)(&cpu->inst), 4);
 #endif
 }
 
 void trace_or_diff() {
   exe_wp();
+#ifdef ITRACE
   printf("%s\n", cpu->logbuf);
+#endif
+#ifdef DIFFTEST
+  diff_step();
+#endif
 }
 
 static void execute(unsigned int n) {
@@ -60,8 +65,11 @@ void cpu_exec(int n) {
     npc->state = STOP;
     break;
   case END:
+    printf("hit the good-trap\n");
   case ABORT:
-    printf("ended at pc = 0x%08x\n", npc->top->pc_out);
+    if (npc->state == ABORT)
+      printf("hit the bad-trap\n");
+    printf("ended at pc = 0x%08x\n", cpu->con.pc);
     break;
   default:
     npc->state = STOP;
@@ -69,13 +77,11 @@ void cpu_exec(int n) {
 }
 
 void set_npc_end() {
-  int sig = npc->top->reg_out[10];
+  int sig = cpu->con.gpr[10];
 
   if (sig == 0) {
-    printf("hit the good-trap\n");
     npc->state = END;
   } else {
-    printf("hit the bad-trap\n");
     npc->state = ABORT;
   }
 }

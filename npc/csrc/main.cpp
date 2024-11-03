@@ -6,12 +6,8 @@
 
 #include "common.h"
 
-int main(int argc, char **argv) {
-  char *filepath = NULL;
-  if (argc > 1) {
-    filepath = argv[1];
-  }
-  init(filepath);
+int main(int argc, char *argv[]) {
+  init(argc, argv);
 
   sdb_main();
 

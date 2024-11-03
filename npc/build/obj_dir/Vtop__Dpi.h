@@ -26,8 +26,10 @@ extern "C" {
     extern void host_get_inst(int inst);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/infetch.v:2:30
     extern void host_get_pc(int pc);
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/reg/registers.v:1:30
+    extern void host_get_reg(int regval, int regnum);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/control/maincontrol.v:1:30
-    extern void ret();
+    extern void ret(int pc);
 
 #ifdef __cplusplus
 }

@@ -14,12 +14,6 @@ Vtop::Vtop(VerilatedContext* _vcontextp__, const char* _vcname__)
     , vlSymsp{new Vtop__Syms(contextp(), _vcname__, this)}
     , clk{vlSymsp->TOP.clk}
     , rst{vlSymsp->TOP.rst}
-    , pc_out{vlSymsp->TOP.pc_out}
-    , inst_out{vlSymsp->TOP.inst_out}
-    , host_get_addr{vlSymsp->TOP.host_get_addr}
-    , host_write{vlSymsp->TOP.host_write}
-    , host_read{vlSymsp->TOP.host_read}
-    , reg_out{vlSymsp->TOP.reg_out}
     , __PVT____024unit{vlSymsp->TOP.__PVT____024unit}
     , rootp{&(vlSymsp->TOP)}
 {

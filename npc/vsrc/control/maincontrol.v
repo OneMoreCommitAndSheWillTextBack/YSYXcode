@@ -1,4 +1,4 @@
-import "DPI-C" function void ret();
+import "DPI-C" function void ret(int pc);
 
 module maincontrol(
   input [6:0] opcode,
@@ -55,6 +55,6 @@ module maincontrol(
   assign ebreaksig = (opcode == 7'b1110011) & (func3 == 3'b000);
   always @(*) begin
     if(ebreaksig)
-      ret();
+      ret(0);
   end
 endmodule

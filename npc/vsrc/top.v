@@ -1,14 +1,6 @@
 module top(
   input clk,
-  input rst,
-  
-  output [31:0] pc_out,
-  output [31:0] inst_out,
-  output [31:0] reg_out [31:0],
-
-  output [31:0] host_get_addr,
-  output [31:0] host_write,
-  input [31:0] host_read
+  input rst
 );
   always @(posedge clk) begin
     host_get_pc(pcbridge);
@@ -30,8 +22,6 @@ module top(
     .pc(pcbridge),
     .inst(inst)
   );
-  assign pc_out = pcbridge;
-  assign inst_out = inst;
 
   wire [6:0] opcode;
   wire [2:0] func3_decoder;
@@ -83,7 +73,6 @@ module top(
     .src1(src1),
     .src2(src2),
     .data(regwrite),
-    .reg_out(reg_out),
     .regout1(regout1),
     .regout2(regout2)
   );
