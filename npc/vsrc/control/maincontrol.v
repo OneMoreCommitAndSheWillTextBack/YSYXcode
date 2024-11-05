@@ -39,7 +39,7 @@ module maincontrol(
   assign btypebranch = type_B;
   assign memew = store;
   assign memer = load;
-  assign regew = type_I | type_R | type_J | type_U;
+  assign regew = type_I | type_R | type_J | type_U | memer;
   assign jalsig = type_J;
   assign jalrsig = (opcode == 7'b1100111);
   assign muximm = load | store | type_I | jalrsig;
@@ -50,7 +50,7 @@ module maincontrol(
   assign func3_out = func3;
   assign func7_out = func7;
   assign aluop[1] = type_R | type_B;
-  assign aluop[0] = type_I | type_B;
+  assign aluop[0] = (type_I | type_B) & ~load;
 
   assign ebreaksig = (opcode == 7'b1110011) & (func3 == 3'b000);
   always @(*) begin

@@ -12,11 +12,12 @@ module pcreg(
     if(rst) begin
       pcout <= init;
     end
-    else 
+    else begin
       pcout <= npc;
 
     if(npc == pcout)
       ret(npc);
+  end
   end
 
 endmodule

@@ -9,8 +9,6 @@ Cpu *cpu = NULL;
 static void exe_once() {
   npc->top->clk = 1;
   npc->top->eval();
-  npc->top->clk = 0;
-  npc->top->eval();
 
 #ifdef ITRACE
   char *p = cpu->logbuf;
@@ -23,6 +21,8 @@ static void exe_once() {
   disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->con.pc,
               (uint8_t *)(&cpu->inst), 4);
 #endif
+  npc->top->clk = 0;
+  npc->top->eval();
 }
 
 void trace_or_diff() {

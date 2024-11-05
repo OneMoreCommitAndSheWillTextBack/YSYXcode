@@ -20,6 +20,8 @@ module registers(
       end
     end else if(ew) begin
       rf[addr] <= data;
+      $display("reg[%d] write a 0x%08x", addr, data);
+      rf[0] <= 0;
     end 
   end
 

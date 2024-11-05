@@ -5,6 +5,7 @@ module top(
   always @(posedge clk) begin
     host_get_pc(pcbridge);
     host_get_inst(inst);
+    // $display("pc: 0x%08x start", pcbridge);
   end
   //
 
@@ -136,6 +137,7 @@ module top(
   
   wire [31:0] memread;
   mem mem0(
+  .clk(clk),
   .addr(res),
   .write(regout2),
   .ew(memew),

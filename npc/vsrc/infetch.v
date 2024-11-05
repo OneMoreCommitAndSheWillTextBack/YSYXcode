@@ -7,7 +7,7 @@ module infetch(
   output [31:0] inst
 );
   reg [31:0] reg_inst;
-  always @(*) begin
+  always @(pc) begin
     reg_inst = get_inst(pc);
   end
 

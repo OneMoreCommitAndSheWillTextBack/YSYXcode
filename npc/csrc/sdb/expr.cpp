@@ -290,7 +290,7 @@ int eval(int p, int q, bool *success) {
       break;
     case DEPOINT:
       addr = (uint32_t)eval(p + 1, q, success);
-      return (int)pmem_read(addr, 4);
+      return (int)paddr_read(addr, 4);
       break;
     default:
       printf("meet a unhanded %d:\"%s\"", tokens[p].type, tokens[p].str);

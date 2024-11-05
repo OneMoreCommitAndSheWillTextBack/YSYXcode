@@ -33,8 +33,8 @@ typedef struct {
 
 // memory.cpp
 uint8_t *guest_to_host(uint32_t addr);
-uint32_t pmem_read(uint32_t address, uint32_t len);
-void pmem_write(uint32_t address, uint32_t len, uint32_t data);
+uint32_t paddr_read(uint32_t address, uint32_t len);
+void paddr_write(uint32_t address, uint32_t len, uint32_t data);
 
 // init.cpp
 void init(int argc, char *argv[]);

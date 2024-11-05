@@ -11,13 +11,13 @@ extern "C" void ret(int pc) {
 }
 
 extern "C" int guest_read(int addr) {
-  uint32_t ret = pmem_read((uint32_t)addr, 4);
+  uint32_t ret = paddr_read((uint32_t)addr, 4);
   return ret;
 }
 
 extern "C" void guest_write(int addr, int data) {
   // printf("the write addr is %08x\n", addr);
-  pmem_write((uint32_t)addr, 4, (uint32_t)data);
+  paddr_write((uint32_t)addr, 4, (uint32_t)data);
   return;
 }
 

@@ -144,7 +144,7 @@ int cmd_x(const std::string &args) {
     std::cout << "0x" << std::hex << std::setfill('0') << std::setw(8) << addr
               << ' ';
     for (int j = 0; j < 4; j++) {
-      int ret = pmem_read(addr, 1);
+      int ret = paddr_read(addr, 1);
       std::cout << std::hex << std::setw(2) << std::setfill('0') << ret << ' ';
     }
     std::cout << std::dec << std::endl;
