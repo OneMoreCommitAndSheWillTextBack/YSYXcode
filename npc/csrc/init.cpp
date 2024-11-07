@@ -81,6 +81,7 @@ void init_trace() {
   trace->tfp = new VerilatedVcdC;
   trace->context = new VerilatedContext;
   trace->context->traceEverOn(true);
+  npc->top->trace(trace->tfp, 0);
   trace->tfp->open("/home/ysyx/project/ysyx-workbench/npc/wave.vcd");
 #endif
   return;
