@@ -6,30 +6,27 @@ module registers(
   input ew,
   input [4:0] addr,
   input [31:0] data,
-  output [31:0] out [31:0]
+  output reg [31:0] out [31:0]
 );
   
-  reg [31:0] rf [31:0];
   integer i;
 
   // write op
   always @(posedge clk or posedge rst) begin 
     if(rst) begin
       for(i=0;i<32;i=i+1) begin
-        rf[i] = 0;
+        out[i] = 0;
       end
     end else if(ew) begin
-      rf[addr] <= data;
+      out[addr] = data;
       $display("reg[%d] write a 0x%08x", addr, data);
-      rf[0] <= 0;
+      out[0] <= 0;
     end 
   end
 
-  // read op
-  assign out = rf;
   always @(*) begin
     for(i=0;i<32;i=i+1) begin
-      host_get_reg(rf[i], i);
+      host_get_reg(out[i], i);
     end
   end
   // always @(posedge clk) begin

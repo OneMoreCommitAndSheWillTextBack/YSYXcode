@@ -6,9 +6,14 @@
 
 #include "common.h"
 
+extern bool batch_mode_on;
 int main(int argc, char *argv[]) {
   init(argc, argv);
-  sdb_main();
+
+  if (batch_mode_on == false)
+    sdb_main();
+  else
+    cpu_exec(-1);
 
   return 0;
 }

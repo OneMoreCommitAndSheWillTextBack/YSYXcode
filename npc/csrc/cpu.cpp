@@ -6,6 +6,17 @@
 
 Npc *npc = NULL;
 Cpu *cpu = NULL;
+#ifdef TRACE
+Trace *trace = NULL;
+#endif
+
+#ifdef TRACE
+void demp_wave() {
+  trace->context->timeInc(1);
+  trace->tfp->dump(trace->context->time());
+}
+#endif
+
 static void exe_once() {
   npc->top->clk = 1;
   npc->top->eval();

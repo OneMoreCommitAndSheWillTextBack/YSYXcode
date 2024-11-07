@@ -63,14 +63,12 @@ class Vtop___024root final : public VerilatedModule {
     IData/*31:0*/ top__DOT__mem0__DOT__readreg;
     IData/*31:0*/ top__DOT__regormem__DOT__i0__DOT__lut_out;
     IData/*31:0*/ top__DOT__muxpc__DOT__i0__DOT__lut_out;
-    IData/*31:0*/ __Vfunc_guest_read__7__Vfuncout;
     IData/*31:0*/ __Vdly__top__DOT__pcbridge;
     IData/*31:0*/ __VstlIterCount;
     IData/*31:0*/ __Vtrigrprev__TOP__top__DOT__pcbridge;
     IData/*31:0*/ __VactIterCount;
     VlUnpacked<IData/*31:0*/, 32> top__DOT__regfile__DOT__rf;
     VlUnpacked<IData/*31:0*/, 32> top__DOT__regfile__DOT____Vcellout__registers0__out;
-    VlUnpacked<IData/*31:0*/, 32> top__DOT__regfile__DOT__registers0__DOT__rf;
     VlUnpacked<QData/*32:0*/, 2> top__DOT__chosmuximm__DOT__i0__DOT__pair_list;
     VlUnpacked<CData/*0:0*/, 2> top__DOT__chosmuximm__DOT__i0__DOT__key_list;
     VlUnpacked<IData/*31:0*/, 2> top__DOT__chosmuximm__DOT__i0__DOT__data_list;
@@ -80,10 +78,10 @@ class Vtop___024root final : public VerilatedModule {
     VlUnpacked<QData/*32:0*/, 2> top__DOT__muxpc__DOT__i0__DOT__pair_list;
     VlUnpacked<CData/*0:0*/, 2> top__DOT__muxpc__DOT__i0__DOT__key_list;
     VlUnpacked<IData/*31:0*/, 2> top__DOT__muxpc__DOT__i0__DOT__data_list;
-    VlUnpacked<CData/*0:0*/, 5> __Vm_traceActivity;
+    VlUnpacked<CData/*0:0*/, 7> __Vm_traceActivity;
     VlTriggerVec<1> __VstlTriggered;
-    VlTriggerVec<3> __VactTriggered;
-    VlTriggerVec<3> __VnbaTriggered;
+    VlTriggerVec<4> __VactTriggered;
+    VlTriggerVec<4> __VnbaTriggered;
 
     // INTERNAL VARIABLES
     Vtop__Syms* const vlSymsp;

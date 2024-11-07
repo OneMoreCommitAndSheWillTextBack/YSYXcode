@@ -17,7 +17,7 @@ CFLAGS += -DMAINARGS=\"$(mainargs)\"
 
 NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
-ARGS = -f$(IMAGE).bin
+ARGS = -f$(IMAGE).bin -b
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
@@ -27,3 +27,6 @@ image: $(IMAGE).elf
 run: image
 	$(MAKE) -C $(NPC_HOME) clean
 	$(MAKE) -C $(NPC_HOME) ARGS=$(ARGS) run
+
+sim:
+	$(MAKE) -C $(NPC_HOME) sim

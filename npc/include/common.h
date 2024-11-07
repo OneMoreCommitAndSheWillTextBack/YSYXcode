@@ -1,4 +1,6 @@
 #include "Vtop.h"
+#include "verilated.h"
+#include "verilated_vcd_c.h"
 #include <cstdint>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,6 +10,8 @@
 // config
 #define ITRACE
 #define DIFFTEST
+#define MTRACE
+#define TRACE
 
 #define MBASE 0x80000000
 
@@ -28,6 +32,13 @@ typedef struct {
   context con;
   char logbuf[128];
 } Cpu;
+
+#ifdef TRACE
+typedef struct {
+  VerilatedContext *context;
+  VerilatedVcdC *tfp;
+} Trace;
+#endif
 
 #endif
 

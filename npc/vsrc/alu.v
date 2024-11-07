@@ -58,7 +58,7 @@ module alu(
       1'b1: sltres = (A_s>B_s) ? 32'b1 : 32'b0;
     endcase
   end
-  
+
   assign res = addsig ? addres :
                logsig ? logres :
                shfsig ? shfres :

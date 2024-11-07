@@ -10,8 +10,7 @@ module mem(
   output [31:0] read
 );
   reg [31:0] readreg;
-  always @(*) begin
-    // $display("ew: %d, er: %d", ew, er);
+  always @(clk) begin
     if(ew) begin
       guest_write(addr, write);
     end
@@ -21,7 +20,6 @@ module mem(
       // $display("read data: 0x%08x", readreg);
     end else 
       readreg = 0;
-
   end
   assign read = readreg;
 endmodule

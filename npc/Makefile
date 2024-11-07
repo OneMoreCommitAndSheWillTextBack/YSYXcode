@@ -35,7 +35,7 @@ clean:
 
 sim:
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	gtkwave ./wave.vcb
+	gtkwave ./wave.vcd
 	
 
 include ../Makefile

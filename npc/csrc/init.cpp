@@ -1,5 +1,6 @@
 #include "Vtop.h"
 #include "verilated.h"
+#include "verilated_vcd_c.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -38,22 +39,30 @@ long init_build(char *filepath) {
 
 extern Npc *npc;
 extern Cpu *cpu;
+#ifdef TRACE
+extern Trace *trace;
+#endif
 
 char *filepath = NULL;
 char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
                   "riscv32-nemu-interpreter-so";
 int port = 0;
+bool batch_mode_on = false;
 
 void parse_args(int argc, char *argv[]) {
   const struct option table[] = {
       {"diff", required_argument, NULL, 'd'},
       {"port", required_argument, NULL, 'p'},
       {"file", required_argument, NULL, 'f'},
+      {"batch", no_argument, NULL, 'b'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-d:p:f:", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-d:p:f:b", table, NULL)) != -1) {
     switch (o) {
+    case 'b':
+      batch_mode_on = true;
+      break;
     case 'f':
       filepath = optarg;
       break;
@@ -63,6 +72,17 @@ void parse_args(int argc, char *argv[]) {
       break;
     }
   }
+}
+
+void init_trace() {
+#ifdef TRACE
+  Verilated::traceEverOn(true);
+  trace = new Trace;
+  trace->tfp = new VerilatedVcdC;
+  trace->context = new VerilatedContext;
+  trace->tfp->open("/home/ysyx/project/ysyx-workbench/npc/wave.vcd");
+#endif
+  return;
 }
 
 void init(int argc, char *argv[]) {
@@ -83,8 +103,9 @@ void init(int argc, char *argv[]) {
   npc = new Npc;
   cpu = new Cpu;
   cpu->con.pc = MBASE;
-
   npc->top = new Vtop;
+
+  init_trace();
   npc->state = STOP;
   npc->top->rst = 1;
   npc->top->eval();
