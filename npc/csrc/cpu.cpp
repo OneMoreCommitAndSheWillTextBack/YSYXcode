@@ -97,5 +97,18 @@ void set_npc_end() {
   }
 }
 
-void set_npc_quit() { npc->state = QUIT; }
+void set_npc_quit() {
+  npc->state = QUIT;
+#ifdef TRACE
+  trace->tfp->close();
+#endif
+}
+
 void set_npc_stop() { npc->state = STOP; }
+
+void npc_diff_quit() {
+#ifdef TRACE
+  trace->tfp->close();
+#endif
+  assert(0);
+}

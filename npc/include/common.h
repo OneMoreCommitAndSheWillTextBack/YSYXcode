@@ -55,6 +55,9 @@ void cpu_exec(int n);
 void set_npc_end();
 void set_npc_quit();
 void set_npc_stop();
+#ifdef DIFFTEST
+void npc_diff_quit();
+#endif
 
 // sdb.cpp
 void sdb_main();

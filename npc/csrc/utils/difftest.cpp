@@ -39,6 +39,7 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
   ref_difftest_regcpy(&(cpu->con), DIFF_TO_REF);
 }
 
+extern Npc *npc;
 void checkregs(context *ref_context) {
   int i = 0;
   for (i = 0; i < 32; i++) {
@@ -56,7 +57,7 @@ regdiferror:
     printf("reg[%d] npc:0x%08x nemu:0x%08x\n", i, cpu->con.gpr[i],
            ref_context->gpr[i]);
   }
-  assert(0);
+  npc_diff_quit();
 }
 
 void diff_step() {
