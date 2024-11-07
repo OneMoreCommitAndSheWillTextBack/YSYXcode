@@ -58,6 +58,7 @@ void set_npc_stop();
 #ifdef DIFFTEST
 void npc_diff_quit();
 #endif
+void demp_wave();
 
 // sdb.cpp
 void sdb_main();
