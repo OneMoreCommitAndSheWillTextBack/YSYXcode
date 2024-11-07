@@ -80,6 +80,7 @@ void init_trace() {
   trace = new Trace;
   trace->tfp = new VerilatedVcdC;
   trace->context = new VerilatedContext;
+  trace->context->traceEverOn(true);
   trace->tfp->open("/home/ysyx/project/ysyx-workbench/npc/wave.vcd");
 #endif
   return;
@@ -109,8 +110,10 @@ void init(int argc, char *argv[]) {
   npc->state = STOP;
   npc->top->rst = 1;
   npc->top->eval();
+  demp_wave();
   npc->top->rst = 0;
   npc->top->eval();
+  demp_wave();
 #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
 #endif
