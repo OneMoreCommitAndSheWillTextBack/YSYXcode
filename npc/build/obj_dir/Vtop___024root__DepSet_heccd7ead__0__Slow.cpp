@@ -133,16 +133,13 @@ VL_ATTR_COLD void Vtop___024root___dump_triggers__act(Vtop___024root* vlSelf) {
         VL_DBG_MSGF("         No triggers active\n");
     }
     if (vlSelf->__VactTriggered.at(0U)) {
-        VL_DBG_MSGF("         'act' region trigger index 0 is active: @(posedge clk)\n");
+        VL_DBG_MSGF("         'act' region trigger index 0 is active: @(posedge clk or posedge rst)\n");
     }
     if (vlSelf->__VactTriggered.at(1U)) {
-        VL_DBG_MSGF("         'act' region trigger index 1 is active: @(posedge clk or posedge rst)\n");
+        VL_DBG_MSGF("         'act' region trigger index 1 is active: @([changed] top.pcbridge)\n");
     }
     if (vlSelf->__VactTriggered.at(2U)) {
-        VL_DBG_MSGF("         'act' region trigger index 2 is active: @([changed] top.pcbridge)\n");
-    }
-    if (vlSelf->__VactTriggered.at(3U)) {
-        VL_DBG_MSGF("         'act' region trigger index 3 is active: @([changed] clk)\n");
+        VL_DBG_MSGF("         'act' region trigger index 2 is active: @([changed] clk)\n");
     }
 }
 #endif  // VL_DEBUG
@@ -157,16 +154,13 @@ VL_ATTR_COLD void Vtop___024root___dump_triggers__nba(Vtop___024root* vlSelf) {
         VL_DBG_MSGF("         No triggers active\n");
     }
     if (vlSelf->__VnbaTriggered.at(0U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 0 is active: @(posedge clk)\n");
+        VL_DBG_MSGF("         'nba' region trigger index 0 is active: @(posedge clk or posedge rst)\n");
     }
     if (vlSelf->__VnbaTriggered.at(1U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 1 is active: @(posedge clk or posedge rst)\n");
+        VL_DBG_MSGF("         'nba' region trigger index 1 is active: @([changed] top.pcbridge)\n");
     }
     if (vlSelf->__VnbaTriggered.at(2U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 2 is active: @([changed] top.pcbridge)\n");
-    }
-    if (vlSelf->__VnbaTriggered.at(3U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 3 is active: @([changed] clk)\n");
+        VL_DBG_MSGF("         'nba' region trigger index 2 is active: @([changed] clk)\n");
     }
 }
 #endif  // VL_DEBUG
@@ -190,7 +184,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__aluopcode = VL_RAND_RESET_I(4);
     vlSelf->top__DOT__pcaddimmbridge = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__aluarg2 = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__carry = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__res = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__pcwritereg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__memread = VL_RAND_RESET_I(32);
@@ -223,12 +216,14 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__alu0__DOT__logsig = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__alu0__DOT__shfsig = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__alu0__DOT__sltsig = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__alu0__DOT__carry_tmp = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__alu0__DOT__logres = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__alu0__DOT__addres = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__alu0__DOT__shfres = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__alu0__DOT__sltres = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__alu0__DOT__A_s = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__alu0__DOT____VdfgTmp_h1dc29214__0 = 0;
+    vlSelf->top__DOT__branchcontrol0__DOT____VdfgTmp_h47a8aa33__0 = 0;
     vlSelf->top__DOT__mem0__DOT__readreg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__mem0__DOT__len = VL_RAND_RESET_I(3);
     vlSelf->top__DOT__mem0__DOT__signalsig = VL_RAND_RESET_I(1);

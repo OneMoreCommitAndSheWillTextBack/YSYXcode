@@ -63,6 +63,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+97,"logsig", false,-1);
     tracep->declBit(c+98,"shfsig", false,-1);
     tracep->declBit(c+99,"sltsig", false,-1);
+    tracep->declBit(c+151,"carry_tmp", false,-1);
     tracep->declBus(c+153,"logres", false,-1, 31,0);
     tracep->declBus(c+154,"addres", false,-1, 31,0);
     tracep->declBit(c+155,"addzero", false,-1);
@@ -510,7 +511,7 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+149,((0U == vlSelf->top__DOT__res)));
     bufp->fullBit(oldp+150,((vlSelf->top__DOT__res 
                              >> 0x1fU)));
-    bufp->fullBit(oldp+151,(vlSelf->top__DOT__carry));
+    bufp->fullBit(oldp+151,(vlSelf->top__DOT__alu0__DOT__carry_tmp));
     bufp->fullIData(oldp+152,(vlSelf->top__DOT__res),32);
     bufp->fullIData(oldp+153,(vlSelf->top__DOT__alu0__DOT__logres),32);
     bufp->fullIData(oldp+154,(vlSelf->top__DOT__alu0__DOT__addres),32);

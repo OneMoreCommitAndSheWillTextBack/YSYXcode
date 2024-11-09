@@ -2,8 +2,8 @@ module top(
   input clk,
   input rst
 );
-  always @(posedge clk) begin
-    host_get_pc(npc);
+  always @(*) begin
+    host_get_pc(pcbridge);
     host_get_inst(inst);
     // $display("pc: 0x%08x start", pcbridge);
   end

@@ -3,11 +3,12 @@ module alu(
   input [31:0] B,
   input [3:0] op,
   output reg [31:0] res,
-  output reg zero,
-  output reg signal,
-  output reg carry
+  output zero,
+  output signal,
+  output carry
 );
   wire addsig, logsig, shfsig, sltsig;
+  reg carry_tmp;
 
   assign addsig = !(op[3]|op[2]);
   assign logsig = (op[3] == 0) & (op[2] == 1);
@@ -30,8 +31,8 @@ module alu(
   wire addzero, addsig;
   always @(*) begin
     case(op[0] ^ op[1])
-      1'b1: {carry, addres} = {1'b0,A} + {1'b0,B};
-      1'b0: {carry, addres} = {1'b0,A} + {1'b0,(~B)} + 1;
+      1'b1: {carry_tmp, addres} = {1'b0,A} + {1'b0,B};
+      1'b0: {carry_tmp, addres} = {1'b0,A} + {1'b0,(~B)} + 1;
     endcase
     // $display("%x + %x = %x", A, B, addres);
   end
@@ -67,5 +68,6 @@ module alu(
                32'b0;
   assign zero = (res == 0);
   assign signal = res[31];
+  assign carry = carry_tmp;
 
 endmodule

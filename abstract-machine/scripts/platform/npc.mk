@@ -17,7 +17,8 @@ CFLAGS += -DMAINARGS=\"$(mainargs)\"
 
 NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
-ARGS = -f$(IMAGE).bin -b
+ARGS = -f$(IMAGE).bin
+ARGS += -b
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
