@@ -24,7 +24,7 @@ assign npc = (jalsig) ? pcaddimm :
              (btypebranch && func3 == 3'b001 && !zero)   ? pcaddimm :
              (btypebranch && func3 == 3'b100 && signal)  ? pcaddimm :
              (btypebranch && func3 == 3'b101 && !signal) ? pcaddimm :
-             (btypebranch && func3 == 3'b110 && carry)   ? pcaddimm :
-             (btypebranch && func3 == 3'b111 && !carry)  ? pcaddimm :
+             (btypebranch && func3 == 3'b110 && !carry)  ? pcaddimm :
+             (btypebranch && func3 == 3'b111 && carry)   ? pcaddimm :
              pcadd4;
 endmodule

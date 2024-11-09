@@ -47,12 +47,17 @@ void checkregs(context *ref_context) {
       goto regdiferror;
     }
   }
+  if (ref_context->pc != cpu->con.pc)
+    goto regdiferror;
   return;
 
 regdiferror:
   printf("the difftest failed at pc %08x\n", cpu->con.pc);
-  printf("reg[%d]: 0x%08x -> 0x%08x\n", i, cpu->con.gpr[i],
-         ref_context->gpr[i]);
+  if (i < 32)
+    printf("reg[%d]: 0x%08x -> 0x%08x\n", i, cpu->con.gpr[i],
+           ref_context->gpr[i]);
+  else
+    printf("pc: 0x%08x -> 0x%08x\n", cpu->con.pc, ref_context->pc);
   for (i = 0; i < 32; i++) {
     printf("reg[%d] npc:0x%08x nemu:0x%08x\n", i, cpu->con.gpr[i],
            ref_context->gpr[i]);
