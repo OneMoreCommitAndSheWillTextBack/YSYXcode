@@ -98,6 +98,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+93,"auipcsig", false,-1);
     tracep->declBus(c+159,"npc", false,-1, 31,0);
     tracep->declBus(c+161,"pcwritereg", false,-1, 31,0);
+    tracep->declBus(c+159,"npc_tmp", false,-1, 31,0);
     tracep->popNamePrefix(1);
     tracep->pushNamePrefix("chosmuximm ");
     tracep->declBus(c+171,"NR_KEY", false,-1, 31,0);
@@ -518,7 +519,7 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullIData(oldp+156,(vlSelf->top__DOT__alu0__DOT__shfres),32);
     bufp->fullIData(oldp+157,(vlSelf->top__DOT__alu0__DOT__sltres),32);
     bufp->fullIData(oldp+158,(vlSelf->top__DOT__chosmuximm__DOT__i0__DOT__lut_out),32);
-    bufp->fullIData(oldp+159,(vlSelf->top__DOT__npc),32);
+    bufp->fullIData(oldp+159,(vlSelf->top__DOT__branchcontrol0__DOT__npc_tmp),32);
     bufp->fullIData(oldp+160,(vlSelf->top__DOT__pcaddimmbridge),32);
     bufp->fullIData(oldp+161,(vlSelf->top__DOT__pcwritereg),32);
     bufp->fullIData(oldp+162,(vlSelf->top__DOT__regwrite),32);

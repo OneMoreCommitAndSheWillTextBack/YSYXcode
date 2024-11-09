@@ -41,7 +41,6 @@ class Vtop___024root final : public VerilatedModule {
     CData/*0:0*/ __Vtrigrprev__TOP__rst;
     CData/*0:0*/ __VactDidInit;
     CData/*0:0*/ __VactContinue;
-    IData/*31:0*/ top__DOT__npc;
     IData/*31:0*/ top__DOT__pcbridge;
     IData/*31:0*/ top__DOT__imm;
     IData/*31:0*/ top__DOT__regwrite;
@@ -63,6 +62,7 @@ class Vtop___024root final : public VerilatedModule {
     IData/*31:0*/ top__DOT__alu0__DOT__shfres;
     IData/*31:0*/ top__DOT__alu0__DOT__sltres;
     IData/*31:0*/ top__DOT__alu0__DOT__A_s;
+    IData/*31:0*/ top__DOT__branchcontrol0__DOT__npc_tmp;
     IData/*31:0*/ top__DOT__mem0__DOT__readreg;
     IData/*31:0*/ top__DOT__mem0__DOT__read_s;
     IData/*31:0*/ top__DOT__muxpc__DOT__i0__DOT__lut_out;
