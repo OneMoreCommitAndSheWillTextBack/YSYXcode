@@ -241,7 +241,7 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgIData(oldp+157,(vlSelf->top__DOT__chosmuximm__DOT__i0__DOT__lut_out),32);
     }
     if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[6U])) {
-        bufp->chgIData(oldp+158,(vlSelf->top__DOT__branchcontrol0__DOT__npc_tmp),32);
+        bufp->chgIData(oldp+158,(vlSelf->top__DOT__npc),32);
         bufp->chgIData(oldp+159,(vlSelf->top__DOT__pcaddimmbridge),32);
         bufp->chgIData(oldp+160,(vlSelf->top__DOT__pcwritereg),32);
     }

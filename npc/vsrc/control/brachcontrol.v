@@ -14,46 +14,17 @@ module branchcontrol(
   output [31:0] npc,
   output reg [31:0] pcwritereg
 );
- reg [31:0] npc_tmp;
-  always @(*) begin
-    if(jalsig) begin
-      pcwritereg = pcadd4;
-      npc_tmp = pcaddimm; 
-    end else if(jalrsig) begin
-      pcwritereg = pcadd4;
-      npc_tmp = {res[31:1], 1'b0};
-    end else if(btypebranch) begin
-      case(func3)
-        3'b000: // beq
-          begin
-            if(zero)
-              npc_tmp = pcaddimm;
-            else
-              npc_tmp = pcadd4;
-          end
-        3'b001: // bne
-          begin
-            if(!zero)
-              npc_tmp = pcaddimm;
-            else
-              npc_tmp = pcadd4;
-          end
-        3'b100: // blt
-          begin
-            if(signal)
-              npc_tmp = pcaddimm;
-            else
-              npc_tmp = pcadd4;
-          end
-        default:
-          $display("meet a unknown b type inst");
-      endcase
-    end else if(auipcsig) begin
-      npc_tmp = pcadd4;
-      pcwritereg = pcaddimm;
-    end else begin
-      npc_tmp = pcadd4;
-    end
-  end
-  assign npc = npc_tmp;
+ assign pcwritereg = (jalsig || jalrsig) ? pcadd4 : 
+                    auipcsig ? pcaddimm :
+                    0;
+ 
+assign npc = (jalsig) ? pcaddimm :
+             (jalrsig) ? {res[31:1], 1'b0} :
+             (btypebranch && func3 == 3'b000 && zero)    ? pcaddimm :
+             (btypebranch && func3 == 3'b001 && !zero)   ? pcaddimm :
+             (btypebranch && func3 == 3'b100 && signal)  ? pcaddimm :
+             (btypebranch && func3 == 3'b101 && !signal) ? pcaddimm :
+             (btypebranch && func3 == 3'b110 && carry)   ? pcaddimm :
+             (btypebranch && func3 == 3'b111 && !carry)  ? pcaddimm :
+             pcadd4;
 endmodule
