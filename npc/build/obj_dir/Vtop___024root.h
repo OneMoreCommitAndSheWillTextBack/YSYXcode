@@ -23,7 +23,7 @@ class Vtop___024root final : public VerilatedModule {
     CData/*0:0*/ top__DOT__muximm;
     CData/*2:0*/ top__DOT__muxsig;
     CData/*1:0*/ top__DOT__aluop;
-    CData/*3:0*/ top__DOT__aluopcode;
+    CData/*4:0*/ top__DOT__aluopcode;
     CData/*0:0*/ top__DOT__decoder0__DOT__type_I;
     CData/*0:0*/ top__DOT__decoder0__DOT__type_U;
     CData/*3:0*/ top__DOT__alucontrol0__DOT__IRop;
@@ -37,6 +37,7 @@ class Vtop___024root final : public VerilatedModule {
     CData/*2:0*/ top__DOT__mem0__DOT__len;
     CData/*0:0*/ top__DOT__mem0__DOT__signalsig;
     CData/*0:0*/ top__DOT__muxpc__DOT__i0__DOT__hit;
+    CData/*3:0*/ __VdfgTmp_h23a1f158__0;
     CData/*5:0*/ __Vtableidx1;
     CData/*0:0*/ __Vtrigrprev__TOP__clk;
     CData/*0:0*/ __Vtrigrprev__TOP__rst;

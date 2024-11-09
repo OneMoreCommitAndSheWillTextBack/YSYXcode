@@ -513,35 +513,38 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
                                                         >> 0xcU)))));
     vlSelf->top__DOT__alucontrol0__DOT__IRop = Vtop__ConstPool__TABLE_ha43bcb51_0
         [vlSelf->__Vtableidx1];
-    vlSelf->top__DOT__aluopcode = ((3U == (IData)(vlSelf->top__DOT__aluop))
-                                    ? ((IData)((0x6000U 
-                                                == 
-                                                (0x6000U 
-                                                 & vlSelf->top__DOT__infetch0__DOT__reg_inst)))
-                                        ? 8U : ((1U 
-                                                 & VL_REDXOR_16(
-                                                                (0x6000U 
-                                                                 & vlSelf->top__DOT__infetch0__DOT__reg_inst)))
-                                                 ? 9U
-                                                 : 3U))
-                                    : (((2U == (IData)(vlSelf->top__DOT__aluop)) 
-                                        | (1U == (IData)(vlSelf->top__DOT__aluop)))
-                                        ? (IData)(vlSelf->top__DOT__alucontrol0__DOT__IRop)
-                                        : 1U));
+    vlSelf->__VdfgTmp_h23a1f158__0 = ((3U == (IData)(vlSelf->top__DOT__aluop))
+                                       ? ((IData)((0x6000U 
+                                                   == 
+                                                   (0x6000U 
+                                                    & vlSelf->top__DOT__infetch0__DOT__reg_inst)))
+                                           ? 8U : (
+                                                   (1U 
+                                                    & VL_REDXOR_16(
+                                                                   (0x6000U 
+                                                                    & vlSelf->top__DOT__infetch0__DOT__reg_inst)))
+                                                    ? 9U
+                                                    : 3U))
+                                       : (((2U == (IData)(vlSelf->top__DOT__aluop)) 
+                                           | (1U == (IData)(vlSelf->top__DOT__aluop)))
+                                           ? (IData)(vlSelf->top__DOT__alucontrol0__DOT__IRop)
+                                           : 1U));
     vlSelf->top__DOT__alu0__DOT____VdfgTmp_h1dc29214__0 
-        = (IData)((0U != (0xcU & (IData)(vlSelf->top__DOT__aluopcode))));
+        = (IData)((0U != (0xcU & (IData)(vlSelf->__VdfgTmp_h23a1f158__0))));
     vlSelf->top__DOT__alu0__DOT__logsig = (IData)((4U 
                                                    == 
                                                    (0xcU 
-                                                    & (IData)(vlSelf->top__DOT__aluopcode))));
+                                                    & (IData)(vlSelf->__VdfgTmp_h23a1f158__0))));
     vlSelf->top__DOT__alu0__DOT__shfsig = (IData)((0xcU 
                                                    == 
                                                    (0xcU 
-                                                    & (IData)(vlSelf->top__DOT__aluopcode))));
+                                                    & (IData)(vlSelf->__VdfgTmp_h23a1f158__0))));
     vlSelf->top__DOT__alu0__DOT__sltsig = (IData)((8U 
                                                    == 
                                                    (0xcU 
-                                                    & (IData)(vlSelf->top__DOT__aluopcode))));
+                                                    & (IData)(vlSelf->__VdfgTmp_h23a1f158__0))));
+    vlSelf->top__DOT__aluopcode = (((1U == (IData)(vlSelf->top__DOT__aluop)) 
+                                    << 4U) | (IData)(vlSelf->__VdfgTmp_h23a1f158__0));
 }
 
 void Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(IData/*31:0*/ pc);

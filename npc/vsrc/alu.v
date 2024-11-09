@@ -1,7 +1,7 @@
 module alu(
   input [31:0] A,
   input [31:0] B,
-  input [3:0] op,
+  input [4:0] op,
   output reg [31:0] res,
   output zero,
   output signal,
@@ -14,7 +14,8 @@ module alu(
   assign logsig = (op[3] == 0) & (op[2] == 1);
   assign shfsig = (op[3]&op[2]);
   assign sltsig = (op[3] == 1) & (op[2] == 0);
-  
+ 
+  wire type_I = op[4];
   // logic part
   reg [31:0] logres;
   always @(*) begin
@@ -43,9 +44,10 @@ module alu(
   reg [31:0] shfres;
   always @(*) begin
     case(op[1:0])
-      2'b00: shfres = A << B;
-      2'b01: shfres = A >> B;
-      2'b10: shfres = {{32{A[31]}} << B} | (A >> B);
+      2'b00: shfres = (type_I) ? A << B[4:0] : A << B;
+      2'b01: shfres = (type_I) ? A >> B[4:0] : A >> B;
+      2'b10: shfres = (type_I) ? {{32{A[31]}} << B[4:0]} | (A >> B[4:0]) : 
+                                 {{32{A[31]}} << B} | (A >> B);
       default: shfres = 32'b0;
     endcase
   end

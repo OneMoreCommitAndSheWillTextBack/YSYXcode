@@ -41,7 +41,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBus(c+162,"regwrite", false,-1, 31,0);
     tracep->declBus(c+146,"regout1", false,-1, 31,0);
     tracep->declBus(c+147,"regout2", false,-1, 31,0);
-    tracep->declBus(c+95,"aluopcode", false,-1, 3,0);
+    tracep->declBus(c+95,"aluopcode", false,-1, 4,0);
     tracep->declBus(c+168,"pcadd4bridge", false,-1, 31,0);
     tracep->declBus(c+160,"pcaddimmbridge", false,-1, 31,0);
     tracep->declBus(c+148,"aluarg2", false,-1, 31,0);
@@ -54,7 +54,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->pushNamePrefix("alu0 ");
     tracep->declBus(c+146,"A", false,-1, 31,0);
     tracep->declBus(c+148,"B", false,-1, 31,0);
-    tracep->declBus(c+95,"op", false,-1, 3,0);
+    tracep->declBus(c+95,"op", false,-1, 4,0);
     tracep->declBus(c+152,"res", false,-1, 31,0);
     tracep->declBit(c+149,"zero", false,-1);
     tracep->declBit(c+150,"signal", false,-1);
@@ -64,6 +64,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+98,"shfsig", false,-1);
     tracep->declBit(c+99,"sltsig", false,-1);
     tracep->declBit(c+151,"carry_tmp", false,-1);
+    tracep->declBit(c+100,"type_I", false,-1);
     tracep->declBus(c+153,"logres", false,-1, 31,0);
     tracep->declBus(c+154,"addres", false,-1, 31,0);
     tracep->declBit(c+155,"addzero", false,-1);
@@ -77,7 +78,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+80,"func7", false,-1);
     tracep->declBus(c+94,"aluop", false,-1, 1,0);
     tracep->declBit(c+92,"jalrsig", false,-1);
-    tracep->declBus(c+95,"aluopcode", false,-1, 3,0);
+    tracep->declBus(c+95,"aluopcode", false,-1, 4,0);
     tracep->declBit(c+100,"type_I", false,-1);
     tracep->declBit(c+101,"type_B", false,-1);
     tracep->declBit(c+102,"type_R", false,-1);
@@ -431,7 +432,7 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+92,((0x67U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))));
     bufp->fullBit(oldp+93,((0x17U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))));
     bufp->fullCData(oldp+94,(vlSelf->top__DOT__aluop),2);
-    bufp->fullCData(oldp+95,(vlSelf->top__DOT__aluopcode),4);
+    bufp->fullCData(oldp+95,(vlSelf->top__DOT__aluopcode),5);
     bufp->fullBit(oldp+96,((1U & (~ (IData)(vlSelf->top__DOT__alu0__DOT____VdfgTmp_h1dc29214__0)))));
     bufp->fullBit(oldp+97,(vlSelf->top__DOT__alu0__DOT__logsig));
     bufp->fullBit(oldp+98,(vlSelf->top__DOT__alu0__DOT__shfsig));

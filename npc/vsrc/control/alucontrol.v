@@ -6,7 +6,7 @@ module alucontrol(
   input [1:0] aluop,
   input jalrsig,
   
-  output [3:0] aluopcode
+  output [4:0] aluopcode
 );
   // addsig is the sb instr
   wire type_I, type_B, type_R, addsig;
@@ -49,7 +49,7 @@ module alucontrol(
     endcase
   end
 
-  assign aluopcode = (type_B==1)?branchop:(type_R|type_I == 1)?IRop:`ADD;
+  assign aluopcode = {(type_I)? 1'b1:1'b0,(type_B==1)?branchop:(type_R|type_I == 1)?IRop:`ADD};
 
 endmodule
 

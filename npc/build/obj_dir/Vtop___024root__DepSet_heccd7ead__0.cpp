@@ -84,45 +84,6 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
                                                    | vlSelf->top__DOT__aluarg2)
                                                 : (vlSelf->top__DOT__alu0__DOT__A_s 
                                                    & vlSelf->top__DOT__aluarg2)));
-    vlSelf->top__DOT__alu0__DOT__shfres = ((0U == (3U 
-                                                   & (IData)(vlSelf->top__DOT__aluopcode)))
-                                            ? ((0x1fU 
-                                                >= vlSelf->top__DOT__aluarg2)
-                                                ? (vlSelf->top__DOT__alu0__DOT__A_s 
-                                                   << vlSelf->top__DOT__aluarg2)
-                                                : 0U)
-                                            : ((1U 
-                                                == 
-                                                (3U 
-                                                 & (IData)(vlSelf->top__DOT__aluopcode)))
-                                                ? (
-                                                   (0x1fU 
-                                                    >= vlSelf->top__DOT__aluarg2)
-                                                    ? 
-                                                   (vlSelf->top__DOT__alu0__DOT__A_s 
-                                                    >> vlSelf->top__DOT__aluarg2)
-                                                    : 0U)
-                                                : (
-                                                   (2U 
-                                                    == 
-                                                    (3U 
-                                                     & (IData)(vlSelf->top__DOT__aluopcode)))
-                                                    ? 
-                                                   (((0x1fU 
-                                                      >= vlSelf->top__DOT__aluarg2)
-                                                      ? 
-                                                     ((- (IData)(
-                                                                 (vlSelf->top__DOT__alu0__DOT__A_s 
-                                                                  >> 0x1fU))) 
-                                                      << vlSelf->top__DOT__aluarg2)
-                                                      : 0U) 
-                                                    | ((0x1fU 
-                                                        >= vlSelf->top__DOT__aluarg2)
-                                                        ? 
-                                                       (vlSelf->top__DOT__alu0__DOT__A_s 
-                                                        >> vlSelf->top__DOT__aluarg2)
-                                                        : 0U))
-                                                    : 0U)));
     if ((1U & (IData)(vlSelf->top__DOT__aluopcode))) {
         if ((1U & (IData)(vlSelf->top__DOT__aluopcode))) {
             vlSelf->top__DOT__alu0__DOT__sltres = (
@@ -136,6 +97,75 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
                                                 ? 1U
                                                 : 0U);
     }
+    vlSelf->top__DOT__alu0__DOT__shfres = ((0U == (3U 
+                                                   & (IData)(vlSelf->top__DOT__aluopcode)))
+                                            ? ((1U 
+                                                == (IData)(vlSelf->top__DOT__aluop))
+                                                ? (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                   << 
+                                                   (0x1fU 
+                                                    & vlSelf->top__DOT__aluarg2))
+                                                : (
+                                                   (0x1fU 
+                                                    >= vlSelf->top__DOT__aluarg2)
+                                                    ? 
+                                                   (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                    << vlSelf->top__DOT__aluarg2)
+                                                    : 0U))
+                                            : ((1U 
+                                                == 
+                                                (3U 
+                                                 & (IData)(vlSelf->top__DOT__aluopcode)))
+                                                ? (
+                                                   (1U 
+                                                    == (IData)(vlSelf->top__DOT__aluop))
+                                                    ? 
+                                                   (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                    >> 
+                                                    (0x1fU 
+                                                     & vlSelf->top__DOT__aluarg2))
+                                                    : 
+                                                   ((0x1fU 
+                                                     >= vlSelf->top__DOT__aluarg2)
+                                                     ? 
+                                                    (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                     >> vlSelf->top__DOT__aluarg2)
+                                                     : 0U))
+                                                : (
+                                                   (2U 
+                                                    == 
+                                                    (3U 
+                                                     & (IData)(vlSelf->top__DOT__aluopcode)))
+                                                    ? 
+                                                   ((1U 
+                                                     == (IData)(vlSelf->top__DOT__aluop))
+                                                     ? 
+                                                    (((- (IData)(
+                                                                 (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                                  >> 0x1fU))) 
+                                                      << 
+                                                      (0x1fU 
+                                                       & vlSelf->top__DOT__aluarg2)) 
+                                                     | (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                        >> 
+                                                        (0x1fU 
+                                                         & vlSelf->top__DOT__aluarg2)))
+                                                     : 
+                                                    (((0x1fU 
+                                                       >= vlSelf->top__DOT__aluarg2)
+                                                       ? 
+                                                      ((- (IData)(
+                                                                  (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                                   >> 0x1fU))) 
+                                                       << vlSelf->top__DOT__aluarg2)
+                                                       : 0U) 
+                                                     | ((0x1fU 
+                                                         >= vlSelf->top__DOT__aluarg2)
+                                                         ? 
+                                                        (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                         >> vlSelf->top__DOT__aluarg2)
+                                                         : 0U)))
+                                                    : 0U)));
     if (vlSelf->top__DOT__alu0__DOT____VdfgTmp_h1dc29214__0) {
         if (vlSelf->top__DOT__alu0__DOT__logsig) {
             vlSelf->top__DOT__muxpc__DOT__i0__DOT__data_list[3U] 

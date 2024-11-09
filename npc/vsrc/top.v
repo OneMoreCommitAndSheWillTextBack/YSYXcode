@@ -77,7 +77,7 @@ module top(
     .regout2(regout2)
   );
   
-  wire [3:0] aluopcode;
+  wire [4:0] aluopcode;
   alucontrol alucontrol0(
     .func3(func3_maincontrol),
     .func7(func7_maincontrol),
