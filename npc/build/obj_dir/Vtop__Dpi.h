@@ -19,9 +19,9 @@ extern "C" {
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/infetch.v:1:29
     extern int get_inst(int pc);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/mem.v:2:29
-    extern int guest_read(int addr);
+    extern int guest_read(int addr, int len);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/mem.v:1:30
-    extern void guest_write(int addr, int data);
+    extern void guest_write(int addr, int data, int len);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/infetch.v:3:30
     extern void host_get_inst(int inst);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/infetch.v:2:30

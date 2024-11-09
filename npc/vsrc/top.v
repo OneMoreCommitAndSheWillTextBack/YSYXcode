@@ -40,8 +40,8 @@ module top(
     .func7(func7_decoder)
   );
 
-  wire regew, memew, memer, muximm, regwritepc, regwritemem;
-  wire [2:0] func3_maincontrol;
+  wire regew, memew, memer, muximm;
+  wire [2:0] func3_maincontrol, muxsig;
   wire func7_maincontrol;
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
@@ -51,11 +51,10 @@ module top(
     .func7(func7_decoder),
 
     .memew(memew),
+    .muxsig(muxsig),
     .memer(memer),
     .regew(regew),
     .muximm(muximm),
-    .regwritemem(regwritemem),
-    .regwritepc(regwritepc),
     .func3_out(func3_maincontrol),
     .func7_out(func7_maincontrol),
     .btypebranch(btypebranch),
@@ -106,7 +105,7 @@ module top(
     });
 
   // instant a alu
-  wire zero, signal;
+  wire zero, signal, carry;
   wire [31:0] res;
   alu alu0(
     .A(regout1),
@@ -114,7 +113,8 @@ module top(
     .op(aluopcode),
     .res(res),
     .zero(zero),
-    .signal(signal)
+    .signal(signal),
+    .carry(carry)
   );
   
   
@@ -124,6 +124,7 @@ module top(
     .func3(func3_maincontrol),
     .zero(zero),
     .signal(signal),
+    .carry(carry),
     .res(res),
     .pcadd4(pcadd4bridge),
     .pcaddimm(pcaddimmbridge),
@@ -142,18 +143,15 @@ module top(
   .write(regout2),
   .ew(memew),
   .er(memer),
-  .read(memread)
+  .read(memread),
+  .func3(func3_maincontrol)
 );
 
-wire [31:0] muxregormem;
-MuxKey#(2, 1, 32) regormem(muxregormem, regwritemem, {
-    1'b0, res,
-    1'b1, memread
-});
-  
-MuxKey#(2, 1, 32) muxpc(regwrite, regwritepc, {
-    1'b1, pcwritereg,
-    1'b0, muxregormem
+MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
+    3'b000, res,
+    3'b001, memread,
+    3'b010, imm,
+    3'b100, pcwritereg
 });
 
 endmodule

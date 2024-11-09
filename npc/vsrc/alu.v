@@ -4,7 +4,8 @@ module alu(
   input [3:0] op,
   output reg [31:0] res,
   output reg zero,
-  output reg signal
+  output reg signal,
+  output reg carry
 );
   wire addsig, logsig, shfsig, sltsig;
 
@@ -29,8 +30,8 @@ module alu(
   wire addzero, addsig;
   always @(*) begin
     case(op[0] ^ op[1])
-      1'b1: addres = A + B;
-      1'b0: addres = A + (~B) + 1;
+      1'b1: {carry, addres} = {1'b0,A} + {1'b0,B};
+      1'b0: {carry, addres} = {1'b0,A} + {1'b0,(~B)} + 1;
     endcase
     // $display("%x + %x = %x", A, B, addres);
   end
@@ -54,8 +55,8 @@ module alu(
   wire signed [31:0] B_s = B;
   always @(*) begin
     case(op[0]) 
-      1'b0: sltres = (A>B) ? 32'b1 : 32'b0;
-      1'b1: sltres = (A_s>B_s) ? 32'b1 : 32'b0;
+      1'b0: sltres = (A<B) ? 32'b1 : 32'b0;
+      1'b1: sltres = (A_s<B_s) ? 32'b1 : 32'b0;
     endcase
   end
 

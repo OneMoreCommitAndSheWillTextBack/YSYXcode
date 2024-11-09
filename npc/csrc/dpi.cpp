@@ -10,14 +10,14 @@ extern "C" void ret(int pc) {
   set_npc_end();
 }
 
-extern "C" int guest_read(int addr) {
-  uint32_t ret = paddr_read((uint32_t)addr, 4);
+extern "C" int guest_read(int addr, int len) {
+  uint32_t ret = paddr_read((uint32_t)addr, len);
   return ret;
 }
 
-extern "C" void guest_write(int addr, int data) {
+extern "C" void guest_write(int addr, int data, int len) {
   // printf("the write addr is %08x\n", addr);
-  paddr_write((uint32_t)addr, 4, (uint32_t)data);
+  paddr_write((uint32_t)addr, len, (uint32_t)data);
   return;
 }
 
