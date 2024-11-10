@@ -607,17 +607,18 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                    ((1U 
                                                      == (IData)(vlSelf->top__DOT__aluop))
                                                      ? 
-                                                    (vlSelf->top__DOT__alu0__DOT__A_s 
-                                                     >> 
-                                                     (0x1fU 
-                                                      & vlSelf->top__DOT__aluarg2))
+                                                    VL_SHIFTRS_III(32,32,5, vlSelf->top__DOT__alu0__DOT__A_s, 
+                                                                   (0x1fU 
+                                                                    & vlSelf->top__DOT__aluarg2))
                                                      : 
                                                     ((0x1fU 
                                                       >= vlSelf->top__DOT__aluarg2)
                                                       ? 
-                                                     (vlSelf->top__DOT__alu0__DOT__A_s 
-                                                      >> vlSelf->top__DOT__aluarg2)
-                                                      : 0U))
+                                                     VL_SHIFTRS_III(32,32,32, vlSelf->top__DOT__alu0__DOT__A_s, vlSelf->top__DOT__aluarg2)
+                                                      : 
+                                                     (- 
+                                                      (vlSelf->top__DOT__alu0__DOT__A_s 
+                                                       >> 0x1fU))))
                                                     : 0U)));
     if (vlSelf->top__DOT__alu0__DOT____VdfgTmp_h1dc29214__0) {
         if (vlSelf->top__DOT__alu0__DOT__logsig) {
