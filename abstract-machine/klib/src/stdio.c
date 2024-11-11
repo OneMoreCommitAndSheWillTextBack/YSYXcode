@@ -12,6 +12,9 @@ int printf(const char *fmt, ...) {
   va_start(ap, fmt);
   int size = vsprintf(buffer, fmt, ap);
   va_end(ap);
+  for (int i = 0; buffer[i] != '\0'; i++) {
+    putch(buffer[i]);
+  }
   return size;
 }
 
