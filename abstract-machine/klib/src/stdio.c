@@ -43,6 +43,123 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   size_t fmtn = 0;
   int intarg = 0;
   char *chararg = NULL;
+  char buf[64]; // 增加了缓冲区大小，以容纳更大的整数转换
+  int zerofill = 0;
+  int width = 0;       // 用于存储字段宽度
+  int is_negative = 0; // 标记数字是否为负数
+  int i = 0;
+
+  while (outn < n - 1) { // 保留一个字符的空间给终止符
+    char ch = fmt[fmtn];
+    if (ch == '\0') {
+      break;
+    }
+
+    if (ch == '%') {
+      fmtn++;
+      ch = fmt[fmtn];
+
+      if (ch == '0') {
+        zerofill = 1;
+        fmtn++;
+        ch = fmt[fmtn];
+
+        // 处理字段宽度
+        while (fmt[fmtn] >= '0' && fmt[fmtn] <= '9') {
+          width = width * 10 + (fmt[fmtn] - '0');
+          fmtn++;
+          ch = fmt[fmtn];
+        }
+      } else {
+        // 重置宽度和零填充标志，因为不是以0开头的宽度
+        width = 0;
+        zerofill = 0;
+      }
+
+      switch (ch) {
+      case 'd':
+        intarg = va_arg(ap, int);
+        is_negative = intarg < 0;
+        if (is_negative) {
+          intarg = -intarg;
+          if (outn < n - 1) {
+            out[outn++] = '-';
+          }
+        }
+
+        // 将整数转换为字符串，考虑宽度和零填充
+        i = 0;
+        while (intarg > 0) {
+          buf[i++] = (intarg % 10) + '0';
+          intarg /= 10;
+        }
+        if (is_negative) {
+          // 如果原数字是负数，宽度应包括负号
+          width++;
+        }
+        while (i < width) {
+          if (zerofill && (i < (is_negative ? 1 : 0) || intarg > 0)) {
+            if (outn < n - 1) {
+              out[outn++] = '0';
+            }
+          } else if (outn < n - 1) {
+            out[outn++] = ' '; // 或者可以选择不填充
+          }
+          i++;
+        }
+        for (i--; i >= 0; i--) {
+          if (outn < n - 1) {
+            out[outn++] = buf[i];
+          }
+        }
+        fmtn++;
+        break;
+
+      case 's':
+        chararg = va_arg(ap, char *);
+        while (*chararg != '\0' && outn < n - 1) {
+          out[outn++] = *chararg++;
+        }
+        fmtn++;
+        break;
+
+      default:
+        // 对于不支持的格式说明符，直接复制到输出（可能导致错误）
+        if (outn < n - 1) {
+          out[outn++] = '%';
+        }
+        if (outn < n - 1) {
+          out[outn++] = ch;
+        }
+        fmtn++;
+        break;
+      }
+
+      // 重置宽度和零填充标志
+      width = 0;
+      zerofill = 0;
+    } else {
+      if (outn < n - 1) {
+        out[outn++] = ch;
+      }
+      fmtn++;
+    }
+  }
+
+  if (outn < n - 1)
+    out[outn] = '\0'; // 确保字符串以null终止
+  else
+    out[n] = '\0';
+  return outn;
+}
+
+#endif
+
+/*
+   size_t outn = 0;
+  size_t fmtn = 0;
+  int intarg = 0;
+  char *chararg = NULL;
   int i = 0;
   char buf[32];
   char enoptbl[] = {"ds"};
@@ -121,6 +238,4 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   }
   out[outn] = '\0';
   return outn;
-}
-
-#endif
+ */
