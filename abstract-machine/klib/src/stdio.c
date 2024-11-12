@@ -81,6 +81,8 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
         for (i = i - 1; i >= 0; i--)
           out[outn++] = buf[i];
         fmtn++;
+        input_lenth = 0;
+        zerofill = 0;
         break;
       case 's':
         chararg = va_arg(ap, char *);
