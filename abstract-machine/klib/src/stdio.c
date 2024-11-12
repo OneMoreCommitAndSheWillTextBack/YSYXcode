@@ -60,10 +60,18 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
           out[outn++] = '-';
         }
         if (input_lenth == -1) {
+          if (intarg == 0)
+            buf[i++] = '0';
           for (i = 0; intarg > 0; intarg = intarg / 10)
             buf[i++] = (intarg % 10) + '0';
         } else {
-          for (i = 0; i < input_lenth; intarg = intarg / 10) {
+          if (intarg == 0) {
+            buf[i++] = '0';
+            i = 1;
+          } else {
+            i = 0;
+          }
+          for (; i < input_lenth; intarg = intarg / 10) {
             if (intarg == 0)
               buf[i++] = (zerofill) ? '0' : ' ';
             else
