@@ -45,6 +45,9 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   char *chararg = NULL;
   int i = 0;
   char buf[32];
+  char enoptbl[] = {"ds"};
+  int input_lenth = -1;
+  int zerofill = 0;
   while (outn < n) {
     switch (fmt[fmtn]) {
     case '%':
@@ -56,8 +59,17 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
           intarg = -intarg;
           out[outn++] = '-';
         }
-        for (i = 0; intarg > 0; intarg = intarg / 10)
-          buf[i++] = (intarg % 10) + '0';
+        if (input_lenth == -1) {
+          for (i = 0; intarg > 0; intarg = intarg / 10)
+            buf[i++] = (intarg % 10) + '0';
+        } else {
+          for (i = 0; i < input_lenth; intarg = intarg / 10) {
+            if (intarg == 0)
+              buf[i++] = (zerofill) ? '0' : ' ';
+            else
+              buf[i++] = (intarg % 10) + '0';
+          }
+        }
         for (i = i - 1; i >= 0; i--)
           out[outn++] = buf[i];
         fmtn++;
@@ -70,7 +82,24 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
         fmtn++;
         break;
       default:
-        return -1;
+        if (fmt[fmtn] == '0')
+          zerofill = 1;
+        i = 0;
+        input_lenth = 0;
+        while (fmt[fmtn + i] - '0' >= 0 || fmt[fmtn + i] - '0' <= 9) {
+          buf[i] = fmt[fmtn + i];
+          i++;
+        }
+        fmtn = fmtn + i;
+        for (i--; i >= 0; i--)
+          input_lenth = input_lenth * 10 + fmt[fmtn + i] - '0';
+        char *tmp = NULL;
+        for (tmp = enoptbl; *tmp != '\0'; tmp++) {
+          if (*tmp == fmt[fmtn])
+            break;
+        }
+        if (*tmp == '\0')
+          return -1;
       }
       break;
     case '\0':
