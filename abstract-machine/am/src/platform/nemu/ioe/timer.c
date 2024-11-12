@@ -8,7 +8,7 @@ void __am_timer_init() {}
 
 void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime) {
   uintptr_t rtcbase = (uintptr_t)&_pmem_start + RTC_ADDR;
-  uint64_t uptimehgh = *(uint32_t *)(rtcbase + 1);
+  uint64_t uptimehgh = *((uint32_t *)rtcbase + 1);
   uint64_t uptimelow = *(uint32_t *)(rtcbase);
   uptime->us = (uptimehgh << 32) + uptimelow;
 }
