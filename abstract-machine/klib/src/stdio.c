@@ -89,6 +89,8 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
 
         // 将整数转换为字符串，考虑宽度和零填充
         i = 0;
+        if (intarg == 0)
+          buf[i++] = '0';
         while (intarg > 0) {
           buf[i++] = (intarg % 10) + '0';
           intarg /= 10;
