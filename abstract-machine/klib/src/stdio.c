@@ -48,6 +48,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   int width = 0;       // 用于存储字段宽度
   int is_negative = 0; // 标记数字是否为负数
   int i = 0;
+  int utype = 0;
 
   while (outn < n - 1) { // 保留一个字符的空间给终止符
     char ch = fmt[fmtn];
@@ -77,13 +78,16 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
       }
 
       switch (ch) {
+      case 'u':
+        utype = 1;
       case 'd':
         intarg = va_arg(ap, int);
         is_negative = intarg < 0;
         if (is_negative) {
           intarg = -intarg;
-          if (outn < n - 1) {
+          if (!utype) {
             out[outn++] = '-';
+            utype = 0;
           }
         }
 
@@ -156,88 +160,3 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
 }
 
 #endif
-
-/*
-   size_t outn = 0;
-  size_t fmtn = 0;
-  int intarg = 0;
-  char *chararg = NULL;
-  int i = 0;
-  char buf[32];
-  char enoptbl[] = {"ds"};
-  int input_lenth = -1;
-  int zerofill = 0;
-  while (outn < n) {
-    switch (fmt[fmtn]) {
-    case '%':
-      fmtn++;
-      switch (fmt[fmtn]) {
-      case 'd':
-        intarg = va_arg(ap, int);
-        if (intarg < 0) {
-          intarg = -intarg;
-          out[outn++] = '-';
-        }
-        if (input_lenth == -1) {
-          if (intarg == 0)
-            buf[i++] = '0';
-          for (i = 0; intarg > 0; intarg = intarg / 10)
-            buf[i++] = (intarg % 10) + '0';
-        } else {
-          if (intarg == 0) {
-            buf[i++] = '0';
-            i = 1;
-          } else {
-            i = 0;
-          }
-          for (; i < input_lenth; intarg = intarg / 10) {
-            if (intarg == 0)
-              buf[i++] = (zerofill) ? '0' : ' ';
-            else
-              buf[i++] = (intarg % 10) + '0';
-          }
-        }
-        for (i = i - 1; i >= 0; i--)
-          out[outn++] = buf[i];
-        fmtn++;
-        input_lenth = 0;
-        zerofill = 0;
-        break;
-      case 's':
-        chararg = va_arg(ap, char *);
-        i = 0;
-        while (chararg[i] != '\0')
-          out[outn++] = chararg[i++];
-        fmtn++;
-        break;
-      default:
-        if (fmt[fmtn] == '0')
-          zerofill = 1;
-        i = 0;
-        input_lenth = 0;
-        while (fmt[fmtn + i] - '0' >= 0 && fmt[fmtn + i] - '0' <= 9) {
-          buf[i] = fmt[fmtn + i];
-          i++;
-        }
-        fmtn = fmtn + i;
-        for (i--; i >= 0; i--)
-          input_lenth = input_lenth * 10 + fmt[fmtn + i] - '0';
-        char *tmp = NULL;
-        for (tmp = enoptbl; *tmp != '\0'; tmp++) {
-          if (*tmp == fmt[fmtn])
-            break;
-        }
-        if (*tmp == '\0')
-          return -1;
-      }
-      break;
-    case '\0':
-      out[outn] = fmt[fmtn];
-      return outn;
-    default:
-      out[outn++] = fmt[fmtn++];
-    }
-  }
-  out[outn] = '\0';
-  return outn;
- */
