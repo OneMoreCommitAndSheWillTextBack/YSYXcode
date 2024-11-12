@@ -13,9 +13,12 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
-#include "common.h"
+// clang format off
+
 #ifndef __UTILS_H__
 #define __UTILS_H__
+
+#include <common.h>
 
 // ----------- state -----------
 
@@ -73,3 +76,5 @@ uint64_t get_time();
   } while (0)
 
 #endif
+
+// clang format on
