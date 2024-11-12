@@ -86,7 +86,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
           zerofill = 1;
         i = 0;
         input_lenth = 0;
-        while (fmt[fmtn + i] - '0' >= 0 || fmt[fmtn + i] - '0' <= 9) {
+        while (fmt[fmtn + i] - '0' >= 0 && fmt[fmtn + i] - '0' <= 9) {
           buf[i] = fmt[fmtn + i];
           i++;
         }
