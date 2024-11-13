@@ -1,14 +1,14 @@
 #include "amdev.h"
+#include "klib.h"
 #include <am.h>
 #include <nemu.h>
-#include <stdint.h>
 
 #define SYNC_ADDR (VGACTL_ADDR + 4)
 
 void __am_gpu_init() {
   int i;
-  int w = (*(uint32_t *)VGACTL_ADDR >> 16) / 32;
-  int h = (*(uint32_t *)VGACTL_ADDR & 0xffff) / 32;
+  int w = (*(uint32_t *)VGACTL_ADDR >> 16);
+  int h = (*(uint32_t *)VGACTL_ADDR & 0xffff);
   uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
   for (i = 0; i < w * h; i++)
     fb[i] = i;
@@ -19,6 +19,7 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
   uint32_t gpuctl = *(uint32_t *)VGACTL_ADDR;
   cfg->width = gpuctl >> 16;
   cfg->height = gpuctl & 0xffff;
+  printf("%d %d\n", cfg->height, cfg->width);
 }
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
