@@ -1,5 +1,4 @@
 #include "amdev.h"
-#include "klib.h"
 #include <am.h>
 #include <nemu.h>
 
@@ -19,7 +18,6 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
   uint32_t gpuctl = *(uint32_t *)VGACTL_ADDR;
   cfg->width = gpuctl >> 16;
   cfg->height = gpuctl & 0xffff;
-  printf("%d %d\n", cfg->height, cfg->width);
 }
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
