@@ -1,5 +1,4 @@
 #include "amdev.h"
-#include "klib-macros.h"
 #include <am.h>
 #include <nemu.h>
 #include <stdint.h>
@@ -8,8 +7,8 @@
 
 void __am_gpu_init() {
   int i;
-  int w = io_read(AM_GPU_CONFIG).width / 32;
-  int h = io_read(AM_GPU_CONFIG).height / 32;
+  int w = (*(uint32_t *)VGACTL_ADDR >> 16) / 32;
+  int h = (*(uint32_t *)VGACTL_ADDR & 0xffff) / 32;
   uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
   for (i = 0; i < w * h; i++)
     fb[i] = i;
