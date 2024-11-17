@@ -26,11 +26,9 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
   size_t fb_w = ctl->w;
   size_t fb_x = ctl->x;
   size_t fb_y = ctl->y;
-  printf("%d %d %d %d\n", fb_h, fb_w, fb_x, fb_y);
   for (int i = 0; i < fb_h && i < screen_h; i++) {
-    for (int j = 0; i < fb_w && i < screen_w; j++) {
+    for (int j = 0; j < fb_w && j < screen_w; j++) {
       *(fdb + (i + fb_y) * screen_w + (j + fb_x)) = *(pix + i * fb_w + j);
-      fdb++;
     }
   }
   if (ctl->sync) {
