@@ -49,7 +49,6 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
 }
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write) {
-  printf("enter here\n");
   if(audio_base[reg_init] == 1){
     int freq = audio_base[reg_freq];
     if(freq != 0){
