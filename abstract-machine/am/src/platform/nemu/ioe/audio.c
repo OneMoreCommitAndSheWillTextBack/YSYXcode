@@ -38,12 +38,12 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   int remain, count;
   int buflen = *(int*)AUDIO_SBUF_SIZE_ADDR;
   int wirtelen = \
-    ((int)(ctl->buf.start) - (int)(ctl->buf.end)) / sizeof(uint8_t);
+    ((int)(ctl->buf.end) - (int)(ctl->buf.start)) / sizeof(uint8_t);
   do{
     count = *(int*)AUDIO_COUNT_ADDR;
     remain = buflen - count;
   }while(wirtelen > remain);
-  printf("buflen is %d\n", buflen);
+  printf("write len is %d, remain is %d\n", wirtelen, remain);
   uint8_t *src = (uint8_t*)ctl->buf.start;
   uint8_t *dst = (uint8_t*)AUDIO_SBUF_ADDR;
   int i = 0;
