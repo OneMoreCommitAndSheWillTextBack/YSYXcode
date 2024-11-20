@@ -43,7 +43,7 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
     count = *(int*)AUDIO_COUNT_ADDR;
     remain = buflen - count;
   }while(wirtelen > remain);
-  printf("write len is %d, remain is %d\n", wirtelen, remain);
+  printf("buflen is %d\n", buflen);
   uint8_t *src = (uint8_t*)ctl->buf.start;
   uint8_t *dst = (uint8_t*)AUDIO_SBUF_ADDR;
   int i = 0;
