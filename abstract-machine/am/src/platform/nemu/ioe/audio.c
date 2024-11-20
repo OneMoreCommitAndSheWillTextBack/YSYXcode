@@ -1,3 +1,4 @@
+#include "klib.h"
 #include <am.h>
 #include <nemu.h>
 #include <stdint.h>
@@ -42,9 +43,11 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
     count = *(int*)AUDIO_COUNT_ADDR;
     remain = buflen - count;
   }while(wirtelen > remain);
+  printf("write len is %d, remain is %d\n", wirtelen, remain);
   uint8_t *src = (uint8_t*)ctl->buf.start;
   uint8_t *dst = (uint8_t*)AUDIO_SBUF_ADDR;
-  for(int i=0;i<wirtelen;i++){
+  int i = 0;
+  for(;i<wirtelen;i++){
     dst[i] = src[i];
   }
   *(int*)AUDIO_COUNT_ADDR = remain + wirtelen;
