@@ -33,6 +33,7 @@ enum {
 
 static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
+SDL_AudioSpec s = {};
 
 static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   // fill the audio buffer
@@ -52,7 +53,6 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
   if(audio_base[reg_init] == 1){
     int freq = audio_base[reg_freq];
     if(freq != 0){
-      SDL_AudioSpec s = {};
       s.format = AUDIO_S16SYS;
       s.userdata = NULL;
       s.freq = freq;
@@ -66,7 +66,6 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
       SDL_PauseAudio(0);
     }
   }
-  printf("out of here\n");
 }
 
 void init_audio() {
