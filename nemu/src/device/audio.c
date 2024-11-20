@@ -45,7 +45,7 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
     stream[i] = 0;
   }
   audio_base[reg_count] = (count - len < 0) ? 0 : count - len;
-  printf("input %d len to audio\n", len);
+  printf("input %d len to audio, %d remain\n", len, audio_base[reg_count]);
 }
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write) {
