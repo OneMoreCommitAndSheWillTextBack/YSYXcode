@@ -13,6 +13,7 @@
 #define AUDIO_COUNT_ADDR     (AUDIO_ADDR + 0x14)
 
 void __am_audio_init() {
+  *(int*)AUDIO_COUNT_ADDR = 0;
 }
 
 void __am_audio_config(AM_AUDIO_CONFIG_T *cfg) {
