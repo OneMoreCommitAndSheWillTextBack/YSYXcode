@@ -50,7 +50,7 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   for(;i<wirtelen;i++){
     dst[count+i] = src[i];
   }
-  *(int*)AUDIO_COUNT_ADDR = wirtelen;
+  *(int*)AUDIO_COUNT_ADDR += wirtelen;
 }
 
 // clang-format on
