@@ -33,34 +33,34 @@ enum {
 
 static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
-SDL_AudioSpec s = {};
 
 static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   // fill the audio buffer
   int count = audio_base[reg_count];
   int i = 0;
-  for(i=0;i<count;i++){
+  for(i=0;i<count && i <len;i++){
     stream[i] = sbuf[i];
   }
+  audio_base[reg_count] = count - i;
   for(;i<len;i++){
     stream[i] = 0;
   }
-  audio_base[reg_count] = (count - len < 0) ? 0 : count - len;
+  printf("input %d len to audio, %d remain\n", len, audio_base[reg_count]);
 }
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write) {
   if(audio_base[reg_init] == 1){
-    int freq = audio_base[reg_freq];
-    if(freq != 0){
-      s.format = AUDIO_S16SYS;
-      s.userdata = NULL;
-      s.freq = freq;
-      s.channels = audio_base[reg_channels];
-      s.samples = audio_base[reg_samples];
-      s.size = CONFIG_SB_SIZE;
-      s.silence = 0;
-      s.callback = fill_audiobuf;
-      SDL_InitSubSystem(SDL_INIT_AUDIO);
+    SDL_AudioSpec s = {};
+    s.format = AUDIO_S16SYS;
+    s.userdata = NULL;
+    s.freq = audio_base[reg_freq];
+    s.channels = audio_base[reg_channels];
+    s.samples = audio_base[reg_samples];
+    s.size = CONFIG_SB_SIZE;
+    s.silence = 0;
+    s.callback = fill_audiobuf;
+    int ret = SDL_InitSubSystem(SDL_INIT_AUDIO);
+    if(ret == 0){
       SDL_OpenAudio(&s, NULL);
       SDL_PauseAudio(0);
     }
