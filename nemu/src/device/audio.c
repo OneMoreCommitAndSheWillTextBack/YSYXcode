@@ -59,6 +59,7 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
     s.size = CONFIG_SB_SIZE;
     s.silence = 0;
     s.callback = fill_audiobuf;
+    audio_base[reg_count] = 0;
     int ret = SDL_InitSubSystem(SDL_INIT_AUDIO);
     if(ret == 0){
       SDL_OpenAudio(&s, NULL);
