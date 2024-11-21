@@ -38,8 +38,7 @@ void __am_audio_status(AM_AUDIO_STATUS_T *stat) {
 void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   int remain, count;
   int buflen = *(int*)AUDIO_SBUF_SIZE_ADDR;
-  int wirtelen = \
-    ((int)(ctl->buf.end) - (int)(ctl->buf.start)) / sizeof(uint8_t);
+  int wirtelen = (int)(ctl->buf.end) - (int)(ctl->buf.start);
   do{
     count = *(int*)AUDIO_COUNT_ADDR;
     remain = buflen - count;
@@ -50,7 +49,8 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   for(;i<wirtelen;i++){
     dst[count+i] = src[i];
   }
-  *(int*)AUDIO_COUNT_ADDR += wirtelen;
+  *(int*)AUDIO_COUNT_ADDR = count + wirtelen;
+  printf("input %d data to sbuf, count is %d\n", wirtelen, count + wirtelen);
 }
 
 // clang-format on
