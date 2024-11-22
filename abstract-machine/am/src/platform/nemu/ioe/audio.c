@@ -5,7 +5,7 @@
 
 // clang-format off
 #define MIN(x, y) ((x) < (y)) ? (x) : (y)
-static int wfd = -1;
+static int wfd = 0;
 
 #define AUDIO_FREQ_ADDR      (AUDIO_ADDR + 0x00)
 #define AUDIO_CHANNELS_ADDR  (AUDIO_ADDR + 0x04)
