@@ -47,12 +47,12 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   for(;i<nread;i++){
     stream[i] = sbuf[(rfd+i)%CONFIG_SB_SIZE];
   }
+  printf("input %d len to audio, %d remain\n", i, audio_base[reg_count]);
   count -= nread;
   rfd = (rfd + nread) % CONFIG_SB_SIZE;
   for(;i<len;i++){
     stream[i] = 0;
   }
-  printf("input %d len to audio, %d remain\n", i, audio_base[reg_count]);
 }
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write) {
