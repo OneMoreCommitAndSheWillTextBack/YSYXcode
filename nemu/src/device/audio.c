@@ -76,8 +76,7 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
 
 static void audio_play_handle(uint32_t offset, int len, bool is_write){
   SDL_PauseAudio(0);
-  while(audio_base[reg_count] > 0)
-    printf("%d\n", audio_base[reg_count]);
+  while(audio_base[reg_count] > 0);
   SDL_PauseAudio(1);
 }
 
