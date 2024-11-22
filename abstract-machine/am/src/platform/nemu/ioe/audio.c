@@ -43,16 +43,15 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   uint8_t *src = (uint8_t*)ctl->buf.start;
   uint8_t *dst = (uint8_t*)AUDIO_SBUF_ADDR;
   while(nwrite < writelen){
-    int count = *(int*)AUDIO_COUNT_ADDR;
     int i = 0;
     for(;i<writelen;i++){
-        dst[(wfd+i) % buflen] = src[i];
+        dst[wfd] = src[i];
+        wfd = (wfd + 1) % buflen;
     }
-    *(int*)AUDIO_COUNT_ADDR = count + i;
     // printf("input %d data to sbuf, count is %d\n", writelen, *(int*)AUDIO_COUNT_ADDR);
-    wfd = (wfd + i) % buflen;
     nwrite += i;
   }
+  *(int*)AUDIO_COUNT_ADDR = *(int*)AUDIO_COUNT_ADDR + writelen;
 }
 
 // clang-format on
