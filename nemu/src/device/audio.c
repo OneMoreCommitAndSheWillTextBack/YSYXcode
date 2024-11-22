@@ -38,7 +38,6 @@ static uint32_t *audio_base = NULL;
 int rfd = 0;
 
 static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
-  if(audio_base[reg_count]*2 > CONFIG_SB_SIZE){
   // fill the audio buffer
   int count = audio_base[reg_count];
   int nread = len;
@@ -54,7 +53,6 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   rfd = (rfd + nread) % CONFIG_SB_SIZE;
   for(;i<len;i++){
     stream[i] = 0;
-  }
   }
 }
 
