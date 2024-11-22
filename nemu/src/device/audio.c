@@ -76,7 +76,6 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
 
 static void audio_play_handle(uint32_t offset, int len, bool is_write){
   SDL_PauseAudio(0);
-  SDL_PauseAudio(1);
 }
 
 void init_audio() {
