@@ -38,20 +38,22 @@ static uint32_t *audio_base = NULL;
 
 int rfd = 0;
 
-static void fill_audiobuf(void *userdata, Uint8 *stream, int len) {
-  SDL_memset(stream, 0, len);
-  uint32_t used_cnt = audio_base[reg_count];
-  len = len > used_cnt ? used_cnt : len;
-
-  uint32_t sbuf_size = audio_base[reg_sbuf_size];
-  if ((rfd + len) > sbuf_size) {
-    SDL_MixAudio(stream, sbuf + rfd, sbuf_size - rfd, SDL_MIX_MAXVOLUME);
-    SDL_MixAudio(stream + (sbuf_size - rfd), sbuf + (sbuf_size - rfd),
-                 len - (sbuf_size - rfd), SDL_MIX_MAXVOLUME);
-  } else
-    SDL_MixAudio(stream, sbuf + rfd, len, SDL_MIX_MAXVOLUME);
-  rfd = (rfd + len) % sbuf_size;
-  audio_base[reg_count] -= len;
+static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
+  // fill the audio buffer
+  int count = audio_base[reg_count];
+  int nread = len;
+  if(count < len){
+    nread = count;
+  }
+  int i=0;
+  for(;i<nread;i++){
+    stream[i] = sbuf[(rfd+i)%CONFIG_SB_SIZE];
+  }
+  audio_base[reg_count] -= nread;
+  rfd = (rfd + nread) % CONFIG_SB_SIZE;
+  for(;i<len;i++){
+    stream[i] = 0;
+  }
 }
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write) {
