@@ -45,6 +45,7 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   while(nwrite < writelen){
     int count = *(int*)AUDIO_COUNT_ADDR;
     int i = 0;
+    printf("writelen - nwrite %d bulen - count %d\n", writelen - nwrite, buflen-count);
     for(;i<MIN(writelen-nwrite, buflen-count);i++){
         dst[(wfd+i) % buflen] = src[i];
     }
