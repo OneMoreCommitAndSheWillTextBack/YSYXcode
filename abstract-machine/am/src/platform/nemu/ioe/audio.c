@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 // clang-format off
+static int wfd = -1;
 
 #define AUDIO_FREQ_ADDR      (AUDIO_ADDR + 0x00)
 #define AUDIO_CHANNELS_ADDR  (AUDIO_ADDR + 0x04)
@@ -35,21 +36,22 @@ void __am_audio_status(AM_AUDIO_STATUS_T *stat) {
 }
 
 void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
-  int remain, count;
   int buflen = *(int*)AUDIO_SBUF_SIZE_ADDR;
-  int wirtelen = (int)(ctl->buf.end) - (int)(ctl->buf.start);
-  do{
-    count = *(int*)AUDIO_COUNT_ADDR;
-    remain = buflen - count;
-  }while(wirtelen > remain);
+  int writelen = (int)(ctl->buf.end) - (int)(ctl->buf.start);
+  int nwrite = 0;
   uint8_t *src = (uint8_t*)ctl->buf.start;
   uint8_t *dst = (uint8_t*)AUDIO_SBUF_ADDR;
-  int i = 0;
-  for(;i<wirtelen;i++){
-    dst[count+i] = src[i];
+  while(nwrite < writelen){
+    int count = *(int*)AUDIO_COUNT_ADDR;
+    int i = 0;
+    for(;i<(buflen-count)%writelen;i++){
+        dst[wfd+i] = src[i];
+    }
+    *(int*)AUDIO_COUNT_ADDR = count + i;
+    wfd = (wfd + i) % buflen;
+    nwrite += i;
   }
-  *(int*)AUDIO_COUNT_ADDR = count + wirtelen;
-  printf("input %d data to sbuf, count is %d\n", wirtelen, count + wirtelen);
+  printf("input %d data to sbuf, count is %d\n", writelen, *(int*)AUDIO_COUNT_ADDR);
 }
 
 // clang-format on

@@ -5,7 +5,7 @@
 #include <klib.h>
 #include <SDL2/SDL.h>
 
-static int rfd = -1, wfd = -1;
+static int rfd = -1;
 static volatile int count = 0;
 
 void __am_audio_init() {
@@ -47,7 +47,6 @@ static void audio_write(uint8_t *buf, int len) {
 }
 
 void __am_audio_ctrl(AM_AUDIO_CTRL_T *ctrl) {
-  printf("cd ctrl func\n");
   SDL_AudioSpec s = {};
   s.freq = ctrl->freq;
   s.format = AUDIO_S16SYS;
