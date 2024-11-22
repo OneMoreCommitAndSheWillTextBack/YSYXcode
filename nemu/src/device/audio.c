@@ -48,11 +48,11 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   }
   int i=0;
   for(;i<nread;i++){
-    stream[i] = sbuf[(rfd+i)%CONFIG_SB_SIZE];
+    stream[i] = sbuf[(rfd+i)];
   }
   audio_base[reg_count] -= nread;
   printf("input %d len to audio, %d remain\n", nread, audio_base[reg_count]);
-  rfd = (rfd + nread) % CONFIG_SB_SIZE;
+  rfd = (rfd + nread);
   for(;i<len;i++){
     stream[i] = 0;
   }
