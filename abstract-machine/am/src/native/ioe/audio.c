@@ -1,9 +1,8 @@
 #define _GNU_SOURCE
-// clang-format off
-#include <fcntl.h>
-#include <unistd.h>
-#include <klib.h>
 #include <SDL2/SDL.h>
+#include <fcntl.h>
+#include <klib.h>
+#include <unistd.h>
 
 static int rfd = -1, wfd = -1;
 static volatile int count = 0;
@@ -31,7 +30,6 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
   if (len > nread) {
     memset(stream + nread, 0, len - nread);
   }
-  printf("input %d len to audio, %d remain\n", nread, count);
 }
 
 static void audio_write(uint8_t *buf, int len) {
@@ -43,7 +41,6 @@ static void audio_write(uint8_t *buf, int len) {
     count += n;
     nwrite += n;
   }
-  printf("input %d data to sbuf, count is %d\n", nwrite, count);
 }
 
 void __am_audio_ctrl(AM_AUDIO_CTRL_T *ctrl) {
