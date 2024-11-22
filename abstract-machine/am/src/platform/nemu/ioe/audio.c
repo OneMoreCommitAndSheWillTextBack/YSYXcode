@@ -45,10 +45,11 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   while(nwrite < writelen){
     int count = *(int*)AUDIO_COUNT_ADDR;
     int i = 0;
-    for(;i<MIN(writelen - nwrite, buflen - count);i++){
+    for(;i<writelen;i++){
         dst[(wfd+i) % buflen] = src[i];
     }
     *(int*)AUDIO_COUNT_ADDR = count + i;
+    printf("input %d data to sbuf, from %d to %d", writelen, wfd, wfd + i);
     wfd = (wfd + i) % buflen;
     nwrite += i;
   }
