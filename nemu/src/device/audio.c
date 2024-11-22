@@ -41,7 +41,6 @@ int rfd = 0;
 static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   // fill the audio buffer
   int count = audio_base[reg_count];
-  if(count == 0) return ;
   int nread = len;
   if(count < len){
     nread = count;
