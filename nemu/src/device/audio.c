@@ -15,6 +15,7 @@
 
 #include "difftest-def.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_audio.h>
 #include <SDL2/SDL_stdinc.h>
 #include <common.h>
 #include <device/map.h>
@@ -49,7 +50,7 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
     stream[i] = sbuf[(rfd+i)%CONFIG_SB_SIZE];
   }
   audio_base[reg_count] -= nread;
-  printf("input %d len to audio, %d remain\n", nread, audio_base[reg_count]);
+  // printf("input %d len to audio, %d remain\n", nread, audio_base[reg_count]);
   rfd = (rfd + nread) % CONFIG_SB_SIZE;
   for(;i<len;i++){
     stream[i] = 0;
@@ -69,8 +70,13 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
   int ret = SDL_InitSubSystem(SDL_INIT_AUDIO);
   if(ret == 0){
     SDL_OpenAudio(&s, NULL);
-    SDL_PauseAudio(0);
   }
+}
+
+static void audio_play_handle(uint32_t offset, int len, bool is_write){
+  SDL_PauseAudio(0);
+  while(audio_base[reg_count] > 0);
+  SDL_PauseAudio(1);
 }
 
 void init_audio() {
@@ -84,7 +90,7 @@ void init_audio() {
 #endif
 
   sbuf = (uint8_t *)new_space(CONFIG_SB_SIZE);
-  add_mmio_map("audio-sbuf", CONFIG_SB_ADDR, sbuf, CONFIG_SB_SIZE, NULL);
+  add_mmio_map("audio-sbuf", CONFIG_SB_ADDR, sbuf, CONFIG_SB_SIZE, audio_play_handle);
 }
 
 // clang-format on
