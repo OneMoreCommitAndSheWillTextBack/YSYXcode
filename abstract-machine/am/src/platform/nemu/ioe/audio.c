@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 // clang-format off
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 static int wfd = -1;
 
 #define AUDIO_FREQ_ADDR      (AUDIO_ADDR + 0x00)
@@ -44,13 +45,13 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   while(nwrite < writelen){
     int count = *(int*)AUDIO_COUNT_ADDR;
     int i = 0;
-    for(;i<(buflen-count)%writelen;i++){
+    int bound = MIN(writelen - nwrite, buflen - count);
+    for(;i<bound;i++){
         dst[wfd+i] = src[i];
     }
     *(int*)AUDIO_COUNT_ADDR = count + i;
     wfd = (wfd + i) % buflen;
     nwrite += i;
-    printf("input %d data to sbuf, count is %d\n", writelen, *(int*)AUDIO_COUNT_ADDR);
   }
 }
 
