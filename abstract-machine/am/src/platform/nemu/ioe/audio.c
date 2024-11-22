@@ -37,7 +37,7 @@ void __am_audio_status(AM_AUDIO_STATUS_T *stat) {
 }
 
 void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
-  // int buflen = *(int*)AUDIO_SBUF_SIZE_ADDR;
+  int buflen = *(int*)AUDIO_SBUF_SIZE_ADDR;
   int writelen = (int)(ctl->buf.end) - (int)(ctl->buf.start);
   int nwrite = 0;
   uint8_t *src = (uint8_t*)ctl->buf.start;
@@ -45,12 +45,11 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
   while(nwrite < writelen){
     int count = *(int*)AUDIO_COUNT_ADDR;
     int i = 0;
-    for(;i<writelen;i++){
-        dst[wfd+i] = src[i];
+    for(;i<MIN(writelen - nwrite, buflen - count);i++){
+        dst[(wfd+i) % buflen] = src[i];
     }
     *(int*)AUDIO_COUNT_ADDR = count + i;
-    // printf("input %d data to sbuf, from %d to %d\n", writelen, wfd, wfd + i);
-    wfd = (wfd + i);
+    wfd = (wfd + i) % buflen;
     nwrite += i;
   }
 }
