@@ -34,7 +34,7 @@ enum {
 static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
 
-int rfd = -1;
+int rfd = 0;
 
 static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   // fill the audio buffer
