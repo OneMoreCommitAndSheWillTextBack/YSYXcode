@@ -5,8 +5,8 @@
 #include "klib.h"
 
 #define SYNC_ADDR (VGACTL_ADDR + 4)
-size_t screen_h = 0;
-size_t screen_w = 0;
+size_t screen_h_nemu = 0;
+size_t screen_w_nemu = 0;
 
 void __am_gpu_init() {}
 
@@ -14,8 +14,8 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
   uint32_t gpuctl = *(uint32_t *)VGACTL_ADDR;
   cfg->width = gpuctl >> 16;
   cfg->height = gpuctl & 0xffff;
-  screen_h = cfg->height;
-  screen_w = cfg->width;
+  screen_h_nemu = cfg->height;
+  screen_w_nemu = cfg->width;
   // printf("%d %d\n", screen_w, screen_h);
 }
 
@@ -26,9 +26,9 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
   size_t fb_w = ctl->w;
   size_t fb_x = ctl->x;
   size_t fb_y = ctl->y;
-  for (int i = 0; i < fb_h && i < screen_h; i++) {
-    for (int j = 0; j < fb_w && j < screen_w; j++) {
-      *(fdb + (i + fb_y) * screen_w + (j + fb_x)) = *(pix + i * fb_w + j);
+  for (int i = 0; i < fb_h && i < screen_h_nemu; i++) {
+    for (int j = 0; j < fb_w && j < screen_w_nemu; j++) {
+      *(fdb + (i + fb_y) * screen_w_nemu + (j + fb_x)) = *(pix + i * fb_w + j);
     }
   }
   if (ctl->sync) {
