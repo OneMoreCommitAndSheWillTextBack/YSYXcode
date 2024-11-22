@@ -55,6 +55,7 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   for(;i<len;i++){
     stream[i] = 0;
   }
+  printf("get to here\n");
 }
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write) {
