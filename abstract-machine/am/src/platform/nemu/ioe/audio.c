@@ -49,7 +49,7 @@ void __am_audio_play(AM_AUDIO_PLAY_T *ctl) {
         dst[(wfd+i) % buflen] = src[i];
     }
     *(int*)AUDIO_COUNT_ADDR = count + i;
-    printf("input %d data to sbuf, from %d to %d\n", writelen, wfd, wfd + i);
+    // printf("input %d data to sbuf, from %d to %d\n", writelen, wfd, wfd + i);
     wfd = (wfd + i) % buflen;
     nwrite += i;
   }
