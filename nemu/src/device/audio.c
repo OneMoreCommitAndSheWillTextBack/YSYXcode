@@ -34,7 +34,7 @@ enum {
 static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
 
-int rfd, wfd = -1;
+int rfd = -1;
 
 static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   // fill the audio buffer
@@ -45,7 +45,7 @@ static void fill_audiobuf(void *userdata, Uint8 *stream, int len){
   }
   int i=0;
   for(;i<nread;i++){
-    stream[i] = sbuf[rfd + i];
+    stream[i] = sbuf[(rfd+i)%CONFIG_SB_SIZE];
   }
   count -= nread;
   rfd = (rfd + nread) % CONFIG_SB_SIZE;

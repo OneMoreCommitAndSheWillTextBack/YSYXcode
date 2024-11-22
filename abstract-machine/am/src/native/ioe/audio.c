@@ -5,7 +5,7 @@
 #include <klib.h>
 #include <SDL2/SDL.h>
 
-static int rfd = -1;
+static int rfd = -1, wfd = -1;
 static volatile int count = 0;
 
 void __am_audio_init() {
