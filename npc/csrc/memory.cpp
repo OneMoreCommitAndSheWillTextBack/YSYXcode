@@ -1,4 +1,6 @@
 #include "common.h"
+#include "host.h"
+#include "map.h"
 #include <assert.h>
 #include <cstdint>
 #include <iostream>
@@ -6,11 +8,11 @@
 const unsigned int msize = 0x8000000;
 static uint8_t pmem[msize] = {};
 
-static bool in_pmem(uint32_t addr) { return addr - MBASE < msize; }
+bool in_pmem(uint32_t addr) { return addr - MBASE < msize; }
 
 uint8_t *guest_to_host(uint32_t addr) { return pmem + addr - MBASE; }
 
-static uint32_t pmem_read(uint8_t *addr, uint32_t len) {
+uint32_t pmem_read(uint8_t *addr, uint32_t len) {
   switch (len) {
   case 1:
     return *(uint8_t *)addr;
@@ -24,7 +26,7 @@ static uint32_t pmem_read(uint8_t *addr, uint32_t len) {
   return *(uint32_t *)addr;
 }
 
-static void pmem_write(uint8_t *addr, uint32_t len, uint32_t data) {
+void pmem_write(uint8_t *addr, uint32_t len, uint32_t data) {
   switch (len) {
   case 1:
     *(uint8_t *)addr = data;
@@ -49,6 +51,7 @@ uint32_t paddr_read(uint32_t addr, uint32_t len) {
 #endif
     return ret;
   }
+  return mmio_read(addr, len);
   printf("[paddr_read]the addr 0x%08x is out of bound\n", addr);
   assert(0);
 }
@@ -61,6 +64,8 @@ void paddr_write(uint32_t addr, uint32_t len, uint32_t data) {
 #endif
     return;
   }
+  std::cout << "get to here" << std::endl;
+  mmio_write(addr, len, data);
   printf("[paddr_write]the addr 0x%08x is out of bound\n", addr);
   assert(0);
 }

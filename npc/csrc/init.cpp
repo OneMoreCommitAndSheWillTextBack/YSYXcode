@@ -119,3 +119,5 @@ void init(int argc, char *argv[]) {
   init_difftest(diff_ref, img_size, port);
 #endif
 }
+
+bool batch_mode() { return batch_mode_on; }

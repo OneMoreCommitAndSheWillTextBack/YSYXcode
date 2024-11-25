@@ -8,10 +8,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 // config
-#define ITRACE
-#define DIFFTEST
-#define MTRACE
-#define TRACE
+#include "selfconfig.h"
 
 #define MBASE 0x80000000
 
@@ -43,12 +40,14 @@ typedef struct {
 #endif
 
 // memory.cpp
+bool in_pmem(uint32_t addr);
 uint8_t *guest_to_host(uint32_t addr);
 uint32_t paddr_read(uint32_t address, uint32_t len);
 void paddr_write(uint32_t address, uint32_t len, uint32_t data);
 
 // init.cpp
 void init(int argc, char *argv[]);
+bool batch_mode();
 
 // cpu.cpp
 void cpu_exec(int n);
