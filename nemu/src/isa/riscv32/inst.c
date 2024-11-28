@@ -132,4 +132,3 @@ int isa_exec_once(Decode *s) {
 }
 
 // clang-format on
-// the code below here is for ftrace

@@ -1,4 +1,5 @@
 #include "Vtop.h"
+#include "map.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include <cstdint>
@@ -101,6 +102,7 @@ void init(int argc, char *argv[]) {
 #endif
   init_regex();
   init_wp_pool();
+  device_init();
 
   npc = new Npc;
   cpu = new Cpu;

@@ -12,6 +12,13 @@ void (*ref_difftest_init)(int port);
 
 enum { DIFF_TO_DUT, DIFF_TO_REF };
 extern Cpu *cpu;
+static bool inst_ref_skip = false;
+static int inst_skip_nr = 0;
+
+void set_ref_skip() {
+  inst_ref_skip = true;
+  inst_skip_nr = 0;
+}
 
 void init_difftest(char *ref_so_file, long img_size, int port) {
   assert(ref_so_file != NULL);
@@ -66,6 +73,20 @@ regdiferror:
 }
 
 void diff_step() {
+  if (inst_ref_skip == true) {
+    // to skip the checking of an instruction, just copy the reg state to
+    // reference design
+    inst_ref_skip = false;
+    inst_skip_nr = 1;
+    return;
+  }
+
+  if (inst_skip_nr > 0) {
+    ref_difftest_regcpy(&cpu->con, DIFF_TO_REF);
+    inst_skip_nr = 0;
+    return;
+  }
+
   context ref_context;
   ref_difftest_exec(1);
   ref_difftest_regcpy(&ref_context, DIFF_TO_DUT);

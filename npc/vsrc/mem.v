@@ -28,11 +28,11 @@ module mem(
                      1'b1;
   
   always @(clk) begin
-    if(ew) begin
+    if(ew && clk == 0) begin
       guest_write(addr, write, {{29{1'b0}},len});
     end
 
-    if (er) begin
+    if (er && clk == 0) begin
       readreg = guest_read(addr, {{29{1'b0}},len});
       // $display("read data: 0x%08x", readreg);
     end else 

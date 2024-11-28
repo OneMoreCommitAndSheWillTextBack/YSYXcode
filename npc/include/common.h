@@ -86,4 +86,5 @@ extern "C" void disassemble(char *str, int size, uint64_t pc, uint8_t *code,
 #ifdef DIFFTEST
 void init_difftest(char *ref_so_file, long img_size, int port);
 void diff_step();
+void set_ref_skip();
 #endif

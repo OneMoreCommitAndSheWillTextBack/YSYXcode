@@ -282,10 +282,12 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     IData/*31:0*/ __Vfunc_guest_read__7__Vfuncout;
     __Vfunc_guest_read__7__Vfuncout = 0;
     // Body
-    if ((0x23U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))) {
+    if (((0x23U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+         & (~ (IData)(vlSelf->clk)))) {
         Vtop___024unit____Vdpiimwrap_guest_write_TOP____024unit(vlSelf->top__DOT__res, vlSelf->top__DOT__regout2, (IData)(vlSelf->top__DOT__mem0__DOT__len));
     }
-    if ((3U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))) {
+    if (((3U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+         & (~ (IData)(vlSelf->clk)))) {
         Vtop___024unit____Vdpiimwrap_guest_read_TOP____024unit(vlSelf->top__DOT__res, (IData)(vlSelf->top__DOT__mem0__DOT__len), __Vfunc_guest_read__7__Vfuncout);
         vlSelf->top__DOT__mem0__DOT__readreg = __Vfunc_guest_read__7__Vfuncout;
     } else {

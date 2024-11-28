@@ -63,6 +63,9 @@ IOMAP *fetch_mmio_map(uint32_t addr) {
   int i = 0;
   for (; i < nr_map; i++) {
     if (map_inside(iomap + i, addr) == 1) {
+#ifdef DIFFTEST
+      set_ref_skip();
+#endif
       return &iomap[i];
     }
   }
@@ -98,7 +101,7 @@ void map_write(uint32_t addr, int len, uint32_t data, IOMAP *map) {
   }
   assert(len >= 1 && len <= 8);
   uint32_t offset = addr - map->low;
-  pmem_write((uint8_t *)(map->space + offset), len, data);
+  pmem_write((uint8_t *)(map->space) + offset, len, data);
   invoke_callback(map->callback, offset, len, true);
 }
 

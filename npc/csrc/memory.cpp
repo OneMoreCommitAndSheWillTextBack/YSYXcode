@@ -64,8 +64,8 @@ void paddr_write(uint32_t addr, uint32_t len, uint32_t data) {
 #endif
     return;
   }
-  std::cout << "get to here" << std::endl;
   mmio_write(addr, len, data);
+  return;
   printf("[paddr_write]the addr 0x%08x is out of bound\n", addr);
   assert(0);
 }
