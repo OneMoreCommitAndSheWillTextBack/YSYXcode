@@ -150,7 +150,7 @@ int isa_exec_once(Decode *s) {
   return decode_exec(s);
 }
 
-uint32_t *get_csr(uint32_t csr_num){
+static inline uint32_t *get_csr(uint32_t csr_num){
   switch(csr_num){
     case 0x300: return &cpu.csr.mstatus;  break;
     case 0x305: return &cpu.csr.mtvec;    break;
