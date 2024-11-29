@@ -47,4 +47,4 @@ void yield() {
 
 bool ienabled() { return false; }
 
-void iset(bool enable) {}
+void iset(bool enable) { printf("get to here\n"); }
