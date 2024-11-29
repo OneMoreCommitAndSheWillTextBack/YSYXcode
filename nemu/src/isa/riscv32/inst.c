@@ -14,6 +14,7 @@
  ***************************************************************************************/
 // clang-format off
 
+#include "cpu/difftest.h"
 #include "isa.h"
 #include "local-include/reg.h"
 #include "macro.h"
@@ -153,11 +154,13 @@ uint32_t *get_csr(uint32_t csr_num){
   }
 }
 
-static uint32_t csr_read(uint32_t csr_num) { 
+static uint32_t csr_read(uint32_t csr_num) {
+  difftest_skip_ref();
   return *(get_csr(csr_num)); 
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
+  difftest_skip_ref();
   *(get_csr(csr_num)) = data;
   return;
 }
