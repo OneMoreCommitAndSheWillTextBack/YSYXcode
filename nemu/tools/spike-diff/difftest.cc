@@ -37,9 +37,17 @@ static debug_module_config_t difftest_dm_config = {
     .support_haltgroups = true,
     .support_impebreak = true};
 
+struct diff_csr {
+  uint32_t mepc;
+  uint32_t mstatus;
+  uint32_t mcause;
+  uint32_t mtvec;
+};
+
 struct diff_context_t {
   uint32_t gpr[MUXDEF(CONFIG_RVE, 16, 32)];
   uint32_t pc;
+  diff_csr csr;
 };
 
 static sim_t *s = NULL;
