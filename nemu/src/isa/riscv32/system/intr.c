@@ -23,7 +23,6 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   cpu.csr.mepc = epc;
   cpu.csr.mcause = NO;
   cpu.pc = cpu.csr.mtvec;
-  printf("pc get to %08x\n", cpu.pc);
 
   return 0;
 }

@@ -157,6 +157,5 @@ static uint32_t csr_read(uint32_t csr_num) {
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
   *(get_csr(csr_num)) = data;
-  printf("the csr %03x write %x\n", csr_num, data);
   return;
 }
