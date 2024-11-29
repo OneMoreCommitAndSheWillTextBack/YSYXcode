@@ -38,6 +38,7 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
 }
 
 void yield() {
+  printf("get to here\n");
 #ifdef __riscv_e
   asm volatile("li a5, -1; ecall");
 #else
@@ -47,4 +48,4 @@ void yield() {
 
 bool ienabled() { return false; }
 
-void iset(bool enable) { printf("get to here\n"); }
+void iset(bool enable) {}
