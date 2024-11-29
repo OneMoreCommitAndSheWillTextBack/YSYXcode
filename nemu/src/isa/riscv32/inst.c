@@ -27,6 +27,14 @@
 #define Mr vaddr_read
 #define Mw vaddr_write
 
+#define ECALL                                                                  \
+  isa_raise_intr(cpu.gpr[17], cpu.pc);                                         \
+  s->dnpc = cpu.csr.mtvec;                                                     \
+  difftest_skip_ref()
+#define MRET                                                                   \
+  s->dnpc = cpu.csr.mepc + 4;                                                  \
+  difftest_skip_ref()
+
 enum {
   TYPE_I, TYPE_U, TYPE_S,
   TYPE_N, TYPE_J, TYPE_R,
@@ -125,8 +133,8 @@ static int decode_exec(Decode *s) {
   // used for cte
   INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, uint32_t t=csr_read(imm);csr_write(imm, src1);R(rd)=t);
   INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, uint32_t t=csr_read(imm);csr_write(imm, t|src1);R(rd)=t);
-  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , I, isa_raise_intr(cpu.gpr[17], cpu.pc);s->dnpc=cpu.csr.mtvec;difftest_skip_ref());
-  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , I, s->dnpc=cpu.csr.mepc+4;difftest_skip_ref());
+  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , I, ECALL);
+  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , I, MRET);
 
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
