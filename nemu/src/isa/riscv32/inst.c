@@ -39,6 +39,9 @@ enum {
 #define immJ() do { *imm = SEXT(BITS(i, 31, 31), 1) << 20 | BITS(i, 30, 21) << 1 | BITS(i, 20, 20) << 11 | BITS(i, 19, 12) << 12; } while(0)
 #define immB() do { *imm = SEXT(BITS(i, 31, 31), 1) << 12 | BITS(i, 30, 25) << 5 | BITS(i, 11, 8) << 1 | BITS(i, 7, 7) << 11; } while(0)
 
+static uint32_t csr_read(uint32_t csr_num);
+static void csr_write(uint32_t csr_num, uint32_t data);
+
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
   uint32_t i = s->isa.inst.val;
   int rs1 = BITS(i, 19, 15);
@@ -117,6 +120,9 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, long t = src1*src2;R(rd) = t >> 32);
   INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = SEXT(Mr(src1 + imm, 1), 24));
 
+  // used for cte
+  INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, uint32_t t=csr_read(imm);csr_write(imm, src1);R(rd)=t);
+
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
   INSTPAT_END();
@@ -131,4 +137,24 @@ int isa_exec_once(Decode *s) {
   return decode_exec(s);
 }
 
-// clang-format on
+
+uint32_t *get_csr(uint32_t csr_num){
+  switch(csr_num){
+    case 0x300: return &cpu.csr.mstatus;  break;
+    case 0x305: return &cpu.csr.mtvec;    break;
+    case 0x341: return &cpu.csr.mepc;     break;
+    case 0x342: return &cpu.csr.mcause;   break;
+    default:
+      printf("[error] a undefined csr num\n");
+      assert(0);
+  }
+}
+
+static uint32_t csr_read(uint32_t csr_num) { 
+  return *(get_csr(csr_num)); 
+}
+
+static void csr_write(uint32_t csr_num, uint32_t data) {
+  *(get_csr(csr_num)) = data;
+  return;
+}
