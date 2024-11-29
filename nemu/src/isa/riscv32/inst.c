@@ -14,6 +14,7 @@
  ***************************************************************************************/
 // clang-format off
 
+#include "isa.h"
 #include "local-include/reg.h"
 #include "macro.h"
 #include <cpu/cpu.h>
@@ -122,6 +123,7 @@ static int decode_exec(Decode *s) {
 
   // used for cte
   INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, uint32_t t=csr_read(imm);csr_write(imm, src1);R(rd)=t);
+  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , I, isa_raise_intr(cpu.csr.mcause, cpu.csr.mtvec));
 
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
@@ -136,7 +138,6 @@ int isa_exec_once(Decode *s) {
   s->isa.inst.val = inst_fetch(&s->snpc, 4);
   return decode_exec(s);
 }
-
 
 uint32_t *get_csr(uint32_t csr_num){
   switch(csr_num){
