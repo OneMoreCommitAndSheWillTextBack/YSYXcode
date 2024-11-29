@@ -22,6 +22,8 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
   for (int i = 0; i < MUXDEF(CONFIG_RVE, 16, 32); i++) {
     if (ref_r->gpr[i] != cpu.gpr[i]) {
       printf("the difftest encounter a error at pc:%x\n", pc);
+      printf("nemu[%2d] %08x spike[%2d] %08x \n", i, cpu.gpr[i], i,
+             ref_r->gpr[i]);
       return false;
     }
   }
