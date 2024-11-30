@@ -44,14 +44,14 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   tmp--;
   *tmp = 0x1800; // mstatus = 0x1800
   tmp--;
-  for (int i = 0; i < 32; i++) {
+  *tmp = 0;
+  tmp--; // mcause = 0;
+  for (int i = 0; i < 3; i++) {
     tmp--;
   }
+  // $0 the first reg is constant 0
+  // it mont be load or store
 
-  printf("%d\n", tmp);
-  for (uintptr_t *ptr = (uintptr_t *)kstack.end; ptr != tmp; ptr--) {
-    printf("%d \\ \n", *ptr);
-  }
   return (Context *)tmp;
 }
 
