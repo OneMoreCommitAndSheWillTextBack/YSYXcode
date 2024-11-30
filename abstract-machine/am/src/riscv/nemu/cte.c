@@ -51,10 +51,7 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   }
 
   printf("%d\n", tmp);
-  for (uintptr_t *ptr = (uintptr_t *)kstack.end; ptr != tmp; ptr--) {
-    printf("%d \\ \n", *ptr);
-  }
-  return (Context *)tmp;
+  return (Context *)tmp + 1;
 }
 
 void yield() {
