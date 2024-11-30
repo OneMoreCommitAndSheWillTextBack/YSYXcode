@@ -38,21 +38,25 @@ bool cte_init(Context *(*handler)(Event, Context *)) {
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   uintptr_t *tmp = (uintptr_t *)kstack.end;
 
-  *tmp = 0; // pdir = 0x1800
-  tmp--;
-  *tmp = (uintptr_t)entry; // mepc = entry
-  tmp--;
-  *tmp = 0x1800; // mstatus = 0x1800
-  tmp--;
-  *tmp = 0;
-  tmp--; // mcause = 0;
-  for (int i = 0; i < 31; i++) {
+  for (int i = 0; i < 36; i++) {
+    *tmp = 0;
     tmp--;
   }
+  // 31（reg) + 3(csr)
   // $0 the first reg is constant 0
   // it mont be load or store
 
-  return (Context *)tmp;
+  Context *context = (Context *)tmp;
+  context->mstatus = 0x1800;
+  context->mepc = (uintptr_t)entry;
+  uintptr_t *arg_tmp = arg;
+  int args_count = 0;
+  while (arg_tmp != (uintptr_t *)entry) {
+    context->gpr[10 + args_count] = *arg_tmp;
+    args_count++;
+    arg_tmp++;
+  }
+  return context;
 }
 
 void yield() {
