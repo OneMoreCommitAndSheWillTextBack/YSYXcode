@@ -47,7 +47,6 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   *tmp = 0; // mcause
   tmp--;
   for (int i = 0; i < 33; i++) {
-    *tmp = 1;
     tmp--;
   }
 
