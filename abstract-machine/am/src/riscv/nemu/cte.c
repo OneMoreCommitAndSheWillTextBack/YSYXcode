@@ -37,18 +37,19 @@ bool cte_init(Context *(*handler)(Event, Context *)) {
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   uintptr_t *tmp = (uintptr_t *)kstack.end;
-  *tmp = 0;
-  tmp--;
-  *tmp = (uintptr_t)entry;
-  tmp--;
-  *tmp = 0x1800;
   for (int i = 0; i < 33; i++) {
     *tmp = 0;
     tmp--;
   }
+  *tmp = 0x1800; // mstatus = 0x1800
+  tmp--;
+  *tmp = (uintptr_t)entry; // mepc = entry
+  tmp--;
+  *tmp = 0; // pdir
+  tmp--;
 
   printf("%d\n", tmp);
-  return (Context *)tmp + 1;
+  return (Context *)tmp;
 }
 
 void yield() {
