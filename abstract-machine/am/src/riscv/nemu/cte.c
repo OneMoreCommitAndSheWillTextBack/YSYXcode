@@ -46,7 +46,7 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   tmp--;
   *tmp = 0;
   tmp--; // mcause = 0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 31; i++) {
     tmp--;
   }
   // $0 the first reg is constant 0
