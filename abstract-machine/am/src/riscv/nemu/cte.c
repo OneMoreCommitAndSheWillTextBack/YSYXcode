@@ -49,13 +49,16 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   Context *context = (Context *)tmp;
   context->mstatus = 0x1800;
   context->mepc = (uintptr_t)entry;
-  uintptr_t *arg_tmp = arg;
-  int args_count = 0;
+  // uintptr_t *arg_tmp = arg;
+  // int args_count = 0;
+  /*
   while ((uintptr_t)arg_tmp != (uintptr_t)entry) {
     context->gpr[10 + args_count] = *arg_tmp;
     args_count++;
     arg_tmp++;
   }
+  */
+  printf("%d %d\n", entry, arg);
   return context;
 }
 
