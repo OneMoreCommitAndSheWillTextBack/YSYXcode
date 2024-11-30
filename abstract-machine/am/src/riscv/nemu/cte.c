@@ -58,7 +58,7 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
     arg_tmp++;
   }
   */
-  printf("%d %d\n", entry, arg);
+  printf("%d %d\n", &entry, arg);
   return context;
 }
 
