@@ -46,12 +46,15 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   tmp--;
   *tmp = 0; // mcause
   tmp--;
-  for (int i = 0; i < 33; i++) {
+  for (int i = 0; i < 32; i++) {
     tmp--;
   }
 
   printf("%d\n", tmp);
-  return (Context *)tmp + 1;
+  for (uintptr_t *ptr = (uintptr_t *)kstack.end; ptr != tmp; ptr--) {
+    printf("%d \\ \n", *ptr);
+  }
+  return (Context *)tmp;
 }
 
 void yield() {
