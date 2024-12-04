@@ -40,6 +40,7 @@ void *malloc(size_t size) {
   addr += (size - (size % sizeof(int)) + sizeof(int));
   return (void *)ret;
 #endif
+  printf("111");
   return NULL;
 }
 
