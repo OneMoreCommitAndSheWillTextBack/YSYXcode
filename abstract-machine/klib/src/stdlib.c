@@ -33,6 +33,7 @@ void *malloc(size_t size) {
   // Therefore do not call panic() here, else it will yield a dead recursion:
   //   panic() -> putchar() -> (glibc) -> malloc() -> panic()
 #if !(defined(__ISA_NATIVE__) && defined(__NATIVE_USE_KLIB__))
+  panic("not implement");
   if (addr == 0)
     addr = (unsigned long int)heap.start;
   unsigned long int ret = addr;
