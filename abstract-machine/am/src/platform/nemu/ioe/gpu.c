@@ -16,7 +16,7 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
   cfg->height = gpuctl & 0xffff;
   screen_h_nemu = cfg->height;
   screen_w_nemu = cfg->width;
-  // printf("%d %d\n", screen_w, screen_h);
+  printf("%d %d\n", screen_w_nemu, screen_h_nemu);
 }
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
