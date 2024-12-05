@@ -31,6 +31,7 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
       *(fdb + (i + fb_y) * screen_w_nemu + (j + fb_x)) = *(pix + i * fb_w + j);
     }
   }
+  printf("%d %d\n", screen_w_nemu, screen_h_nemu);
   if (ctl->sync) {
     outl(SYNC_ADDR, 1);
   }
