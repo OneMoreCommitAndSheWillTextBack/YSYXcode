@@ -21,8 +21,8 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
   if (screen_h_nemu == 0 && screen_w_nemu == 0) {
-    screen_w_nemu = 320;
-    screen_h_nemu = 200;
+    screen_w_nemu = 200;
+    screen_h_nemu = 320;
   }
   uint32_t *pix = (uint32_t *)ctl->pixels;
   uint32_t *fdb = (uint32_t *)FB_ADDR;
