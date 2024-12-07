@@ -48,7 +48,7 @@ module maincontrol(
   assign jalrsig = (opcode == 7'b1100111);
   assign muximm = load | store | type_I | jalrsig;
   assign regwritemem = load;
-  assign regwritepc = jalrsig | jalsig | auipcsig;
+  assign regwritepc = jalrsig | jalsig | auipcsig | ecallsig;
   assign auipcsig = (opcode == 7'b0010111);
   assign luisig = (opcode == 7'b0110111);
 

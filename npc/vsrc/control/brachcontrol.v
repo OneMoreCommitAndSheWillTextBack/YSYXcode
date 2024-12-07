@@ -20,6 +20,7 @@ module branchcontrol(
 );
  assign pcwritereg = (jalsig || jalrsig) ? pcadd4 : 
                     auipcsig ? pcaddimm :
+                    (ecallsig) ? pcadd4 :
                     0;
  
 assign npc = (jalsig) ? pcaddimm :
