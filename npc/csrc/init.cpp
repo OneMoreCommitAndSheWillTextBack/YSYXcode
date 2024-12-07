@@ -107,6 +107,7 @@ void init(int argc, char *argv[]) {
   npc = new Npc;
   cpu = new Cpu;
   cpu->con.pc = MBASE;
+  cpu->con.csr.mstatus = 0x1800;
   npc->top = new Vtop;
 
   init_trace();

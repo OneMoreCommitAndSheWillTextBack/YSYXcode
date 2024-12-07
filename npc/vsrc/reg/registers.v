@@ -19,16 +19,13 @@ module registers(
   integer i;
   reg [31:0] tmp;
 
-initial beign
-  csr[0] = 0x1800;
-end
-
   // write op
   always @(posedge clk or posedge rst) begin 
     if(rst) begin
       for(i=0;i<32;i=i+1) begin
         gr[i] = 0;
       end
+      csr[0] = 32'h1800;
     end else if(ew) begin
       gr[addr] = data;
       // $display("reg[%d] write a 0x%08x", addr, data);
