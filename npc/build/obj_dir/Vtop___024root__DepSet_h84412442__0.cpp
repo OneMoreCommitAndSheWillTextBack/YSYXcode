@@ -418,9 +418,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
                           [3U]))) & vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__data_list
               [3U]));
     vlSelf->top__DOT__regfile__DOT__csr_choose = vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out;
-    vlSelf->top__DOT__csrrw = (IData)((0x2073U == (0x707fU 
+    vlSelf->top__DOT__csrrw = (IData)((0x1073U == (0x707fU 
                                                    & vlSelf->top__DOT__infetch0__DOT__reg_inst)));
-    vlSelf->top__DOT__csrrs = (IData)((0x1073U == (0x707fU 
+    vlSelf->top__DOT__csrrs = (IData)((0x2073U == (0x707fU 
                                                    & vlSelf->top__DOT__infetch0__DOT__reg_inst)));
     vlSelf->top__DOT__muxsig = ((((0x67U == (0x7fU 
                                              & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 

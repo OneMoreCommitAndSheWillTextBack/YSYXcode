@@ -59,8 +59,8 @@ module maincontrol(
 
   assign muxsig = {regwritepc, luisig, regwritemem};
 
-  assign csrrs = (opcode == 7'b1110011) & (func3 == 3'b001);
-  assign csrrw = (opcode == 7'b1110011) & (func3 == 3'b010);
+  assign csrrs = (opcode == 7'b1110011) & (func3 == 3'b010);
+  assign csrrw = (opcode == 7'b1110011) & (func3 == 3'b001);
 
   always @(*) begin
     if(ebreaksig)
