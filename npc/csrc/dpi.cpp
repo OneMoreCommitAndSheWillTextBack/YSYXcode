@@ -33,16 +33,16 @@ extern "C" void host_get_pc(int pc) {
 
 extern "C" void host_get_csr(int csrval, int csrnum) {
   switch (csrnum) {
-  case 1:
+  case 0:
     cpu->con.csr.mstatus = csrval;
     break;
-  case 2:
+  case 1:
     cpu->con.csr.mtvec = csrval;
     break;
-  case 3:
+  case 2:
     cpu->con.csr.mepc = csrval;
     break;
-  case 4:
+  case 3:
     cpu->con.csr.mcause = csrval;
     break;
   }

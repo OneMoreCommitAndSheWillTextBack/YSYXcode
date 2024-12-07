@@ -21,7 +21,7 @@ module regheap(
   wire [1:0] csr_choose;
   wire [31:0] reg_write_data;
 
-  assign reg_write_data = (csrrw & csrrs) ? rf[src1] : 
+  assign reg_write_data = (csrrw | csrrs) ? rf[src1] : 
                                             data;
 
   MuxKey#(4, 12, 2) muxcsr(csr_choose, csr, {

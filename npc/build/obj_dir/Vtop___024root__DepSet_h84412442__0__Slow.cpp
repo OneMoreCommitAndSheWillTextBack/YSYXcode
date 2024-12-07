@@ -761,7 +761,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__branchcontrol0__DOT____VdfgTmp_h47a8aa33__0 
         = (1U & ((~ vlSelf->top__DOT__res) | (0U == vlSelf->top__DOT__res)));
     vlSelf->top__DOT__regfile__DOT__reg_write_data 
-        = (((IData)(vlSelf->top__DOT__csrrs) & (IData)(vlSelf->top__DOT__csrrw))
+        = (((IData)(vlSelf->top__DOT__csrrs) | (IData)(vlSelf->top__DOT__csrrw))
             ? vlSelf->top__DOT__alu0__DOT__A_s : vlSelf->top__DOT__regwrite);
     vlSelf->top__DOT__npc = ((IData)(vlSelf->top__DOT__jalsig)
                               ? vlSelf->top__DOT__pcaddimmbridge

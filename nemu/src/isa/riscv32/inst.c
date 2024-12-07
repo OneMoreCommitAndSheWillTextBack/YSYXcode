@@ -32,7 +32,7 @@
   s->dnpc = cpu.csr.mtvec;                                                     \
   difftest_skip_ref()
 #define MRET                                                                   \
-  s->dnpc = cpu.csr.mepc + 4;                                                  \
+  s->dnpc = cpu.csr.mepc;                                                      \
   difftest_skip_ref()
 
 enum {
