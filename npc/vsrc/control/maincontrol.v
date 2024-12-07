@@ -4,6 +4,9 @@ module maincontrol(
   input [6:0] opcode,
   input [2:0] func3,
   input func7,
+  input ebreaksig,
+  input ecallsig,
+  input mretsig,
 
   output memew,
   output [2:0] muxsig,
@@ -16,12 +19,13 @@ module maincontrol(
   output jalrsig,
   output jalsig,
   output [1:0] aluop,
-  output auipcsig
+  output auipcsig,
+  output csrrw,
+  output csrrs
 );
   wire type_I, type_R, type_U, type_S, type_J, type_B;
   // here need to judge load and store 
   wire load, store;
-  wire ebreaksig;
   wire regwritepc, regwritemem, luisig;
   
   assign type_I = (opcode == 7'b0000011) | (opcode == 7'b1100111) |
@@ -40,7 +44,7 @@ module maincontrol(
   assign memew = store;
   assign memer = load;
   assign regew = type_I | type_R | type_J | type_U | memer;
-  assign jalsig = type_J;
+  assign jalsig = type_J | ecallsig;
   assign jalrsig = (opcode == 7'b1100111);
   assign muximm = load | store | type_I | jalrsig;
   assign regwritemem = load;
@@ -55,7 +59,9 @@ module maincontrol(
 
   assign muxsig = {regwritepc, luisig, regwritemem};
 
-  assign ebreaksig = (opcode == 7'b1110011) & (func3 == 3'b000);
+  assign csrrs = (opcode == 7'b1110011) & (func3 == 3'b001);
+  assign csrrw = (opcode == 7'b1110011) & (func3 == 3'b010);
+
   always @(*) begin
     if(ebreaksig)
       ret(0);

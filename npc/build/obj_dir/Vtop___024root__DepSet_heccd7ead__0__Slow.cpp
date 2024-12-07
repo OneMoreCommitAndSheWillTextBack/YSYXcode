@@ -39,13 +39,25 @@ VL_ATTR_COLD void Vtop___024root___eval_initial__TOP(Vtop___024root* vlSelf) {
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___eval_initial__TOP\n"); );
     // Body
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = 0x20U;
+    vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = 4U;
     vlSelf->top__DOT__chosmuximm__DOT__i0__DOT__key_list[0U] = 1U;
     vlSelf->top__DOT__chosmuximm__DOT__i0__DOT__key_list[1U] = 0U;
     vlSelf->top__DOT__muxpc__DOT__i0__DOT__key_list[0U] = 4U;
     vlSelf->top__DOT__muxpc__DOT__i0__DOT__key_list[1U] = 2U;
     vlSelf->top__DOT__muxpc__DOT__i0__DOT__key_list[2U] = 1U;
     vlSelf->top__DOT__muxpc__DOT__i0__DOT__key_list[3U] = 0U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[0U] = 0x342U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[1U] = 0x341U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[2U] = 0x305U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[3U] = 0x300U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__data_list[0U] = 3U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__data_list[1U] = 2U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__data_list[2U] = 1U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__data_list[3U] = 0U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[0U] = 0xd0bU;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[1U] = 0xd06U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[2U] = 0xc15U;
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[3U] = 0xc00U;
     vlSelf->top__DOT__pcbridge = 0x80000000U;
 }
 
@@ -178,7 +190,10 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regew = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__muximm = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__muxsig = VL_RAND_RESET_I(3);
+    vlSelf->top__DOT__jalsig = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__aluop = VL_RAND_RESET_I(2);
+    vlSelf->top__DOT__csrrw = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__csrrs = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__regwrite = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__regout2 = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__aluopcode = VL_RAND_RESET_I(5);
@@ -197,10 +212,30 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
         vlSelf->top__DOT__regfile__DOT__rf[__Vi0] = VL_RAND_RESET_I(32);
     }
-    for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
-        vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__out[__Vi0] = VL_RAND_RESET_I(32);
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__regfile__DOT__rf_csr[__Vi0] = VL_RAND_RESET_I(32);
     }
+    vlSelf->top__DOT__regfile__DOT__csr_choose = VL_RAND_RESET_I(2);
+    vlSelf->top__DOT__regfile__DOT__reg_write_data = VL_RAND_RESET_I(32);
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[__Vi0] = VL_RAND_RESET_I(32);
+    }
+    for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
+        vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[__Vi0] = VL_RAND_RESET_I(32);
+    }
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[__Vi0] = VL_RAND_RESET_I(14);
+    }
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[__Vi0] = VL_RAND_RESET_I(12);
+    }
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__data_list[__Vi0] = VL_RAND_RESET_I(2);
+    }
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out = VL_RAND_RESET_I(2);
+    vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = VL_RAND_RESET_I(32);
+    vlSelf->top__DOT__regfile__DOT__registers0__DOT__tmp = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__alucontrol0__DOT__IRop = VL_RAND_RESET_I(4);
     for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
         vlSelf->top__DOT__chosmuximm__DOT__i0__DOT__pair_list[__Vi0] = VL_RAND_RESET_Q(33);

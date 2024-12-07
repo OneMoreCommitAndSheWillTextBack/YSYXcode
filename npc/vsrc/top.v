@@ -29,8 +29,12 @@ module top(
   wire func7_decoder;
   wire [4:0] src1, src2, rd;
   wire [31:0] imm;
+  wire ebreaksig, mretsig, ecallsig;
   decoder decoder0(
     .inst(inst),
+    .ebreaksig(ebreaksig),
+    .mretsig(mretsig),
+    .ecallsig(ecallsig),
     .imm(imm),
     .src1(src1),
     .src2(src2),
@@ -45,10 +49,14 @@ module top(
   wire func7_maincontrol;
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
+  wire csrrw, csrrs;
   maincontrol maincontrol0(
     .opcode(opcode),
     .func3(func3_decoder),
     .func7(func7_decoder),
+    .ebreaksig(ebreaksig),
+    .ecallsig(ecallsig),
+    .mretsig(mretsig),
 
     .memew(memew),
     .muxsig(muxsig),
@@ -61,10 +69,13 @@ module top(
     .jalrsig(jalrsig),
     .jalsig(jalsig),
     .aluop(aluop),
-    .auipcsig(auipcsig)
+    .auipcsig(auipcsig),
+    .csrrs(csrrs),
+    .csrrw(csrrw)
   );
 
   wire [31:0] regwrite, regout1, regout2;
+  wire [31:0] mepc, mtvec;
   regheap regfile(
     .clk(clk),
     .rst(rst),
@@ -73,8 +84,14 @@ module top(
     .src1(src1),
     .src2(src2),
     .data(regwrite),
+    .csr(inst[31:20]),
+    .csrrw(csrrw),
+    .csrrs(csrrs),
+    .ecallsig(ecallsig),
     .regout1(regout1),
-    .regout2(regout2)
+    .regout2(regout2),
+    .mepc(mepc),
+    .mtvec(mtvec)
   );
   
   wire [4:0] aluopcode;
@@ -131,6 +148,10 @@ module top(
     .jalsig(jalsig),
     .jalrsig(jalrsig),
     .auipcsig(auipcsig),
+    .mretsig(mretsig),
+    .ecallsig(ecallsig),
+    .mtvec(mtvec),
+    .mepc(mepc),
 
     .npc(npc),
     .pcwritereg(pcwritereg)

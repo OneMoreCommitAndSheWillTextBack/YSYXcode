@@ -20,8 +20,16 @@ typedef struct {
 } Npc;
 
 typedef struct {
+  uint32_t mstatus;
+  uint32_t mtvec;
+  uint32_t mepc;
+  uint32_t mcause;
+} Csr;
+
+typedef struct {
   uint32_t gpr[32];
   uint32_t pc;
+  Csr csr;
 } context;
 
 typedef struct {

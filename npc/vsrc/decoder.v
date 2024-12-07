@@ -6,7 +6,10 @@
 
 module decoder(
   input [31:0] inst,
-
+  
+  output ebreaksig,
+  output ecallsig,
+  output mretsig,
   output [31:0] imm,
   output [6:0] opcode,
   output [2:0] func3,
@@ -47,6 +50,10 @@ module decoder(
                type_B ? B_imm :
                type_U ? U_imm :
                32'b0;
+
+  assign ebreaksig = (inst == 32'b00000000000100000000000001110011);
+  assign ecallsig = (inst == 32'b00000000000000000000000001110011);
+  assign mretsig = (inst == 32'b00110000001000000000000001110011);
   
 endmodule
 

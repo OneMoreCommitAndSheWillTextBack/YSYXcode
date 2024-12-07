@@ -20,6 +20,18 @@ VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(IDat
     host_get_reg(regval__Vcvt, regnum__Vcvt);
 }
 
+extern "C" void host_get_csr(int csrval, int csrnum);
+
+VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(IData/*31:0*/ csrval, IData/*31:0*/ csrnum) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+        Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit\n"); );
+    // Body
+    int csrval__Vcvt;
+    for (size_t csrval__Vidx = 0; csrval__Vidx < 1; ++csrval__Vidx) csrval__Vcvt = csrval;
+    int csrnum__Vcvt;
+    for (size_t csrnum__Vidx = 0; csrnum__Vidx < 1; ++csrnum__Vidx) csrnum__Vcvt = csrnum;
+    host_get_csr(csrval__Vcvt, csrnum__Vcvt);
+}
+
 extern "C" int get_inst(int pc);
 
 VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(IData/*31:0*/ pc, IData/*31:0*/ &get_inst__Vfuncrtn) {

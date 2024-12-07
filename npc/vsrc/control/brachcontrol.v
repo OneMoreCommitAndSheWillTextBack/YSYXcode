@@ -10,6 +10,10 @@ module branchcontrol(
   input jalsig,
   input jalrsig,
   input auipcsig,
+  input mretsig,
+  input ecallsig,
+  input [31:0] mtvec,
+  input [31:0] mepc,
 
   output [31:0] npc,
   output reg [31:0] pcwritereg
@@ -26,5 +30,7 @@ assign npc = (jalsig) ? pcaddimm :
              (btypebranch && func3 == 3'b101 && (!res[0] || zero)) ? pcaddimm :
              (btypebranch && func3 == 3'b110 && res[0])  ? pcaddimm :
              (btypebranch && func3 == 3'b111 && (!res[0] || zero))   ? pcaddimm :
+             (mretsig == 1'b1) ? mepc :
+             (ecallsig == 1'b1) ? mtvec:
              pcadd4;
 endmodule

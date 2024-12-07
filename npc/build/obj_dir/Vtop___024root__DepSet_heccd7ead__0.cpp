@@ -276,6 +276,9 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__3(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regwrite = ((IData)(vlSelf->top__DOT__muxpc__DOT__i0__DOT__hit)
                                    ? vlSelf->top__DOT__muxpc__DOT__i0__DOT__lut_out
                                    : 0U);
+    vlSelf->top__DOT__regfile__DOT__reg_write_data 
+        = (((IData)(vlSelf->top__DOT__csrrs) & (IData)(vlSelf->top__DOT__csrrw))
+            ? vlSelf->top__DOT__alu0__DOT__A_s : vlSelf->top__DOT__regwrite);
 }
 
 void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf);

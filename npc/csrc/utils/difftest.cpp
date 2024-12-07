@@ -4,6 +4,10 @@
 #include <cstdint>
 #include <dlfcn.h>
 
+#define CHECK_CSR(x)                                                           \
+  if (ref_context->csr.x != cpu->con.csr.x)                                    \
+  goto regdiferror
+
 #ifdef DIFFTEST
 void (*ref_difftest_memcpy)(uint32_t addr, void *buf, size_t n, bool direction);
 void (*ref_difftest_regcpy)(void *dut, bool direction);
@@ -54,8 +58,15 @@ void checkregs(context *ref_context) {
       goto regdiferror;
     }
   }
+
+  CHECK_CSR(mstatus);
+  CHECK_CSR(mepc);
+  CHECK_CSR(mtvec);
+  CHECK_CSR(mcause);
+
   if (ref_context->pc != cpu->con.pc)
     goto regdiferror;
+
   return;
 
 regdiferror:
