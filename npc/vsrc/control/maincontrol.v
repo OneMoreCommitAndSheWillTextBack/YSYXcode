@@ -44,7 +44,7 @@ module maincontrol(
   assign memew = store;
   assign memer = load;
   assign regew = type_I | type_R | type_J | type_U | memer;
-  assign jalsig = type_J | ecallsig;
+  assign jalsig = type_J;
   assign jalrsig = (opcode == 7'b1100111);
   assign muximm = load | store | type_I | jalrsig;
   assign regwritemem = load;

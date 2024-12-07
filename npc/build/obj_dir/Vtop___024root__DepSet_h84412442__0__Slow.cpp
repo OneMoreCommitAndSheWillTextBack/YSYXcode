@@ -205,6 +205,19 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
         [1U];
     vlSelf->top__DOT__regfile__DOT__rf_csr[0U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
         [0U];
+    vlSelf->top__DOT__muxsig = ((((0x67U == (0x7fU 
+                                             & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                  | ((0x6fU == (0x7fU 
+                                                & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                     | (0x17U == (0x7fU 
+                                                  & vlSelf->top__DOT__infetch0__DOT__reg_inst)))) 
+                                 << 2U) | (((0x37U 
+                                             == (0x7fU 
+                                                 & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                            << 1U) 
+                                           | (3U == 
+                                              (0x7fU 
+                                               & vlSelf->top__DOT__infetch0__DOT__reg_inst))));
     vlSelf->top__DOT__mem0__DOT__signalsig = ((4U != 
                                                (7U 
                                                 & (vlSelf->top__DOT__infetch0__DOT__reg_inst 
@@ -245,8 +258,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                          >> 0xcU)))
                                                      ? 2U
                                                      : 0U)))));
-    vlSelf->top__DOT__jalsig = ((0x6fU == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
-                                | (0x73U == vlSelf->top__DOT__infetch0__DOT__reg_inst));
     vlSelf->top__DOT__decoder0__DOT__I_imm = (((- (IData)(
                                                           (vlSelf->top__DOT__infetch0__DOT__reg_inst 
                                                            >> 0x1fU))) 
@@ -399,18 +410,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                    | (0xffffU 
                                                       & vlSelf->top__DOT__mem0__DOT__readreg))
                                                 : vlSelf->top__DOT__mem0__DOT__readreg));
-    vlSelf->top__DOT__muxsig = ((((0x67U == (0x7fU 
-                                             & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
-                                  | ((IData)(vlSelf->top__DOT__jalsig) 
-                                     | (0x17U == (0x7fU 
-                                                  & vlSelf->top__DOT__infetch0__DOT__reg_inst)))) 
-                                 << 2U) | (((0x37U 
-                                             == (0x7fU 
-                                                 & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
-                                            << 1U) 
-                                           | (3U == 
-                                              (0x7fU 
-                                               & vlSelf->top__DOT__infetch0__DOT__reg_inst))));
     vlSelf->top__DOT__regout2 = vlSelf->top__DOT__regfile__DOT__rf
         [(0x1fU & (vlSelf->top__DOT__infetch0__DOT__reg_inst 
                    >> 0x14U))];
@@ -531,7 +530,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__muxpc__DOT__i0__DOT__pair_list[2U] 
         = (0x100000000ULL | (QData)((IData)(vlSelf->top__DOT__memread)));
     if (((0x67U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
-         | (IData)(vlSelf->top__DOT__jalsig))) {
+         | (0x6fU == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)))) {
         vlSelf->top__DOT__pcwritereg = ((IData)(4U) 
                                         + vlSelf->top__DOT__pcbridge);
         vlSelf->top__DOT__muxpc__DOT__i0__DOT__data_list[0U] 
@@ -763,7 +762,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regfile__DOT__reg_write_data 
         = (((IData)(vlSelf->top__DOT__csrrs) | (IData)(vlSelf->top__DOT__csrrw))
             ? vlSelf->top__DOT__alu0__DOT__A_s : vlSelf->top__DOT__regwrite);
-    vlSelf->top__DOT__npc = ((IData)(vlSelf->top__DOT__jalsig)
+    vlSelf->top__DOT__npc = ((0x6fU == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))
                               ? vlSelf->top__DOT__pcaddimmbridge
                               : ((0x67U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))
                                   ? (0xfffffffeU & vlSelf->top__DOT__res)
