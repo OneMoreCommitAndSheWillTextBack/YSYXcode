@@ -65,7 +65,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
     if (vlSelf->rst) {
         vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = 0x20U;
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[0U] = 0U;
-        vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[0U] = 0x1800U;
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[1U] = 0U;
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[2U] = 0U;
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[3U] = 0U;
