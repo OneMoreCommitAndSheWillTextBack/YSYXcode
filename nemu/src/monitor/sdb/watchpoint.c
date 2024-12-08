@@ -124,7 +124,7 @@ void info_wp() {
   return;
 }
 
-int singal = 0;
+static int singal = 0;
 int check_wp_hit() { return singal; }
 
 void exe_wp() {
