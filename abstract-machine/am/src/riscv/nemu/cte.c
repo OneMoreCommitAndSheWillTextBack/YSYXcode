@@ -49,7 +49,7 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   Context *context = (Context *)tmp;
   printf("the pre context is %d", (uintptr_t)context);
   context = (Context *)kstack.end - 1;
-  printf("the afr context is %d", (uintptr_t)context);
+  printf("the afr context is %d\n", (uintptr_t)context);
 
   context->mstatus = 0x1800;
   context->mepc = (uintptr_t)entry;
