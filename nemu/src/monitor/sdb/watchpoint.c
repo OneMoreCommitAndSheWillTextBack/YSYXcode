@@ -124,6 +124,9 @@ void info_wp() {
   return;
 }
 
+int singal = 0;
+int check_wp_hit() { return singal; }
+
 void exe_wp() {
   if (head == NULL) {
     return;
@@ -139,9 +142,11 @@ void exe_wp() {
       if (res != tmp->val) {
         printf("hit the watchpoint[%d], val changed from %d to %d\n", tmp->NO,
                tmp->val, res);
+        singal = 1;
         set_state_stop();
         tmp->val = res;
       }
+      singal = 0;
     }
     tmp = tmp->next;
   }

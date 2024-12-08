@@ -70,6 +70,9 @@ static int cmd_si(char *args) {
     cpu_exec(1);
     if (cmd_si_check(i) == -1)
       break;
+    if (check_wp_hit() == 1) {
+      break;
+    }
   }
   return 0;
 }

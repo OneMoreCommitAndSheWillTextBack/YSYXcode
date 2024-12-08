@@ -24,4 +24,6 @@ void info_wp();
 void new_wp(char *exp);
 void free_wp(int wp_num);
 
+int check_wp_hit();
+
 #endif
