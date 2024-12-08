@@ -39,7 +39,7 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   uintptr_t *tmp = (uintptr_t *)kstack.end;
 
   for (int i = 1; i < 36; i++) {
-    *tmp = 0;
+    *tmp = 1111;
     tmp--;
   }
   //   31（reg) + 3(csr)
