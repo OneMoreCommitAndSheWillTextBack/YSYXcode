@@ -145,8 +145,9 @@ void exe_wp() {
         singal = 1;
         set_state_stop();
         tmp->val = res;
+      } else {
+        singal = 0;
       }
-      singal = 0;
     }
     tmp = tmp->next;
   }
