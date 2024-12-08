@@ -42,9 +42,9 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   //   *tmp = 0;
   //   tmp--;
   // }
-  //  31（reg) + 3(csr)
-  //  $0 the first reg is constant 0
-  //  it mont be load or store
+  //   31（reg) + 3(csr)
+  //   $0 the first reg is constant 0
+  //   it mont be load or store
 
   // Context *context = (Context *)tmp;
   // printf("the pre context is %d", (uintptr_t)context);
