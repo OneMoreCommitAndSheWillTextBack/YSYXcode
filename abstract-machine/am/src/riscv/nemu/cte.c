@@ -38,7 +38,7 @@ bool cte_init(Context *(*handler)(Event, Context *)) {
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   uintptr_t *tmp = (uintptr_t *)kstack.end;
 
-  for (int i = 1; i < 36; i++) {
+  for (int i = 0; i < 36; i++) {
     *tmp = 1111;
     tmp--;
   }
