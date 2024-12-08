@@ -36,21 +36,7 @@ bool cte_init(Context *(*handler)(Event, Context *)) {
 }
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
-  uintptr_t *tmp = (uintptr_t *)kstack.end;
-
-  for (int i = 0; i < 36; i++) {
-    *tmp = 0;
-    tmp--;
-  }
-  //   31（reg) + 3(csr)
-  //   $0 the first reg is constant 0
-  //   it mont be load or store
-
-  Context *context = (Context *)tmp;
-  printf("the pre context is %d", (uintptr_t)context);
-  context = (Context *)kstack.end - 1;
-  printf("the afr context is %d\n", (uintptr_t)context);
-
+  Context *context = (Context *)kstack.end - 1;
   context->mstatus = 0x1800;
   context->mepc = (uintptr_t)entry;
   context->gpr[10] = (uintptr_t)arg;
