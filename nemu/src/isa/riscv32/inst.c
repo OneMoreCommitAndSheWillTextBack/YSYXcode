@@ -28,9 +28,9 @@
 #define Mw vaddr_write
 
 #define ECALL                                                                  \
-  isa_raise_intr(cpu.gpr[17], cpu.pc);                                         \
-  s->dnpc = cpu.csr.mtvec;                                                     \
+  s->dnpc = isa_raise_intr(1 , cpu.pc);                                        \
   difftest_skip_ref()
+
 #define MRET                                                                   \
   s->dnpc = cpu.csr.mepc;                                                      \
   difftest_skip_ref()
