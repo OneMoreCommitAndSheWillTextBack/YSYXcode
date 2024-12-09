@@ -41,7 +41,7 @@ module registers(
 
     if(ecall) begin
       csr[2] = data;
-      csr[3] = gr[17];
+      csr[3] = (gr[15] == -1) ? 1 : 0;
     end
   end
 

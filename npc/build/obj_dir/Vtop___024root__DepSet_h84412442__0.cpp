@@ -134,8 +134,8 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[2U] 
             = vlSelf->top__DOT__regfile__DOT__reg_write_data;
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[3U] 
-            = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-            [0x11U];
+            = ((0xffffffffU == vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
+                [0xfU]) ? 1U : 0U);
     }
     if (vlSelf->rst) {
         vlSelf->__Vdly__top__DOT__pcbridge = 0x80000000U;
