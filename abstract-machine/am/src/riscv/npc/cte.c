@@ -11,8 +11,6 @@ Context *__am_irq_handle(Context *c) {
     case -1:
       ev.event = EVENT_YIELD;
       break;
-    case 4:
-      break;
     default:
       ev.event = EVENT_ERROR;
       break;
@@ -38,17 +36,7 @@ bool cte_init(Context *(*handler)(Event, Context *)) {
 }
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
-  uintptr_t *tmp = (uintptr_t *)kstack.end;
-
-  for (int i = 0; i < 36; i++) {
-    *tmp = 0;
-    tmp--;
-  }
-  // 31（reg) + 3(csr)
-  // $0 the first reg is constant 0
-  // it mont be load or store
-
-  Context *context = (Context *)tmp;
+  Context *context = (Context *)kstack.end - 1;
   context->mstatus = 0x1800;
   context->mepc = (uintptr_t)entry;
   context->gpr[10] = (uintptr_t)arg;
