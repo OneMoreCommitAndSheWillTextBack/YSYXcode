@@ -27,13 +27,15 @@
 #define Mr vaddr_read
 #define Mw vaddr_write
 
+// clang-format on
 #define ECALL                                                                  \
-  s->dnpc = isa_raise_intr(1 , cpu.pc);                                        \
+  s->dnpc = isa_raise_intr(cpu.gpr[17], cpu.pc);                               \
   difftest_skip_ref()
 
 #define MRET                                                                   \
   s->dnpc = cpu.csr.mepc;                                                      \
   difftest_skip_ref()
+// clang-format off
 
 enum {
   TYPE_I, TYPE_U, TYPE_S,
