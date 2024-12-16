@@ -10,6 +10,8 @@ Cpu *cpu = NULL;
 Trace *trace = NULL;
 #endif
 
+int times = 0;
+
 void demp_wave() {
 #ifdef TRACE
   trace->context->timeInc(1);
@@ -24,6 +26,7 @@ static void exe_once() {
   npc->top->clk = 0;
   npc->top->eval();
   demp_wave();
+  times += 1;
 
 #ifdef ITRACE
   char *p = cpu->logbuf;

@@ -226,6 +226,98 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__1(Vtop___024root* vlSelf) {
         = (0x100000000ULL | (QData)((IData)(vlSelf->top__DOT__memread)));
 }
 
+VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__2(Vtop___024root* vlSelf) {
+    if (false && vlSelf) {}  // Prevent unused
+    Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_comb__TOP__2\n"); );
+    // Body
+    vlSelf->top__DOT__pcaddimmbridge = (vlSelf->top__DOT__imm 
+                                        + vlSelf->top__DOT__pcbridge);
+    if (((0x67U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+         | (0x6fU == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst)))) {
+        vlSelf->top__DOT__pcwritereg = ((IData)(4U) 
+                                        + vlSelf->top__DOT__pcbridge);
+        vlSelf->top__DOT__muxpc__DOT__i0__DOT__data_list[0U] 
+            = ((IData)(4U) + vlSelf->top__DOT__pcbridge);
+    } else if ((0x17U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))) {
+        vlSelf->top__DOT__pcwritereg = vlSelf->top__DOT__pcaddimmbridge;
+        vlSelf->top__DOT__muxpc__DOT__i0__DOT__data_list[0U] 
+            = vlSelf->top__DOT__pcaddimmbridge;
+    } else if ((0x73U == vlSelf->top__DOT__infetch0__DOT__reg_inst)) {
+        vlSelf->top__DOT__pcwritereg = ((IData)(4U) 
+                                        + vlSelf->top__DOT__pcbridge);
+        vlSelf->top__DOT__muxpc__DOT__i0__DOT__data_list[0U] 
+            = ((IData)(4U) + vlSelf->top__DOT__pcbridge);
+    } else {
+        vlSelf->top__DOT__pcwritereg = 0U;
+        vlSelf->top__DOT__muxpc__DOT__i0__DOT__data_list[0U] = 0U;
+    }
+    vlSelf->top__DOT__npc = ((0x6fU == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))
+                              ? vlSelf->top__DOT__pcaddimmbridge
+                              : ((0x67U == (0x7fU & vlSelf->top__DOT__infetch0__DOT__reg_inst))
+                                  ? (0xfffffffeU & vlSelf->top__DOT__res)
+                                  : ((IData)(((0x63U 
+                                               == (0x707fU 
+                                                   & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                              & (0U 
+                                                 == vlSelf->top__DOT__res)))
+                                      ? vlSelf->top__DOT__pcaddimmbridge
+                                      : ((IData)(((0x1063U 
+                                                   == 
+                                                   (0x707fU 
+                                                    & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                                  & (0U 
+                                                     != vlSelf->top__DOT__res)))
+                                          ? vlSelf->top__DOT__pcaddimmbridge
+                                          : ((IData)(
+                                                     ((0x4063U 
+                                                       == 
+                                                       (0x707fU 
+                                                        & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                                      & vlSelf->top__DOT__res))
+                                              ? vlSelf->top__DOT__pcaddimmbridge
+                                              : ((IData)(
+                                                         ((0x5063U 
+                                                           == 
+                                                           (0x707fU 
+                                                            & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                                          & (IData)(vlSelf->top__DOT__branchcontrol0__DOT____VdfgTmp_h47a8aa33__0)))
+                                                  ? vlSelf->top__DOT__pcaddimmbridge
+                                                  : 
+                                                 ((IData)(
+                                                          ((0x6063U 
+                                                            == 
+                                                            (0x707fU 
+                                                             & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                                           & vlSelf->top__DOT__res))
+                                                   ? vlSelf->top__DOT__pcaddimmbridge
+                                                   : 
+                                                  ((IData)(
+                                                           ((0x7063U 
+                                                             == 
+                                                             (0x707fU 
+                                                              & vlSelf->top__DOT__infetch0__DOT__reg_inst)) 
+                                                            & (IData)(vlSelf->top__DOT__branchcontrol0__DOT____VdfgTmp_h47a8aa33__0)))
+                                                    ? vlSelf->top__DOT__pcaddimmbridge
+                                                    : 
+                                                   ((0x30200073U 
+                                                     == vlSelf->top__DOT__infetch0__DOT__reg_inst)
+                                                     ? 
+                                                    vlSelf->top__DOT__regfile__DOT__rf_csr
+                                                    [2U]
+                                                     : 
+                                                    ((0x73U 
+                                                      == vlSelf->top__DOT__infetch0__DOT__reg_inst)
+                                                      ? 
+                                                     vlSelf->top__DOT__regfile__DOT__rf_csr
+                                                     [1U]
+                                                      : 
+                                                     ((IData)(4U) 
+                                                      + vlSelf->top__DOT__pcbridge)))))))))));
+    vlSelf->top__DOT__muxpc__DOT__i0__DOT__pair_list[0U] 
+        = (0x400000000ULL | (QData)((IData)(vlSelf->top__DOT__pcwritereg)));
+}
+
 VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__3(Vtop___024root* vlSelf) {
     if (false && vlSelf) {}  // Prevent unused
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
@@ -284,7 +376,6 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__3(Vtop___024root* vlSelf) {
 void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf);
 void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf);
 void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf);
-void Vtop___024root___nba_comb__TOP__2(Vtop___024root* vlSelf);
 
 void Vtop___024root___eval_nba(Vtop___024root* vlSelf) {
     if (false && vlSelf) {}  // Prevent unused
