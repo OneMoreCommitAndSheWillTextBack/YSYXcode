@@ -2,77 +2,57 @@ module top(
   input clk,
   input rst
 );
-  // always @(*) begin
-  //   host_get_pc(pcbridge);
-  //  host_get_inst(inst);
+  always @(*) begin
+     host_get_pc(pcbridge);
+    host_get_inst(inst);
     // $display("pc: 0x%08x start", pcbridge);
-  //end
+  end
   //
 
   wire [31:0] npc, pcbridge;
-  pcreg pcreg0(
+  wire [31:0] inst;
+  ifu ifu0(
     .clk(clk),
     .rst(rst),
     .npc(npc),
-    .pcout(pcbridge)
-  );
-
-  wire [31:0] inst;
-
-  infetch infetch0(
     .pc(pcbridge),
     .inst(inst)
   );
 
-  wire [6:0] opcode;
-  wire [2:0] func3_decoder;
-  wire func7_decoder;
   wire [4:0] src1, src2, rd;
   wire [31:0] imm;
   wire ebreaksig, mretsig, ecallsig;
-  decoder decoder0(
-    .inst(inst),
-    .ebreaksig(ebreaksig),
-    .mretsig(mretsig),
-    .ecallsig(ecallsig),
-    .imm(imm),
-    .src1(src1),
-    .src2(src2),
-    .rd(rd),
-    .opcode(opcode),
-    .func3(func3_decoder),
-    .func7(func7_decoder)
-  );
-
   wire regew, memew, memer, muximm;
-  wire [2:0] func3_maincontrol, muxsig;
-  wire func7_maincontrol;
+  wire [2:0] func3, muxsig;
+  wire func7;
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
   wire csrrw, csrrs;
-  maincontrol maincontrol0(
-    .opcode(opcode),
-    .func3(func3_decoder),
-    .func7(func7_decoder),
-    .ebreaksig(ebreaksig),
-    .ecallsig(ecallsig),
-    .mretsig(mretsig),
-
-    .memew(memew),
-    .muxsig(muxsig),
-    .memer(memer),
-    .regew(regew),
-    .muximm(muximm),
-    .func3_out(func3_maincontrol),
-    .func7_out(func7_maincontrol),
-    .btypebranch(btypebranch),
-    .jalrsig(jalrsig),
-    .jalsig(jalsig),
-    .aluop(aluop),
-    .auipcsig(auipcsig),
-    .csrrs(csrrs),
-    .csrrw(csrrw)
-  );
+  idu idu0(
+  .inst(inst),
+  
+  .ebreaksig(ebreaksig),
+  .ecallsig(ecallsig),
+  .mretsig(mretsig),
+  .imm(imm),
+  .func3(func3),
+  .func7(func7),
+  .src1(src1),
+  .src2(src2),
+  .rd(rd),
+  .memew(memew),
+  .muxsig(muxsig),
+  .memer(memer),
+  .regew(regew),
+  .muximm(muximm),
+  .btypebranch(btypebranch),
+  .jalrsig(jalrsig),
+  .jalsig(jalsig),
+  .aluop(aluop),
+  .auipcsig(auipcsig),
+  .csrrw(csrrw),
+  .csrrs(csrrs)
+);
 
   wire [31:0] regwrite, regout1, regout2;
   wire [31:0] mepc, mtvec;
@@ -92,70 +72,33 @@ module top(
     .regout2(regout2),
     .mepc(mepc),
     .mtvec(mtvec)
-  );
+  ); 
   
-  wire [4:0] aluopcode;
-  alucontrol alucontrol0(
-    .func3(func3_maincontrol),
-    .func7(func7_maincontrol),
-    .aluop(aluop),
-    .jalrsig(jalrsig),
-    .aluopcode(aluopcode)
-  );
-
-  wire [31:0] pcadd4bridge, pcaddimmbridge;
-  pcadd4 pcadd40(
-    .pc(pcbridge),
-    .npc(pcadd4bridge)
-  );
-
-  pcaddimm pcaddimm0(
-    .pc(pcbridge),
-    .imm(imm),
-    .npc(pcaddimmbridge)
-  );
-  
-  wire [31:0] aluarg2;
-  MuxKey#(2, 1, 32) chosmuximm(aluarg2, muximm, {
-      1'b0, regout2,
-      1'b1, imm
-    });
-
-  // instant a alu
   wire zero, signal, carry;
   wire [31:0] res;
-  alu alu0(
-    .A(regout1),
-    .B(aluarg2),
-    .op(aluopcode),
-    .res(res),
-    .zero(zero),
-    .signal(signal),
-    .carry(carry)
-  );
-  
-  
   wire [31:0] pcwritereg;
-  branchcontrol branchcontrol0(
-    .btypebranch(btypebranch),
-    .func3(func3_maincontrol),
-    .zero(zero),
-    .signal(signal),
-    .carry(carry),
-    .res(res),
-    .pcadd4(pcadd4bridge),
-    .pcaddimm(pcaddimmbridge),
-    .jalsig(jalsig),
-    .jalrsig(jalrsig),
-    .auipcsig(auipcsig),
-    .mretsig(mretsig),
-    .ecallsig(ecallsig),
-    .mtvec(mtvec),
-    .mepc(mepc),
-
-    .npc(npc),
-    .pcwritereg(pcwritereg)
-  );
+  exu exu0(
+  .func3(func3),
+  .func7(func7),
+  .aluop(aluop),
+  .btypebranch(btypebranch),
+  .jalrsig(jalrsig),
+  .jalsig(jalsig),
+  .imm(imm),
+  .muximm(muximm),
+  .regout1(regout1),
+  .regout2(regout2),
+  .auipcsig(auipcsig),
+  .mretsig(mretsig),
+  .ecallsig(ecallsig),
+  .mtvec(mtvec),
+  .mepc(mepc),
+  .pc(pcbridge),
+  
+  .res(res),
+  .npc(npc),
+  .pcwritereg(pcwritereg)
+);
   
   wire [31:0] memread;
   mem mem0(
@@ -165,7 +108,7 @@ module top(
   .ew(memew),
   .er(memer),
   .read(memread),
-  .func3(func3_maincontrol)
+  .func3(func3)
 );
 
 MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {

@@ -20,7 +20,7 @@ module alu(
   reg [31:0] logres;
   always @(*) begin
     case(op[1:0])
-      2'b00: logres = A & B;
+      2'b00: logres = (type_I) ? A & $signed(B) : A & B;
       2'b01: logres = A | B;
       2'b10: logres = A ^ B;
       2'b11: logres = ~(A | B);

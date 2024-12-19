@@ -13,8 +13,6 @@ module maincontrol(
   output memer,
   output regew,
   output muximm,
-  output [2:0] func3_out,
-  output func7_out,
   output btypebranch,
   output jalrsig,
   output jalsig,
@@ -52,8 +50,6 @@ module maincontrol(
   assign auipcsig = (opcode == 7'b0010111);
   assign luisig = (opcode == 7'b0110111);
 
-  assign func3_out = func3;
-  assign func7_out = func7;
   assign aluop[1] = type_R | type_B;
   assign aluop[0] = (type_I | type_B) & ~load;
 
