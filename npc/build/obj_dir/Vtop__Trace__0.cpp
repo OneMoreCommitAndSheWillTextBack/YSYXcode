@@ -226,11 +226,9 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgIData(oldp+157,(vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__data_list[0]),32);
         bufp->chgIData(oldp+158,(vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__data_list[1]),32);
     }
-    if (VL_UNLIKELY((((vlSelf->__Vm_traceActivity[3U] 
-                       | vlSelf->__Vm_traceActivity
-                       [4U]) | vlSelf->__Vm_traceActivity
-                      [5U]) | vlSelf->__Vm_traceActivity
-                     [6U]))) {
+    if (VL_UNLIKELY(((vlSelf->__Vm_traceActivity[3U] 
+                      | vlSelf->__Vm_traceActivity[4U]) 
+                     | vlSelf->__Vm_traceActivity[5U]))) {
         __Vtemp_hdaf246d3__0[0U] = (IData)((0x400000000ULL 
                                             | (QData)((IData)(vlSelf->top__DOT__pcwritereg))));
         __Vtemp_hdaf246d3__0[1U] = ((vlSelf->top__DOT__imm 
@@ -259,27 +257,25 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgIData(oldp+175,(vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__data_list[3]),32);
     }
     if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[4U])) {
-        bufp->chgIData(oldp+176,(vlSelf->top__DOT__regout1),32);
-        bufp->chgIData(oldp+177,(vlSelf->top__DOT__regout2),32);
-        bufp->chgIData(oldp+178,(vlSelf->top__DOT__res),32);
-        bufp->chgIData(oldp+179,(vlSelf->top__DOT__exu0__DOT__aluarg2),32);
-        bufp->chgBit(oldp+180,((0U == vlSelf->top__DOT__res)));
-        bufp->chgBit(oldp+181,((vlSelf->top__DOT__res 
+        bufp->chgIData(oldp+176,(vlSelf->top__DOT__npc),32);
+        bufp->chgIData(oldp+177,(vlSelf->top__DOT__regout1),32);
+        bufp->chgIData(oldp+178,(vlSelf->top__DOT__regout2),32);
+        bufp->chgIData(oldp+179,(vlSelf->top__DOT__res),32);
+        bufp->chgIData(oldp+180,(vlSelf->top__DOT__pcwritereg),32);
+        bufp->chgIData(oldp+181,(vlSelf->top__DOT__exu0__DOT__pcaddimmbridge),32);
+        bufp->chgIData(oldp+182,(vlSelf->top__DOT__exu0__DOT__aluarg2),32);
+        bufp->chgBit(oldp+183,((0U == vlSelf->top__DOT__res)));
+        bufp->chgBit(oldp+184,((vlSelf->top__DOT__res 
                                 >> 0x1fU)));
-        bufp->chgBit(oldp+182,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__carry_tmp));
-        bufp->chgIData(oldp+183,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__logres),32);
-        bufp->chgIData(oldp+184,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres),32);
-        bufp->chgBit(oldp+185,((0U == vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres)));
-        bufp->chgIData(oldp+186,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__shfres),32);
-        bufp->chgIData(oldp+187,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__sltres),32);
-        bufp->chgIData(oldp+188,(vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out),32);
+        bufp->chgBit(oldp+185,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__carry_tmp));
+        bufp->chgIData(oldp+186,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__logres),32);
+        bufp->chgIData(oldp+187,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres),32);
+        bufp->chgBit(oldp+188,((0U == vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres)));
+        bufp->chgIData(oldp+189,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__shfres),32);
+        bufp->chgIData(oldp+190,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__sltres),32);
+        bufp->chgIData(oldp+191,(vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out),32);
     }
     if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[6U])) {
-        bufp->chgIData(oldp+189,(vlSelf->top__DOT__npc),32);
-        bufp->chgIData(oldp+190,(vlSelf->top__DOT__pcwritereg),32);
-        bufp->chgIData(oldp+191,(vlSelf->top__DOT__exu0__DOT__pcaddimmbridge),32);
-    }
-    if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[7U])) {
         bufp->chgIData(oldp+192,(vlSelf->top__DOT__regwrite),32);
         bufp->chgIData(oldp+193,(vlSelf->top__DOT__regfile__DOT__reg_write_data),32);
         bufp->chgIData(oldp+194,(vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__lut_out),32);
@@ -307,5 +303,4 @@ void Vtop___024root__trace_cleanup(void* voidSelf, VerilatedVcd* /*unused*/) {
     vlSymsp->TOP.__Vm_traceActivity[4U] = 0U;
     vlSymsp->TOP.__Vm_traceActivity[5U] = 0U;
     vlSymsp->TOP.__Vm_traceActivity[6U] = 0U;
-    vlSymsp->TOP.__Vm_traceActivity[7U] = 0U;
 }

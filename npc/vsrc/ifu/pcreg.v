@@ -17,8 +17,6 @@ module pcreg(
         pcout <= npc;
       end
 
-    if(npc == pcout)
-      ret(npc);
   end
   end
 

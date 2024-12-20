@@ -105,6 +105,7 @@ void set_npc_end() {
 void set_npc_quit() {
   npc->state = QUIT;
 #ifdef TRACE
+  printf("1\n");
   trace->tfp->close();
 #endif
 }
