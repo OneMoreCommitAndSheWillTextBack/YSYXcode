@@ -141,7 +141,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
         if ((vlSelf->top__DOT__npc == vlSelf->top__DOT__ifu0__DOT__pcbridge)) {
             Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(vlSelf->top__DOT__npc);
         }
-        if ((0U == vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) {
+        if ((0U != vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) {
             vlSelf->__Vdly__top__DOT__ifu0__DOT__pcbridge 
                 = vlSelf->top__DOT__npc;
         }
@@ -380,7 +380,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     if ((0x100073U == vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) {
         Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(0U);
     }
-    vlSelf->top__DOT__ifu_valid = (0U == vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst);
+    vlSelf->top__DOT__ifu_valid = (0U != vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst);
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit 
         = ((vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst 
             >> 0x14U) == vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list

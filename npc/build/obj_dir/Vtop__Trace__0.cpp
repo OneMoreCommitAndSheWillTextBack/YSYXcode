@@ -140,7 +140,7 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
     }
     if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[3U])) {
         bufp->chgIData(oldp+98,(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst),32);
-        bufp->chgBit(oldp+99,((0U == vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)));
+        bufp->chgBit(oldp+99,((0U != vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)));
         bufp->chgCData(oldp+100,((0x1fU & (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst 
                                            >> 0xfU))),5);
         bufp->chgCData(oldp+101,((0x1fU & (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst 

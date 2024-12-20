@@ -17,7 +17,7 @@ module infetch(
   end
 
   assign inst = reg_inst;
-  assign valid = inst == 0;
+  assign valid = inst != 0;
 endmodule
 
 
