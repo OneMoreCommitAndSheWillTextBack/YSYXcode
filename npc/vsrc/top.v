@@ -11,12 +11,15 @@ module top(
 
   wire [31:0] npc, pcbridge;
   wire [31:0] inst;
+  wire ifu_valid;
   ifu ifu0(
     .clk(clk),
     .rst(rst),
     .npc(npc),
     .pc(pcbridge),
-    .inst(inst)
+    .inst(inst),
+    .valid(ifu_valid),
+    .valid_from_wbu(wbu_valid)
   );
 
   wire [4:0] src1, src2, rd;
@@ -28,8 +31,10 @@ module top(
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
   wire csrrw, csrrs;
+  wire idu_valid;
   idu idu0(
   .inst(inst),
+  .valid_from_ifu(ifu_valid),
   
   .ebreaksig(ebreaksig),
   .ecallsig(ecallsig),
@@ -51,7 +56,8 @@ module top(
   .aluop(aluop),
   .auipcsig(auipcsig),
   .csrrw(csrrw),
-  .csrrs(csrrs)
+  .csrrs(csrrs),
+  .valid(idu_valid)
 );
 
   wire [31:0] regwrite, regout1, regout2;
@@ -76,6 +82,7 @@ module top(
   
   wire [31:0] res;
   wire [31:0] pcwritereg;
+  wire exu_valid;
   exu exu0(
   .func3(func3),
   .func7(func7),
@@ -93,12 +100,15 @@ module top(
   .mtvec(mtvec),
   .mepc(mepc),
   .pc(pcbridge),
+  .valid_from_idu(idu_valid),
   
   .res(res),
   .npc(npc),
-  .pcwritereg(pcwritereg)
+  .pcwritereg(pcwritereg),
+  .valid(exu_valid)
 );
   
+  wire wbu_valid;
   wbu wbu0(
   .clk(clk),
   .res(res),
@@ -109,8 +119,10 @@ module top(
   .imm(imm),
   .pcwritereg(pcwritereg),
   .muxsig(muxsig),
+  .valid_from_exu(exu_valid),
 
-  .regwrite(regwrite)
+  .regwrite(regwrite),
+  .valid(wbu_valid)
 );
 
 

@@ -8,8 +8,10 @@ module wbu(
   input [31:0] imm,
   input [31:0] pcwritereg,
   input [2:0] muxsig,
+  input valid_from_exu,
 
-  output [31:0] regwrite
+  output [31:0] regwrite,
+  output valid
 );
 
   wire [31:0] memread;

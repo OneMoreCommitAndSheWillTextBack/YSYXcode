@@ -1,5 +1,6 @@
 module idu(
   input [31:0] inst,
+  input valid_from_ifu,
   
   output ebreaksig,
   output ecallsig,
@@ -21,7 +22,8 @@ module idu(
   output [1:0] aluop,
   output auipcsig,
   output csrrw,
-  output csrrs
+  output csrrs,
+  output valid
 );
   
   wire ebreak, ecall, mret;
@@ -70,5 +72,7 @@ module idu(
   assign ebreaksig = ebreak;
   assign func7 = func7bridge;
   assign func3 = func3bridge;
+  
+  assign valid = valid_from_ifu;
 
 endmodule
