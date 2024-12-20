@@ -21,13 +21,13 @@ class Vtop___024root final : public VerilatedModule {
     struct {
         VL_IN8(clk,0,0);
         VL_IN8(rst,0,0);
+        CData/*0:0*/ top__DOT__ifu_valid;
         CData/*0:0*/ top__DOT__regew;
         CData/*0:0*/ top__DOT__muximm;
         CData/*2:0*/ top__DOT__muxsig;
         CData/*1:0*/ top__DOT__aluop;
         CData/*0:0*/ top__DOT__csrrw;
         CData/*0:0*/ top__DOT__csrrs;
-        CData/*0:0*/ top__DOT__wbu_valid;
         CData/*0:0*/ top__DOT__idu0__DOT__decoder0__DOT__type_I;
         CData/*0:0*/ top__DOT__idu0__DOT__decoder0__DOT__type_U;
         CData/*1:0*/ top__DOT__regfile__DOT__csr_choose;

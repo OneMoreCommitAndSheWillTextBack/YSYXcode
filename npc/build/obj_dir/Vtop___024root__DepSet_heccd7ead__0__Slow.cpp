@@ -184,6 +184,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->clk = VL_RAND_RESET_I(1);
     vlSelf->rst = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__npc = VL_RAND_RESET_I(32);
+    vlSelf->top__DOT__ifu_valid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__imm = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__regew = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__muximm = VL_RAND_RESET_I(1);
@@ -196,7 +197,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regout2 = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__res = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__pcwritereg = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__wbu_valid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__ifu0__DOT__pcbridge = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I = VL_RAND_RESET_I(1);
