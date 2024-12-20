@@ -4,7 +4,7 @@ module pcreg(
   input rst,
   output reg [31:0] pcout
 );
-  localparam init = 32'h80000000;
+  localparam init = 32'h80000000 - 4;
   initial pcout = init;
   
   always @(posedge clk or posedge rst) begin
