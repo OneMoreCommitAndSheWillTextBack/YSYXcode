@@ -2,7 +2,7 @@ module ifu(
   input clk,
   input rst,
   input [31:0] npc,
-  input valid_from_wbu,
+  input ready,
 
   output [31:0] pc,
   output [31:0] inst,
