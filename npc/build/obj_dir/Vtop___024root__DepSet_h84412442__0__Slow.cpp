@@ -150,7 +150,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(
                                                              vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
                                                              [3U], 3U);
-    vlSelf->top__DOT__ifu0__DOT__get_inst = (0U != vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst);
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit 
         = ((vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst 
             >> 0x14U) == vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list
