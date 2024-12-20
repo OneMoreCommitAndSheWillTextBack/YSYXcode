@@ -11,7 +11,7 @@ module infetch(
 );
   reg [31:0] reg_inst;
   always @(posedge clk) begin
-    if (ready == 1) begin
+    if(0) begin
       reg_inst = get_inst(pc);
     end
   end
