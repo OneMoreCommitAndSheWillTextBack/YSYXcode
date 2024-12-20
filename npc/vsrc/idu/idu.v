@@ -23,7 +23,8 @@ module idu(
   output auipcsig,
   output csrrw,
   output csrrs,
-  output valid
+  output valid,
+  output ready
 );
   
   wire ebreak, ecall, mret;
@@ -74,5 +75,6 @@ module idu(
   assign func3 = func3bridge;
   
   assign valid = valid_from_ifu;
+  assign ready = 1;
 
 endmodule

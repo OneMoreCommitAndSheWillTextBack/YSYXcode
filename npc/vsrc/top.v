@@ -8,7 +8,8 @@ module top(
     // $display("pc: 0x%08x start", pcbridge);
   end
   //
-
+  
+  wire ready_idu_to_ifu;
   wire [31:0] npc, pcbridge;
   wire [31:0] inst;
   wire ifu_valid;
@@ -19,7 +20,7 @@ module top(
     .pc(pcbridge),
     .inst(inst),
     .valid(ifu_valid),
-    .valid_from_wbu(wbu_valid)
+    .ready(ready_idu_to_ifu)
   );
 
   wire [4:0] src1, src2, rd;
@@ -57,7 +58,8 @@ module top(
   .auipcsig(auipcsig),
   .csrrw(csrrw),
   .csrrs(csrrs),
-  .valid(idu_valid)
+  .valid(idu_valid),
+  .ready(ready_idu_to_ifu)
 );
 
   wire [31:0] regwrite, regout1, regout2;
@@ -108,7 +110,6 @@ module top(
   .valid(exu_valid)
 );
   
-  wire wbu_valid;
   wbu wbu0(
   .clk(clk),
   .res(res),
@@ -121,8 +122,7 @@ module top(
   .muxsig(muxsig),
   .valid_from_exu(exu_valid),
 
-  .regwrite(regwrite),
-  .valid(wbu_valid)
+  .regwrite(regwrite)
 );
 
 

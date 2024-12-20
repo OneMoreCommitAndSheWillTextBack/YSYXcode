@@ -10,8 +10,7 @@ module wbu(
   input [2:0] muxsig,
   input valid_from_exu,
 
-  output [31:0] regwrite,
-  output valid
+  output [31:0] regwrite
 );
 
   wire [31:0] memread;
@@ -32,6 +31,11 @@ MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b100, pcwritereg
 });
 
+/*
+  wire valid;
   assign valid = valid_from_exu;
+  always @(*) begin
+  end
+*/
 
 endmodule
