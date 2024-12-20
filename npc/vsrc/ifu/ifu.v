@@ -16,7 +16,7 @@ module ifu(
     .rst(rst),
     .npc(npc),
     .pcout(pcbridge),
-    .valid(get_inst)
+    .get_inst(get_inst)
   );
   
   infetch infetch0(
@@ -24,7 +24,7 @@ module ifu(
     .pc(pcbridge),
     .valid_from_wbu(valid_from_wbu),
     .inst(instbridge),
-    .valid(valid)
+    .valid(get_inst)
   );
 
   assign pc = pcbridge;
