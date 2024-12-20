@@ -92,6 +92,12 @@ void cpu_exec(int n) {
   }
 }
 
+void tfpclose() {
+#ifdef TRACE
+  trace->tfp->close();
+#endif
+}
+
 void set_npc_end() {
   int sig = cpu->con.gpr[10];
 
@@ -100,21 +106,17 @@ void set_npc_end() {
   } else {
     npc->state = ABORT;
   }
+  tfpclose();
 }
 
 void set_npc_quit() {
+  tfpclose();
   npc->state = QUIT;
-#ifdef TRACE
-  printf("1\n");
-  trace->tfp->close();
-#endif
 }
 
 void set_npc_stop() { npc->state = STOP; }
 
 void npc_diff_quit() {
-#ifdef TRACE
-  trace->tfp->close();
-#endif
+  tfpclose();
   assert(0);
 }
