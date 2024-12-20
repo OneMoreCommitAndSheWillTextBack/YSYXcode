@@ -2,6 +2,7 @@ module pcreg(
   input clk,
   input [31:0] npc,
   input rst,
+  input valid_from_wbu,
   output reg [31:0] pcout
 );
   localparam init = 32'h80000000;
@@ -12,7 +13,9 @@ module pcreg(
       pcout <= init;
     end
     else begin
-      pcout <= npc;
+      if (valid_from_wbu == 1) begin
+        pcout <= npc;
+      end
 
     if(npc == pcout)
       ret(npc);

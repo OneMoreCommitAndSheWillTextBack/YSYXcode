@@ -14,7 +14,8 @@ module ifu(
     .clk(clk),
     .rst(rst),
     .npc(npc),
-    .pcout(pcbridge)
+    .pcout(pcbridge),
+    .valid_from_wbu(valid_from_wbu)
   );
   
   infetch infetch0(
