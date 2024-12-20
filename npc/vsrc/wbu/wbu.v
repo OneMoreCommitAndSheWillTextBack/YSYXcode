@@ -32,4 +32,6 @@ MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b100, pcwritereg
 });
 
+  assign valid = valid_from_exu;
+
 endmodule
