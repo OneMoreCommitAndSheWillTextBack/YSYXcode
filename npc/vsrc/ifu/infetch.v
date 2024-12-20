@@ -11,9 +11,7 @@ module infetch(
 );
   reg [31:0] reg_inst;
   always @(posedge clk) begin
-    if (valid_from_wbu == 1) begin
       reg_inst = get_inst(pc);
-    end
   end
 
   assign inst = reg_inst;

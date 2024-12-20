@@ -184,7 +184,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->clk = VL_RAND_RESET_I(1);
     vlSelf->rst = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__npc = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__ifu_valid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__imm = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__regew = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__muximm = VL_RAND_RESET_I(1);
