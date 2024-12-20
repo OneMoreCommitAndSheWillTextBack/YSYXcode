@@ -8,8 +8,7 @@ module top(
     // $display("pc: 0x%08x start", pcbridge);
   end
   //
-  wire ready;
-  assign ready = 1;
+
   wire [31:0] npc, pcbridge;
   wire [31:0] inst;
   wire ifu_valid;
@@ -20,8 +19,7 @@ module top(
     .pc(pcbridge),
     .inst(inst),
     .valid(ifu_valid),
-    .valid_from_wbu(wbu_valid),
-    .ready(ready)
+    .valid_from_wbu(wbu_valid)
   );
 
   wire [4:0] src1, src2, rd;

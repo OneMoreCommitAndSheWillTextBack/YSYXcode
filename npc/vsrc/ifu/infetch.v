@@ -5,15 +5,12 @@ import "DPI-C" function void host_get_inst(int inst);
 module infetch(
   input clk,
   input [31:0] pc,
-  input ready,
   output reg [31:0] inst,
   output valid
 );
   reg [31:0] reg_inst;
   always @(posedge clk) begin
-    if(ready == 1) begin
       reg_inst = get_inst(pc);
-    end
   end
 
   assign inst = reg_inst;
