@@ -74,7 +74,6 @@ module top(
     .mtvec(mtvec)
   ); 
   
-  wire zero, signal, carry;
   wire [31:0] res;
   wire [31:0] pcwritereg;
   exu exu0(
@@ -100,22 +99,19 @@ module top(
   .pcwritereg(pcwritereg)
 );
   
-  wire [31:0] memread;
-  mem mem0(
+  wbu wbu0(
   .clk(clk),
-  .addr(res),
-  .write(regout2),
-  .ew(memew),
-  .er(memer),
-  .read(memread),
-  .func3(func3)
+  .res(res),
+  .regout2(regout2),
+  .memew(memew),
+  .memer(memer),
+  .func3(func3),
+  .imm(imm),
+  .pcwritereg(pcwritereg),
+  .muxsig(muxsig),
+
+  .regwrite(regwrite)
 );
 
-MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
-    3'b000, res,
-    3'b001, memread,
-    3'b010, imm,
-    3'b100, pcwritereg
-});
 
 endmodule

@@ -4,7 +4,7 @@ module ifu(
   input [31:0] npc,
 
   output [31:0] pc,
-  output [31:0] inst,
+  output [31:0] inst
 
 );
   wire [31:0] pcbridge;
@@ -17,6 +17,7 @@ module ifu(
   );
   
   infetch infetch0(
+    .clk(clk),
     .pc(pcbridge),
     .inst(instbridge)
   );

@@ -1,4 +1,3 @@
-import "DPI-C" function void ret();
 module pcreg(
   input clk,
   input [31:0] npc,
