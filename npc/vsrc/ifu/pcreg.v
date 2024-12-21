@@ -2,7 +2,7 @@ module pcreg(
   input clk,
   input [31:0] npc,
   input rst,
-  input get_inst,
+  input ready,
   output reg [31:0] pcout
 );
   localparam init = 32'h80000000;
@@ -13,11 +13,9 @@ module pcreg(
       pcout <= init;
     end
     else begin
-      if (get_inst == 1) begin
         pcout <= npc;
-      end
 
-    if((npc == pcout) & (get_inst == 1))
+    if(npc == pcout)
       ret(npc);
   end
   end

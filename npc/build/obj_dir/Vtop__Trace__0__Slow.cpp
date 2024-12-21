@@ -283,7 +283,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+197,"clk", false,-1);
     tracep->declBus(c+190,"npc", false,-1, 31,0);
     tracep->declBit(c+198,"rst", false,-1);
-    tracep->declBit(c+100,"get_inst", false,-1);
+    tracep->declBit(c+203,"ready", false,-1);
     tracep->declBus(c+199,"pcout", false,-1, 31,0);
     tracep->declBus(c+211,"init", false,-1, 31,0);
     tracep->popNamePrefix(2);
