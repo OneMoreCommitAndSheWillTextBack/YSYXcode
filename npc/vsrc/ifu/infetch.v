@@ -10,7 +10,7 @@ module infetch(
   output valid
 );
   reg [31:0] reg_inst;
-  always @(posedge clk) begin
+  always @(pc) begin
       reg_inst = get_inst(pc);
   end
 
