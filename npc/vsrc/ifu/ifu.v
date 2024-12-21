@@ -16,7 +16,7 @@ module ifu(
     .rst(rst),
     .npc(npc),
     .pcout(pcbridge),
-    .ready(ready)
+    .ready(get_inst)
   );
   
   infetch infetch0(
