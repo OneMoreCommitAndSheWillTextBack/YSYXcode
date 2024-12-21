@@ -21,7 +21,7 @@ module infetch(
 
   assign inst = reg_inst;
   assign valid_to = inst != 0;
-  assign ready_to = (ready_from & (inst != 0));
+  assign ready_to = 1;
 endmodule
 
 

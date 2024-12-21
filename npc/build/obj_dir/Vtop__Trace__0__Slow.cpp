@@ -271,14 +271,14 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBus(c+200,"pcbridge", false,-1, 31,0);
     tracep->declBus(c+100,"instbridge", false,-1, 31,0);
     tracep->declBit(c+21,"pc_valid", false,-1);
-    tracep->declBit(c+101,"infetch_ready", false,-1);
+    tracep->declBit(c+204,"infetch_ready", false,-1);
     tracep->pushNamePrefix("infetch0 ");
     tracep->declBit(c+198,"clk", false,-1);
     tracep->declBus(c+200,"pc", false,-1, 31,0);
     tracep->declBus(c+100,"inst", false,-1, 31,0);
     tracep->declBit(c+101,"valid_to", false,-1);
     tracep->declBit(c+21,"valid_from", false,-1);
-    tracep->declBit(c+101,"ready_to", false,-1);
+    tracep->declBit(c+204,"ready_to", false,-1);
     tracep->declBit(c+204,"ready_from", false,-1);
     tracep->declBus(c+100,"reg_inst", false,-1, 31,0);
     tracep->popNamePrefix(1);
@@ -286,7 +286,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+198,"clk", false,-1);
     tracep->declBus(c+191,"npc", false,-1, 31,0);
     tracep->declBit(c+199,"rst", false,-1);
-    tracep->declBit(c+101,"ready_from", false,-1);
+    tracep->declBit(c+204,"ready_from", false,-1);
     tracep->declBus(c+200,"pcout", false,-1, 31,0);
     tracep->declBit(c+21,"valid_to", false,-1);
     tracep->declBus(c+212,"init", false,-1, 31,0);
