@@ -15,7 +15,7 @@ module infetch(
 );
   reg [31:0] reg_inst;
   always @(posedge clk) begin
-    if(valid_to == 1)
+    if(valid_from == 1)
       reg_inst = get_inst(pc);
   end
 
