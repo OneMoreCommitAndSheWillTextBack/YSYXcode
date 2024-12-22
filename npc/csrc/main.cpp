@@ -12,5 +12,5 @@ int main(int argc, char *argv[]) {
   }
 
   printf("the times is %d\n", times);
-  return (npc->state == QUIT) ? 0 : -1;
+  return (npc->state == QUIT | npc->state == END) ? 0 : -1;
 }

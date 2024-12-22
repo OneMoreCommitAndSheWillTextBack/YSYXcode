@@ -5,7 +5,7 @@ module top(
   always @(*) begin
      host_get_pc(pcbridge);
     host_get_inst(inst);
-    $display("pc: 0x%08x %08x", pcbridge, inst);
+    // $display("pc: 0x%08x %08x", pcbridge, inst);
   end
   //
   
