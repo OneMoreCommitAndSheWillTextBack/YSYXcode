@@ -36,7 +36,7 @@ module regheap(
   registers registers0(
     .clk(clk),
     .rst(rst),
-    .ew(ew | valid),
+    .ew(ew & valid),
     .csrrs(csrrs),
     .csrrw(csrrw),
     .ecall(ecallsig),
