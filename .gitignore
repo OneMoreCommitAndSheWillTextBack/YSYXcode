@@ -5,6 +5,7 @@
 !/nexus-am/*
 !/nanos-lite/*
 !/navy-apps/*
+!conpile_flags.txt
 !Makefile
 !README.md
 !.gitignore

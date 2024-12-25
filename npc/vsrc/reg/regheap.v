@@ -10,6 +10,7 @@ module regheap(
   input csrrw,
   input csrrs,
   input ecallsig,
+  input valid,
   output [31:0] regout1,
   output [31:0] regout2,
   output [31:0] mepc,
@@ -20,6 +21,7 @@ module regheap(
   wire [31:0] rf_csr [3:0];
   wire [1:0] csr_choose;
   wire [31:0] reg_write_data;
+
 
   assign reg_write_data = (csrrw | csrrs) ? rf[src1] : 
                                             data;
@@ -34,7 +36,7 @@ module regheap(
   registers registers0(
     .clk(clk),
     .rst(rst),
-    .ew(ew),
+    .ew(ew | valid),
     .csrrs(csrrs),
     .csrrw(csrrw),
     .ecall(ecallsig),

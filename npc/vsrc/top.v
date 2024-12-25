@@ -76,6 +76,7 @@ module top(
     .csrrw(csrrw),
     .csrrs(csrrs),
     .ecallsig(ecallsig),
+    .valid(ifu_valid),
     .regout1(regout1),
     .regout2(regout2),
     .mepc(mepc),

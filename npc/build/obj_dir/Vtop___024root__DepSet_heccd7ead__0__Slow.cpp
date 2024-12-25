@@ -183,7 +183,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->rst = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__npc = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__imm = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__regew = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__muximm = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__muxsig = VL_RAND_RESET_I(3);
     vlSelf->top__DOT__aluop = VL_RAND_RESET_I(2);
@@ -217,6 +216,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[__Vi0] = VL_RAND_RESET_I(32);
     }
+    vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
         vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[__Vi0] = VL_RAND_RESET_I(14);
     }

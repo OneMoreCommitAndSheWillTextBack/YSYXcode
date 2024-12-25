@@ -96,7 +96,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[0x1dU] = 0U;
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[0x1eU] = 0U;
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[0x1fU] = 0U;
-    } else if (vlSelf->top__DOT__regew) {
+    } else if (vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew) {
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[(0x1fU 
                                                                     & (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst 
                                                                        >> 7U))] 
@@ -147,7 +147,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
         __Vdly__top__DOT__ifu0__DOT__pcbridge = vlSelf->top__DOT__npc;
     }
     if ((1U & (~ (IData)(vlSelf->rst)))) {
-        if (vlSelf->top__DOT__regew) {
+        if (vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew) {
             __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v0 = 1U;
         }
     }
@@ -525,14 +525,13 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
               | ((0x13U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) 
                  | ((7U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) 
                     | (0x73U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst))))));
-    vlSelf->top__DOT__regew = ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
-                               | ((0x33U == (0x7fU 
-                                             & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) 
-                                  | ((0x6fU == (0x7fU 
-                                                & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) 
-                                     | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
-                                        | (3U == (0x7fU 
-                                                  & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst))))));
+    vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew 
+        = (((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
+            | ((0x33U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) 
+               | ((0x6fU == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)) 
+                  | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
+                     | (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst)))))) 
+           | (0U != vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__reg_inst));
     if (vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) {
         vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__data_list[1U] 
             = vlSelf->top__DOT__idu0__DOT__decoder0__DOT__I_imm;

@@ -1,5 +1,6 @@
 !*.cpp
 !*.h
 !*.v
+!compile_flags.txt
 ./wave.vcd
 
