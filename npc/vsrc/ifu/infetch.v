@@ -23,7 +23,7 @@ module infetch(
   reg state;
   
   always @(posedge clk) begin
-    if (valid_from == 1) begin
+    if (ready_from == 1) begin
       case (state)
         WAIT_FOR_INST: begin
           inst = get_inst(pc);
