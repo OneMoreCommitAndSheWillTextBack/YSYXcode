@@ -27,6 +27,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__csrrw;
         CData/*0:0*/ top__DOT__csrrs;
         CData/*0:0*/ top__DOT__ifu0__DOT__pc_valid;
+        CData/*0:0*/ top__DOT__ifu0__DOT__infetch0__DOT__state;
         CData/*0:0*/ top__DOT__idu0__DOT__decoder0__DOT__type_I;
         CData/*0:0*/ top__DOT__idu0__DOT__decoder0__DOT__type_U;
         CData/*1:0*/ top__DOT__regfile__DOT__csr_choose;
@@ -45,7 +46,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*2:0*/ top__DOT__wbu0__DOT__mem0__DOT__len;
         CData/*0:0*/ top__DOT__wbu0__DOT__mem0__DOT__signalsig;
         CData/*0:0*/ top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__hit;
-        CData/*3:0*/ __VdfgTmp_h33f498c0__0;
+        CData/*3:0*/ __VdfgTmp_hdc80216b__0;
         CData/*5:0*/ __Vtableidx1;
         CData/*0:0*/ __Vtrigrprev__TOP__clk;
         CData/*0:0*/ __Vtrigrprev__TOP__rst;
@@ -59,6 +60,7 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__res;
         IData/*31:0*/ top__DOT__pcwritereg;
         IData/*31:0*/ top__DOT__ifu0__DOT__pcbridge;
+        IData/*31:0*/ top__DOT__ifu0__DOT__instbridge;
         IData/*31:0*/ top__DOT__ifu0__DOT__infetch0__DOT__reg_inst;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__I_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__S_imm;
@@ -81,10 +83,10 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ __VstlIterCount;
         IData/*31:0*/ __VactIterCount;
         VlUnpacked<IData/*31:0*/, 32> top__DOT__regfile__DOT__rf;
-        VlUnpacked<IData/*31:0*/, 4> top__DOT__regfile__DOT__rf_csr;
-        VlUnpacked<IData/*31:0*/, 4> top__DOT__regfile__DOT____Vcellout__registers0__csr;
     };
     struct {
+        VlUnpacked<IData/*31:0*/, 4> top__DOT__regfile__DOT__rf_csr;
+        VlUnpacked<IData/*31:0*/, 4> top__DOT__regfile__DOT____Vcellout__registers0__csr;
         VlUnpacked<IData/*31:0*/, 32> top__DOT__regfile__DOT____Vcellout__registers0__gr;
         VlUnpacked<SData/*13:0*/, 4> top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list;
         VlUnpacked<SData/*11:0*/, 4> top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list;

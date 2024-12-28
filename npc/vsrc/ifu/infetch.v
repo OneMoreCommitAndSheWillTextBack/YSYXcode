@@ -14,14 +14,29 @@ module infetch(
   
 );
   reg [31:0] reg_inst;
+
+  typedef enum logic{
+    WAIT_FOR_INST,
+    HAVE_INST
+  } state_t;
+
+  reg state;
+  
   always @(posedge clk) begin
-    if(valid_from == 1)
-      reg_inst = get_inst(pc);
+    if (valid_from == 1) begin
+      case (state)
+        WAIT_FOR_INST: begin
+          inst = get_inst(pc);
+          state <= HAVE_INST;
+        end
+        HAVE_INST: begin  
+          state <= WAIT_FOR_INST;
+          inst = 0;
+        end
+      endcase
+    end
   end
 
-  assign inst = reg_inst;
   assign valid_to = inst != 0;
-  assign ready_to = 1;
+  assign ready_to = state == WAIT_FOR_INST;
 endmodule
-
-
