@@ -40,7 +40,7 @@ MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
 
   wire [31:0] valid;
   assign valid = {31'b0,valid_from_exu};
-  always @(*) begin
+  always @(posedge clk) begin
     host_get_valid(valid);
   end
 
