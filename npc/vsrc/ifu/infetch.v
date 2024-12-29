@@ -13,8 +13,6 @@ module infetch(
   input ready_from
   
 );
-  reg [31:0] reg_inst;
-
   typedef enum logic{
     WAIT_FOR_INST,
     HAVE_INST
