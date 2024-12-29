@@ -16,6 +16,8 @@ module exu(
   input [31:0] mtvec,
   input [31:0] mepc,
   input valid_from_idu,
+  input ready_from,
+  output ready_to,
   
   output [31:0] res,
   output [31:0] npc,
@@ -82,5 +84,6 @@ module exu(
   );
 
   assign valid = valid_from_idu;
+  assign ready_to = ready_from;
 
 endmodule

@@ -27,11 +27,11 @@ VL_ATTR_COLD void Vtop___024root___eval_triggers__stl(Vtop___024root* vlSelf) {
 
 void Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(IData/*31:0*/ pc);
 void Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(IData/*31:0*/ valid);
+void Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(IData/*31:0*/ pc);
+void Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(IData/*31:0*/ inst);
 void Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(IData/*31:0*/ regval, IData/*31:0*/ regnum);
 void Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(IData/*31:0*/ csrval, IData/*31:0*/ csrnum);
 extern const VlUnpacked<CData/*3:0*/, 64> Vtop__ConstPool__TABLE_ha43bcb51_0;
-void Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(IData/*31:0*/ pc);
-void Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(IData/*31:0*/ inst);
 
 VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     if (false && vlSelf) {}  // Prevent unused
@@ -44,6 +44,8 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
                                                                (0U 
                                                                 != vlSelf->top__DOT__ifu0__DOT__instbridge));
+    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge);
+    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
     Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
                                                              vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
                                                              [0U], 0U);
@@ -221,47 +223,38 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                            | (3U == 
                                               (0x7fU 
                                                & vlSelf->top__DOT__ifu0__DOT__instbridge))));
-    vlSelf->top__DOT__wbu0__DOT__mem0__DOT__signalsig 
-        = ((4U != (7U & (vlSelf->top__DOT__ifu0__DOT__instbridge 
-                         >> 0xcU))) & (5U != (7U & 
+    vlSelf->top__DOT__memsextsig = ((4U != (7U & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                                  >> 0xcU))) 
+                                    & (5U != (7U & 
                                               (vlSelf->top__DOT__ifu0__DOT__instbridge 
                                                >> 0xcU))));
-    vlSelf->top__DOT__wbu0__DOT__mem0__DOT__len = (
-                                                   (0U 
+    vlSelf->top__DOT__memmask = ((0U == (7U & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                               >> 0xcU)))
+                                  ? 1U : ((1U == (7U 
+                                                  & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                                     >> 0xcU)))
+                                           ? 2U : (
+                                                   (2U 
                                                     == 
                                                     (7U 
                                                      & (vlSelf->top__DOT__ifu0__DOT__instbridge 
                                                         >> 0xcU)))
-                                                    ? 1U
+                                                    ? 4U
                                                     : 
-                                                   ((1U 
+                                                   ((4U 
                                                      == 
                                                      (7U 
                                                       & (vlSelf->top__DOT__ifu0__DOT__instbridge 
                                                          >> 0xcU)))
-                                                     ? 2U
+                                                     ? 1U
                                                      : 
-                                                    ((2U 
+                                                    ((5U 
                                                       == 
                                                       (7U 
                                                        & (vlSelf->top__DOT__ifu0__DOT__instbridge 
                                                           >> 0xcU)))
-                                                      ? 4U
-                                                      : 
-                                                     ((4U 
-                                                       == 
-                                                       (7U 
-                                                        & (vlSelf->top__DOT__ifu0__DOT__instbridge 
-                                                           >> 0xcU)))
-                                                       ? 1U
-                                                       : 
-                                                      ((5U 
-                                                        == 
-                                                        (7U 
-                                                         & (vlSelf->top__DOT__ifu0__DOT__instbridge 
-                                                            >> 0xcU)))
-                                                        ? 2U
-                                                        : 0U)))));
+                                                      ? 2U
+                                                      : 0U)))));
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__I_imm 
         = (((- (IData)((vlSelf->top__DOT__ifu0__DOT__instbridge 
                         >> 0x1fU))) << 0xcU) | (vlSelf->top__DOT__ifu0__DOT__instbridge 
@@ -369,11 +362,11 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                  | ((7U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge)) 
                     | (0x73U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge))))));
     vlSelf->top__DOT__wbu0__DOT__mem0__DOT__read_s 
-        = ((1U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__len))
+        = ((1U == (IData)(vlSelf->top__DOT__memmask))
             ? (((- (IData)((1U & (vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg 
                                   >> 7U)))) << 8U) 
                | (0xffU & vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg))
-            : ((2U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__len))
+            : ((2U == (IData)(vlSelf->top__DOT__memmask))
                 ? (((- (IData)((1U & (vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg 
                                       >> 0xfU)))) << 0x10U) 
                    | (0xffffU & vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg))
@@ -446,7 +439,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                 == 
                                                 (0x7fU 
                                                  & vlSelf->top__DOT__ifu0__DOT__instbridge)))));
-    if (vlSelf->top__DOT__wbu0__DOT__mem0__DOT__signalsig) {
+    if (vlSelf->top__DOT__memsextsig) {
         vlSelf->top__DOT__wbu0__DOT__memread = vlSelf->top__DOT__wbu0__DOT__mem0__DOT__read_s;
         vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__data_list[2U] 
             = vlSelf->top__DOT__wbu0__DOT__mem0__DOT__read_s;
@@ -757,10 +750,4 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                       : 
                                                      ((IData)(4U) 
                                                       + vlSelf->top__DOT__ifu0__DOT__pcbridge)))))))))));
-    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__npc);
-    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
-    if (VL_UNLIKELY((0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
-        VL_WRITEF("pc: 0x%08x %08x\n",32,vlSelf->top__DOT__ifu0__DOT__pcbridge,
-                  32,vlSelf->top__DOT__ifu0__DOT__instbridge);
-    }
 }

@@ -5,36 +5,32 @@ module mem(
   input clk,
   input [31:0] addr,
   input [31:0] write,
-  input [2:0] func3,
   input er,
   input ew,
-  output [31:0] read
+  input [2:0] memmask,
+  input memsextsig,
+  output [31:0] read,
+  output ready_to
 );
   reg [31:0] readreg;
-  wire [2:0] len;
-  wire signalsig; // if is need sext
   wire [31:0] read_u, read_s;
 
-  assign len = (func3 == 3'b000) ? 3'b001 :
-               (func3 == 3'b001) ? 3'b010 :
-               (func3 == 3'b010) ? 3'b100 :
-               (func3 == 3'b100) ? 3'b001 :
-               (func3 == 3'b101) ? 3'b010 :
-               3'b000;
+  typedef enum logic{
+    WAIT_FOR_SIG,
+    HAVE_SIG
+  } state_m;
 
-  assign signalsig = (func3 == 3'b100) ? 1'b0 :
-                     (func3 == 3'b101) ? 1'b0 :
-                     (func3 == 3'b101) ? 1'b0 :
-                     1'b1;
+  reg state;
+  initial state = WAIT_FOR_SIG;
   
-  always @(clk) begin
+  // here need to be changed
+  always @(posedge clk) begin
     if(ew && clk == 0) begin
-      guest_write(addr, write, {{29{1'b0}},len});
+      guest_write(addr, write, {{29{1'b0}},memmask});
     end
 
     if (er && clk == 0) begin
-      readreg = guest_read(addr, {{29{1'b0}},len});
-      // $display("read data: 0x%08x", readreg);
+      readreg = guest_read(addr, {{29{1'b0}},memmask});
     end else 
       readreg = 0;
   end
@@ -43,9 +39,10 @@ module mem(
   sext#(8, 32) sext0(readreg[7:0], read_sb);
   sext#(16, 32) sext1(readreg[15:0], read_sh);
 
-  assign read_s = (len == 3'b001) ? read_sb :
-                  (len == 3'b010) ? read_sh :
+  assign read_s = (memmask == 3'b001) ? read_sb :
+                  (memmask == 3'b010) ? read_sh :
                   readreg;
   assign read_u = readreg;
-  assign read = (signalsig == 1) ? read_s : read_u;
+  assign read = (memsextsig == 1) ? read_s : read_u;
+  assign ready_to = state == WAIT_FOR_SIG;
 endmodule

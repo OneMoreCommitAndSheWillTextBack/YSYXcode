@@ -1,5 +1,4 @@
 import "DPI-C" function void host_get_valid(int valid);
-
 module wbu(
   input clk,
   input [31:0] res,
@@ -11,8 +10,11 @@ module wbu(
   input [31:0] pcwritereg,
   input [2:0] muxsig,
   input valid_from_exu,
+  input [2:0] memmask,
+  input memsextsig,
 
-  output [31:0] regwrite
+  output [31:0] regwrite,
+  output ready_to
 );
 
   wire [31:0] memread;
@@ -22,8 +24,10 @@ module wbu(
   .write(regout2),
   .ew(memew),
   .er(memer),
+  .memmask(memmask),
+  .memsextsig(memsextsig),
   .read(memread),
-  .func3(func3)
+  .ready_to(ready_to)
 );
 
 MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {

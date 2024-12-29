@@ -3,10 +3,10 @@ module top(
   input rst
 );
   always @(*) begin
-     host_get_pc(npc);
+     host_get_pc(pcbridge);
     host_get_inst(inst);
-    if(inst != 0)
-      $display("pc: 0x%08x %08x", pcbridge, inst);
+    //if(inst != 0)
+    //  $display("pc: 0x%08x %08x", pcbridge, inst);
   end
   //
   
@@ -34,6 +34,8 @@ module top(
   wire [1:0] aluop;
   wire csrrw, csrrs;
   wire idu_valid;
+  wire [2:0] memmask;
+  wire memsextsig;
   idu idu0(
   .inst(inst),
   .valid_from_ifu(ifu_valid),
@@ -59,8 +61,11 @@ module top(
   .auipcsig(auipcsig),
   .csrrw(csrrw),
   .csrrs(csrrs),
+  .memmask(memmask),
+  .memsextsig(memsextsig),
   .valid(idu_valid),
-  .ready(ready_idu_to_ifu)
+  .ready_to(ready_idu_to_ifu),
+  .ready_from(ready_exu_to_idu)
 );
 
   wire [31:0] regwrite, regout1, regout2;
@@ -87,6 +92,7 @@ module top(
   wire [31:0] res;
   wire [31:0] pcwritereg;
   wire exu_valid;
+  wire ready_exu_to_idu;
   exu exu0(
   .func3(func3),
   .func7(func7),
@@ -105,6 +111,9 @@ module top(
   .mepc(mepc),
   .pc(pcbridge),
   .valid_from_idu(idu_valid),
+
+  .ready_from(ready_wbu_to_exu),
+  .ready_to(ready_exu_to_idu),
   
   .res(res),
   .npc(npc),
@@ -112,6 +121,7 @@ module top(
   .valid(exu_valid)
 );
   
+  wire ready_wbu_to_exu;
   wbu wbu0(
   .clk(clk),
   .res(res),
@@ -123,8 +133,11 @@ module top(
   .pcwritereg(pcwritereg),
   .muxsig(muxsig),
   .valid_from_exu(exu_valid),
+  .memsextsig(memsextsig),
+  .memmask(memmask),
 
-  .regwrite(regwrite)
+  .regwrite(regwrite),
+  .ready_to(ready_wbu_to_exu)
 );
 
 

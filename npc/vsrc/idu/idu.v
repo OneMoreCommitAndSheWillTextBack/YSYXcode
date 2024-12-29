@@ -1,6 +1,7 @@
 module idu(
   input [31:0] inst,
   input valid_from_ifu,
+  input ready_from,
   
   output ebreaksig,
   output ecallsig,
@@ -24,7 +25,9 @@ module idu(
   output csrrw,
   output csrrs,
   output valid,
-  output ready
+  output [2:0] memmask,
+  output memsextsig,
+  output ready_to
 );
   
   wire ebreak, ecall, mret;
@@ -43,7 +46,9 @@ module idu(
     .rd(rd),
     .opcode(opcode),
     .func3(func3bridge),
-    .func7(func7bridge)
+    .func7(func7bridge),
+    .memsextsig(memsextsig),
+    .memmask(memmask)
   );
 
   maincontrol maincontrol0(
@@ -75,6 +80,5 @@ module idu(
   assign func3 = func3bridge;
   
   assign valid = valid_from_ifu;
-  assign ready = 1;
-
+  assign ready_to = ready_from;
 endmodule
