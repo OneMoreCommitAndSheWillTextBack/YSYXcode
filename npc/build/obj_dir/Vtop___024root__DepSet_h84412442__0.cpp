@@ -54,13 +54,13 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
     if ((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))) {
         if (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state) {
             if (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state) {
-                vlSelf->top__DOT__ifu0__DOT__instbridge = 0U;
+                Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge, __Vfunc_get_inst__3__Vfuncout);
+                vlSelf->top__DOT__ifu0__DOT__instbridge 
+                    = __Vfunc_get_inst__3__Vfuncout;
                 vlSelf->__Vdly__top__DOT__ifu0__DOT__infetch0__DOT__state = 0U;
             }
         } else {
-            Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge, __Vfunc_get_inst__3__Vfuncout);
-            vlSelf->top__DOT__ifu0__DOT__instbridge 
-                = __Vfunc_get_inst__3__Vfuncout;
+            vlSelf->top__DOT__ifu0__DOT__instbridge = 0U;
             vlSelf->__Vdly__top__DOT__ifu0__DOT__infetch0__DOT__state = 1U;
         }
     }
@@ -403,7 +403,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     }
     if (vlSelf->rst) {
         __Vdly__top__DOT__ifu0__DOT__pcbridge = 0x80000000U;
-    } else if (((IData)(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state) 
+    } else if (((~ (IData)(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state)) 
                 & (0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
         if ((vlSelf->top__DOT__npc == vlSelf->top__DOT__ifu0__DOT__pcbridge)) {
             Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(0U);
@@ -873,4 +873,8 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
                                                       + vlSelf->top__DOT__ifu0__DOT__pcbridge)))))))))));
     Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__npc);
     Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
+    if (VL_UNLIKELY((0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
+        VL_WRITEF("pc: 0x%08x %08x\n",32,vlSelf->top__DOT__ifu0__DOT__pcbridge,
+                  32,vlSelf->top__DOT__ifu0__DOT__instbridge);
+    }
 }
