@@ -13,6 +13,7 @@ module infetch(
   input ready_from
   
 );
+
   typedef enum logic{
     WAIT_FOR_INST,
     HAVE_INST
@@ -24,17 +25,17 @@ module infetch(
     if (ready_from == 1) begin
       case (state)
         WAIT_FOR_INST: begin
-          inst = 0;
+          inst = get_inst(pc);
           state <= HAVE_INST;
         end
         HAVE_INST: begin  
           state <= WAIT_FOR_INST;
-          inst = get_inst(pc);
+          inst = 0;
         end
       endcase
     end
   end
 
   assign valid_to = inst != 0;
-  assign ready_to = state == WAIT_FOR_INST & valid_to;
+  assign ready_to = state == WAIT_FOR_INST;
 endmodule

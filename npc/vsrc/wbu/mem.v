@@ -9,22 +9,13 @@ module mem(
   input ew,
   input [2:0] memmask,
   input memsextsig,
-  output [31:0] read,
-  output ready_to
+  output [31:0] read
+  // output ready_to
 );
   reg [31:0] readreg;
   wire [31:0] read_u, read_s;
-
-  typedef enum logic{
-    WAIT_FOR_SIG,
-    HAVE_SIG
-  } state_m;
-
-  reg state;
-  initial state = WAIT_FOR_SIG;
   
-  // here need to be changed
-  always @(posedge clk) begin
+  always @(clk) begin
     if(ew && clk == 0) begin
       guest_write(addr, write, {{29{1'b0}},memmask});
     end
@@ -44,5 +35,4 @@ module mem(
                   readreg;
   assign read_u = readreg;
   assign read = (memsextsig == 1) ? read_s : read_u;
-  assign ready_to = state == WAIT_FOR_SIG;
 endmodule
