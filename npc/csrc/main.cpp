@@ -1,6 +1,7 @@
 #include "common.h"
 
 extern int times;
+extern Npc *npc;
 int main(int argc, char *argv[]) {
   init(argc, argv);
 
@@ -11,5 +12,5 @@ int main(int argc, char *argv[]) {
   }
 
   printf("the times is %d\n", times);
-  return 0;
+  return (npc->state == QUIT | npc->state == END) ? 0 : -1;
 }

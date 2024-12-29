@@ -16,7 +16,9 @@ module decoder(
   output func7,
   output [4:0] src1,
   output [4:0] src2,
-  output [4:0] rd
+  output [4:0] rd,
+  output [2:0] memmask,
+  output memsextsig
 );
   
   wire type_I, type_R, type_U, type_S, type_J, type_B;
@@ -54,6 +56,19 @@ module decoder(
   assign ebreaksig = (inst == 32'b00000000000100000000000001110011);
   assign ecallsig = (inst == 32'b00000000000000000000000001110011);
   assign mretsig = (inst == 32'b00110000001000000000000001110011);
+
+  assign memmask = (func3 == 3'b000) ? 3'b001 :
+               (func3 == 3'b001) ? 3'b010 :
+               (func3 == 3'b010) ? 3'b100 :
+               (func3 == 3'b100) ? 3'b001 :
+               (func3 == 3'b101) ? 3'b010 :
+               3'b000;
+
+  assign memsextsig = (func3 == 3'b100) ? 1'b0 :
+                     (func3 == 3'b101) ? 1'b0 :
+                     (func3 == 3'b101) ? 1'b0 :
+                     1'b1;
+
   
 endmodule
 

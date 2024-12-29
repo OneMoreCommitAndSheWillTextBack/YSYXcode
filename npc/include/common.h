@@ -36,6 +36,7 @@ typedef struct {
   uint32_t inst;
   context con;
   char logbuf[128];
+  int valid;
 } Cpu;
 
 #ifdef TRACE

@@ -5,7 +5,6 @@ INCLUDE_PATH = $(abspath ./include/)
 
 VSRC=$(shell find $(abspath ./vsrc/) -name "*.v")
 CSRC=$(shell find $(abspath ./csrc/) -name "*.cpp")
-HFILE = $(shell find $(abspath ./include/) -name "*.h")
 
 LLVMFLAGS = $(subst -D__STDC_FORMAT_MACROS,,$(shell llvm-config --cxxflags))
 
@@ -19,7 +18,7 @@ BIN = $(BUILDDIR)/$(TOPNAME)
 
 $(shell mkdir -p $(BUILDDIR))
 
-$(BIN): $(VSRC) $(CSRC) $(HFILE)
+$(BIN): $(VSRC) $(CSRC)
 	@rm -rf $(OBJDIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) $^ \
 		$(CFLAGS) \
