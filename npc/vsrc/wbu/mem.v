@@ -25,27 +25,14 @@ module mem(
   
   // here need to be changed
   always @(posedge clk) begin
-    if (er & ew) begin
-      case (state) 
-        WAIT_FOR_SIG: begin
-          state <= HAVE_SIG;
-          readreg = 0;
-        end
-        HAVE_SIG: begin
-          state <= WAIT_FOR_SIG;
-          if(er) begin
-            readreg = guest_read(addr, {{29{1'b0}}, memmask});
-          end else 
-            readreg = 0;
-          
-          if(ew) begin
-            guest_write(addr, write, {{29{1'b0}}, memmask});
-          end
-        end
-      endcase
-    end else begin
-      state <= WAIT_FOR_SIG;
+    if(ew && clk == 0) begin
+      guest_write(addr, write, {{29{1'b0}},memmask});
     end
+
+    if (er && clk == 0) begin
+      readreg = guest_read(addr, {{29{1'b0}},memmask});
+    end else 
+      readreg = 0;
   end
 
   wire [31:0] read_sb, read_sh;
