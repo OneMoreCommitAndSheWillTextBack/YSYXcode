@@ -1,3 +1,5 @@
+import "DPI-C" function void host_get_valid(int valid);
+
 module wbu(
   input clk,
   input [31:0] res,
@@ -31,11 +33,12 @@ MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b100, pcwritereg
 });
 
-/*
-  wire valid;
-  assign valid = valid_from_exu;
+
+  wire [31:0] valid;
+  assign valid = {31'b0,valid_from_exu};
   always @(*) begin
+    host_get_valid(valid);
   end
-*/
+
 
 endmodule

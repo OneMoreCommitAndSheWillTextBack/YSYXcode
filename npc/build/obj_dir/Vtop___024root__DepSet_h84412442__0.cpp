@@ -340,6 +340,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
 }
 
 void Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(IData/*31:0*/ pc, IData/*31:0*/ &get_inst__Vfuncrtn);
+void Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(IData/*31:0*/ valid);
 extern const VlUnpacked<CData/*3:0*/, 64> Vtop__ConstPool__TABLE_ha43bcb51_0;
 
 VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) {
@@ -363,6 +364,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     if ((0x100073U == vlSelf->top__DOT__ifu0__DOT__instbridge)) {
         Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(0U);
     }
+    Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
+                                                               (0U 
+                                                                != vlSelf->top__DOT__ifu0__DOT__instbridge));
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit 
         = ((vlSelf->top__DOT__ifu0__DOT__instbridge 
             >> 0x14U) == vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list
@@ -590,8 +594,8 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__2\n"); );
     // Init
-    IData/*31:0*/ __Vfunc_guest_read__8__Vfuncout;
-    __Vfunc_guest_read__8__Vfuncout = 0;
+    IData/*31:0*/ __Vfunc_guest_read__9__Vfuncout;
+    __Vfunc_guest_read__9__Vfuncout = 0;
     // Body
     if (((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge)) 
          & (~ (IData)(vlSelf->clk)))) {
@@ -599,9 +603,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     }
     if (((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge)) 
          & (~ (IData)(vlSelf->clk)))) {
-        Vtop___024unit____Vdpiimwrap_guest_read_TOP____024unit(vlSelf->top__DOT__res, (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__len), __Vfunc_guest_read__8__Vfuncout);
+        Vtop___024unit____Vdpiimwrap_guest_read_TOP____024unit(vlSelf->top__DOT__res, (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__len), __Vfunc_guest_read__9__Vfuncout);
         vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg 
-            = __Vfunc_guest_read__8__Vfuncout;
+            = __Vfunc_guest_read__9__Vfuncout;
     } else {
         vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg = 0U;
     }
@@ -615,12 +619,6 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_comb__TOP__0\n"); );
     // Body
-    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge);
-    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
-    if (VL_UNLIKELY((0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
-        VL_WRITEF("pc: 0x%08x %08x\n",32,vlSelf->top__DOT__ifu0__DOT__pcbridge,
-                  32,vlSelf->top__DOT__ifu0__DOT__instbridge);
-    }
     vlSelf->top__DOT__regout1 = vlSelf->top__DOT__regfile__DOT__rf
         [(0x1fU & (vlSelf->top__DOT__ifu0__DOT__instbridge 
                    >> 0xfU))];
@@ -833,4 +831,10 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
                                                       : 
                                                      ((IData)(4U) 
                                                       + vlSelf->top__DOT__ifu0__DOT__pcbridge)))))))))));
+    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__npc);
+    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
+    if (VL_UNLIKELY((0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
+        VL_WRITEF("pc: 0x%08x %08x\n",32,vlSelf->top__DOT__ifu0__DOT__pcbridge,
+                  32,vlSelf->top__DOT__ifu0__DOT__instbridge);
+    }
 }
