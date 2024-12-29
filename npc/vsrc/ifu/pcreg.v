@@ -8,7 +8,10 @@ module pcreg(
 
 );
   localparam init = 32'h80000000;
-  initial pcout = init;
+  initial begin 
+    pcout = init;
+    valid_to = 1;
+  end
   
   always @(posedge clk or posedge rst) begin
     if(rst) begin
