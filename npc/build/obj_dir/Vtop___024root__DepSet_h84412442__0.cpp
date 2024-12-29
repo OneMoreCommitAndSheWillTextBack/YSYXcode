@@ -54,13 +54,13 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
     if ((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))) {
         if (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state) {
             if (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state) {
-                Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge, __Vfunc_get_inst__3__Vfuncout);
-                vlSelf->top__DOT__ifu0__DOT__instbridge 
-                    = __Vfunc_get_inst__3__Vfuncout;
+                vlSelf->top__DOT__ifu0__DOT__instbridge = 0U;
                 vlSelf->__Vdly__top__DOT__ifu0__DOT__infetch0__DOT__state = 0U;
             }
         } else {
-            vlSelf->top__DOT__ifu0__DOT__instbridge = 0U;
+            Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge, __Vfunc_get_inst__3__Vfuncout);
+            vlSelf->top__DOT__ifu0__DOT__instbridge 
+                = __Vfunc_get_inst__3__Vfuncout;
             vlSelf->__Vdly__top__DOT__ifu0__DOT__infetch0__DOT__state = 1U;
         }
     }
