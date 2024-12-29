@@ -13,7 +13,6 @@ module infetch(
   input ready_from
   
 );
-
   typedef enum logic{
     WAIT_FOR_INST,
     HAVE_INST
