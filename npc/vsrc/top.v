@@ -5,23 +5,18 @@ module top(
   always @(*) begin
      host_get_pc(pcbridge);
     host_get_inst(inst);
-    if(inst != 0)
-      $display("pc: 0x%08x %08x", pcbridge, inst);
+    // $display("pc: 0x%08x start", pcbridge);
   end
   //
-  
-  wire ready_idu_to_ifu;
+
   wire [31:0] npc, pcbridge;
   wire [31:0] inst;
-  wire ifu_valid;
   ifu ifu0(
     .clk(clk),
     .rst(rst),
     .npc(npc),
     .pc(pcbridge),
-    .inst(inst),
-    .valid(ifu_valid),
-    .ready(ready_idu_to_ifu)
+    .inst(inst)
   );
 
   wire [4:0] src1, src2, rd;
@@ -33,12 +28,8 @@ module top(
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
   wire csrrw, csrrs;
-  wire idu_valid;
-  wire [2:0] memmask;
-  wire memsextsig;
   idu idu0(
   .inst(inst),
-  .valid_from_ifu(ifu_valid),
   
   .ebreaksig(ebreaksig),
   .ecallsig(ecallsig),
@@ -60,11 +51,7 @@ module top(
   .aluop(aluop),
   .auipcsig(auipcsig),
   .csrrw(csrrw),
-  .csrrs(csrrs),
-  .memmask(memmask),
-  .memsextsig(memsextsig),
-  .valid(idu_valid),
-  .ready(ready_idu_to_ifu)
+  .csrrs(csrrs)
 );
 
   wire [31:0] regwrite, regout1, regout2;
@@ -81,16 +68,15 @@ module top(
     .csrrw(csrrw),
     .csrrs(csrrs),
     .ecallsig(ecallsig),
-    .valid(ifu_valid),
     .regout1(regout1),
     .regout2(regout2),
     .mepc(mepc),
     .mtvec(mtvec)
   ); 
   
+  wire zero, signal, carry;
   wire [31:0] res;
   wire [31:0] pcwritereg;
-  wire exu_valid;
   exu exu0(
   .func3(func3),
   .func7(func7),
@@ -108,30 +94,28 @@ module top(
   .mtvec(mtvec),
   .mepc(mepc),
   .pc(pcbridge),
-  .valid_from_idu(idu_valid),
   
   .res(res),
   .npc(npc),
-  .pcwritereg(pcwritereg),
-  .valid(exu_valid)
+  .pcwritereg(pcwritereg)
 );
   
-  wbu wbu0(
+  wire [31:0] memread;
+  mem mem0(
   .clk(clk),
-  .res(res),
-  .regout2(regout2),
-  .memew(memew),
-  .memer(memer),
-  .func3(func3),
-  .imm(imm),
-  .pcwritereg(pcwritereg),
-  .muxsig(muxsig),
-  .valid_from_exu(exu_valid),
-  .memsextsig(memsextsig),
-  .memmask(memmask),
-
-  .regwrite(regwrite)
+  .addr(res),
+  .write(regout2),
+  .ew(memew),
+  .er(memer),
+  .read(memread),
+  .func3(func3)
 );
 
+MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
+    3'b000, res,
+    3'b001, memread,
+    3'b010, imm,
+    3'b100, pcwritereg
+});
 
 endmodule

@@ -57,5 +57,3 @@ extern "C" void host_get_inst(int inst) {
   cpu->inst = (uint32_t)inst;
   return;
 }
-
-extern "C" void host_get_valid(int valid) { cpu->valid = valid; }
