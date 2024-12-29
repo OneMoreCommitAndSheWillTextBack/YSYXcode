@@ -13,8 +13,7 @@ module wbu(
   input [2:0] memmask,
   input memsextsig,
 
-  output [31:0] regwrite,
-  output ready_to
+  output [31:0] regwrite
 );
 
   wire [31:0] memread;
