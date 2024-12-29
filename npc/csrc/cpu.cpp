@@ -48,7 +48,6 @@ void trace_or_diff() {
 #endif
 #ifdef DIFFTEST
   if (cpu->valid == 1) {
-    printf("1");
     diff_step();
   }
 #endif
