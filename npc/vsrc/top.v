@@ -132,6 +132,4 @@ module top(
 
   .regwrite(regwrite)
 );
-
-
 endmodule
