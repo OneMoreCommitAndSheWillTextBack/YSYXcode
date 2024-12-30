@@ -47,6 +47,7 @@ void trace_or_diff() {
   printf("%s\n", cpu->logbuf);
 #endif
 #ifdef DIFFTEST
+  printf("%d at times %d\n", cpu->valid, times);
   if (cpu->valid == 1) {
     diff_step();
   }
