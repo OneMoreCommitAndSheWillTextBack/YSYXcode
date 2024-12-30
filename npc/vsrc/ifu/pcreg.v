@@ -7,7 +7,7 @@ module pcreg(
   output valid_to
 
 );
-  localparam init = 32'h80000000;
+  localparam init = 32'h80000000 + 4;
   initial begin 
     pcout = init;
     valid_to = 1;
