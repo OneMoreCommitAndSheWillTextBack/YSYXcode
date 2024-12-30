@@ -50,7 +50,7 @@ void trace_or_diff() {
 #ifdef DIFFTEST
   if (cpu->valid == 1)
     start_diff = 1;
-  if (start_diff == 1 && cpu->valid == 0) {
+  if (start_diff == 1 && cpu->valid == 1) {
     diff_step();
   }
 #endif
