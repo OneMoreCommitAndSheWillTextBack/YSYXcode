@@ -56,7 +56,7 @@ VL_ATTR_COLD void Vtop___024root___eval_initial__TOP(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[1U] = 0xd06U;
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[2U] = 0xc15U;
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[3U] = 0xc00U;
-    vlSelf->top__DOT__ifu0__DOT__pcbridge = 0x80000000U;
+    vlSelf->top__DOT__ifu0__DOT__pcbridge = 0x80000004U;
     vlSelf->top__DOT__ifu0__DOT__pc_valid = 1U;
 }
 
@@ -275,6 +275,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__hit = VL_RAND_RESET_I(1);
     vlSelf->__VdfgTmp_hdc80216b__0 = 0;
     vlSelf->__Vtableidx1 = 0;
+    vlSelf->__Vdly__top__DOT__ifu0__DOT__pcbridge = VL_RAND_RESET_I(32);
     vlSelf->__Vtrigrprev__TOP__clk = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__rst = VL_RAND_RESET_I(1);
     vlSelf->__VactDidInit = 0;
