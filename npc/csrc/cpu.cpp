@@ -41,14 +41,16 @@ static void exe_once() {
 #endif
 }
 
+static int start_diff = 0;
 void trace_or_diff() {
   exe_wp();
 #ifdef ITRACE
   printf("%s\n", cpu->logbuf);
 #endif
 #ifdef DIFFTEST
-  printf("%d at times %d\n", cpu->valid, times);
-  if (cpu->valid == 1) {
+  if (cpu->valid == 1)
+    start_diff = 1;
+  if (start_diff == 1 && cpu->valid == 0) {
     diff_step();
   }
 #endif
