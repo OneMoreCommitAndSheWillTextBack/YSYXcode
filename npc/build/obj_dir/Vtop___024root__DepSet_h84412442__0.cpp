@@ -629,8 +629,6 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regout2 = vlSelf->top__DOT__regfile__DOT__rf
         [(0x1fU & (vlSelf->top__DOT__ifu0__DOT__instbridge 
                    >> 0x14U))];
-    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge);
-    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
     vlSelf->top__DOT__exu0__DOT__pcaddimmbridge = (vlSelf->top__DOT__imm 
                                                    + vlSelf->top__DOT__ifu0__DOT__pcbridge);
     vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out 
@@ -833,4 +831,6 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
                                                       : 
                                                      ((IData)(4U) 
                                                       + vlSelf->top__DOT__ifu0__DOT__pcbridge)))))))))));
+    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__npc);
+    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
 }
