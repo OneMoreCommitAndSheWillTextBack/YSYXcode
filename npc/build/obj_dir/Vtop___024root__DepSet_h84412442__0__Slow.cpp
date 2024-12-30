@@ -46,10 +46,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                                 != vlSelf->top__DOT__ifu0__DOT__instbridge));
     Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge);
     Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
-    if (VL_UNLIKELY((0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
-        VL_WRITEF("pc: 0x%08x %08x\n",32,vlSelf->top__DOT__ifu0__DOT__pcbridge,
-                  32,vlSelf->top__DOT__ifu0__DOT__instbridge);
-    }
     Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
                                                              vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
                                                              [0U], 0U);

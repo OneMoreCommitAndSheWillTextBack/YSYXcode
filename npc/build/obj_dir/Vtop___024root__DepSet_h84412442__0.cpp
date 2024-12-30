@@ -631,10 +631,6 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
                    >> 0x14U))];
     Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge);
     Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
-    if (VL_UNLIKELY((0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
-        VL_WRITEF("pc: 0x%08x %08x\n",32,vlSelf->top__DOT__ifu0__DOT__pcbridge,
-                  32,vlSelf->top__DOT__ifu0__DOT__instbridge);
-    }
     vlSelf->top__DOT__exu0__DOT__pcaddimmbridge = (vlSelf->top__DOT__imm 
                                                    + vlSelf->top__DOT__ifu0__DOT__pcbridge);
     vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out 
