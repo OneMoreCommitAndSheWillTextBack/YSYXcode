@@ -106,7 +106,7 @@ void init(int argc, char *argv[]) {
 
   npc = new Npc;
   cpu = new Cpu;
-  cpu->con.pc = MBASE;
+  cpu->con.pc = MBASE - 4;
   npc->top = new Vtop;
 
   init_trace();
