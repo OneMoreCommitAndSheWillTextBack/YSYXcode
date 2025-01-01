@@ -8,7 +8,6 @@ module infetch(
   output reg [31:0] inst,
   
   output valid_to,
-  input valid_from,
   output ready_to,
   input ready_from
   
@@ -36,5 +35,5 @@ module infetch(
   end
 
   assign valid_to = inst != 0;
-  assign ready_to = state == WAIT_FOR_INST & ready_from & valid_to;
+  assign ready_to = ready_from & valid_to;
 endmodule

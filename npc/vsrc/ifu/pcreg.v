@@ -3,14 +3,11 @@ module pcreg(
   input [31:0] npc,
   input rst,
   input ready_from,
-  output reg [31:0] pcout,
-  output valid_to
-
+  output reg [31:0] pcout
 );
   localparam init = 32'h80000000;
   initial begin 
     pcout = init;
-    valid_to = 1;
   end
   
   always @(posedge clk or posedge rst) begin
@@ -22,9 +19,6 @@ module pcreg(
       if (npc == pcout) 
         ret(0);
       pcout <= npc;
-      valid_to = 1;
-    end else begin
-      valid_to = 0;
     end
   end
 
