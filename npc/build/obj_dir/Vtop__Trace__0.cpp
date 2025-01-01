@@ -262,40 +262,39 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgBit(oldp+177,((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))));
         bufp->chgBit(oldp+178,(vlSelf->top__DOT__csrrw));
         bufp->chgBit(oldp+179,(vlSelf->top__DOT__csrrs));
-        bufp->chgBit(oldp+180,(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state));
-        bufp->chgCData(oldp+181,(vlSelf->top__DOT__regfile__DOT__csr_choose),2);
-        bufp->chgCData(oldp+182,(vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out),2);
-        bufp->chgBit(oldp+183,(vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew));
-        bufp->chgBit(oldp+184,(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state));
+        bufp->chgBit(oldp+180,((1U & ((~ (IData)(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state)) 
+                                      & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state))))));
+        bufp->chgBit(oldp+181,(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state));
+        bufp->chgCData(oldp+182,(vlSelf->top__DOT__regfile__DOT__csr_choose),2);
+        bufp->chgCData(oldp+183,(vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out),2);
+        bufp->chgBit(oldp+184,(vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew));
+        bufp->chgBit(oldp+185,(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state));
     }
     if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[4U])) {
-        bufp->chgIData(oldp+185,(vlSelf->top__DOT__npc),32);
-        bufp->chgIData(oldp+186,(vlSelf->top__DOT__regwrite),32);
-        bufp->chgIData(oldp+187,(vlSelf->top__DOT__regout1),32);
-        bufp->chgIData(oldp+188,(vlSelf->top__DOT__regout2),32);
-        bufp->chgIData(oldp+189,(vlSelf->top__DOT__res),32);
-        bufp->chgIData(oldp+190,(vlSelf->top__DOT__pcwritereg),32);
-        bufp->chgIData(oldp+191,(vlSelf->top__DOT__exu0__DOT__pcaddimmbridge),32);
-        bufp->chgIData(oldp+192,(vlSelf->top__DOT__exu0__DOT__aluarg2),32);
-        bufp->chgBit(oldp+193,((0U == vlSelf->top__DOT__res)));
-        bufp->chgBit(oldp+194,((vlSelf->top__DOT__res 
+        bufp->chgIData(oldp+186,(vlSelf->top__DOT__npc),32);
+        bufp->chgIData(oldp+187,(vlSelf->top__DOT__regwrite),32);
+        bufp->chgIData(oldp+188,(vlSelf->top__DOT__regout1),32);
+        bufp->chgIData(oldp+189,(vlSelf->top__DOT__regout2),32);
+        bufp->chgIData(oldp+190,(vlSelf->top__DOT__res),32);
+        bufp->chgIData(oldp+191,(vlSelf->top__DOT__pcwritereg),32);
+        bufp->chgIData(oldp+192,(vlSelf->top__DOT__exu0__DOT__pcaddimmbridge),32);
+        bufp->chgIData(oldp+193,(vlSelf->top__DOT__exu0__DOT__aluarg2),32);
+        bufp->chgBit(oldp+194,((0U == vlSelf->top__DOT__res)));
+        bufp->chgBit(oldp+195,((vlSelf->top__DOT__res 
                                 >> 0x1fU)));
-        bufp->chgBit(oldp+195,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__carry_tmp));
-        bufp->chgIData(oldp+196,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__logres),32);
-        bufp->chgIData(oldp+197,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres),32);
-        bufp->chgBit(oldp+198,((0U == vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres)));
-        bufp->chgIData(oldp+199,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__shfres),32);
-        bufp->chgIData(oldp+200,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__sltres),32);
-        bufp->chgIData(oldp+201,(vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out),32);
-        bufp->chgIData(oldp+202,(vlSelf->top__DOT__regfile__DOT__reg_write_data),32);
-        bufp->chgIData(oldp+203,(vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__lut_out),32);
-        bufp->chgBit(oldp+204,(vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__hit));
+        bufp->chgBit(oldp+196,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__carry_tmp));
+        bufp->chgIData(oldp+197,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__logres),32);
+        bufp->chgIData(oldp+198,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres),32);
+        bufp->chgBit(oldp+199,((0U == vlSelf->top__DOT__exu0__DOT__alu0__DOT__addres)));
+        bufp->chgIData(oldp+200,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__shfres),32);
+        bufp->chgIData(oldp+201,(vlSelf->top__DOT__exu0__DOT__alu0__DOT__sltres),32);
+        bufp->chgIData(oldp+202,(vlSelf->top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out),32);
+        bufp->chgIData(oldp+203,(vlSelf->top__DOT__regfile__DOT__reg_write_data),32);
+        bufp->chgIData(oldp+204,(vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__lut_out),32);
+        bufp->chgBit(oldp+205,(vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__hit));
     }
-    bufp->chgBit(oldp+205,(vlSelf->clk));
-    bufp->chgBit(oldp+206,(vlSelf->rst));
-    bufp->chgBit(oldp+207,(((~ (IData)(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state)) 
-                            & ((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
-                               & (0U != vlSelf->top__DOT__ifu0__DOT__instbridge)))));
+    bufp->chgBit(oldp+206,(vlSelf->clk));
+    bufp->chgBit(oldp+207,(vlSelf->rst));
     bufp->chgIData(oldp+208,(((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
                               & (0U != vlSelf->top__DOT__ifu0__DOT__instbridge))),32);
 }

@@ -36,5 +36,5 @@ module infetch(
   end
 
   assign valid_to = inst != 0;
-  assign ready_to = state == WAIT_FOR_INST & valid_to & ready_from;
+  assign ready_to = state == WAIT_FOR_INST & ready_from;
 endmodule
