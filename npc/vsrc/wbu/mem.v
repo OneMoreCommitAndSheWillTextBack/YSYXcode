@@ -32,7 +32,7 @@ module mem(
             guest_write(addr, write, {{29{1'b0}},memmask});
           end
 
-          if (er && clk == 0) begin
+          if (er) begin
             readreg = guest_read(addr, {{29{1'b0}},memmask});
           end else 
             readreg = 0;
