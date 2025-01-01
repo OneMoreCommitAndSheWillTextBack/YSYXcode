@@ -25,9 +25,10 @@ module mem(
   
   // here nned to be change
   always @(posedge clk) begin
-    if (valid_from) begin 
+    if (valid_from | ew | er) begin 
       case (state)
         VALID: begin
+          state <= WAIT_FOT_SIG;
           if(ew) begin
             guest_write(addr, write, {{29{1'b0}},memmask});
           end
@@ -39,6 +40,7 @@ module mem(
         end
 
         WAIT_FOT_SIG: begin
+          state <= VALID;
           readreg = 0;
         end
       endcase
