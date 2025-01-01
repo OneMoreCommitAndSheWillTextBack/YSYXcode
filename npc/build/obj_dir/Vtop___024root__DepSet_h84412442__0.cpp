@@ -420,8 +420,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     }
     if (vlSelf->rst) {
         __Vdly__top__DOT__ifu0__DOT__pcbridge = 0x80000000U;
-    } else if ((1U & ((~ (IData)(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state)) 
-                      & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state))))) {
+    } else if (((~ (IData)(vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state)) 
+                & ((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
+                   & (0U != vlSelf->top__DOT__ifu0__DOT__instbridge)))) {
         if ((vlSelf->top__DOT__npc == vlSelf->top__DOT__ifu0__DOT__pcbridge)) {
             Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(0U);
         }
