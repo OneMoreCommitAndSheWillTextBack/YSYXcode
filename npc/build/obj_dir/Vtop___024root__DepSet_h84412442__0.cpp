@@ -54,9 +54,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
     __Vdly__top__DOT__wbu0__DOT__mem0__DOT__state = vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state;
     vlSelf->__Vdly__top__DOT__ifu0__DOT__infetch0__DOT__state 
         = vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state;
-    if ((((0U != vlSelf->top__DOT__ifu0__DOT__instbridge) 
-          | (0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge))) 
-         | (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge)))) {
+    if (((0U != vlSelf->top__DOT__ifu0__DOT__instbridge) 
+         & ((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge)) 
+            | (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge))))) {
         if (vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state) {
             if ((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge))) {
                 Vtop___024unit____Vdpiimwrap_guest_write_TOP____024unit(vlSelf->top__DOT__res, vlSelf->top__DOT__regout2, (IData)(vlSelf->top__DOT__memmask));

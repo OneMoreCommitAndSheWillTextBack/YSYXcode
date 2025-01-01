@@ -25,7 +25,7 @@ module mem(
   
   // here nned to be change
   always @(posedge clk) begin
-    if (valid_from | ew | er) begin 
+    if (valid_from & (ew | er)) begin 
       case (state)
         VALID: begin
           state <= WAIT_FOT_SIG;
