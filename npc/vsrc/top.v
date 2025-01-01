@@ -38,7 +38,8 @@ module top(
   wire memsextsig;
   idu idu0(
   .inst(inst),
-  .valid_from_ifu(ifu_valid),
+  .valid_from(ifu_valid),
+  .ready_from(ready_exu_to_idu),
   
   .ebreaksig(ebreaksig),
   .ecallsig(ecallsig),
@@ -63,12 +64,13 @@ module top(
   .csrrs(csrrs),
   .memmask(memmask),
   .memsextsig(memsextsig),
-  .valid(idu_valid),
-  .ready(ready_idu_to_ifu)
+  .valid_to(idu_valid),
+  .ready_to(ready_idu_to_ifu)
 );
 
   wire [31:0] regwrite, regout1, regout2;
   wire [31:0] mepc, mtvec;
+  wire ready_exu_to_idu;
   regheap regfile(
     .clk(clk),
     .rst(rst),
@@ -108,14 +110,17 @@ module top(
   .mtvec(mtvec),
   .mepc(mepc),
   .pc(pcbridge),
-  .valid_from_idu(idu_valid),
+  .valid_from(idu_valid),
+  .ready_from(ready_wbu_to_exu),
   
   .res(res),
   .npc(npc),
   .pcwritereg(pcwritereg),
-  .valid(exu_valid)
+  .valid_to(exu_valid),
+  .ready_to(ready_exu_to_idu)
 );
   
+  wire ready_wbu_to_exu;
   wbu wbu0(
   .clk(clk),
   .res(res),
@@ -126,10 +131,11 @@ module top(
   .imm(imm),
   .pcwritereg(pcwritereg),
   .muxsig(muxsig),
-  .valid_from_exu(exu_valid),
+  .valid_from(exu_valid),
   .memsextsig(memsextsig),
   .memmask(memmask),
 
-  .regwrite(regwrite)
+  .regwrite(regwrite),
+  .ready_to(ready_wbu_to_exu)
 );
 endmodule

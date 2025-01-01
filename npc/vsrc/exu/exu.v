@@ -15,12 +15,14 @@ module exu(
   input ecallsig,
   input [31:0] mtvec,
   input [31:0] mepc,
-  input valid_from_idu,
+  input valid_from,
+  input ready_from,
   
   output [31:0] res,
   output [31:0] npc,
   output [31:0] pcwritereg,
-  output valid
+  output valid_to,
+  output ready_to
 );
   wire [31:0] pcadd4bridge, pcaddimmbridge;
   pcadd4 pcadd40(
@@ -81,6 +83,7 @@ module exu(
     .pcwritereg(pcwritereg)
   );
 
-  assign valid = valid_from_idu;
+  assign valid_to = valid_from;
+  assign ready_to = ready_from;
 
 endmodule

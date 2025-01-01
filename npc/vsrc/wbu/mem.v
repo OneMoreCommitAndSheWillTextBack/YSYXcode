@@ -9,21 +9,40 @@ module mem(
   input ew,
   input [2:0] memmask,
   input memsextsig,
-  output [31:0] read
-  // output ready_to
+  output [31:0] read,
+  input valid_from,
+  output ready_to
 );
   reg [31:0] readreg;
   wire [31:0] read_u, read_s;
   
-  always @(clk) begin
-    if(ew && clk == 0) begin
-      guest_write(addr, write, {{29{1'b0}},memmask});
-    end
+  typedef enum logic{
+    WAIT_FOT_SIG,
+    VALID
+  } state_m;
 
-    if (er && clk == 0) begin
-      readreg = guest_read(addr, {{29{1'b0}},memmask});
-    end else 
-      readreg = 0;
+  reg state;
+  
+  // here nned to be change
+  always @(posedge clk) begin
+    if (valid_from) begin 
+      case (state)
+        VALID: begin
+          if(ew) begin
+            guest_write(addr, write, {{29{1'b0}},memmask});
+          end
+
+          if (er && clk == 0) begin
+            readreg = guest_read(addr, {{29{1'b0}},memmask});
+          end else 
+            readreg = 0;
+        end
+
+        WAIT_FOT_SIG: begin
+          readreg = 0;
+        end
+      endcase
+    end
   end
 
   wire [31:0] read_sb, read_sh;
@@ -35,4 +54,7 @@ module mem(
                   readreg;
   assign read_u = readreg;
   assign read = (memsextsig == 1) ? read_s : read_u;
+
+  assign ready_to = state == WAIT_FOT_SIG;
+
 endmodule
