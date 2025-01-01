@@ -5,7 +5,7 @@ module pcreg(
   input ready_from,
   output reg [31:0] pcout
 );
-  localparam init = 32'h80000000 - 4;
+  localparam init = 32'h80000000;
   initial begin 
     pcout = init;
   end

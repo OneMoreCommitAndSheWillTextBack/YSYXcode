@@ -73,7 +73,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
     if ((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))) {
         if (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state) {
             if (vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state) {
-                Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__npc, __Vfunc_get_inst__3__Vfuncout);
+                Vtop___024unit____Vdpiimwrap_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge, __Vfunc_get_inst__3__Vfuncout);
                 vlSelf->top__DOT__ifu0__DOT__instbridge 
                     = __Vfunc_get_inst__3__Vfuncout;
                 vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state = 0U;
@@ -417,7 +417,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
             [0xfU];
     }
     if (vlSelf->rst) {
-        __Vdly__top__DOT__ifu0__DOT__pcbridge = 0x7ffffffcU;
+        __Vdly__top__DOT__ifu0__DOT__pcbridge = 0x80000000U;
     } else if (((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
                 & (0U != vlSelf->top__DOT__ifu0__DOT__instbridge))) {
         if ((vlSelf->top__DOT__npc == vlSelf->top__DOT__ifu0__DOT__pcbridge)) {
@@ -673,6 +673,8 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_comb__TOP__0\n"); );
     // Body
+    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge);
+    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
     vlSelf->top__DOT__exu0__DOT__pcaddimmbridge = (vlSelf->top__DOT__imm 
                                                    + vlSelf->top__DOT__ifu0__DOT__pcbridge);
     vlSelf->top__DOT__regout2 = vlSelf->top__DOT__regfile__DOT__rf
@@ -932,6 +934,4 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
                                                       : 
                                                      ((IData)(4U) 
                                                       + vlSelf->top__DOT__ifu0__DOT__pcbridge)))))))))));
-    Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__npc);
-    Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__instbridge);
 }

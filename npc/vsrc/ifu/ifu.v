@@ -22,7 +22,7 @@ module ifu(
   
   infetch infetch0(
     .clk(clk),
-    .pc(npc),
+    .pc(pc),
     .inst(instbridge),
     
     .valid_to(valid),

@@ -54,7 +54,7 @@ VL_ATTR_COLD void Vtop___024root___eval_initial__TOP(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[1U] = 0xd06U;
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[2U] = 0xc15U;
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[3U] = 0xc00U;
-    vlSelf->top__DOT__ifu0__DOT__pcbridge = 0x7ffffffcU;
+    vlSelf->top__DOT__ifu0__DOT__pcbridge = 0x80000000U;
 }
 
 VL_ATTR_COLD void Vtop___024root___eval_final(Vtop___024root* vlSelf) {

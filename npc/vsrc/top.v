@@ -3,7 +3,7 @@ module top(
   input rst
 );
   always @(*) begin
-     host_get_pc(npc);
+     host_get_pc(pcbridge);
     host_get_inst(inst);
     //if(inst != 0)
       //$display("pc: 0x%08x %08x", pcbridge, inst);
