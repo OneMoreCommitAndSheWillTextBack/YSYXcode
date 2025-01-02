@@ -23,27 +23,32 @@ module mem(
 
   reg state;
   
-  always @(clk) begin
+  always @(posedge clk) begin
     if (valid_from & (ew | er)) begin 
       case (state)
         VALID: begin
           state <= WAIT_FOT_SIG;
-          if(ew) begin
-            guest_write(addr, write, {{29{1'b0}},memmask});
-          end
-
-          if (er) begin
-            readreg <= guest_read(addr, {{29{1'b0}},memmask});
-          end else 
-            readreg <= 0;
         end
-
         WAIT_FOT_SIG: begin
           state <= VALID;
-          readreg <= 0;
         end
       endcase
     end
+  end
+
+  always @(clk) begin
+    if (state == VALID) begin
+      if(ew) begin
+        guest_write(addr, write, {{29{1'b0}},memmask});
+      end
+
+      if (er) begin
+        readreg = guest_read(addr, {{29{1'b0}},memmask});
+      end else begin
+        readreg = 0;
+      end
+    end else 
+      readreg = 0;
   end
 
   wire [31:0] read_sb, read_sh;
