@@ -24,7 +24,7 @@ module mem(
   reg state;
   
   always @(clk) begin
-    if (valid_from & (ew | er) & (clk == 1)) begin 
+    if (valid_from & (ew | er)) begin 
       case (state)
         VALID: begin
           state <= WAIT_FOT_SIG;
