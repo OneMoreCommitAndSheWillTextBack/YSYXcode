@@ -83,6 +83,7 @@ uint32_t map_read(uint32_t addr, int len, IOMAP *map) {
   if (map == NULL) {
     std::cout << "[paddr_read]the addr 0x" << std::setw(8) << std::hex << addr
               << " is out of bound" << std::endl;
+    tfpclose();
     assert(0);
   }
   assert(len >= 1 && len <= 8);
@@ -97,6 +98,7 @@ void map_write(uint32_t addr, int len, uint32_t data, IOMAP *map) {
   if (map == NULL) {
     std::cout << "[paddr_write]the addr 0x" << std::setw(8) << std::hex << addr
               << " is out of bound" << std::endl;
+    tfpclose();
     assert(0);
   }
   assert(len >= 1 && len <= 8);

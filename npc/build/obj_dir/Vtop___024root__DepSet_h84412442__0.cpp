@@ -607,10 +607,14 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     __Vfunc_guest_read__9__Vfuncout = 0;
     // Body
     if (vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state) {
-        if ((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge))) {
+        if (VL_UNLIKELY((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge)))) {
+            VL_WRITEF("\033[32m guest_write 0x%08x \033[0m\n",
+                      32,vlSelf->top__DOT__res);
             Vtop___024unit____Vdpiimwrap_guest_write_TOP____024unit(vlSelf->top__DOT__res, vlSelf->top__DOT__regout2, (IData)(vlSelf->top__DOT__memmask));
         }
-        if ((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge))) {
+        if (VL_UNLIKELY((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__instbridge)))) {
+            VL_WRITEF("\033[32m guest_read 0x%08x \033[0m\n",
+                      32,vlSelf->top__DOT__res);
             Vtop___024unit____Vdpiimwrap_guest_read_TOP____024unit(vlSelf->top__DOT__res, (IData)(vlSelf->top__DOT__memmask), __Vfunc_guest_read__9__Vfuncout);
             vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg 
                 = __Vfunc_guest_read__9__Vfuncout;
