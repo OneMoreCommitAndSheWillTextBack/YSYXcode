@@ -67,6 +67,7 @@ void set_npc_stop();
 void npc_diff_quit();
 #endif
 void demp_wave();
+void tfpclose();
 
 // sdb.cpp
 void sdb_main();

@@ -5,15 +5,15 @@ module wbu(
   input [31:0] regout2,
   input memew,
   input memer,
-  input [2:0] func3,
   input [31:0] imm,
   input [31:0] pcwritereg,
   input [2:0] muxsig,
-  input valid_from_exu,
+  input valid_from,
   input [2:0] memmask,
   input memsextsig,
 
-  output [31:0] regwrite
+  output [31:0] regwrite,
+  output ready_to
 );
 
   wire [31:0] memread;
@@ -25,7 +25,9 @@ module wbu(
   .er(memer),
   .memmask(memmask),
   .memsextsig(memsextsig),
-  .read(memread)
+  .read(memread),
+  .ready_to(ready_to),
+  .valid_from(valid_from)
 );
 
 MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
@@ -37,10 +39,9 @@ MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
 
 
   wire [31:0] valid;
-  assign valid = {31'b0,valid_from_exu};
+  assign valid = {31'b0,valid_from & ready_to};
   always @(*) begin
     host_get_valid(valid);
   end
-
 
 endmodule

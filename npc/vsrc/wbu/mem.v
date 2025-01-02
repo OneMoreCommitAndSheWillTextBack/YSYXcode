@@ -9,19 +9,46 @@ module mem(
   input ew,
   input [2:0] memmask,
   input memsextsig,
-  output [31:0] read
-  // output ready_to
+  output [31:0] read,
+  input valid_from,
+  output ready_to
 );
   reg [31:0] readreg;
   wire [31:0] read_u, read_s;
   
-  always @(clk) begin
-    if(ew && clk == 0) begin
-      guest_write(addr, write, {{29{1'b0}},memmask});
-    end
+  typedef enum logic{
+    WAIT_FOT_SIG,
+    VALID
+  } state_m;
 
-    if (er && clk == 0) begin
-      readreg = guest_read(addr, {{29{1'b0}},memmask});
+  reg state;
+  
+  always @(posedge clk) begin
+    if (valid_from & (ew | er)) begin 
+      case (state)
+        VALID: begin
+          state = WAIT_FOT_SIG;
+        end
+        WAIT_FOT_SIG: begin
+          state = VALID;
+        end
+      endcase
+    end
+  end
+
+  always @(posedge clk) begin
+    if (state == VALID) begin
+      if(ew) begin
+        // $display("\033[32m guest_write 0x%08x \033[0m", addr);
+        guest_write(addr, write, {{29{1'b0}},memmask});
+      end
+
+      if (er) begin
+        // $display("\033[32m guest_read 0x%08x \033[0m", addr);
+        readreg = guest_read(addr, {{29{1'b0}},memmask});
+      end else begin
+        readreg = 0;
+      end
     end else 
       readreg = 0;
   end
@@ -35,4 +62,7 @@ module mem(
                   readreg;
   assign read_u = readreg;
   assign read = (memsextsig == 1) ? read_s : read_u;
+
+  assign ready_to = state == WAIT_FOT_SIG;
+
 endmodule

@@ -10,14 +10,14 @@ module ifu(
 );
   wire [31:0] pcbridge;
   wire [31:0] instbridge;
-  wire pc_valid, infetch_ready;
+  wire infetch_ready;
+
   pcreg pcreg0(
     .clk(clk),
     .rst(rst),
     .npc(npc),
     .pcout(pcbridge),
     
-    .valid_to(pc_valid),
     .ready_from(infetch_ready)
   );
   
@@ -26,7 +26,6 @@ module ifu(
     .pc(pc),
     .inst(instbridge),
     
-    .valid_from(pc_valid),
     .valid_to(valid),
     .ready_from(ready),
     .ready_to(infetch_ready)
@@ -34,5 +33,4 @@ module ifu(
 
   assign pc = pcbridge;
   assign inst = instbridge;
-
 endmodule
