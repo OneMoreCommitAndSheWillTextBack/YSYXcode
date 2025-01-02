@@ -13,6 +13,48 @@ void Vtop___024root___eval_act(Vtop___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___eval_act\n"); );
 }
 
+VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__3(Vtop___024root* vlSelf) {
+    if (false && vlSelf) {}  // Prevent unused
+    Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__3\n"); );
+    // Body
+    vlSelf->top__DOT__ifu0__DOT__pcbridge = vlSelf->__Vdly__top__DOT__ifu0__DOT__pcbridge;
+}
+
+VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__4(Vtop___024root* vlSelf) {
+    if (false && vlSelf) {}  // Prevent unused
+    Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__4\n"); );
+    // Body
+    vlSelf->top__DOT__memmask = ((0U == (7U & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                               >> 0xcU)))
+                                  ? 1U : ((1U == (7U 
+                                                  & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                                     >> 0xcU)))
+                                           ? 2U : (
+                                                   (2U 
+                                                    == 
+                                                    (7U 
+                                                     & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                                        >> 0xcU)))
+                                                    ? 4U
+                                                    : 
+                                                   ((4U 
+                                                     == 
+                                                     (7U 
+                                                      & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                                         >> 0xcU)))
+                                                     ? 1U
+                                                     : 
+                                                    ((5U 
+                                                      == 
+                                                      (7U 
+                                                       & (vlSelf->top__DOT__ifu0__DOT__instbridge 
+                                                          >> 0xcU)))
+                                                      ? 2U
+                                                      : 0U)))));
+}
+
 VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__1(Vtop___024root* vlSelf) {
     if (false && vlSelf) {}  // Prevent unused
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
@@ -98,7 +140,6 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__2(Vtop___024root* vlSelf) {
 void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf);
 void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf);
 void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf);
-void Vtop___024root___nba_sequent__TOP__3(Vtop___024root* vlSelf);
 void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf);
 
 void Vtop___024root___eval_nba(Vtop___024root* vlSelf) {
@@ -106,11 +147,11 @@ void Vtop___024root___eval_nba(Vtop___024root* vlSelf) {
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___eval_nba\n"); );
     // Body
-    if (vlSelf->__VnbaTriggered.at(1U)) {
+    if (vlSelf->__VnbaTriggered.at(0U)) {
         Vtop___024root___nba_sequent__TOP__0(vlSelf);
         vlSelf->__Vm_traceActivity[1U] = 1U;
     }
-    if (vlSelf->__VnbaTriggered.at(0U)) {
+    if (vlSelf->__VnbaTriggered.at(1U)) {
         Vtop___024root___nba_sequent__TOP__1(vlSelf);
         vlSelf->__Vm_traceActivity[2U] = 1U;
     }
@@ -118,22 +159,24 @@ void Vtop___024root___eval_nba(Vtop___024root* vlSelf) {
         Vtop___024root___nba_sequent__TOP__2(vlSelf);
         vlSelf->__Vm_traceActivity[3U] = 1U;
     }
-    if (vlSelf->__VnbaTriggered.at(1U)) {
+    if (vlSelf->__VnbaTriggered.at(0U)) {
         Vtop___024root___nba_sequent__TOP__3(vlSelf);
-        vlSelf->__Vm_traceActivity[4U] = 1U;
     }
     if ((vlSelf->__VnbaTriggered.at(0U) | vlSelf->__VnbaTriggered.at(1U))) {
         Vtop___024root___nba_comb__TOP__0(vlSelf);
-        vlSelf->__Vm_traceActivity[5U] = 1U;
+        vlSelf->__Vm_traceActivity[4U] = 1U;
+    }
+    if (vlSelf->__VnbaTriggered.at(1U)) {
+        Vtop___024root___nba_sequent__TOP__4(vlSelf);
     }
     if ((vlSelf->__VnbaTriggered.at(1U) | vlSelf->__VnbaTriggered.at(2U))) {
         Vtop___024root___nba_comb__TOP__1(vlSelf);
-        vlSelf->__Vm_traceActivity[6U] = 1U;
+        vlSelf->__Vm_traceActivity[5U] = 1U;
     }
     if (((vlSelf->__VnbaTriggered.at(0U) | vlSelf->__VnbaTriggered.at(1U)) 
          | vlSelf->__VnbaTriggered.at(2U))) {
         Vtop___024root___nba_comb__TOP__2(vlSelf);
-        vlSelf->__Vm_traceActivity[7U] = 1U;
+        vlSelf->__Vm_traceActivity[6U] = 1U;
     }
 }
 
