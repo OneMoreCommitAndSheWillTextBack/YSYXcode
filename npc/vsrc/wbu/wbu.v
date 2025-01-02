@@ -5,7 +5,6 @@ module wbu(
   input [31:0] regout2,
   input memew,
   input memer,
-  input [2:0] func3,
   input [31:0] imm,
   input [31:0] pcwritereg,
   input [2:0] muxsig,

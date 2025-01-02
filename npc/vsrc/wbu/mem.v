@@ -36,15 +36,15 @@ module mem(
     end
   end
 
-  always @(clk) begin
+  always @(posedge clk) begin
     if (state == VALID) begin
       if(ew) begin
-        $display("\033[32m guest_write 0x%08x \033[0m", addr);
+        // $display("\033[32m guest_write 0x%08x \033[0m", addr);
         guest_write(addr, write, {{29{1'b0}},memmask});
       end
 
       if (er) begin
-        $display("\033[32m guest_read 0x%08x \033[0m", addr);
+        // $display("\033[32m guest_read 0x%08x \033[0m", addr);
         readreg = guest_read(addr, {{29{1'b0}},memmask});
       end else begin
         readreg = 0;

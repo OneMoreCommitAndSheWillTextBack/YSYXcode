@@ -127,7 +127,6 @@ module top(
   .regout2(regout2),
   .memew(memew),
   .memer(memer),
-  .func3(func3),
   .imm(imm),
   .pcwritereg(pcwritereg),
   .muxsig(muxsig),
