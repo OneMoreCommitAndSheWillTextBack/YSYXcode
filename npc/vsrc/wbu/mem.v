@@ -34,14 +34,14 @@ module mem(
           end
 
           if (er) begin
-            readreg = guest_read(addr, {{29{1'b0}},memmask});
+            readreg <= guest_read(addr, {{29{1'b0}},memmask});
           end else 
-            readreg = 0;
+            readreg <= 0;
         end
 
         WAIT_FOT_SIG: begin
           state <= VALID;
-          readreg = 0;
+          readreg <= 0;
         end
       endcase
     end

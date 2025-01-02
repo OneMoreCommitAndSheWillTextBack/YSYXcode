@@ -13,8 +13,7 @@ module pcreg(
   always @(posedge clk or posedge rst) begin
     if(rst) begin
       pcout <= init;
-    end
-    else
+    end else
     if (ready_from == 1) begin
       if (npc == pcout) 
         ret(0);
