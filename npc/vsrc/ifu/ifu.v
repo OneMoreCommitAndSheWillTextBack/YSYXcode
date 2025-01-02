@@ -11,6 +11,7 @@ module ifu(
   wire [31:0] pcbridge;
   wire [31:0] instbridge;
   wire infetch_ready;
+
   pcreg pcreg0(
     .clk(clk),
     .rst(rst),
@@ -32,5 +33,4 @@ module ifu(
 
   assign pc = pcbridge;
   assign inst = instbridge;
-
 endmodule

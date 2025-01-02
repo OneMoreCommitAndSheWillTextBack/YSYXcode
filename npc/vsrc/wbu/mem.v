@@ -23,8 +23,7 @@ module mem(
 
   reg state;
   
-  // here nned to be change
-  always @(posedge clk) begin
+  always @(clk) begin
     if (valid_from & (ew | er)) begin 
       case (state)
         VALID: begin
