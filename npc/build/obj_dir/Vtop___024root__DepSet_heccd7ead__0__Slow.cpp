@@ -21,6 +21,8 @@ VL_ATTR_COLD void Vtop___024root___eval_initial(Vtop___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___eval_initial\n"); );
     // Body
     Vtop___024root___eval_initial__TOP(vlSelf);
+    vlSelf->__Vm_traceActivity[5U] = 1U;
+    vlSelf->__Vm_traceActivity[4U] = 1U;
     vlSelf->__Vm_traceActivity[3U] = 1U;
     vlSelf->__Vm_traceActivity[2U] = 1U;
     vlSelf->__Vm_traceActivity[1U] = 1U;
@@ -41,6 +43,18 @@ VL_ATTR_COLD void Vtop___024root___eval_initial__TOP(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__key_list[1U] = 2U;
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__key_list[2U] = 1U;
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__key_list[3U] = 0U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list[0U] = 8U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list[1U] = 4U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list[2U] = 2U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list[3U] = 1U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__data_list[0U] = 4U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__data_list[1U] = 3U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__data_list[2U] = 2U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__data_list[3U] = 1U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__pair_list[0U] = 0x44U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__pair_list[1U] = 0x23U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__pair_list[2U] = 0x12U;
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__pair_list[3U] = 9U;
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[0U] = 0x342U;
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[1U] = 0x341U;
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list[2U] = 0x305U;
@@ -86,7 +100,7 @@ VL_ATTR_COLD void Vtop___024root___eval_settle(Vtop___024root* vlSelf) {
 #ifdef VL_DEBUG
                 Vtop___024root___dump_triggers__stl(vlSelf);
 #endif
-                VL_FATAL_MT("/home/ysyx/project/ysyx-workbench/npc/vsrc/top.v", 1, "", "Settle region did not converge.");
+                VL_FATAL_MT("/home/ysyx/project/ysyx-workbench/npc/vsrc/top.v", 4, "", "Settle region did not converge.");
             }
             vlSelf->__VstlIterCount = ((IData)(1U) 
                                        + vlSelf->__VstlIterCount);
@@ -119,6 +133,8 @@ VL_ATTR_COLD void Vtop___024root___eval_stl(Vtop___024root* vlSelf) {
     // Body
     if (vlSelf->__VstlTriggered.at(0U)) {
         Vtop___024root___stl_sequent__TOP__0(vlSelf);
+        vlSelf->__Vm_traceActivity[5U] = 1U;
+        vlSelf->__Vm_traceActivity[4U] = 1U;
         vlSelf->__Vm_traceActivity[3U] = 1U;
         vlSelf->__Vm_traceActivity[2U] = 1U;
         vlSelf->__Vm_traceActivity[1U] = 1U;
@@ -170,6 +186,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->clk = VL_RAND_RESET_I(1);
     vlSelf->rst = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__npc = VL_RAND_RESET_I(32);
+    vlSelf->top__DOT__inst = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__imm = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__muximm = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__muxsig = VL_RAND_RESET_I(3);
@@ -184,8 +201,26 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__res = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__pcwritereg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__ifu0__DOT__pcbridge = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__ifu0__DOT__instbridge = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__ifu0__DOT__infetch0__DOT__state = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__ifu0__DOT__infetch_ready = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__ifu0__DOT__arready = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__ifu0__DOT__arvalid = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__ifu0__DOT__rvalid = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__ifu0__DOT__bvalid = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__ifu0__DOT__bresp = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state = VL_RAND_RESET_I(2);
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__memmask = VL_RAND_RESET_I(3);
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg = VL_RAND_RESET_I(32);
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__pair_list[__Vi0] = VL_RAND_RESET_I(7);
+    }
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list[__Vi0] = VL_RAND_RESET_I(4);
+    }
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+        vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__data_list[__Vi0] = VL_RAND_RESET_I(3);
+    }
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__lut_out = VL_RAND_RESET_I(3);
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__hit = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__I_imm = VL_RAND_RESET_I(32);
@@ -260,12 +295,10 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     }
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__lut_out = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__hit = VL_RAND_RESET_I(1);
-    vlSelf->__VdfgTmp_hdc80216b__0 = 0;
-    vlSelf->__Vtableidx1 = 0;
     vlSelf->__Vdly__top__DOT__ifu0__DOT__pcbridge = VL_RAND_RESET_I(32);
     vlSelf->__Vtrigrprev__TOP__clk = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__rst = VL_RAND_RESET_I(1);
-    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
+    for (int __Vi0 = 0; __Vi0 < 6; ++__Vi0) {
         vlSelf->__Vm_traceActivity[__Vi0] = 0;
     }
 }

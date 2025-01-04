@@ -1,3 +1,6 @@
+import "DPI-C" function void host_get_pc(int pc);
+import "DPI-C" function void host_get_inst(int inst);
+
 module top(
   input clk,
   input rst

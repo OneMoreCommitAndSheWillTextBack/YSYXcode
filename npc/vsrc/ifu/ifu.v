@@ -21,16 +21,30 @@ module ifu(
     .ready_from(infetch_ready)
   );
   
-  infetch infetch0(
-    .clk(clk),
-    .pc(pc),
-    .inst(instbridge),
-    
-    .valid_to(valid),
-    .ready_from(ready),
-    .ready_to(infetch_ready)
+  wire arready, rready;
+  wire arvalid, rvalid;
+  wire awready, wready;
+  wire bvalid, bresp;
+  sram infetch(
+  .clk(clk),
+  .awvalid(0),
+  .awready(awready),
+  .awaddr(0),
+  .wvalid(0),
+  .wready(wready),
+  .wdata(0),
+  .wstrb(0),  
+  .bvalid(bvalid),
+  .bready(0),
+  .bresp(bresp),
+  .arvalid(1),
+  .arready(arready),
+  .araddr(pc),
+  .rvalid(ready),
+  .rready(rready),
+  .rdata(instbridge)
   );
 
   assign pc = pcbridge;
-  assign inst = instbridge;
+  assign valid = instbridge != 0;
 endmodule
