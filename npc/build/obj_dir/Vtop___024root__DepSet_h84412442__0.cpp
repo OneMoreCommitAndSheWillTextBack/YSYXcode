@@ -523,16 +523,16 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
               | ((0x13U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
                  | ((7U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
                     | (0x73U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))));
-    vlSelf->top__DOT__ready_idu_to_ifu = (1U & (~ (
-                                                   (3U 
-                                                    == 
-                                                    (0x7fU 
-                                                     & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
-                                                   | ((0x23U 
-                                                       == 
-                                                       (0x7fU 
-                                                        & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
-                                                      | (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))));
+    vlSelf->top__DOT__ready_idu_to_ifu = (1U & ((~ 
+                                                 ((3U 
+                                                   == 
+                                                   (0x7fU 
+                                                    & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
+                                                  | (0x23U 
+                                                     == 
+                                                     (0x7fU 
+                                                      & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))) 
+                                                | (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)));
     vlSelf->top__DOT__wbu0__DOT__mem0__DOT__read_s 
         = ((1U == (IData)(vlSelf->top__DOT__memmask))
             ? (((- (IData)((1U & (vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg 
