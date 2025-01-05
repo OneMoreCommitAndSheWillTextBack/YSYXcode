@@ -350,17 +350,12 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     __Vfunc_guest_read__10__Vfuncout = 0;
     // Body
     if ((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))) {
-        if ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
-            if (vlSelf->top__DOT__ifu0__DOT__arready) {
-                vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state = 0U;
-            }
-        } else {
-            vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state 
-                = ((2U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))
-                    ? 0U : ((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))
-                             ? ((IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)
-                                 ? 2U : 1U) : 0U));
-        }
+        vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state 
+            = ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))
+                ? 0U : ((2U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))
+                         ? 0U : ((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))
+                                  ? ((IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)
+                                      ? 2U : 1U) : 0U)));
     }
     if (((0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg) 
          & ((0x23U == (0x7fU & vlSelf->top__DOT__inst)) 
@@ -397,7 +392,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     } else {
         vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg = 0U;
     }
-    vlSelf->top__DOT__ifu0__DOT__arready = (0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state));
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
                                                                ((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
                                                                 & (0U 

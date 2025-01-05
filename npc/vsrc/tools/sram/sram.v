@@ -45,8 +45,7 @@ module sram(
     if ((rvalid & arvalid) | (wvalid & awvalid)) begin 
       case (state)
         READ_VALID: begin
-          if(rready)
-            state = WAIT_FOR_SIG;
+          state = WAIT_FOR_SIG;
         end
         WRITE_VALID:begin
           state = WAIT_FOR_SIG;
