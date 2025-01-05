@@ -349,8 +349,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     IData/*31:0*/ __Vfunc_guest_read__10__Vfuncout;
     __Vfunc_guest_read__10__Vfuncout = 0;
     // Body
-    if (((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
-         & (IData)(vlSelf->top__DOT__ifu0__DOT__arready))) {
+    if ((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))) {
         if ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
             if (vlSelf->top__DOT__ifu0__DOT__arready) {
                 vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state = 0U;

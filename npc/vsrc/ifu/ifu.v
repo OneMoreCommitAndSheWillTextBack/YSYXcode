@@ -37,10 +37,14 @@ module ifu(
   .bvalid(bvalid),
   .bready(0),
   .bresp(bresp),
+
   .arvalid(ready),
+
   .arready(arready),
   .araddr(pc),
+
   .rvalid(ready),
+
   .rready(rready),
   .rdata(instbridge)
   );

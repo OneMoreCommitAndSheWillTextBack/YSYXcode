@@ -42,7 +42,7 @@ module sram(
   reg [1:0] state;
   
   always @(posedge clk) begin
-    if ((rvalid & arready) | (wvalid & awvalid)) begin 
+    if ((rvalid & arvalid) | (wvalid & awvalid)) begin 
       case (state)
         READ_VALID: begin
           if(rready)
