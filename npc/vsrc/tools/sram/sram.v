@@ -76,14 +76,13 @@ module sram(
   always @(posedge clk) begin
     if (state == WRITE_VALID) begin
       guest_write(awaddr, wdata, {{29{1'b0}},memmask});
+    end
 
-      if (state == READ_VALID) begin
-        rdatareg = guest_read(araddr, 4);
-      end else begin
-        rdatareg = 0;
-      end
-    end else 
+    if (state == READ_VALID) begin
+      rdatareg = guest_read(araddr, 4);
+    end else begin
       rdatareg = 0;
+    end
   end
 
   assign awready = state == WAIT_FOR_SIG;

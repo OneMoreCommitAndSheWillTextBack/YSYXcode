@@ -368,13 +368,11 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     }
     if ((2U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
         Vtop___024unit____Vdpiimwrap_guest_write_TOP____024unit(0U, 0U, (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__memmask));
-        if ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
-            Vtop___024unit____Vdpiimwrap_guest_read_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge, 4U, __Vfunc_guest_read__4__Vfuncout);
-            vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg 
-                = __Vfunc_guest_read__4__Vfuncout;
-        } else {
-            vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg = 0U;
-        }
+    }
+    if ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
+        Vtop___024unit____Vdpiimwrap_guest_read_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge, 4U, __Vfunc_guest_read__4__Vfuncout);
+        vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg 
+            = __Vfunc_guest_read__4__Vfuncout;
     } else {
         vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg = 0U;
     }
