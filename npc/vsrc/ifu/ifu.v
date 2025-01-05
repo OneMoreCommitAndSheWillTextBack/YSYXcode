@@ -52,4 +52,5 @@ module ifu(
   assign pc = pcbridge;
   assign valid = instbridge != 0;
   assign infetch_ready = ready & valid;
+  assign inst = instbridge;
 endmodule
