@@ -28,7 +28,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__csrrs;
         CData/*2:0*/ top__DOT__memmask;
         CData/*0:0*/ top__DOT__memsextsig;
-        CData/*0:0*/ top__DOT__ifu0__DOT__infetch_ready;
+        CData/*0:0*/ top__DOT__ifu0__DOT__arready;
         CData/*0:0*/ top__DOT__ifu0__DOT__arvalid;
         CData/*0:0*/ top__DOT__ifu0__DOT__rvalid;
         CData/*0:0*/ top__DOT__ifu0__DOT__bvalid;

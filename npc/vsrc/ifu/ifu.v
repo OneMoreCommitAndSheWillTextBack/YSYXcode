@@ -37,7 +37,7 @@ module ifu(
   .bvalid(bvalid),
   .bready(0),
   .bresp(bresp),
-  .arvalid(1),
+  .arvalid(ready),
   .arready(arready),
   .araddr(pc),
   .rvalid(ready),
@@ -47,5 +47,5 @@ module ifu(
 
   assign pc = pcbridge;
   assign valid = instbridge != 0;
-  assign infetch_ready = arready;
+  assign infetch_ready = arready & ready & valid;
 endmodule
