@@ -602,7 +602,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
                                                 (0x7fU 
                                                  & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))));
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
-                                                               ((~ (IData)(vlSelf->top__DOT__ready_idu_to_ifu)) 
+                                                               ((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
                                                                 & (0U 
                                                                    != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)));
     if (vlSelf->top__DOT__memsextsig) {

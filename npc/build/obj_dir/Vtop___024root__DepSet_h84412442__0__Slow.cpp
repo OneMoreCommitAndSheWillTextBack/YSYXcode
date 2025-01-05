@@ -405,7 +405,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                  | ((7U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
                     | (0x73U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))));
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
-                                                               ((~ (IData)(vlSelf->top__DOT__ready_idu_to_ifu)) 
+                                                               ((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
                                                                 & (0U 
                                                                    != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)));
     vlSelf->top__DOT__wbu0__DOT__mem0__DOT__read_s 
