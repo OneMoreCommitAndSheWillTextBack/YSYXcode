@@ -653,7 +653,7 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullIData(oldp+106,(vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[2]),32);
     bufp->fullIData(oldp+107,(vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[3]),32);
     bufp->fullIData(oldp+108,(vlSelf->top__DOT__regfile__DOT__registers0__DOT__i),32);
-    bufp->fullBit(oldp+109,((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))));
+    bufp->fullBit(oldp+109,(vlSelf->top__DOT__ready_idu_to_ifu));
     bufp->fullIData(oldp+110,(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg),32);
     bufp->fullBit(oldp+111,((0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)));
     bufp->fullCData(oldp+112,((0x1fU & (vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg 
@@ -722,7 +722,7 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
                                               & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
                                    | (0x73U == vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))));
     bufp->fullBit(oldp+157,((0x37U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))));
-    bufp->fullBit(oldp+158,(((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
+    bufp->fullBit(oldp+158,(((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
                              & (0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))));
     bufp->fullBit(oldp+159,((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))));
     bufp->fullCData(oldp+160,(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state),2);
@@ -733,7 +733,7 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+164,(vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit));
     bufp->fullBit(oldp+165,(vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew));
     bufp->fullIData(oldp+166,(vlSelf->top__DOT__wbu0__DOT__memread),32);
-    bufp->fullIData(oldp+167,(((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
+    bufp->fullIData(oldp+167,(((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
                                & (0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))),32);
     bufp->fullIData(oldp+168,(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg),32);
     bufp->fullIData(oldp+169,(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__read_s),32);

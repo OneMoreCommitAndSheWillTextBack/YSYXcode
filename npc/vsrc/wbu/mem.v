@@ -60,6 +60,6 @@ module mem(
   assign read_u = readreg;
   assign read = (memsextsig == 1) ? read_s : read_u;
 
-  assign ready_to = state == WAIT_FOT_SIG;
+  assign ready_to = ~(er | ew);
 
 endmodule

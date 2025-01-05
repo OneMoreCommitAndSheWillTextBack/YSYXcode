@@ -140,7 +140,7 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgIData(oldp+107,(vlSelf->top__DOT__regfile__DOT__registers0__DOT__i),32);
     }
     if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[2U])) {
-        bufp->chgBit(oldp+108,((1U & (~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)))));
+        bufp->chgBit(oldp+108,(vlSelf->top__DOT__ready_idu_to_ifu));
         bufp->chgIData(oldp+109,(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg),32);
         bufp->chgBit(oldp+110,((0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)));
         bufp->chgCData(oldp+111,((0x1fU & (vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg 
@@ -212,7 +212,7 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
                                                  & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
                                       | (0x73U == vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))));
         bufp->chgBit(oldp+156,((0x37U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))));
-        bufp->chgBit(oldp+157,(((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
+        bufp->chgBit(oldp+157,(((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
                                 & (0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))));
         bufp->chgBit(oldp+158,((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))));
         bufp->chgCData(oldp+159,(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state),2);
@@ -223,7 +223,7 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgBit(oldp+163,(vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit));
         bufp->chgBit(oldp+164,(vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew));
         bufp->chgIData(oldp+165,(vlSelf->top__DOT__wbu0__DOT__memread),32);
-        bufp->chgIData(oldp+166,(((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)) 
+        bufp->chgIData(oldp+166,(((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
                                   & (0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))),32);
         bufp->chgIData(oldp+167,(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__readreg),32);
         bufp->chgIData(oldp+168,(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__read_s),32);
