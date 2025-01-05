@@ -55,7 +55,6 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__hit;
         CData/*3:0*/ __VdfgTmp_hdd31f885__0;
         CData/*5:0*/ __Vtableidx1;
-        CData/*0:0*/ __Vdly__top__DOT__wbu0__DOT__mem0__DOT__state;
         CData/*0:0*/ __Vtrigrprev__TOP__clk;
         CData/*0:0*/ __Vtrigrprev__TOP__rst;
         CData/*0:0*/ __VactContinue;
@@ -83,11 +82,12 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__shfres;
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__sltres;
         IData/*31:0*/ top__DOT__wbu0__DOT__memread;
+        IData/*31:0*/ top__DOT__wbu0__DOT__mem0__DOT__readreg;
     };
     struct {
-        IData/*31:0*/ top__DOT__wbu0__DOT__mem0__DOT__readreg;
         IData/*31:0*/ top__DOT__wbu0__DOT__mem0__DOT__read_s;
         IData/*31:0*/ top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__lut_out;
+        IData/*31:0*/ __Vdly__top__DOT__ifu0__DOT__pcbridge;
         IData/*31:0*/ __VstlIterCount;
         IData/*31:0*/ __VactIterCount;
         VlUnpacked<CData/*6:0*/, 4> top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__pair_list;

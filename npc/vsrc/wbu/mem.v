@@ -24,10 +24,10 @@ module mem(
     if (valid_from & (ew | er)) begin 
       case (state)
         VALID: begin
-          state <= WAIT_FOT_SIG;
+          state = WAIT_FOT_SIG;
         end
         WAIT_FOT_SIG: begin
-          state <= VALID;
+          state = VALID;
         end
       endcase
     end
