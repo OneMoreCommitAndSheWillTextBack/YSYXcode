@@ -37,7 +37,6 @@ MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b100, pcwritereg
 });
 
-
   wire [31:0] valid;
   assign valid = {31'b0,valid_from & ready_to};
   always @(*) begin

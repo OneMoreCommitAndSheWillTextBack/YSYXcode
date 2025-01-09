@@ -77,7 +77,7 @@ module top(
   regheap regfile(
     .clk(clk),
     .rst(rst),
-    .ew(regew),
+    .ew(regew & ready_exu_to_idu),
     .addr(rd),
     .src1(src1),
     .src2(src2),

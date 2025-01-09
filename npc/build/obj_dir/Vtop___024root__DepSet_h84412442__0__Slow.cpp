@@ -206,6 +206,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
               [3U]));
     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__memmask 
         = vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__lut_out;
+<<<<<<< HEAD
     vlSelf->top__DOT__ready_idu_to_ifu = (1U & ((~ 
                                                  ((3U 
                                                    == 
@@ -216,6 +217,8 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                      (0x7fU 
                                                       & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))) 
                                                 | (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)));
+=======
+>>>>>>> dev
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out 
         = ((- (IData)(((vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg 
                         >> 0x14U) == vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list
@@ -244,6 +247,19 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                    & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)));
     vlSelf->top__DOT__csrrs = (IData)((0x2073U == (0x707fU 
                                                    & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)));
+<<<<<<< HEAD
+=======
+    vlSelf->top__DOT__ready_idu_to_ifu = (1U & ((~ 
+                                                 ((3U 
+                                                   == 
+                                                   (0x7fU 
+                                                    & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
+                                                  | (0x23U 
+                                                     == 
+                                                     (0x7fU 
+                                                      & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))) 
+                                                | (IData)(vlSelf->top__DOT__wbu0__DOT__mem0__DOT__state)));
+>>>>>>> dev
     vlSelf->top__DOT__regfile__DOT__rf_csr[3U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
         [3U];
     vlSelf->top__DOT__regfile__DOT__rf_csr[2U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
@@ -429,11 +445,20 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                               & (vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg 
                                                  >> 0x14U))];
     vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew 
+<<<<<<< HEAD
         = (((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
             | ((0x33U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
                | ((0x6fU == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
                   | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
                      | (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))))) 
+=======
+        = (((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
+            & ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
+               | ((0x33U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
+                  | ((0x6fU == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
+                     | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
+                        | (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))))) 
+>>>>>>> dev
            & (0U != vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg));
     if (vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) {
         vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__data_list[1U] 
