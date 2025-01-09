@@ -1,4 +1,3 @@
-
 import "DPI-C" function void guest_write(int addr, int data, int len);
 import "DPI-C" function int guest_read(int addr, int len);
 // change the model to axt-lite module
