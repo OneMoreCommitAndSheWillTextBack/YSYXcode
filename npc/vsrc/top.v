@@ -1,3 +1,6 @@
+import "DPI-C" function void host_get_pc(int pc);
+import "DPI-C" function void host_get_inst(int inst);
+
 module top(
   input clk,
   input rst
@@ -74,7 +77,7 @@ module top(
   regheap regfile(
     .clk(clk),
     .rst(rst),
-    .ew(regew),
+    .ew(regew & ready_exu_to_idu),
     .addr(rd),
     .src1(src1),
     .src2(src2),

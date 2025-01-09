@@ -16,17 +16,15 @@ extern "C" {
 
 
     // DPI IMPORTS
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/ifu/infetch.v:1:29
-    extern int get_inst(int pc);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/wbu/mem.v:2:29
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/tools/sram/sram.v:3:29
     extern int guest_read(int addr, int len);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/wbu/mem.v:1:30
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/tools/sram/sram.v:2:30
     extern void guest_write(int addr, int data, int len);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/reg/registers.v:2:30
     extern void host_get_csr(int csrval, int csrnum);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/ifu/infetch.v:3:30
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/top.v:2:30
     extern void host_get_inst(int inst);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/ifu/infetch.v:2:30
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/top.v:1:30
     extern void host_get_pc(int pc);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/reg/registers.v:1:30
     extern void host_get_reg(int regval, int regnum);
