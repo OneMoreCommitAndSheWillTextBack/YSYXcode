@@ -32,10 +32,10 @@ module wbu(
   );
   */
   wire [3:0] wstrb = (memmask == 3'b001) ? 4'b0001 :
-              (memmask == 3'b010) ? 4'b0010 :
-              (memmask == 3'b011) ? 4'b0100 :
-              (memmask == 3'b100) ? 4'b0001 :
-              4'b0000;
+                     (memmask == 3'b010) ? 4'b0010 :
+                     (memmask == 3'b011) ? 4'b0100 :
+                     (memmask == 3'b100) ? 4'b1000 :
+                     4'b0000;
   
   wire awready, wready, bvalid;
   wire arready, rready, bresp;

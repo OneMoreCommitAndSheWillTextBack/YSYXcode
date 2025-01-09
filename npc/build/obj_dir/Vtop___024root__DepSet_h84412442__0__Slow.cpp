@@ -426,7 +426,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                ? 4U
                                                : ((4U 
                                                    == (IData)(vlSelf->top__DOT__memmask))
-                                                   ? 1U
+                                                   ? 8U
                                                    : 0U));
         vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_s 
             = vlSelf->top__DOT__wbu0__DOT__mem__DOT__rdatareg;
