@@ -68,8 +68,6 @@ module decoder(
                      (func3 == 3'b101) ? 1'b0 :
                      (func3 == 3'b101) ? 1'b0 :
                      1'b1;
-
-  
 endmodule
 
 
