@@ -21,6 +21,7 @@ class Vtop___024root final : public VerilatedModule {
     struct {
         VL_IN8(clk,0,0);
         VL_IN8(rst,0,0);
+        CData/*0:0*/ top__DOT__ready_idu_to_ifu;
         CData/*0:0*/ top__DOT__muximm;
         CData/*2:0*/ top__DOT__muxsig;
         CData/*1:0*/ top__DOT__aluop;
@@ -82,9 +83,9 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__tmp;
         IData/*31:0*/ top__DOT__exu0__DOT__pcaddimmbridge;
         IData/*31:0*/ top__DOT__exu0__DOT__aluarg2;
-        IData/*31:0*/ top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out;
     };
     struct {
+        IData/*31:0*/ top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out;
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__logres;
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__addres;
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__shfres;

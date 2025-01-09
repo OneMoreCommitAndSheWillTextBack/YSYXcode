@@ -86,7 +86,7 @@ module wbu(
   wire memready = (~(memer | memew)) | ~(ready);
   wire [31:0] valid;
 
-  assign ready_to = ready;
+  assign ready_to = memready;
   assign valid = {31'b0,valid_from & memready};
 
   always @(*) begin
