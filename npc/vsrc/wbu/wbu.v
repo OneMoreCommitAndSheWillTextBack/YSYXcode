@@ -18,19 +18,19 @@ module wbu(
 
   wire [31:0] readdata;
   wire [31:0] memread;
-
+/*
   mem mem0(
     .clk(clk),
     .addr(res),
     .write(regout2),
-    .ew(memew),
-    .er(memer),
+    .memew(memew),
+    .memer(memer),
     .memmask(memmask),
     .read(readdata),
     .ready_to(ready_to),
     .valid_from(valid_from)
   );
-/*
+  */
   wire [3:0] wstrb = (memmask == 3'b001) ? 4'b0001 :
               (memmask == 3'b010) ? 4'b0010 :
               (memmask == 3'b011) ? 4'b0100 :
@@ -67,7 +67,6 @@ module wbu(
 	  .rready(rready),
 	  .rdata(readdata)
   );
-*/
 
   memreadlen memreadlen0(
     .data(readdata),
@@ -83,12 +82,12 @@ module wbu(
     3'b100, pcwritereg
   });
   
-  // wire ready = rready & arready & wready & awready;
-  // wire memready = (~(memer | memew)) | ~(ready);
+  wire ready = rready & arready & wready & awready;
+  wire memready = (~(memer | memew)) | ~(ready);
   wire [31:0] valid;
 
-  //assign ready_to = memready;
-  assign valid = {31'b0,valid_from & ready_to};
+  assign ready_to = memready;
+  assign valid = {31'b0,valid_from & memready};
 
   always @(*) begin
     host_get_valid(valid);
