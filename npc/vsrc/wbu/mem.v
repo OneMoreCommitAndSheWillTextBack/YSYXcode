@@ -5,13 +5,11 @@ module mem(
   input er,
   input ew,
   input [2:0] memmask,
-  input memsextsig,
   output [31:0] read,
   input valid_from,
   output ready_to
 );
   reg [31:0] readreg;
-  wire [31:0] read_u, read_s;
   
   typedef enum logic{
     WAIT_FOT_SIG,
@@ -50,16 +48,7 @@ module mem(
       readreg = 0;
   end
 
-  wire [31:0] read_sb, read_sh;
-  sext#(8, 32) sext0(readreg[7:0], read_sb);
-  sext#(16, 32) sext1(readreg[15:0], read_sh);
-
-  assign read_s = (memmask == 3'b001) ? read_sb :
-                  (memmask == 3'b010) ? read_sh :
-                  readreg;
-  assign read_u = readreg;
-  assign read = (memsextsig == 1) ? read_s : read_u;
-
   assign ready_to = (~(er | ew)) | state == VALID;
+  assign read = readreg;
 
 endmodule
