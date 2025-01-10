@@ -327,6 +327,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__hit = VL_RAND_RESET_I(1);
     vlSelf->__VdfgTmp_hdd31f885__0 = 0;
     vlSelf->__Vtableidx1 = 0;
+    vlSelf->__Vdly__top__DOT__ifu0__DOT__pcbridge = VL_RAND_RESET_I(32);
     vlSelf->__Vtrigrprev__TOP__clk = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__rst = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 5; ++__Vi0) {
