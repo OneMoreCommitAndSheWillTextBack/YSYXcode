@@ -18,19 +18,7 @@ module wbu(
 
   wire [31:0] readdata;
   wire [31:0] memread;
-/*
-  mem mem0(
-    .clk(clk),
-    .addr(res),
-    .write(regout2),
-    .ew(memew),
-    .er(memer),
-    .memmask(memmask),
-    .read(readdata),
-    .ready_to(ready_to),
-    .valid_from(valid_from)
-  );
-*/
+
   wire [3:0] wstrb = (memmask == 3'b001) ? 4'b0001 :
                      (memmask == 3'b010) ? 4'b0010 :
                      (memmask == 3'b011) ? 4'b0100 :

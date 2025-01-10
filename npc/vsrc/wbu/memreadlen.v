@@ -13,7 +13,9 @@ module memreadlen(
   assign read_s = (memmask == 3'b001) ? read_sb :
                   (memmask == 3'b010) ? read_sh :
                   data;
-  assign read_u = data;
+  assign read_u = (memmask == 3'b001) ? {{24{1'b0}},  data[7:0]} :
+                  (memmask == 3'b010) ? {{16{1'b0}}, data[15:0]} :
+                  data;
   assign read = (memsextsig == 1) ? read_s : read_u;
 
 endmodule

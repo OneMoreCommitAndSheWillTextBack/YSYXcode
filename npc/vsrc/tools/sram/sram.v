@@ -39,7 +39,51 @@ module sram(
   } state_t;
 
   reg [1:0] state;
+
+`define need_lfsr_test
+`ifdef need_lfsr_test
+  // need to change here
+  wire [3:0] random_delay;
+  lfsr#(4) lsfr0(
+    .clk(clk),
+    .reset(0),
+    .out(random_delay)
+  );
+
+  reg [3:0] random_count;
+  always @(posedge clk) begin
+    case (state)
+      READ_VALID:begin
+        if(rvalid & arvalid) begin
+          state = WAIT_FOR_SIG;
+          random_count = random_delay;
+        end
+      end 
+      WRITE_VALID:begin
+        if(wvalid & awvalid) begin
+          state = WAIT_FOR_SIG;
+          random_count = random_delay;
+        end
+      end
+      WAIT_FOR_SIG:begin
+        if((rvalid & arvalid) | (wvalid & awvalid)) begin
+          if(random_count == 0) begin
+            if(rvalid & arvalid) begin
+              state = READ_VALID;
+            end else begin
+              state = WRITE_VALID;
+            end
+          end else begin
+            random_count = random_count - 1;
+          end
+        end
+      end
+      default:
+        state = WAIT_FOR_SIG;
+    endcase
+  end
   
+`else
   always @(posedge clk) begin
     if ((rvalid & arvalid) | (wvalid & awvalid)) begin 
       case (state)
@@ -62,6 +106,8 @@ module sram(
       endcase
     end
   end
+
+`endif
   
   wire [2:0] memmask;
   MuxKey#(4, 4, 3) muxpc(memmask, wstrb,{
