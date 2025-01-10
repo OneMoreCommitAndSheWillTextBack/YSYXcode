@@ -9,6 +9,8 @@ module lfsr #(parameter WIDTH = 8) (
     reg [7:0] random_num;
     wire feedback = random_num[7] ^ random_num[5] ^ random_num[4] ^ random_num[3];
 
+    initial random_num = 8'b10101010;
+
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             // 初始化LFSR的种子值，不能全为0

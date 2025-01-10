@@ -34,7 +34,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__ifu0__DOT__bvalid;
         CData/*0:0*/ top__DOT__ifu0__DOT__bresp;
         CData/*1:0*/ top__DOT__ifu0__DOT__infetch__DOT__state;
-        CData/*7:0*/ top__DOT__ifu0__DOT__infetch__DOT__random_count;
+        CData/*3:0*/ top__DOT__ifu0__DOT__infetch__DOT__random_count;
         CData/*2:0*/ top__DOT__ifu0__DOT__infetch__DOT__memmask;
         CData/*7:0*/ top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__random_num;
         CData/*0:0*/ top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__feedback;
@@ -59,7 +59,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__wbu0__DOT__bvalid;
         CData/*0:0*/ top__DOT__wbu0__DOT__bresp;
         CData/*1:0*/ top__DOT__wbu0__DOT__mem__DOT__state;
-        CData/*7:0*/ top__DOT__wbu0__DOT__mem__DOT__random_count;
+        CData/*3:0*/ top__DOT__wbu0__DOT__mem__DOT__random_count;
         CData/*2:0*/ top__DOT__wbu0__DOT__mem__DOT__memmask;
         CData/*7:0*/ top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num;
         CData/*0:0*/ top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__feedback;
