@@ -12,10 +12,10 @@ module lfsr #(parameter WIDTH = 8) (
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             // 初始化LFSR的种子值，不能全为0
-            random_num <= 8'b10101010;
+            random_num = 8'b10101010;
         end else begin
             // 移位并更新LFSR
-            random_num <= {random_num[6:0], feedback};
+            random_num = {random_num[6:0], feedback};
         end
     end
 
