@@ -352,13 +352,13 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
         if ((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))) {
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__state = 0U;
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count 
-                = (0xfU & (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num));
+                = vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num;
         }
     } else if ((2U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state))) {
         if ((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))) {
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__state = 0U;
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count 
-                = (0xfU & (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num));
+                = vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num;
         }
     } else if ((0U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state))) {
         if (((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
@@ -369,8 +369,8 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
                         ? 1U : 2U);
             } else {
                 vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count 
-                    = (0xfU & ((IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count) 
-                               - (IData)(1U)));
+                    = (0xffU & ((IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count) 
+                                - (IData)(1U)));
             }
         }
     } else {
@@ -380,7 +380,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
         if (vlSelf->top__DOT__ready_idu_to_ifu) {
             vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state = 0U;
             vlSelf->top__DOT__ifu0__DOT__infetch__DOT__random_count 
-                = (0xfU & (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__random_num));
+                = vlSelf->top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__random_num;
         }
     } else if ((2U != (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
         if ((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
@@ -391,8 +391,8 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
                             ? 1U : 2U);
                 } else {
                     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__random_count 
-                        = (0xfU & ((IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__random_count) 
-                                   - (IData)(1U)));
+                        = (0xffU & ((IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__random_count) 
+                                    - (IData)(1U)));
                 }
             }
         } else {

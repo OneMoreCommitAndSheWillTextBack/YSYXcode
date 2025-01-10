@@ -43,14 +43,14 @@ module sram(
 `define need_lfsr_test
 `ifdef need_lfsr_test
   // need to change here
-  wire [3:0] random_delay;
-  lfsr#(4) lsfr0(
+  wire [7:0] random_delay;
+  lfsr#(8) lsfr0(
     .clk(clk),
     .reset(0),
     .out(random_delay)
   );
 
-  reg [3:0] random_count;
+  reg [7:0] random_count;
   always @(posedge clk) begin
     case (state)
       READ_VALID:begin
