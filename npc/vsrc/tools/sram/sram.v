@@ -28,8 +28,8 @@ module sram(
   input [31:0] araddr,
 
   // read data channel
-  input rvalid,
-  output rready,
+  input rready,
+  output rvalid,
   output [31:0] rdata
 );
   typedef enum logic [1:0]{
@@ -66,11 +66,13 @@ module sram(
         end
       end
       WAIT_FOR_SIG:begin
-        if((rvalid & arvalid) | (wvalid & awvalid)) begin
+        if((arvalid) | (wvalid & awvalid)) begin
           if(random_count == 0) begin
-            if(rvalid & arvalid) begin
+            if(arvalid) begin
               state = READ_VALID;
-            end else begin
+            end
+
+            if(wvalid & awvalid) begin
               state = WRITE_VALID;
             end
           end else begin
@@ -85,7 +87,7 @@ module sram(
   
 `else
   always @(posedge clk) begin
-    if ((rvalid & arvalid) | (wvalid & awvalid)) begin 
+    if ((arvalid) | (wvalid & awvalid)) begin 
       case (state)
         READ_VALID: begin
           state = WAIT_FOR_SIG;
@@ -94,9 +96,11 @@ module sram(
           state = WAIT_FOR_SIG;
         end
         WAIT_FOR_SIG: begin
-          if(rvalid & arvalid) begin
+          if(arvalid) begin
             state = READ_VALID;
-          end else begin
+          end 
+
+          if(awvalid & wvalid)
             state = WRITE_VALID;
           end
         end
@@ -108,7 +112,6 @@ module sram(
   end
 
 `endif
-  
   wire [2:0] memmask;
   MuxKey#(4, 4, 3) muxpc(memmask, wstrb,{
     4'b0001, 3'b001,
@@ -133,7 +136,9 @@ module sram(
   assign awready = state == WAIT_FOR_SIG;
   assign wready = state == WAIT_FOR_SIG;
   assign arready = state == WAIT_FOR_SIG;
-  assign rready = state == WAIT_FOR_SIG;
+
+  assign bresp = state == WRITE_VALID;
+  assign rvalid = state == READ_VALID;
 
   assign rdata = rdatareg;
 endmodule

@@ -13,7 +13,8 @@ module wbu(
   input memsextsig,
 
   output [31:0] regwrite,
-  output ready_to
+  output ready_to,
+  output memvalid
 );
 
   wire [31:0] readdata;
@@ -26,7 +27,7 @@ module wbu(
                      4'b0000;
   
   wire awready, wready, bvalid;
-  wire arready, rready, bresp;
+  wire arready, rvalid, bresp;
   sram mem(
 	  .clk(clk),
 	  // write address channel
@@ -51,8 +52,8 @@ module wbu(
 	  .araddr(res),
 	
 	  // read data channel
-	  .rvalid(memer),
-	  .rready(rready),
+	  .rvalid(rvalid),
+	  .rready(memer),
 	  .rdata(readdata)
   );
 
@@ -70,12 +71,14 @@ module wbu(
     3'b100, pcwritereg
   });
   
-  wire ready = rready & arready & wready & awready;
-  wire memready = (~(memer | memew)) | ~(ready);
+
+  wire ready = arready & wready & awready;
   wire [31:0] valid;
 
-  assign ready_to = memready;
-  assign valid = {31'b0,valid_from & memready};
+  assign ready_to = (memer | memew == 0) ? 1 :
+                    (rvalid & memer == 1) ? 1 : 0;
+  assign valid = {31'b0,valid_from & ready};
+  assign memvalid = rvalid;
 
   always @(*) begin
     host_get_valid(valid);

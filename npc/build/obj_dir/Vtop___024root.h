@@ -22,6 +22,7 @@ class Vtop___024root final : public VerilatedModule {
         VL_IN8(clk,0,0);
         VL_IN8(rst,0,0);
         CData/*0:0*/ top__DOT__ready_idu_to_ifu;
+        CData/*0:0*/ top__DOT__ifu_valid;
         CData/*0:0*/ top__DOT__muximm;
         CData/*2:0*/ top__DOT__muxsig;
         CData/*1:0*/ top__DOT__aluop;
@@ -29,10 +30,11 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__csrrs;
         CData/*2:0*/ top__DOT__memmask;
         CData/*0:0*/ top__DOT__memsextsig;
+        CData/*0:0*/ top__DOT__memvalid;
+        CData/*0:0*/ top__DOT__ifu0__DOT__rready;
         CData/*0:0*/ top__DOT__ifu0__DOT__arvalid;
         CData/*0:0*/ top__DOT__ifu0__DOT__rvalid;
         CData/*0:0*/ top__DOT__ifu0__DOT__bvalid;
-        CData/*0:0*/ top__DOT__ifu0__DOT__bresp;
         CData/*1:0*/ top__DOT__ifu0__DOT__infetch__DOT__state;
         CData/*3:0*/ top__DOT__ifu0__DOT__infetch__DOT__random_count;
         CData/*2:0*/ top__DOT__ifu0__DOT__infetch__DOT__memmask;
@@ -57,7 +59,6 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__exu0__DOT__branchcontrol0__DOT____VdfgTmp_h47a8aa33__0;
         CData/*3:0*/ top__DOT__wbu0__DOT__wstrb;
         CData/*0:0*/ top__DOT__wbu0__DOT__bvalid;
-        CData/*0:0*/ top__DOT__wbu0__DOT__bresp;
         CData/*1:0*/ top__DOT__wbu0__DOT__mem__DOT__state;
         CData/*3:0*/ top__DOT__wbu0__DOT__mem__DOT__random_count;
         CData/*2:0*/ top__DOT__wbu0__DOT__mem__DOT__memmask;
@@ -82,9 +83,9 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__ifu0__DOT__infetch__DOT__rdatareg;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__I_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__S_imm;
-        IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__J_imm;
     };
     struct {
+        IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__J_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__B_imm;
         IData/*31:0*/ top__DOT__regfile__DOT__reg_write_data;
         IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;
