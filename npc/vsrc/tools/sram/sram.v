@@ -89,12 +89,6 @@ module sram(
   always @(posedge clk) begin
     if ((arvalid) | (wvalid & awvalid)) begin 
       case (state)
-        READ_VALID: begin
-          state = WAIT_FOR_SIG;
-        end
-        WRITE_VALID:begin
-          state = WAIT_FOR_SIG;
-        end
         WAIT_FOR_SIG: begin
           if(arvalid) begin
             state = READ_VALID;
@@ -103,6 +97,13 @@ module sram(
           if(awvalid & wvalid) begin
             state = WRITE_VALID;
           end
+        end
+
+        READ_VALID: begin
+          state = WAIT_FOR_SIG;
+        end
+        WRITE_VALID:begin
+          state = WAIT_FOR_SIG;
         end
         default:begin
           state = WAIT_FOR_SIG;

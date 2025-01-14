@@ -244,18 +244,25 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                           | ((0x23U 
                                               != (0x7fU 
                                                   & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
-                                             | (((1U 
-                                                  == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
-                                                 & (3U 
-                                                    == 
-                                                    (0x7fU 
-                                                     & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))) 
-                                                | ((2U 
-                                                    == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
-                                                   & (0x23U 
-                                                      == 
-                                                      (0x7fU 
-                                                       & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))));
+                                             | ((~ 
+                                                 ((3U 
+                                                   == 
+                                                   (0x7fU 
+                                                    & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
+                                                  & (1U 
+                                                     != (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)))) 
+                                                & (((1U 
+                                                     == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
+                                                    & (3U 
+                                                       == 
+                                                       (0x7fU 
+                                                        & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))) 
+                                                   | ((2U 
+                                                       == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
+                                                      & (0x23U 
+                                                         == 
+                                                         (0x7fU 
+                                                          & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))))));
     vlSelf->top__DOT__regfile__DOT__rf_csr[3U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
         [3U];
     vlSelf->top__DOT__regfile__DOT__rf_csr[2U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
