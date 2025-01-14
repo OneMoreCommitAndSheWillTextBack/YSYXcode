@@ -1,6 +1,5 @@
 module arbiter #(parameter DEVICE_NUM=2) (
   input wire clk,
-  input wire rst,
 
   // master interface
   input [DEVICE_NUM-1:0] awvalid, 
@@ -12,12 +11,6 @@ module arbiter #(parameter DEVICE_NUM=2) (
   output [DEVICE_NUM-1:0] wready,  
   output [DEVICE_NUM-1:0] arready, 
 
-  // master data channel
-  input [31:0] araddr,
-  output [31:0] rdata,
-  input [31:0] awaddr,
-  input [31:0] wdata,
-  
   // subordinate interface
   output awvalid_out, 
   output wvalid_out,  
@@ -26,13 +19,7 @@ module arbiter #(parameter DEVICE_NUM=2) (
   input rvalid_in,
   input awready_in,  
   input wready_in,   
-  input arready_in,   
-
-  // subordinate data channel
-  output [31:0] araddr_out,
-  input [31:0] rdata_in,
-  output [31:0] awaddr_out,
-  output [31:0] wdata_out
+  input arready_in   
 );
 reg busy;
 reg [DEVICE_NUM-1:0] giant;
@@ -57,15 +44,8 @@ always @(posedge clk or posedge rst) begin
   end
 end
 
-assign wdata_out = wdata;
-assign rdata = rdata_in;
-assign araddr_out = araddr;
-assign awaddr_out = awaddr;
-
 assign awvalid_out = |(awvalid & giant) != 0;
 assign wvalid_out = |(wvalid & giant) != 0;
 assign arvalid_out = |(arvalid & giant) != 0;
-
-assign rdata = (rvalid_in) ? rdata_in : 32'b0;
 
 endmodule
