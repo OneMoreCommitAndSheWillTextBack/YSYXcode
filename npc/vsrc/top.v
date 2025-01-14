@@ -77,7 +77,7 @@ module top(
   regheap regfile(
     .clk(clk),
     .rst(rst),
-    .ew(regew & ready_exu_to_idu),
+    .ew(regew & memvalid),
     .addr(rd),
     .src1(src1),
     .src2(src2),
@@ -124,6 +124,7 @@ module top(
 );
   
   wire ready_wbu_to_exu;
+  wire memvalid;
   wbu wbu0(
   .clk(clk),
   .res(res),
@@ -138,6 +139,7 @@ module top(
   .memmask(memmask),
 
   .regwrite(regwrite),
-  .ready_to(ready_wbu_to_exu)
+  .ready_to(ready_wbu_to_exu),
+  .memvalid(memvalid)
 );
 endmodule

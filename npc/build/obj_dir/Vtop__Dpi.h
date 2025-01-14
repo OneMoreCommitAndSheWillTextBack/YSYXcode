@@ -16,9 +16,9 @@ extern "C" {
 
 
     // DPI IMPORTS
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/tools/sram/sram.v:2:29
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/data/sram.v:2:29
     extern int guest_read(int addr, int len);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/tools/sram/sram.v:1:30
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/data/sram.v:1:30
     extern void guest_write(int addr, int data, int len);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/reg/registers.v:2:30
     extern void host_get_csr(int csrval, int csrnum);

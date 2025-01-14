@@ -43,14 +43,13 @@ module ifu(
   .arready(arready),
   .araddr(pc),
 
-  .rvalid(ready),
+  .rvalid(valid),
 
-  .rready(rready),
+  .rready(ready),
   .rdata(instbridge)
   );
 
   assign pc = pcbridge;
-  assign valid = instbridge != 0;
   assign infetch_ready = ready & valid;
   assign inst = instbridge;
 endmodule
