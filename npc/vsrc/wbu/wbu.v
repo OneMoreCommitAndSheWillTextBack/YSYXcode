@@ -76,9 +76,10 @@ module wbu(
   wire [31:0] valid;
 
   assign ready_to = (memer | memew == 0) ? 1 :
-                    (rvalid & memer == 1) ? 1 : 0;
+                    (rvalid & memer == 1) ? 1 : 
+                    (bresp & memew == 1)? 1 : 0;
   assign valid = {31'b0,valid_from & ready};
-  assign memvalid = rvalid;
+  assign memvalid = ready_to;
 
   always @(*) begin
     host_get_valid(valid);

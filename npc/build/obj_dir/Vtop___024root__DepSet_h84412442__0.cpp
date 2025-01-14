@@ -540,12 +540,18 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
                                           | ((0x23U 
                                               != (0x7fU 
                                                   & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
-                                             | ((1U 
-                                                 == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
-                                                & (3U 
-                                                   == 
-                                                   (0x7fU 
-                                                    & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))));
+                                             | (((1U 
+                                                  == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
+                                                 & (3U 
+                                                    == 
+                                                    (0x7fU 
+                                                     & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))) 
+                                                | ((2U 
+                                                    == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
+                                                   & (0x23U 
+                                                      == 
+                                                      (0x7fU 
+                                                       & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))));
     if ((1U == (IData)(vlSelf->top__DOT__memmask))) {
         vlSelf->top__DOT__wbu0__DOT__wstrb = 1U;
         vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_s 
@@ -574,14 +580,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
         vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_u 
             = vlSelf->top__DOT__wbu0__DOT__mem__DOT__rdatareg;
     }
-    vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew 
-        = (((1U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)) 
-            & ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
-               | ((0x33U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
-                  | ((0x6fU == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
-                     | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
-                        | (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))))) 
-           & (1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state)));
     if (vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) {
         vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__data_list[1U] 
             = vlSelf->top__DOT__idu0__DOT__decoder0__DOT__I_imm;
@@ -633,6 +631,14 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
                                                 == 
                                                 (0x7fU 
                                                  & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))));
+    vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew 
+        = (((IData)(vlSelf->top__DOT__ready_idu_to_ifu) 
+            & ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
+               | ((0x33U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
+                  | ((0x6fU == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
+                     | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
+                        | (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))))))) 
+           & (1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state)));
     vlSelf->top__DOT__wbu0__DOT__mem__DOT__muxpc__DOT__i0__DOT__hit 
         = ((IData)(vlSelf->top__DOT__wbu0__DOT__wstrb) 
            == vlSelf->top__DOT__wbu0__DOT__mem__DOT__muxpc__DOT__i0__DOT__key_list
