@@ -219,6 +219,10 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__ifu0__DOT__rvalid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__ifu0__DOT__bvalid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state = VL_RAND_RESET_I(2);
+<<<<<<< HEAD
+=======
+    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__busy = VL_RAND_RESET_I(1);
+>>>>>>> dev
     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__random_count = VL_RAND_RESET_I(4);
     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__memmask = VL_RAND_RESET_I(3);
     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg = VL_RAND_RESET_I(32);
@@ -299,6 +303,10 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__wbu0__DOT__bvalid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__wbu0__DOT__rvalid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__wbu0__DOT__mem__DOT__state = VL_RAND_RESET_I(2);
+<<<<<<< HEAD
+=======
+    vlSelf->top__DOT__wbu0__DOT__mem__DOT__busy = VL_RAND_RESET_I(1);
+>>>>>>> dev
     vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count = VL_RAND_RESET_I(4);
     vlSelf->top__DOT__wbu0__DOT__mem__DOT__memmask = VL_RAND_RESET_I(3);
     vlSelf->top__DOT__wbu0__DOT__mem__DOT__rdatareg = VL_RAND_RESET_I(32);
