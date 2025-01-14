@@ -40,7 +40,7 @@ module sram(
 
   reg [1:0] state;
 
-`define need_lfsr_test
+// `define need_lfsr_test
 `ifdef need_lfsr_test
   // need to change here
   wire [3:0] random_delay;
@@ -100,7 +100,7 @@ module sram(
             state = READ_VALID;
           end 
 
-          if(awvalid & wvalid)
+          if(awvalid & wvalid) begin
             state = WRITE_VALID;
           end
         end

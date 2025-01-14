@@ -171,12 +171,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
         = ((IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__hit) 
            | (0U == vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list
               [3U]));
-    vlSelf->top__DOT__memvalid = (1U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state));
-    vlSelf->top__DOT__ifu_valid = (1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state));
-    vlSelf->top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__feedback 
-        = (1U & VL_REDXOR_8((0xb8U & (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__random_num))));
-    vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__feedback 
-        = (1U & VL_REDXOR_8((0xb8U & (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num))));
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit 
         = ((vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg 
             >> 0x14U) == vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list
