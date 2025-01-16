@@ -351,20 +351,14 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     if ((1U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state))) {
         if (((IData)(vlSelf->top__DOT__wbu0__DOT__rvalid) 
              & (3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))) {
-<<<<<<< HEAD
-=======
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__busy = 0U;
->>>>>>> dev
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__state = 0U;
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count 
                 = (0xfU & (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num));
         }
     } else if ((2U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state))) {
         if ((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))) {
-<<<<<<< HEAD
-=======
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__busy = 0U;
->>>>>>> dev
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__state = 0U;
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count 
                 = (0xfU & (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__lsfr0__DOT__random_num));
@@ -372,10 +366,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     } else if ((0U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state))) {
         if (((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) 
              | (0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)))) {
-<<<<<<< HEAD
-=======
             vlSelf->top__DOT__wbu0__DOT__mem__DOT__busy = 1U;
->>>>>>> dev
             if ((0U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__random_count))) {
                 if ((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg))) {
                     vlSelf->top__DOT__wbu0__DOT__mem__DOT__state = 1U;
@@ -394,10 +385,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     }
     if ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
         if (((IData)(vlSelf->top__DOT__ifu_valid) & (IData)(vlSelf->top__DOT__ready_idu_to_ifu))) {
-<<<<<<< HEAD
-=======
             vlSelf->top__DOT__ifu0__DOT__infetch__DOT__busy = 0U;
->>>>>>> dev
             vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state = 0U;
             vlSelf->top__DOT__ifu0__DOT__infetch__DOT__random_count 
                 = (0xfU & (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__random_num));
@@ -405,10 +393,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     } else if ((2U != (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
         if ((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state))) {
             if (vlSelf->top__DOT__ready_idu_to_ifu) {
-<<<<<<< HEAD
-=======
                 vlSelf->top__DOT__ifu0__DOT__infetch__DOT__busy = 1U;
->>>>>>> dev
                 if ((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__random_count))) {
                     if (vlSelf->top__DOT__ready_idu_to_ifu) {
                         vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state = 1U;
@@ -451,14 +436,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
                                                                ((1U 
                                                                  == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state)) 
-<<<<<<< HEAD
-                                                                & (0U 
-                                                                   == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state))));
-=======
                                                                 & ((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__busy)) 
                                                                    & (0U 
                                                                       == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)))));
->>>>>>> dev
     vlSelf->top__DOT__ifu_valid = (1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state));
     if ((0x100073U == vlSelf->top__DOT__ifu0__DOT__infetch__DOT__rdatareg)) {
         Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(0U);

@@ -151,11 +151,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(
                                                              vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
                                                              [3U], 3U);
-    Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
-                                                               ((1U 
-                                                                 == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state)) 
-                                                                & (0U 
-                                                                   == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state))));
     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__hit 
         = (0U == vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list
            [0U]);
@@ -171,15 +166,12 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
         = ((IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__hit) 
            | (0U == vlSelf->top__DOT__ifu0__DOT__infetch__DOT__muxpc__DOT__i0__DOT__key_list
               [3U]));
-<<<<<<< HEAD
-=======
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
                                                                ((1U 
                                                                  == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state)) 
                                                                 & ((~ (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__busy)) 
                                                                    & (0U 
                                                                       == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state)))));
->>>>>>> dev
     vlSelf->top__DOT__ifu_valid = (1U == (IData)(vlSelf->top__DOT__ifu0__DOT__infetch__DOT__state));
     vlSelf->top__DOT__wbu0__DOT__rvalid = (1U == (IData)(vlSelf->top__DOT__wbu0__DOT__mem__DOT__state));
     vlSelf->top__DOT__ifu0__DOT__infetch__DOT__lsfr0__DOT__feedback 

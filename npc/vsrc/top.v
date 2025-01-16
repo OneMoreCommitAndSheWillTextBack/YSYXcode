@@ -17,15 +17,28 @@ module top(
   wire [31:0] npc, pcbridge;
   wire [31:0] inst;
   wire ifu_valid;
+  wire arvalid, arready;
+  wire [31:0] araddr;
+  wire rvalid, rready;
+  wire [31:0] rdata;
+
   ifu ifu0(
     .clk(clk),
     .rst(rst),
     .npc(npc),
-    .pc(pcbridge),
+    .ready(ready_idu_to_ifu),
+    .pc(pc),
     .inst(inst),
     .valid(ifu_valid),
-    .ready(ready_idu_to_ifu)
+
+    .arvalid(arvalid),
+    .arready(arready),
+    .araddr(araddr),
+    .rvalid(rvalid),
+    .rready(rready),
+    .rdata(rdata)
   );
+
 
   wire [4:0] src1, src2, rd;
   wire [31:0] imm;
@@ -141,5 +154,11 @@ module top(
   .regwrite(regwrite),
   .ready_to(ready_wbu_to_exu),
   .memvalid(memvalid)
+);
+
+wire 
+
+data #(0) data0(
+  
 );
 endmodule
