@@ -8,8 +8,8 @@ module top(
   always @(*) begin
      host_get_pc(pcbridge);
     host_get_inst(inst);
-    //if(inst != 0)
-      //$display("pc: 0x%08x %08x", pcbridge, inst);
+    if(inst != 0)
+      $display("pc: 0x%08x %08x", pcbridge, inst);
   end
   //
   
@@ -193,11 +193,6 @@ module top(
   .rdata(rdata[1])
 );
 
-// 2025 - 1 - 16
-// still need to change the wbu and 
-// the data
-// you need to consider how to record the mem
-// rdata things to fit the wave
 wire [1:0] 
   awvalid, wvalid,
   arvalid, rready,

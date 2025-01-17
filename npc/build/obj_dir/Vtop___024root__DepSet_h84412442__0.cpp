@@ -890,6 +890,10 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__0(Vtop___024root* vlSelf) {
     // Body
     Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__pcbridge);
     Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(vlSelf->top__DOT__ifu0__DOT__inst_reg);
+    if (VL_UNLIKELY((0U != vlSelf->top__DOT__ifu0__DOT__inst_reg))) {
+        VL_WRITEF("pc: 0x%08x %08x\n",32,vlSelf->top__DOT__ifu0__DOT__pcbridge,
+                  32,vlSelf->top__DOT__ifu0__DOT__inst_reg);
+    }
     vlSelf->top__DOT__regout2 = vlSelf->top__DOT__regfile__DOT__rf
         [(0x1fU & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
                    >> 0x14U))];
