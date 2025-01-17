@@ -91,7 +91,7 @@ always @(*) begin
         if (giant[j]) begin
             awaddr_out_reg = awaddr[j];
             wdata_out_reg = wdata[j];
-            araddr_out_reg = araddr[j];
+             araddr_out_reg = araddr[j];
             wstrb_out_reg = wstrb[j];
         end
     end

@@ -17,26 +17,26 @@ module top(
   wire [31:0] npc, pcbridge;
   wire [31:0] inst;
   wire ifu_valid;
-  wire arvalid, arready;
-  wire [31:0] araddr;
-  wire rvalid, rready;
-  wire [31:0] rdata;
+  wire ifu_arvalid, ifu_arready;
+  wire [31:0] ifu_araddr;
+  wire ifu_rvalid, ifu_rready;
+  wire [31:0] ifu_rdata;
 
   ifu ifu0(
     .clk(clk),
     .rst(rst),
     .npc(npc),
     .ready(ready_idu_to_ifu),
-    .pc(pc),
+    .pc(pcbridge),
     .inst(inst),
     .valid(ifu_valid),
 
-    .arvalid(arvalid),
-    .arready(arready),
-    .araddr(araddr),
-    .rvalid(rvalid),
-    .rready(rready),
-    .rdata(rdata)
+    .arvalid(ifu_arvalid),
+    .arready(ifu_arready),
+    .araddr(ifu_araddr),
+    .rvalid(ifu_rvalid),
+    .rready(ifu_rready),
+    .rdata(ifu_rdata)
   );
 
 
@@ -137,9 +137,24 @@ module top(
 );
   
   wire ready_wbu_to_exu;
+/*
+  wire wbu_valid;
+  wire wbu_arvalid, wbu_arready;
+  wire [31:0] wbu_araddr;
+  wire wbu_rvalid, wbu_rready;
+  wire [31:0] wbu_rdata;
+  wire wbu_awvalid, wbu_awready;
+  wire [31:0] wbu_awaddr;
+  wire wbu_wvalid, wbu_wready;
+  wire [31:0] wbu_wdata;
+  wire [3:0] wbu_wstrb;
+  wire wbu_bvalid, wbu_bready;
+  wire wbu_bresp;
+*/
+
+
   wire memvalid;
   wbu wbu0(
-  .clk(clk),
   .res(res),
   .regout2(regout2),
   .memew(memew),
@@ -153,12 +168,83 @@ module top(
 
   .regwrite(regwrite),
   .ready_to(ready_wbu_to_exu),
-  .memvalid(memvalid)
+  .memvalid(memvalid),
+
+  // axi-lite interface
+  .awvalid(awvalid[1]),
+  .awready(awready[1]),
+  .awaddr(awaddr[1]),
+
+  .wvalid(wvalid[1]),
+  .wready(wready[1]),
+  .wdata(wdata[1]),
+  .wstrb(wstrb[1]),
+
+  .bvalid(bvalid[1]),
+  .bready(bready[1]),
+  .bresp(bresp[1]),
+
+  .arvalid(arvalid[1]),
+  .arready(arready[1]),
+  .araddr(araddr[1]),
+
+  .rvalid(rvalid[1]),
+  .rready(rready[1]),
+  .rdata(rdata[1])
 );
 
-wire 
+// 2025 - 1 - 16
+// still need to change the wbu and 
+// the data
+// you need to consider how to record the mem
+// rdata things to fit the wave
+wire [1:0] 
+  awvalid, wvalid,
+  arvalid, rready,
+  bready, bvalid,
+  rvalid, awready,
+  wready, arready;
 
-data #(0) data0(
+wire [31:0] araddr [1:0];
+wire [31:0] rdata [1:0];
+wire [31:0] awaddr [1:0];
+wire [31:0] wdata [1:0];
+wire [3:0] wstrb [1:0];
+wire bresp [1:0];
+
+assign awvalid[0] = 0;
+assign awaddr[0] = 0;
+assign wvalid[0] = 0;
+assign wdata[0] = 0;
+assign wstrb[0] = 0;
+assign bready[0] = 0;
+
+assign arvalid[0] = ifu_arvalid;
+assign ifu_arready = arready[0];
+assign araddr[0] = ifu_araddr;
+assign ifu_rvalid = rvalid[0];
+assign rready[0] = ifu_rready;
+assign ifu_rdata = rdata[0];
+
+data #(2) data0(
+  .clk(clk),
   
+  .awvalid(awvalid),
+  .wvalid(wvalid),
+  .arvalid(arvalid),
+  .rready(rready),
+  .bready(bready),
+  .bvalid(bvalid),
+  .rvalid(rvalid),
+  .awready(awready),
+  .wready(wready),
+  .arready(arready),
+
+  .araddr(araddr),
+  .rdata(rdata),
+  .awaddr(awaddr),
+  .wdata(wdata),
+  .wstrb(wstrb),
+  .bresp(bresp)
 );
 endmodule

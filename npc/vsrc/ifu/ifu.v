@@ -18,7 +18,6 @@ module ifu(
 );
 
   wire [31:0] pcbridge;
-  wire [31:0] instbridge;
   wire infetch_ready;
 
   // PC register module
@@ -29,21 +28,21 @@ module ifu(
     .pcout(pcbridge),
     .ready_from(infetch_ready)
   );
+  
+  reg [31:0] inst_reg;
+  always @(posedge clk) begin
+    if(ready)
+      inst_reg = rdata;
+  end
 
   // Assign outputs
   assign pc = pcbridge;
-  assign inst = instbridge;
-  assign valid = rvalid; // Assuming valid is driven by rvalid from SRAM
+  assign inst = inst_reg;
+  assign valid = rvalid;
 
-  // Control logic for AXI-Lite interface
-  assign arvalid = ready; // Start a read transaction when ready
-  assign araddr = pc;     // Address to read is the current PC
-  assign rready = ready;  // Always ready to accept read data when ready
+  assign arvalid = ready;
+  assign araddr = pc;
+  assign rready = ready;
 
-  // Connect SRAM read data to instruction bridge
-  assign instbridge = rdata;
-
-  // Logic to determine if the fetch is ready
   assign infetch_ready = ready & rvalid;
-
 endmodule

@@ -1,6 +1,5 @@
 import "DPI-C" function void host_get_valid(int valid);
 module wbu(
-  input clk,
   input [31:0] res,
   input [31:0] regout2,
   input memew,
@@ -14,51 +13,51 @@ module wbu(
 
   output [31:0] regwrite,
   output ready_to,
-  output memvalid
+  output memvalid,
+
+  // axi-lite interface
+  output awvalid,
+  input awready,
+  output [31:0] awaddr,
+
+  output wvalid,
+  input wready,
+  output [31:0] wdata,
+  output [3:0] wstrb,
+
+  input bvalid,
+  output bready,
+  input bresp,
+
+  output arvalid,
+  input arready,
+  output [31:0] araddr,
+
+  input rvalid,
+  output rready,
+  input [31:0] rdata
 );
 
-  wire [31:0] readdata;
   wire [31:0] memread;
 
-  wire [3:0] wstrb = (memmask == 3'b001) ? 4'b0001 :
-                     (memmask == 3'b010) ? 4'b0010 :
-                     (memmask == 3'b011) ? 4'b0100 :
-                     (memmask == 3'b100) ? 4'b1000 :
-                     4'b0000;
+  assign wstrb = (memmask == 3'b001) ? 4'b0001 :
+                 (memmask == 3'b010) ? 4'b0010 :
+                 (memmask == 3'b011) ? 4'b0100 :
+                 (memmask == 3'b100) ? 4'b1000 :
+                 4'b0000;
   
-  wire awready, wready, bvalid;
-  wire arready, rvalid, bresp;
-  sram mem(
-	  .clk(clk),
-	  // write address channel
-	  .awvalid(memew),
-	  .awready(awready),
-	  .awaddr(res),
-	
-	  // write data channel
-	  .wvalid(memew),
-	  .wready(wready),
-	  .wdata(regout2),
-	  .wstrb(wstrb),
-	  
-	  // write response channel
-	  .bvalid(bvalid),
-	  .bready(memew),
-	  .bresp(bresp),
-	
-	  // read address channel
-	  .arvalid(memer),
-	  .arready(arready),
-	  .araddr(res),
-	
-	  // read data channel
-	  .rvalid(rvalid),
-	  .rready(memer),
-	  .rdata(readdata)
-  );
+
+	assign awvalid = memew;
+  assign awaddr = res;
+  assign wvalid = memew;
+  assign wdata = regout2;
+  assign bready = memew;
+  assign arvalid = memer;
+  assign araddr = res;
+  assign rready = memer; 
 
   memreadlen memreadlen0(
-    .data(readdata),
+    .data(rdata),
     .memsextsig(memsextsig),
     .memmask(memmask),
     .read(memread)
