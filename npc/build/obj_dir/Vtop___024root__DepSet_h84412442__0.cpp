@@ -411,6 +411,8 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
             & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy)))) {
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 0U;
+    } else {
+        vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 1U;
     }
     if (vlSelf->top__DOT__ready_idu_to_ifu) {
         vlSelf->top__DOT__ifu0__DOT__inst_reg = vlSelf->top__DOT__rdata
