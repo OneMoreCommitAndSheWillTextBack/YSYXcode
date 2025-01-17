@@ -394,8 +394,10 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     } else {
         vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg = 0U;
     }
+    VL_WRITEF("the rvalid is %1#\n",1,(1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)));
     if (vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy) {
-        if ((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) {
+        if (VL_UNLIKELY((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))) {
+            VL_WRITEF("the rvalid is %1#\n",1,(1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)));
             vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
             vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 0U;
         }

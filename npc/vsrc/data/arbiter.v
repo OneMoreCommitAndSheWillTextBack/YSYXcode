@@ -45,8 +45,10 @@ reg [DEVICE_NUM-1:0] giant;
 integer i;
 
 always @(posedge clk) begin
+  $display("the rvalid is %d", rvalid_in);
   if(busy) begin
     if(rvalid_in) begin
+      $display("the rvalid is %d", rvalid_in);
       busy = 0;
       giant = {DEVICE_NUM{1'b0}};
     end
