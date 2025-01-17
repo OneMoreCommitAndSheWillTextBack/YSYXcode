@@ -45,22 +45,19 @@ reg [DEVICE_NUM-1:0] giant;
 integer i;
 
 always @(posedge clk) begin
-  if(!busy) begin
-    // here will choose the first devide to master
+  if(busy) begin
+    if(rvalid_in) begin
+      busy = 0;
+      giant = {DEVICE_NUM{1'b0}};
+    end
+  end else begin
     for(i=0;i<DEVICE_NUM;i=i+1) begin
-      if(arvalid[i] || awvalid[i]) begin
+      if(arvalid[i] | awvalid[i]) begin
         giant = (1 << i);
         busy = 1;
       end
     end
   end
-
-    // here need to check if the sram is done
-  if(busy) begin
-    busy = 0;
-    giant = {DEVICE_NUM{1'b0}};
-  end else 
-    busy = 1;
 end
 
 assign awvalid_out = |(awvalid & giant);
