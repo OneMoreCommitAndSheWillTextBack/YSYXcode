@@ -43,6 +43,7 @@ module arbiter #(parameter DEVICE_NUM=2) (
 reg busy;
 reg [DEVICE_NUM-1:0] giant;
 integer i;
+reg test;
 
 always @(posedge clk) begin
   if(!busy) begin
@@ -56,6 +57,7 @@ always @(posedge clk) begin
   end else begin
     // here need to check if the sram is done
     if(rvalid_in | bresp_in) begin
+      test = 1;
       busy = 0;
       giant = {DEVICE_NUM{1'b0}};
     end
