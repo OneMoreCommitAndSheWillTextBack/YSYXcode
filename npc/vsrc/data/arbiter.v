@@ -55,7 +55,7 @@ always @(posedge clk) begin
     end
   end else begin
     // here need to check if the sram is done
-    if(arready_in & rvalid_in & awready_in & wready_in) begin
+    if(rvalid_in | bresp_in) begin
       busy = 0;
       giant = {DEVICE_NUM{1'b0}};
     end

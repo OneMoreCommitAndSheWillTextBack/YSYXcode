@@ -143,7 +143,8 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgIData(oldp+108,(vlSelf->top__DOT__ifu0__DOT__inst_reg),32);
         bufp->chgBit(oldp+109,((1U & (IData)(vlSelf->top__DOT__data0__DOT__rvalid_out))));
         bufp->chgBit(oldp+110,(((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                & (IData)(vlSelf->top__DOT__data0__DOT__awready_sram))));
+                                & ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                   & (0U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))))));
         bufp->chgIData(oldp+111,(vlSelf->top__DOT__rdata
                                  [0U]),32);
         bufp->chgCData(oldp+112,((0x1fU & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
@@ -189,7 +190,9 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
                                   & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__bvalid_sram))))),2);
         bufp->chgCData(oldp+138,(vlSelf->top__DOT__data0__DOT__rvalid_out),2);
         bufp->chgCData(oldp+139,(((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                  & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram))))),2);
+                                  & (- (IData)(((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                                & (0U 
+                                                   == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))))))),2);
         bufp->chgIData(oldp+140,(vlSelf->top__DOT__rdata[0]),32);
         bufp->chgIData(oldp+141,(vlSelf->top__DOT__rdata[1]),32);
         bufp->chgCData(oldp+142,(vlSelf->top__DOT__wstrb[0]),4);
@@ -208,7 +211,8 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgBit(oldp+155,((0U != ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                        & (IData)(vlSelf->top__DOT__data0__DOT__arvalid_in)))));
         bufp->chgBit(oldp+156,((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))));
-        bufp->chgBit(oldp+157,(vlSelf->top__DOT__data0__DOT__awready_sram));
+        bufp->chgBit(oldp+157,(((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                & (0U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
         bufp->chgIData(oldp+158,(vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg),32);
         bufp->chgCData(oldp+159,(vlSelf->top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg),4);
         bufp->chgBit(oldp+160,((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))));
@@ -284,7 +288,10 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgBit(oldp+207,(vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit));
         bufp->chgBit(oldp+208,(vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew));
         bufp->chgBit(oldp+209,((1U & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                       & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram)))) 
+                                       & (- (IData)(
+                                                    ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                                     & (0U 
+                                                        == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))))) 
                                       >> 1U))));
         bufp->chgCData(oldp+210,(((1U == (IData)(vlSelf->top__DOT__memmask))
                                    ? 1U : ((2U == (IData)(vlSelf->top__DOT__memmask))
@@ -305,7 +312,10 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
         bufp->chgIData(oldp+215,(vlSelf->top__DOT__wbu0__DOT__memread),32);
         bufp->chgIData(oldp+216,((1U & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                         & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                            & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram)))) 
+                                            & (- (IData)(
+                                                         ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                                          & (0U 
+                                                             == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))))) 
                                            >> 1U)))),32);
         bufp->chgIData(oldp+217,(vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_u),32);
         bufp->chgIData(oldp+218,(vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_s),32);

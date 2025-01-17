@@ -823,7 +823,8 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullIData(oldp+109,(vlSelf->top__DOT__ifu0__DOT__inst_reg),32);
     bufp->fullBit(oldp+110,((1U & (IData)(vlSelf->top__DOT__data0__DOT__rvalid_out))));
     bufp->fullBit(oldp+111,(((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                             & (IData)(vlSelf->top__DOT__data0__DOT__awready_sram))));
+                             & ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                & (0U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))))));
     bufp->fullIData(oldp+112,(vlSelf->top__DOT__rdata
                               [0U]),32);
     bufp->fullCData(oldp+113,((0x1fU & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
@@ -867,7 +868,9 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
                                & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__bvalid_sram))))),2);
     bufp->fullCData(oldp+139,(vlSelf->top__DOT__data0__DOT__rvalid_out),2);
     bufp->fullCData(oldp+140,(((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                               & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram))))),2);
+                               & (- (IData)(((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                             & (0U 
+                                                == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))))))),2);
     bufp->fullIData(oldp+141,(vlSelf->top__DOT__rdata[0]),32);
     bufp->fullIData(oldp+142,(vlSelf->top__DOT__rdata[1]),32);
     bufp->fullCData(oldp+143,(vlSelf->top__DOT__wstrb[0]),4);
@@ -886,7 +889,8 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+156,((0U != ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                     & (IData)(vlSelf->top__DOT__data0__DOT__arvalid_in)))));
     bufp->fullBit(oldp+157,((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))));
-    bufp->fullBit(oldp+158,(vlSelf->top__DOT__data0__DOT__awready_sram));
+    bufp->fullBit(oldp+158,(((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                             & (0U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
     bufp->fullIData(oldp+159,(vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg),32);
     bufp->fullCData(oldp+160,(vlSelf->top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg),4);
     bufp->fullBit(oldp+161,((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))));
@@ -959,7 +963,9 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+208,(vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit));
     bufp->fullBit(oldp+209,(vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew));
     bufp->fullBit(oldp+210,((1U & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                    & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram)))) 
+                                    & (- (IData)(((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                                  & (0U 
+                                                     == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))))) 
                                    >> 1U))));
     bufp->fullCData(oldp+211,(((1U == (IData)(vlSelf->top__DOT__memmask))
                                 ? 1U : ((2U == (IData)(vlSelf->top__DOT__memmask))
@@ -983,7 +989,10 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullIData(oldp+216,(vlSelf->top__DOT__wbu0__DOT__memread),32);
     bufp->fullIData(oldp+217,((1U & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                      & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                         & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram)))) 
+                                         & (- (IData)(
+                                                      ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                                       & (0U 
+                                                          == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))))) 
                                         >> 1U)))),32);
     bufp->fullIData(oldp+218,(vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_u),32);
     bufp->fullIData(oldp+219,(vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_s),32);

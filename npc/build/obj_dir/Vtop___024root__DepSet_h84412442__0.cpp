@@ -395,8 +395,8 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
         vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg = 0U;
     }
     if (vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy) {
-        if (((IData)(vlSelf->top__DOT__data0__DOT__awready_sram) 
-             & (1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))) {
+        if (((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
+             | (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))) {
             vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
             vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 0U;
         }
@@ -420,9 +420,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
         = (1U & VL_REDXOR_8((0xb8U & (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__random_num))));
     vlSelf->top__DOT__data0__DOT__rvalid_sram = (1U 
                                                  == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
-    vlSelf->top__DOT__data0__DOT__awready_sram = ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
-                                                  & (0U 
-                                                     == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)));
     vlSelf->top__DOT__data0__DOT__rvalid_out = ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                                 & (- (IData)(
                                                              (1U 
@@ -612,7 +609,10 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
                                                                (1U 
                                                                 & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                                                    & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                                                       & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram)))) 
+                                                                       & (- (IData)(
+                                                                                ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                                                                & (0U 
+                                                                                == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))))) 
                                                                       >> 1U))));
     if (vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) {
         vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__data_list[1U] 

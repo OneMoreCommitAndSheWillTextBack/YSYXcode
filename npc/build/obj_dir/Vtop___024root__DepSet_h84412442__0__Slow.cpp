@@ -214,9 +214,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                           [3U]))) & vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__data_list
               [3U]));
     vlSelf->top__DOT__regfile__DOT__csr_choose = vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out;
-    vlSelf->top__DOT__data0__DOT__awready_sram = ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
-                                                  & (0U 
-                                                     == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)));
     vlSelf->top__DOT__csrrw = (IData)((0x1073U == (0x707fU 
                                                    & vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     vlSelf->top__DOT__csrrs = (IData)((0x2073U == (0x707fU 
@@ -405,7 +402,10 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                                (1U 
                                                                 & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                                                    & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                                                       & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__awready_sram)))) 
+                                                                       & (- (IData)(
+                                                                                ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
+                                                                                & (0U 
+                                                                                == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))))) 
                                                                       >> 1U))));
     vlSelf->top__DOT____Vcellout__data0__bresp[1U] 
         = vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp
