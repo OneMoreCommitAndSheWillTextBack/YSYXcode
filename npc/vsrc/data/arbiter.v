@@ -89,7 +89,7 @@ always @(*) begin
         if (giant[j]) begin
             awaddr_out_reg = awaddr[j];
             wdata_out_reg = wdata[j];
-             araddr_out_reg = araddr[j];
+            araddr_out_reg = araddr[j];
             wstrb_out_reg = wstrb[j];
         end
     end
@@ -100,12 +100,9 @@ assign wdata_out = wdata_out_reg;
 assign araddr_out = araddr_out_reg;
 assign wstrb_out = wstrb_out_reg;
 
-genvar k;
-generate 
-  for(k=0;k<DEVICE_NUM;k++) begin: DEMUX
-    assign rdata[j] = giant[j] ? rdata_in : 32'b0;
-    assign bresp[j] = giant[j] ? bresp_in : 0;
-  end
-endgenerate
+assign rdata[0] = rdata_in;
+assign rdata[1] = rdata_in;
+assign bresp[0] = bresp_in;
+assign bresp[1] = bresp_in;
 
 endmodule
