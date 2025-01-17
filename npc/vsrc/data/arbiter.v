@@ -54,14 +54,14 @@ always @(posedge clk) begin
         busy = 1;
       end
     end
-  end else begin
+  end
+
     // here need to check if the sram is done
-    if(rvalid_in | bresp_in) begin
+  if((rvalid_in | bresp_in) & busy) begin
       test = 1;
       busy = 0;
       giant = {DEVICE_NUM{1'b0}};
     end
-  end
 end
 
 assign awvalid_out = |(awvalid & giant);
