@@ -50,12 +50,17 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__data0__DOT__awvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__wvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__arvalid_sram;
+        CData/*0:0*/ top__DOT__data0__DOT__rvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__bvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__arviter0__DOT__busy;
         CData/*1:0*/ top__DOT__data0__DOT__arviter0__DOT__giant;
         CData/*3:0*/ top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg;
         CData/*1:0*/ top__DOT__data0__DOT__mem0__DOT__state;
+        CData/*0:0*/ top__DOT__data0__DOT__mem0__DOT__busy;
+        CData/*3:0*/ top__DOT__data0__DOT__mem0__DOT__random_count;
         CData/*2:0*/ top__DOT__data0__DOT__mem0__DOT__memmask;
+        CData/*7:0*/ top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__random_num;
+        CData/*0:0*/ top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__feedback;
         CData/*2:0*/ top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__lut_out;
         CData/*0:0*/ top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__hit;
         CData/*3:0*/ __VdfgTmp_he79674ea__0;
@@ -78,13 +83,13 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__B_imm;
         IData/*31:0*/ top__DOT__regfile__DOT__reg_write_data;
         IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;
+    };
+    struct {
         IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__tmp;
         IData/*31:0*/ top__DOT__exu0__DOT__pcaddimmbridge;
         IData/*31:0*/ top__DOT__exu0__DOT__aluarg2;
         IData/*31:0*/ top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out;
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__logres;
-    };
-    struct {
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__addres;
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__shfres;
         IData/*31:0*/ top__DOT__exu0__DOT__alu0__DOT__sltres;
