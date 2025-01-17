@@ -41,7 +41,7 @@ module ifu(
   assign valid = rvalid;
 
   assign arvalid = ready;
-  assign araddr = pc;
+  assign araddr = npc;
   assign rready = ready;
 
   assign infetch_ready = ready & rvalid;
