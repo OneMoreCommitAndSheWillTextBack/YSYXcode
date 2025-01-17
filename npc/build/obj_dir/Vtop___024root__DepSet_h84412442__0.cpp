@@ -406,10 +406,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
             vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 1U;
         }
     }
-    if ((((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
-          | (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) 
+    if ((((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
+          | (1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) 
          & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy))) {
-        vlSelf->top__DOT__data0__DOT__arviter0__DOT__test = 1U;
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 0U;
     }

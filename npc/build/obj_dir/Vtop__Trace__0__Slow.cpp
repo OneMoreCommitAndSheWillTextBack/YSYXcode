@@ -198,7 +198,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+168,"busy", false,-1);
     tracep->declBus(c+169,"giant", false,-1, 1,0);
     tracep->declBus(c+170,"i", false,-1, 31,0);
-    tracep->declBit(c+171,"test", false,-1);
+    tracep->declBit(c+171,"change", false,-1);
     tracep->declBus(c+267,"awaddr_out_reg", false,-1, 31,0);
     tracep->declBus(c+269,"wdata_out_reg", false,-1, 31,0);
     tracep->declBus(c+268,"araddr_out_reg", false,-1, 31,0);
@@ -904,7 +904,8 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+168,(vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy));
     bufp->fullCData(oldp+169,(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant),2);
     bufp->fullIData(oldp+170,(vlSelf->top__DOT__data0__DOT__arviter0__DOT__i),32);
-    bufp->fullBit(oldp+171,(vlSelf->top__DOT__data0__DOT__arviter0__DOT__test));
+    bufp->fullBit(oldp+171,(((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
+                             | (1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
     bufp->fullCData(oldp+172,(vlSelf->top__DOT__data0__DOT__mem0__DOT__state),2);
     bufp->fullCData(oldp+173,((0xfU & (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__random_num))),4);
     bufp->fullBit(oldp+174,(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy));

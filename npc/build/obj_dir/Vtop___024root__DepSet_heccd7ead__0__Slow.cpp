@@ -339,7 +339,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = VL_RAND_RESET_I(2);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__i = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__data0__DOT__arviter0__DOT__test = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__awaddr_out_reg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__wdata_out_reg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__araddr_out_reg = VL_RAND_RESET_I(32);
