@@ -45,18 +45,16 @@ reg [DEVICE_NUM-1:0] giant;
 integer i;
 
 always @(posedge clk) begin
-  $display("the rvalid is %d", rvalid_in);
   if(busy) begin
     if(rvalid_in) begin
-      $display("the rvalid is %d", rvalid_in);
-      busy = 0;
-      giant = {DEVICE_NUM{1'b0}};
+      busy <= 0;
+      giant <= {DEVICE_NUM{1'b0}};
     end
   end else begin
     for(i=0;i<DEVICE_NUM;i=i+1) begin
       if(arvalid[i] | awvalid[i]) begin
-        giant = (1 << i);
-        busy = 1;
+        giant <= (1 << i);
+        busy <= 1;
       end
     end
   end

@@ -32,7 +32,7 @@ module ifu(
   reg [31:0] inst_reg;
   always @(posedge clk) begin
     if(ready)
-      inst_reg = rdata;
+      inst_reg <= rdata;
   end
 
   // Assign outputs

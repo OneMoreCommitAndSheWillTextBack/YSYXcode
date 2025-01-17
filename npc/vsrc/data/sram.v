@@ -56,36 +56,36 @@ module sram(
     case (state)
       READ_VALID:begin
         if(rready) begin
-          busy = 0;
-          state = WAIT_FOR_SIG;
-          random_count = random_delay;
+          busy <= 0;
+          state <= WAIT_FOR_SIG;
+          random_count <= random_delay;
         end
       end 
       WRITE_VALID:begin
         if(wvalid & awvalid) begin
-          busy = 0;
-          state = WAIT_FOR_SIG;
-          random_count = random_delay;
+          busy <= 0;
+          state <= WAIT_FOR_SIG;
+          random_count <= random_delay;
         end
       end
       WAIT_FOR_SIG:begin
         if((arvalid) | (wvalid & awvalid)) begin
-          busy = 1;
+          busy <= 1;
           if(random_count == 0) begin
             if(arvalid) begin
-              state = READ_VALID;
+              state <= READ_VALID;
             end
 
             if(wvalid & awvalid) begin
-              state = WRITE_VALID;
+              state <= WRITE_VALID;
             end
           end else begin
-            random_count = random_count - 1;
+            random_count <= random_count - 1;
           end
         end
       end
       default:
-        state = WAIT_FOR_SIG;
+        state <= WAIT_FOR_SIG;
     endcase
   end
   
@@ -132,9 +132,9 @@ module sram(
     end
 
     if (state == READ_VALID) begin
-      rdatareg = guest_read(araddr, 4);
+      rdatareg <= guest_read(araddr, 4);
     end else begin
-      rdatareg = 0;
+      rdatareg <= 0;
     end
   end
 
