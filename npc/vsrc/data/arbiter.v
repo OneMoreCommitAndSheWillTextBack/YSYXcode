@@ -43,7 +43,6 @@ module arbiter #(parameter DEVICE_NUM=2) (
 reg busy;
 reg [DEVICE_NUM-1:0] giant;
 integer i;
-wire change = rvalid_in | bresp_in;
 
 always @(posedge clk) begin
   if(!busy) begin

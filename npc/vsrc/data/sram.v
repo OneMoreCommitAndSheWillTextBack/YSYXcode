@@ -40,11 +40,10 @@ module sram(
 
   reg [1:0] state;
 
-`define need_lfsr_test
+// `define need_lfsr_test
 `ifdef need_lfsr_test
   // need to change here
   wire [3:0] random_delay;
-  reg busy;
   lfsr#(4) lsfr0(
     .clk(clk),
     .reset(0),
@@ -138,9 +137,9 @@ module sram(
     end
   end
 
-  assign awready = (state == WAIT_FOR_SIG) & ~busy;
-  assign wready = (state == WAIT_FOR_SIG) & ~busy;
-  assign arready = (state == WAIT_FOR_SIG) & ~busy;
+  assign awready = (state == WAIT_FOR_SIG);
+  assign wready = (state == WAIT_FOR_SIG);
+  assign arready = (state == WAIT_FOR_SIG);
 
   assign bresp = state == WRITE_VALID;
   assign rvalid = state == READ_VALID;
