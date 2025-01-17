@@ -151,8 +151,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(
                                                              vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
                                                              [3U], 3U);
-    vlSelf->top__DOT__data0__DOT__rvalid_sram = (1U 
-                                                 == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
     vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__feedback 
         = (1U & VL_REDXOR_8((0xb8U & (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__random_num))));
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit 

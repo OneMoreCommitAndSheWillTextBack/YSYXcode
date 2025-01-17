@@ -55,7 +55,7 @@ module sram(
   always @(posedge clk) begin
     case (state)
       READ_VALID:begin
-        if(rvalid & arvalid) begin
+        if(rready) begin
           busy = 0;
           state = WAIT_FOR_SIG;
           random_count = random_delay;
