@@ -53,7 +53,7 @@ always @(posedge clk) begin
   end else begin
     for(i=0;i<DEVICE_NUM;i=i+1) begin
       if(arvalid[i] | awvalid[i]) begin
-        giant <= (1 << i);
+        giant <= (2'b01 << i);
         busy <= 1;
       end
     end
@@ -100,9 +100,9 @@ assign wdata_out = wdata_out_reg;
 assign araddr_out = araddr_out_reg;
 assign wstrb_out = wstrb_out_reg;
 
-assign rdata[0] = rdata_in;
-assign rdata[1] = rdata_in;
-assign bresp[0] = bresp_in;
-assign bresp[1] = bresp_in;
+assign rdata[0] = rdata_in & {32{giant[0]}};
+assign rdata[1] = rdata_in & {32{giant[1]}};
+assign bresp[0] = bresp_in & giant[0];
+assign bresp[1] = bresp_in & giant[1];
 
 endmodule
