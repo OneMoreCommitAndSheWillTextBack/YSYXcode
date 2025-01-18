@@ -28,7 +28,7 @@ extern "C" {
     extern void host_get_pc(int pc);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/reg/registers.v:1:30
     extern void host_get_reg(int regval, int regnum);
-    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/ifu/ifu.v:1:30
+    // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/wbu/wbu.v:1:30
     extern void host_get_valid(int valid);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/idu/maincontrol.v:1:30
     extern void ret(int pc);

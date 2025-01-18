@@ -1,4 +1,3 @@
-import "DPI-C" function void host_get_valid(int valid);
 module ifu(
   input clk,
   input rst,
@@ -47,7 +46,4 @@ module ifu(
 
   assign infetch_ready = rvalid;
 
-  always @(posedge clk) begin
-    host_get_valid({31'b0, rvalid});
-  end
 endmodule

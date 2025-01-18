@@ -32,16 +32,6 @@ VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(IDat
     host_get_csr(csrval__Vcvt, csrnum__Vcvt);
 }
 
-extern "C" void host_get_valid(int valid);
-
-VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(IData/*31:0*/ valid) {
-    VL_DEBUG_IF(VL_DBG_MSGF("+        Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit\n"); );
-    // Body
-    int valid__Vcvt;
-    for (size_t valid__Vidx = 0; valid__Vidx < 1; ++valid__Vidx) valid__Vcvt = valid;
-    host_get_valid(valid__Vcvt);
-}
-
 extern "C" void guest_write(int addr, int data, int len);
 
 VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_guest_write_TOP____024unit(IData/*31:0*/ addr, IData/*31:0*/ data, IData/*31:0*/ len) {
@@ -98,4 +88,14 @@ VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(IData/*31:0*/
     int pc__Vcvt;
     for (size_t pc__Vidx = 0; pc__Vidx < 1; ++pc__Vidx) pc__Vcvt = pc;
     ret(pc__Vcvt);
+}
+
+extern "C" void host_get_valid(int valid);
+
+VL_INLINE_OPT void Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(IData/*31:0*/ valid) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+        Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit\n"); );
+    // Body
+    int valid__Vcvt;
+    for (size_t valid__Vidx = 0; valid__Vidx < 1; ++valid__Vidx) valid__Vcvt = valid;
+    host_get_valid(valid__Vcvt);
 }

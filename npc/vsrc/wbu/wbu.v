@@ -1,3 +1,4 @@
+import "DPI-C" function void host_get_valid(int valid);
 module wbu(
   input [31:0] res,
   input [31:0] regout2,
@@ -76,8 +77,11 @@ module wbu(
   assign ready_to = ((memer | memew) == 0) ? 1 :
                     ((rvalid & memer) == 1) ? 1 : 
                     ((bresp & memew) == 1) ? 1 : 0;
-  assign valid = {31'b0,valid_from & ready_to};
+  assign valid = {31'b0,valid_from & ready};
   assign memvalid = ready_to;
 
+  always @(*) begin
+    host_get_valid(valid);
+  end
 
 endmodule
