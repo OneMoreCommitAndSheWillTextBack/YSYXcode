@@ -218,7 +218,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regout2 = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__res = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__pcwritereg = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT____Vcellout__wbu0__awvalid = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
         vlSelf->top__DOT__araddr[__Vi0] = VL_RAND_RESET_I(32);
     }
@@ -335,7 +334,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__data0__DOT__awvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__wvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arvalid_sram = VL_RAND_RESET_I(1);
-    vlSelf->top__DOT__data0__DOT__rready_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__bvalid_sram = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
         vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[__Vi0] = VL_RAND_RESET_I(1);
