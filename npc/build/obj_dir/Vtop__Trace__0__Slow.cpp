@@ -612,6 +612,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBit(c+125,"rready", false,-1);
     tracep->declBus(c+280,"rdata", false,-1, 31,0);
     tracep->declBus(c+281,"memread", false,-1, 31,0);
+    tracep->declBit(c+315,"bresp_get", false,-1);
     tracep->declBit(c+202,"ready", false,-1);
     tracep->pushNamePrefix("memreadlen0 ");
     tracep->declBus(c+280,"data", false,-1, 31,0);
@@ -623,13 +624,13 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBus(c+284,"read_sb", false,-1, 31,0);
     tracep->declBus(c+285,"read_sh", false,-1, 31,0);
     tracep->pushNamePrefix("sext0 ");
-    tracep->declBus(c+315,"INPUT_WIDTH", false,-1, 31,0);
+    tracep->declBus(c+316,"INPUT_WIDTH", false,-1, 31,0);
     tracep->declBus(c+304,"OUTPUT_WIDTH", false,-1, 31,0);
     tracep->declBus(c+286,"input_number", false,-1, 7,0);
     tracep->declBus(c+284,"output_number", false,-1, 31,0);
     tracep->popNamePrefix(1);
     tracep->pushNamePrefix("sext1 ");
-    tracep->declBus(c+316,"INPUT_WIDTH", false,-1, 31,0);
+    tracep->declBus(c+317,"INPUT_WIDTH", false,-1, 31,0);
     tracep->declBus(c+304,"OUTPUT_WIDTH", false,-1, 31,0);
     tracep->declBus(c+287,"input_number", false,-1, 15,0);
     tracep->declBus(c+285,"output_number", false,-1, 31,0);
@@ -651,7 +652,7 @@ VL_ATTR_COLD void Vtop___024root__trace_init_sub__TOP__0(Vtop___024root* vlSelf,
     tracep->declBus(c+128,"key", false,-1, 2,0);
     tracep->declBus(c+293,"default_out", false,-1, 31,0);
     tracep->declArray(c+216,"lut", false,-1, 139,0);
-    tracep->declBus(c+317,"PAIR_LEN", false,-1, 31,0);
+    tracep->declBus(c+318,"PAIR_LEN", false,-1, 31,0);
     for (int i = 0; i < 4; ++i) {
         tracep->declQuad(c+221+i*2,"pair_list", true,(i+0), 34,0);
     }
@@ -1108,7 +1109,8 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullCData(oldp+312,(0U),2);
     bufp->fullIData(oldp+313,(0xeU),32);
     bufp->fullIData(oldp+314,(vlSelf->top__DOT__regfile__DOT__registers0__DOT__tmp),32);
-    bufp->fullIData(oldp+315,(8U),32);
-    bufp->fullIData(oldp+316,(0x10U),32);
-    bufp->fullIData(oldp+317,(0x23U),32);
+    bufp->fullBit(oldp+315,(vlSelf->top__DOT__wbu0__DOT__bresp_get));
+    bufp->fullIData(oldp+316,(8U),32);
+    bufp->fullIData(oldp+317,(0x10U),32);
+    bufp->fullIData(oldp+318,(0x23U),32);
 }

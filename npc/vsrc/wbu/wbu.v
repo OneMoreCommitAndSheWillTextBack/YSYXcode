@@ -38,6 +38,7 @@ module wbu(
 );
 
   wire [31:0] memread;
+  reg bresp_get;
 
   assign wstrb = (memmask == 3'b001) ? 4'b0001 :
                  (memmask == 3'b010) ? 4'b0010 :

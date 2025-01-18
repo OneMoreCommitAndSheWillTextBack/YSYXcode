@@ -415,10 +415,20 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__4(Vtop___024root* vlSelf) 
     vlSelf->top__DOT__data0__DOT__mem0__DOT__random_count 
         = vlSelf->__Vdly__top__DOT__data0__DOT__mem0__DOT__random_count;
     if (vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy) {
-        if (((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
-             | (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))) {
-            vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
-            vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 0U;
+        if ((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) {
+            if ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) {
+                vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 2U;
+            } else {
+                vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
+                vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 0U;
+            }
+        } else if ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) {
+            if ((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) {
+                vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 1U;
+            } else {
+                vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
+                vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = 0U;
+            }
         }
     } else {
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__i = 2U;
