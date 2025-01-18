@@ -101,6 +101,7 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__data0__DOT__arviter0__DOT__wdata_out_reg;
         IData/*31:0*/ top__DOT__data0__DOT__arviter0__DOT__araddr_out_reg;
         IData/*31:0*/ top__DOT__data0__DOT__mem0__DOT__rdatareg;
+        IData/*31:0*/ __Vfunc_guest_read__8__Vfuncout;
         IData/*31:0*/ __VstlIterCount;
         IData/*31:0*/ __VactIterCount;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__araddr;

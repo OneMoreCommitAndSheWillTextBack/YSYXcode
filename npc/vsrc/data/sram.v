@@ -126,15 +126,15 @@ module sram(
   });
   
   reg [31:0] rdatareg;
-  always @(posedge clk) begin
+  always @(*) begin
     if (state == WRITE_VALID) begin
       guest_write(awaddr, wdata, {{29{1'b0}},memmask});
     end
 
     if (state == READ_VALID) begin
-      rdatareg <= guest_read(araddr, 4);
+      rdatareg = guest_read(araddr, 4);
     end else begin
-      rdatareg <= 0;
+      rdatareg = 0;
     end
   end
 
