@@ -50,9 +50,11 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__data0__DOT__awvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__wvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__arvalid_sram;
+        CData/*0:0*/ top__DOT__data0__DOT__rready_sram;
         CData/*0:0*/ top__DOT__data0__DOT__bvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__arviter0__DOT__busy;
-        CData/*1:0*/ top__DOT__data0__DOT__arviter0__DOT__giant;
+        CData/*1:0*/ top__DOT__data0__DOT__arviter0__DOT__grant;
+        CData/*1:0*/ top__DOT__data0__DOT__arviter0__DOT__next_grant;
         CData/*3:0*/ top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg;
         CData/*1:0*/ top__DOT__data0__DOT__mem0__DOT__state;
         CData/*0:0*/ top__DOT__data0__DOT__mem0__DOT__busy;
@@ -81,10 +83,10 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__J_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__B_imm;
         IData/*31:0*/ top__DOT__regfile__DOT__reg_write_data;
-        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;
-        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__tmp;
     };
     struct {
+        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;
+        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__tmp;
         IData/*31:0*/ top__DOT__exu0__DOT__pcaddimmbridge;
         IData/*31:0*/ top__DOT__exu0__DOT__aluarg2;
         IData/*31:0*/ top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out;
@@ -96,7 +98,6 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__wbu0__DOT__memreadlen0__DOT__read_u;
         IData/*31:0*/ top__DOT__wbu0__DOT__memreadlen0__DOT__read_s;
         IData/*31:0*/ top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__lut_out;
-        IData/*31:0*/ top__DOT__data0__DOT__arviter0__DOT__i;
         IData/*31:0*/ top__DOT__data0__DOT__arviter0__DOT__awaddr_out_reg;
         IData/*31:0*/ top__DOT__data0__DOT__arviter0__DOT__wdata_out_reg;
         IData/*31:0*/ top__DOT__data0__DOT__arviter0__DOT__araddr_out_reg;
@@ -137,7 +138,7 @@ class Vtop___024root final : public VerilatedModule {
         VlUnpacked<CData/*6:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__pair_list;
         VlUnpacked<CData/*3:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__key_list;
         VlUnpacked<CData/*2:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__data_list;
-        VlUnpacked<CData/*0:0*/, 4> __Vm_traceActivity;
+        VlUnpacked<CData/*0:0*/, 5> __Vm_traceActivity;
     };
     VlTriggerVec<1> __VstlTriggered;
     VlTriggerVec<2> __VactTriggered;
