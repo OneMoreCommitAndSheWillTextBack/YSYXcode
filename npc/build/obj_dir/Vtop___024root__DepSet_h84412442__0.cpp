@@ -405,6 +405,10 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     }
     vlSelf->top__DOT__data0__DOT__mem0__DOT__random_count 
         = __Vdly__top__DOT__data0__DOT__mem0__DOT__random_count;
+    vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata[0U] 
+        = vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg;
+    vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata[1U] 
+        = vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg;
     if (vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy) {
         if ((1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state))) {
             vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 0U;
@@ -422,6 +426,12 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
             vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = 1U;
         }
     }
+    vlSelf->top__DOT____Vcellout__data0__rdata[1U] 
+        = vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata
+        [1U];
+    vlSelf->top__DOT____Vcellout__data0__rdata[0U] 
+        = vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata
+        [0U];
     vlSelf->top__DOT__data0__DOT__mem0__DOT__state 
         = __Vdly__top__DOT__data0__DOT__mem0__DOT__state;
     vlSelf->top__DOT__data0__DOT__rvalid_out = ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
@@ -429,19 +439,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
                                                              (1U 
                                                               == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
     vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[0U] 
-        = ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
-           & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant));
+        = (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
     vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[1U] 
-        = ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
-           & ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-              >> 1U));
-    vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata[0U] 
-        = (vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg 
-           & (- (IData)((1U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)))));
-    vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata[1U] 
-        = (vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg 
-           & (- (IData)((1U & ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                               >> 1U)))));
+        = (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
     if (vlSelf->top__DOT__ready_idu_to_ifu) {
         vlSelf->top__DOT__ifu0__DOT__inst_reg = vlSelf->top__DOT__rdata
             [0U];
@@ -461,19 +461,13 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__1(Vtop___024root* vlSelf) 
     vlSelf->top__DOT____Vcellout__data0__bresp[0U] 
         = vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp
         [0U];
-    vlSelf->top__DOT____Vcellout__data0__rdata[1U] 
-        = vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata
+    vlSelf->top__DOT__rdata[1U] = vlSelf->top__DOT____Vcellout__data0__rdata
         [1U];
-    vlSelf->top__DOT____Vcellout__data0__rdata[0U] 
-        = vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata
+    vlSelf->top__DOT__rdata[0U] = vlSelf->top__DOT____Vcellout__data0__rdata
         [0U];
     vlSelf->top__DOT__bresp[1U] = vlSelf->top__DOT____Vcellout__data0__bresp
         [1U];
     vlSelf->top__DOT__bresp[0U] = vlSelf->top__DOT____Vcellout__data0__bresp
-        [0U];
-    vlSelf->top__DOT__rdata[1U] = vlSelf->top__DOT____Vcellout__data0__rdata
-        [1U];
-    vlSelf->top__DOT__rdata[0U] = vlSelf->top__DOT____Vcellout__data0__rdata
         [0U];
     if ((0x100073U == vlSelf->top__DOT__ifu0__DOT__inst_reg)) {
         Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(0U);

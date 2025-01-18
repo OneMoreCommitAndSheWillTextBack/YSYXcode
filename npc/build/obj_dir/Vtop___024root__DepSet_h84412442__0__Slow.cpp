@@ -252,12 +252,9 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regfile__DOT__rf_csr[0U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
         [0U];
     vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[0U] 
-        = ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
-           & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant));
+        = (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
     vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[1U] 
-        = ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
-           & ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-              >> 1U));
+        = (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
     vlSelf->top__DOT__memmask = ((0U == (7U & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
                                                >> 0xcU)))
                                   ? 1U : ((1U == (7U 
@@ -286,12 +283,9 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                       ? 2U
                                                       : 0U)))));
     vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata[0U] 
-        = (vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg 
-           & (- (IData)((1U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)))));
+        = vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg;
     vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__rdata[1U] 
-        = (vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg 
-           & (- (IData)((1U & ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                               >> 1U)))));
+        = vlSelf->top__DOT__data0__DOT__mem0__DOT__rdatareg;
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__I_imm 
         = (((- (IData)((vlSelf->top__DOT__ifu0__DOT__inst_reg 
                         >> 0x1fU))) << 0xcU) | (vlSelf->top__DOT__ifu0__DOT__inst_reg 
