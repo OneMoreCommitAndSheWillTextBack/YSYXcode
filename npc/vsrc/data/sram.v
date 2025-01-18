@@ -1,4 +1,4 @@
-import "DPI-C" function void guest_write(int addr, int data, int len);
+import "DPI-C" function void guest_write(input [31:0] addr, input [31:0] data, input [31:0] len);
 import "DPI-C" function int guest_read(int addr, int len);
 // change the model to axt-lite module
 
@@ -95,22 +95,22 @@ module sram(
       case (state)
         WAIT_FOR_SIG: begin
           if(arvalid) begin
-            state = READ_VALID;
+            state <= READ_VALID;
           end 
 
           if(awvalid & wvalid) begin
-            state = WRITE_VALID;
+            state <= WRITE_VALID;
           end
         end
 
         READ_VALID: begin
-          state = WAIT_FOR_SIG;
+          state <= WAIT_FOR_SIG;
         end
         WRITE_VALID:begin
-          state = WAIT_FOR_SIG;
+          state <= WAIT_FOR_SIG;
         end
         default:begin
-          state = WAIT_FOR_SIG;
+          state <= WAIT_FOR_SIG;
         end
       endcase
     end
