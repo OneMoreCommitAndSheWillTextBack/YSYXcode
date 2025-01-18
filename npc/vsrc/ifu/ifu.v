@@ -31,7 +31,7 @@ module ifu(
   
   reg [31:0] inst_reg;
   always @(posedge clk) begin
-    if(ready)
+    if(rvalid)
       inst_reg <= rdata;
   end
 
