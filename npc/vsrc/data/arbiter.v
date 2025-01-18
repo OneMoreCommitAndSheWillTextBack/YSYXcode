@@ -52,9 +52,9 @@ always @(posedge clk) begin
 end
 
 always @(posedge clk) begin
-  if ((awvalid_out & awready_in) | (arvalid_out & arready_in)) begin
+  if ((awvalid && wvalid) || arvalid) begin
     busy <= 1;
-  end else if ((bvalid_in & bready_out) | (rvalid_in & rready_out)) begin
+  end else if (bresp_in | rvalid_in) begin
     busy <= 0;
   end
 end
