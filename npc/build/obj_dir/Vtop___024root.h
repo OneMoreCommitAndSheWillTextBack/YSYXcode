@@ -50,6 +50,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__data0__DOT__awvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__wvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__arvalid_sram;
+        CData/*0:0*/ top__DOT__data0__DOT__rready_sram;
         CData/*0:0*/ top__DOT__data0__DOT__bvalid_sram;
         CData/*0:0*/ top__DOT__data0__DOT__arviter0__DOT__busy;
         CData/*1:0*/ top__DOT__data0__DOT__arviter0__DOT__giant;
@@ -82,9 +83,9 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__ifu0__DOT__inst_reg;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__I_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__S_imm;
-        IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__J_imm;
     };
     struct {
+        IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__J_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__B_imm;
         IData/*31:0*/ top__DOT__regfile__DOT__reg_write_data;
         IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;

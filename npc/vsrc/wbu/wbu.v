@@ -50,8 +50,8 @@ module wbu(
   assign awaddr = res;
   assign wvalid = memew;
   assign wdata = regout2;
-  assign bready = memew;
-  assign arvalid = memer;
+  assign bready = memew & ~bresp;
+  assign arvalid = memer & ~rvalid;
   assign araddr = res;
   assign rready = memer; 
 
