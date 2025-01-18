@@ -46,7 +46,7 @@ integer i;
 
 always @(posedge clk) begin
   if(busy) begin
-    if(rvalid_in) begin
+    if(rvalid_in | bresp_in) begin
       busy <= 0;
       giant <= {DEVICE_NUM{1'b0}};
     end
