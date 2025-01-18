@@ -102,7 +102,7 @@ assign wstrb_out = wstrb_out_reg;
 
 assign rdata[0] = rdata_in;
 assign rdata[1] = rdata_in;
-assign bresp[0] = bresp_in;
-assign bresp[1] = bresp_in;
+assign bresp[0] = bresp_in & giant[0];
+assign bresp[1] = bresp_in & giant[1];
 
 endmodule

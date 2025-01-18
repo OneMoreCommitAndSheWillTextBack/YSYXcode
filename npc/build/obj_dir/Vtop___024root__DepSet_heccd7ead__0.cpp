@@ -43,12 +43,12 @@ void Vtop___024root___eval_nba(Vtop___024root* vlSelf) {
         Vtop___024root___nba_sequent__TOP__0(vlSelf);
         vlSelf->__Vm_traceActivity[1U] = 1U;
     }
-    if (vlSelf->__VnbaTriggered.at(2U)) {
-        Vtop___024root___nba_sequent__TOP__1(vlSelf);
-        vlSelf->__Vm_traceActivity[2U] = 1U;
-    }
     if (vlSelf->__VnbaTriggered.at(1U)) {
+        Vtop___024root___nba_sequent__TOP__1(vlSelf);
+    }
+    if (vlSelf->__VnbaTriggered.at(2U)) {
         Vtop___024root___nba_sequent__TOP__2(vlSelf);
+        vlSelf->__Vm_traceActivity[2U] = 1U;
     }
     if (vlSelf->__VnbaTriggered.at(0U)) {
         Vtop___024root___nba_sequent__TOP__3(vlSelf);
