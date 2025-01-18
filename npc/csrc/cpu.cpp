@@ -10,7 +10,7 @@ Cpu *cpu = NULL;
 Trace *trace = NULL;
 #endif
 
-int times = -1;
+int times = 1;
 
 void demp_wave() {
 #ifdef TRACE
