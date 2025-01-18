@@ -1,4 +1,4 @@
-import "DPI-C" function void guest_write(input [31:0] addr, input [31:0] data, input [31:0] len);
+import "DPI-C" function void guest_write(int addr, int data, int len);
 import "DPI-C" function int guest_read(int addr, int len);
 // change the model to axt-lite module
 
@@ -126,15 +126,17 @@ module sram(
   });
   
   reg [31:0] rdatareg;
-  always @(*) begin
+  always @(state) begin
     if (state == WRITE_VALID) begin
-      guest_write(awaddr, wdata, {{29{1'b0}},memmask});
+        guest_write(awaddr, wdata, {{29{1'b0}}, memmask});
     end
+  end
 
+  always @(*) begin
     if (state == READ_VALID) begin
-      rdatareg = guest_read(araddr, 4);
+        rdatareg = guest_read(araddr, 4);
     end else begin
-      rdatareg = 0;
+        rdatareg = 0;
     end
   end
 
