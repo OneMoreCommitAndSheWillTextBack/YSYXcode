@@ -38,7 +38,7 @@ module ifu(
   // Assign outputs
   assign pc = pcbridge;
   assign inst = inst_reg;
-  assign valid = inst != 0;
+  assign valid = rvalid;
 
   assign arvalid = ready;
   assign araddr = npc;
