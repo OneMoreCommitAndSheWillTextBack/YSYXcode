@@ -65,7 +65,9 @@ class Vtop___024root final : public VerilatedModule {
         CData/*3:0*/ __VdfgTmp_he79674ea__0;
         CData/*5:0*/ __Vtableidx1;
         CData/*0:0*/ __Vtrigrprev__TOP__clk;
+        CData/*0:0*/ __Vtrigrprev__TOP__top__DOT__ready_idu_to_ifu;
         CData/*0:0*/ __Vtrigrprev__TOP__rst;
+        CData/*0:0*/ __VactDidInit;
         CData/*0:0*/ __VactContinue;
         IData/*31:0*/ top__DOT__npc;
         IData/*31:0*/ top__DOT__imm;
@@ -81,10 +83,10 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__J_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__B_imm;
         IData/*31:0*/ top__DOT__regfile__DOT__reg_write_data;
-        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;
-        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__tmp;
     };
     struct {
+        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;
+        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__tmp;
         IData/*31:0*/ top__DOT__exu0__DOT__pcaddimmbridge;
         IData/*31:0*/ top__DOT__exu0__DOT__aluarg2;
         IData/*31:0*/ top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out;
@@ -141,8 +143,8 @@ class Vtop___024root final : public VerilatedModule {
         VlUnpacked<CData/*0:0*/, 4> __Vm_traceActivity;
     };
     VlTriggerVec<1> __VstlTriggered;
-    VlTriggerVec<2> __VactTriggered;
-    VlTriggerVec<2> __VnbaTriggered;
+    VlTriggerVec<3> __VactTriggered;
+    VlTriggerVec<3> __VnbaTriggered;
 
     // INTERNAL VARIABLES
     Vtop__Syms* const vlSymsp;
