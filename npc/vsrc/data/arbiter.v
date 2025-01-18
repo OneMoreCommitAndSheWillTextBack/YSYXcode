@@ -41,37 +41,38 @@ module arbiter #(parameter DEVICE_NUM=2) (
   input bresp_in
 );
 reg busy;
-reg [DEVICE_NUM-1:0] grant;
-reg [DEVICE_NUM-1:0] next_grant;
+reg [DEVICE_NUM-1:0] giant;
+integer i;
 
 always @(posedge clk) begin
-    if (!busy) begin
-        grant <= next_grant;
-        next_grant <= {next_grant[DEVICE_NUM-2:0], next_grant[DEVICE_NUM-1]};  // Round Robin
+  if(busy) begin
+    if(rvalid_in) begin
+      busy <= 0;
+      giant <= {DEVICE_NUM{1'b0}};
     end
-end
-
-always @(posedge clk) begin
-  if ((awvalid && wvalid) || arvalid) begin
-    busy <= 1;
-  end else if (bresp_in | rvalid_in) begin
-    busy <= 0;
+  end else begin
+    for(i=0;i<DEVICE_NUM;i=i+1) begin
+      if(arvalid[i] | awvalid[i]) begin
+        giant <= (1 << i);
+        busy <= 1;
+      end
+    end
   end
 end
 
-assign awvalid_out = |(awvalid & grant);
-assign wvalid_out = |(wvalid & grant);
-assign arvalid_out = |(arvalid & grant);
+assign awvalid_out = |(awvalid & giant);
+assign wvalid_out = |(wvalid & giant);
+assign arvalid_out = |(arvalid & giant);
 
-assign rready_out = |(rready & grant);
-assign bready_out = |(bready & grant);
+assign rready_out = |(rready & giant);
+assign bready_out = |(bready & giant);
 
-assign awready = (grant & {DEVICE_NUM{awready_in}});
-assign wready = (grant & {DEVICE_NUM{wready_in}});
-assign arready = (grant & {DEVICE_NUM{arready_in}});
+assign awready = (giant & {DEVICE_NUM{awready_in}});
+assign wready = (giant & {DEVICE_NUM{wready_in}});
+assign arready = (giant & {DEVICE_NUM{arready_in}});
 
-assign bvalid = (grant & {DEVICE_NUM{bvalid_in}});
-assign rvalid = (grant & {DEVICE_NUM{rvalid_in}});
+assign bvalid = (giant & {DEVICE_NUM{bvalid_in}});
+assign rvalid = (giant & {DEVICE_NUM{rvalid_in}});
 
 reg [31:0] awaddr_out_reg;
 reg [31:0] wdata_out_reg;
@@ -85,7 +86,7 @@ always @(*) begin
     araddr_out_reg = 32'b0;
     wstrb_out_reg = 4'b0;
     for (j = 0; j < DEVICE_NUM; j = j + 1) begin
-        if (grant[j]) begin
+        if (giant[j]) begin
             awaddr_out_reg = awaddr[j];
             wdata_out_reg = wdata[j];
             araddr_out_reg = araddr[j];

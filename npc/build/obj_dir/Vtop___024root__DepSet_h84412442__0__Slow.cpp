@@ -183,10 +183,10 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                      (0x7fU 
                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
                                                     << 1U) 
-                                                   & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant)));
+                                                   & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)));
     vlSelf->top__DOT__data0__DOT__wvalid_sram = (0U 
                                                  != 
-                                                 ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant) 
+                                                 ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                                   & ((0x23U 
                                                       == 
                                                       (0x7fU 
@@ -234,15 +234,15 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                            | (3U == 
                                               (0x7fU 
                                                & vlSelf->top__DOT__ifu0__DOT__inst_reg))));
+    vlSelf->top__DOT__data0__DOT__rvalid_out = ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
+                                                & (- (IData)(
+                                                             (1U 
+                                                              == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
     vlSelf->top__DOT__memsextsig = ((4U != (7U & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
                                                   >> 0xcU))) 
                                     & (5U != (7U & 
                                               (vlSelf->top__DOT__ifu0__DOT__inst_reg 
                                                >> 0xcU))));
-    vlSelf->top__DOT__data0__DOT__rvalid_out = ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant) 
-                                                & (- (IData)(
-                                                             (1U 
-                                                              == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
     vlSelf->top__DOT__regfile__DOT__rf_csr[3U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
         [3U];
     vlSelf->top__DOT__regfile__DOT__rf_csr[2U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
@@ -395,7 +395,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
                                                                (1U 
                                                                 & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
-                                                                   & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant) 
+                                                                   & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                                                        & (- (IData)(
                                                                                 ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
                                                                                 & (0U 
@@ -689,17 +689,13 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__data0__DOT__arvalid_sram = (0U 
                                                   != 
                                                   ((IData)(vlSelf->top__DOT__data0__DOT__arvalid_in) 
-                                                   & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant)));
-    vlSelf->top__DOT__data0__DOT__rready_sram = (0U 
-                                                 != 
-                                                 ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant) 
-                                                  & (IData)(vlSelf->top__DOT__data0__DOT__arvalid_in)));
-    if ((1U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant))) {
+                                                   & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)));
+    if ((1U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant))) {
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg 
             = vlSelf->top__DOT__data0__DOT____Vcellinp__arviter0__wstrb
             [0U];
     }
-    if ((2U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant))) {
+    if ((2U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant))) {
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg 
             = vlSelf->top__DOT__data0__DOT____Vcellinp__arviter0__wstrb
             [1U];
@@ -967,7 +963,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                         + vlSelf->top__DOT__ifu0__DOT__pcbridge);
     }
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__awaddr_out_reg = 0U;
-    if ((1U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant))) {
+    if ((1U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant))) {
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__wdata_out_reg 
             = vlSelf->top__DOT__data0__DOT____Vcellinp__arviter0__wdata
             [0U];
@@ -1001,7 +997,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
             [0U];
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__araddr_out_reg = 0U;
     }
-    if ((2U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant))) {
+    if ((2U & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant))) {
         vlSelf->top__DOT__data0__DOT__arviter0__DOT__wdata_out_reg 
             = vlSelf->top__DOT__data0__DOT____Vcellinp__arviter0__wdata
             [1U];

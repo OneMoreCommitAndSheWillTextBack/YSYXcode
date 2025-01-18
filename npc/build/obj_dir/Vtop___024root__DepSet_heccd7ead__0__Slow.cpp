@@ -21,7 +21,6 @@ VL_ATTR_COLD void Vtop___024root___eval_initial(Vtop___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___eval_initial\n"); );
     // Body
     Vtop___024root___eval_initial__TOP(vlSelf);
-    vlSelf->__Vm_traceActivity[4U] = 1U;
     vlSelf->__Vm_traceActivity[3U] = 1U;
     vlSelf->__Vm_traceActivity[2U] = 1U;
     vlSelf->__Vm_traceActivity[1U] = 1U;
@@ -136,7 +135,6 @@ VL_ATTR_COLD void Vtop___024root___eval_stl(Vtop___024root* vlSelf) {
     // Body
     if (vlSelf->__VstlTriggered.at(0U)) {
         Vtop___024root___stl_sequent__TOP__0(vlSelf);
-        vlSelf->__Vm_traceActivity[4U] = 1U;
         vlSelf->__Vm_traceActivity[3U] = 1U;
         vlSelf->__Vm_traceActivity[2U] = 1U;
         vlSelf->__Vm_traceActivity[1U] = 1U;
@@ -318,7 +316,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__data0__DOT__awvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__wvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arvalid_sram = VL_RAND_RESET_I(1);
-    vlSelf->top__DOT__data0__DOT__rready_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__bvalid_sram = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
         vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[__Vi0] = VL_RAND_RESET_I(1);
@@ -339,8 +336,8 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
         vlSelf->top__DOT__data0__DOT____Vcellinp__arviter0__araddr[__Vi0] = VL_RAND_RESET_I(32);
     }
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = VL_RAND_RESET_I(1);
-    vlSelf->top__DOT__data0__DOT__arviter0__DOT__grant = VL_RAND_RESET_I(2);
-    vlSelf->top__DOT__data0__DOT__arviter0__DOT__next_grant = VL_RAND_RESET_I(2);
+    vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = VL_RAND_RESET_I(2);
+    vlSelf->top__DOT__data0__DOT__arviter0__DOT__i = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__awaddr_out_reg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__wdata_out_reg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__araddr_out_reg = VL_RAND_RESET_I(32);
@@ -367,7 +364,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->__Vtableidx1 = 0;
     vlSelf->__Vtrigrprev__TOP__clk = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__rst = VL_RAND_RESET_I(1);
-    for (int __Vi0 = 0; __Vi0 < 5; ++__Vi0) {
+    for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
         vlSelf->__Vm_traceActivity[__Vi0] = 0;
     }
 }
