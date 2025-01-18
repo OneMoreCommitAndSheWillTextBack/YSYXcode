@@ -10,7 +10,7 @@ Cpu *cpu = NULL;
 Trace *trace = NULL;
 #endif
 
-int times = 0;
+int times = -1;
 
 void demp_wave() {
 #ifdef TRACE
@@ -41,7 +41,7 @@ static void exe_once() {
 #endif
 }
 
-static int start_diff = -1;
+static int start_diff = 0;
 void trace_or_diff() {
   exe_wp();
 #ifdef ITRACE

@@ -47,7 +47,7 @@ module ifu(
 
   assign infetch_ready = rvalid;
 
-  always @(*) begin
+  always @(posedge clk) begin
     host_get_valid({31'b0, rvalid});
   end
 endmodule
