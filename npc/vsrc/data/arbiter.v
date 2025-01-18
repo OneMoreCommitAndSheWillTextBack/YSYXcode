@@ -53,7 +53,7 @@ always @(posedge clk) begin
   end else begin
     for(i=0;i<DEVICE_NUM;i=i+1) begin
       if(arvalid[i] | awvalid[i]) begin
-        giant <= (1 << i);
+        giant <= 2'b01 << i;
         busy <= 1;
       end
     end
