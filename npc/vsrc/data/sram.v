@@ -62,7 +62,7 @@ module sram(
         end
       end 
       WRITE_VALID:begin
-        if(wvalid & awvalid) begin
+        if(bready) begin
           busy <= 0;
           state <= WAIT_FOR_SIG;
           random_count <= random_delay;
