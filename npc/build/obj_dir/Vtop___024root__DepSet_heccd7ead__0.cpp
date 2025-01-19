@@ -34,7 +34,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__4(Vtop___024root* vlSelf) 
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__4\n"); );
     // Body
-    if ((2U & (IData)(vlSelf->top__DOT__data0__DOT__rvalid_out))) {
+    if (vlSelf->top__DOT____Vcellinp__wbu0__rvalid) {
         vlSelf->top__DOT__wbu0__DOT__rvalid_get = 1U;
     }
     if (vlSelf->top__DOT____Vcellinp__wbu0__bresp) {
@@ -66,13 +66,11 @@ VL_INLINE_OPT void Vtop___024root___nba_comb__TOP__1(Vtop___024root* vlSelf) {
                                                      (0x7fU 
                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg)))) 
                                           | ((1U == 
-                                              (1U & 
-                                               (((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
-                                                 >> 1U) 
-                                                & (3U 
-                                                   == 
-                                                   (0x7fU 
-                                                    & vlSelf->top__DOT__ifu0__DOT__inst_reg))))) 
+                                              ((IData)(vlSelf->top__DOT____Vcellinp__wbu0__rvalid) 
+                                               & (3U 
+                                                  == 
+                                                  (0x7fU 
+                                                   & vlSelf->top__DOT__ifu0__DOT__inst_reg)))) 
                                              | (1U 
                                                 == 
                                                 ((IData)(vlSelf->top__DOT__wbu0__DOT__bresp_get) 

@@ -25,8 +25,10 @@ void Vtop___024root___eval_triggers__act(Vtop___024root* vlSelf) {
                                        & (~ (IData)(vlSelf->__Vtrigrprev__TOP__clk))) 
                                       | ((IData)(vlSelf->rst) 
                                          & (~ (IData)(vlSelf->__Vtrigrprev__TOP__rst))));
-    vlSelf->__VactTriggered.at(3U) = ((IData)(vlSelf->top__DOT____Vcellinp__wbu0__bresp) 
-                                      != (IData)(vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__bresp));
+    vlSelf->__VactTriggered.at(3U) = (((IData)(vlSelf->top__DOT____Vcellinp__wbu0__bresp) 
+                                       != (IData)(vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__bresp)) 
+                                      | ((IData)(vlSelf->top__DOT____Vcellinp__wbu0__rvalid) 
+                                         != (IData)(vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__rvalid)));
     vlSelf->__VactTriggered.at(4U) = ((IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state) 
                                       != (IData)(vlSelf->__Vtrigrprev__TOP__top__DOT__data0__DOT__mem0__DOT__state));
     vlSelf->__Vtrigrprev__TOP__clk = vlSelf->clk;
@@ -35,6 +37,8 @@ void Vtop___024root___eval_triggers__act(Vtop___024root* vlSelf) {
     vlSelf->__Vtrigrprev__TOP__rst = vlSelf->rst;
     vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__bresp 
         = vlSelf->top__DOT____Vcellinp__wbu0__bresp;
+    vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__rvalid 
+        = vlSelf->top__DOT____Vcellinp__wbu0__rvalid;
     vlSelf->__Vtrigrprev__TOP__top__DOT__data0__DOT__mem0__DOT__state 
         = vlSelf->top__DOT__data0__DOT__mem0__DOT__state;
     if (VL_UNLIKELY((1U & (~ (IData)(vlSelf->__VactDidInit))))) {
@@ -599,6 +603,9 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__5(Vtop___024root* vlSelf) 
         [0U];
     vlSelf->top__DOT__ifu_valid = (1U & (~ ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                             | (0U == vlSelf->top__DOT__ifu0__DOT__inst_reg))));
+    vlSelf->top__DOT____Vcellinp__wbu0__rvalid = (1U 
+                                                  & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
+                                                     >> 1U));
     vlSelf->top__DOT__wstrb[1U] = ((1U == (IData)(vlSelf->top__DOT__memmask))
                                     ? 1U : ((2U == (IData)(vlSelf->top__DOT__memmask))
                                              ? 2U : 

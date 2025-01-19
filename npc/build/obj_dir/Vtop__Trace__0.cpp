@@ -281,8 +281,7 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
                                        & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__bvalid_sram)))) 
                                       >> 1U))));
         bufp->chgBit(oldp+197,(vlSelf->top__DOT____Vcellinp__wbu0__bresp));
-        bufp->chgBit(oldp+198,((1U & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
-                                      >> 1U))));
+        bufp->chgBit(oldp+198,(vlSelf->top__DOT____Vcellinp__wbu0__rvalid));
     }
     if (VL_UNLIKELY((vlSelf->__Vm_traceActivity[3U] 
                      | vlSelf->__Vm_traceActivity[4U]))) {

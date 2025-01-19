@@ -22,6 +22,7 @@ class Vtop___024root final : public VerilatedModule {
         VL_IN8(clk,0,0);
         VL_IN8(rst,0,0);
         CData/*0:0*/ top__DOT__ready_idu_to_ifu;
+        CData/*0:0*/ top__DOT____Vcellinp__wbu0__rvalid;
         CData/*0:0*/ top__DOT____Vcellinp__wbu0__bresp;
         CData/*0:0*/ top__DOT__ifu_valid;
         CData/*0:0*/ top__DOT__muximm;
@@ -76,15 +77,16 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ __Vtrigrprev__TOP__top__DOT__ready_idu_to_ifu;
         CData/*0:0*/ __Vtrigrprev__TOP__rst;
         CData/*0:0*/ __Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__bresp;
+        CData/*0:0*/ __Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__rvalid;
         CData/*1:0*/ __Vtrigrprev__TOP__top__DOT__data0__DOT__mem0__DOT__state;
         CData/*0:0*/ __VactDidInit;
         CData/*0:0*/ __VactContinue;
         IData/*31:0*/ top__DOT__npc;
         IData/*31:0*/ top__DOT__imm;
-        IData/*31:0*/ top__DOT__regwrite;
-        IData/*31:0*/ top__DOT__regout1;
     };
     struct {
+        IData/*31:0*/ top__DOT__regwrite;
+        IData/*31:0*/ top__DOT__regout1;
         IData/*31:0*/ top__DOT__regout2;
         IData/*31:0*/ top__DOT__res;
         IData/*31:0*/ top__DOT__pcwritereg;
@@ -147,10 +149,10 @@ class Vtop___024root final : public VerilatedModule {
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__wdata;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__awaddr;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__araddr;
-        VlUnpacked<CData/*6:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__pair_list;
-        VlUnpacked<CData/*3:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__key_list;
     };
     struct {
+        VlUnpacked<CData/*6:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__pair_list;
+        VlUnpacked<CData/*3:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__key_list;
         VlUnpacked<CData/*2:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__data_list;
         VlUnpacked<CData/*0:0*/, 6> __Vm_traceActivity;
     };

@@ -77,7 +77,7 @@ module wbu(
                     ((bresp_get & memew) == 1) ? 1 : 0;
   assign memvalid = ready_to;
 
-  always @(bresp) begin
+  always @(bresp or rvalid) begin
     if(bresp)
       bresp_get <= 1;
 

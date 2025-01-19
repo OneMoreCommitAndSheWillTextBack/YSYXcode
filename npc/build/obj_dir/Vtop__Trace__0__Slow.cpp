@@ -958,8 +958,7 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
                                     & (- (IData)((IData)(vlSelf->top__DOT__data0__DOT__bvalid_sram)))) 
                                    >> 1U))));
     bufp->fullBit(oldp+198,(vlSelf->top__DOT____Vcellinp__wbu0__bresp));
-    bufp->fullBit(oldp+199,((1U & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
-                                   >> 1U))));
+    bufp->fullBit(oldp+199,(vlSelf->top__DOT____Vcellinp__wbu0__rvalid));
     __Vtemp_h44c198b2__0[0U] = (IData)((0x100000000ULL 
                                         | (QData)((IData)(vlSelf->top__DOT__imm))));
     __Vtemp_h44c198b2__0[1U] = ((vlSelf->top__DOT__regout2 
