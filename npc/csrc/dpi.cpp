@@ -16,7 +16,7 @@ extern "C" int guest_read(int addr, int len) {
 }
 
 extern "C" void guest_write(uint32_t addr, uint32_t data, uint32_t len) {
-  printf("the write addr is %08x\n", addr);
+  // printf("the write addr is %08x\n", addr);
   paddr_write((uint32_t)addr, len, (uint32_t)data);
   return;
 }
