@@ -47,7 +47,7 @@ module wbu(
                  4'b0000;
   
 
-	assign awvalid = memew;
+	assign awvalid = memew & ~bresp;
   assign awaddr = res;
   assign wvalid = memew;
   assign wdata = regout2;
@@ -69,13 +69,18 @@ module wbu(
     3'b010, imm,
     3'b100, pcwritereg
   });
-  
 
   wire ready = arready & wready & awready;
-
   assign ready_to = ((memer | memew) == 0) ? 1 :
                     ((rvalid & memer) == 1) ? 1 : 
-                    ((bresp & memew) == 1) ? 1 : 0;
+                    ((bresp_get & memew) == 1) ? 1 : 0;
   assign memvalid = ready_to;
 
+  always @(bresp) begin
+    if(bresp)
+      bresp_get <= 1;
+
+    if(~valid_from)
+      bresp_get <= 0;
+  end
 endmodule
