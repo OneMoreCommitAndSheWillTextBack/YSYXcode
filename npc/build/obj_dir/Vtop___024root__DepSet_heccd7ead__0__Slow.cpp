@@ -330,6 +330,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__exu0__DOT__branchcontrol0__DOT____VdfgTmp_h47a8aa33__0 = 0;
     vlSelf->top__DOT__wbu0__DOT__memread = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__wbu0__DOT__bresp_get = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__wbu0__DOT__rvalid_get = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_u = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__wbu0__DOT__memreadlen0__DOT__read_s = VL_RAND_RESET_I(32);
     for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
@@ -348,6 +349,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__data0__DOT__awvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__wvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arvalid_sram = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__data0__DOT__rready_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__bvalid_sram = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
         vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[__Vi0] = VL_RAND_RESET_I(1);

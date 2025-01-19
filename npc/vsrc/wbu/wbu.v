@@ -39,6 +39,7 @@ module wbu(
 
   wire [31:0] memread;
   reg bresp_get;
+  reg rvalid_get;
 
   assign wstrb = (memmask == 3'b001) ? 4'b0001 :
                  (memmask == 3'b010) ? 4'b0010 :
@@ -52,7 +53,7 @@ module wbu(
   assign wvalid = memew & ~bresp_get;
   assign wdata = regout2;
   assign bready = memew;
-  assign arvalid = memer;
+  assign arvalid = memer & ~rvalid_get;
   assign araddr = res;
   assign rready = memer; 
 
@@ -80,7 +81,12 @@ module wbu(
     if(bresp)
       bresp_get <= 1;
 
-    if(~valid_from)
+    if(rvalid)
+      rvalid_get <= 1;
+
+    if(~valid_from) begin
       bresp_get <= 0;
+      rvalid_get <= 0;
+    end
   end
 endmodule
