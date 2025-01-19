@@ -73,7 +73,7 @@ module wbu(
 
   wire ready = arready & wready & awready;
   assign ready_to = ((memer | memew) == 0) ? 1 :
-                    ((rvalid & memer) == 1) ? 1 : 
+                    ((rvalid_get & memer) == 1) ? 1 : 
                     ((bresp_get & memew) == 1) ? 1 : 0;
   assign memvalid = ready_to;
 
