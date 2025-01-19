@@ -640,14 +640,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__5(Vtop___024root* vlSelf) 
                                                 == 
                                                 (0x7fU 
                                                  & vlSelf->top__DOT__ifu0__DOT__inst_reg)))));
-    vlSelf->top__DOT__data0__DOT__wvalid_sram = (0U 
-                                                 != 
-                                                 ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                                  & ((0x23U 
-                                                      == 
-                                                      (0x7fU 
-                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                                     << 1U)));
     vlSelf->top__DOT__data0__DOT__rvalid_out = ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                                 & (- (IData)(
                                                              (1U 
@@ -745,14 +737,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__5(Vtop___024root* vlSelf) 
                                               | (IData)(vlSelf->__VdfgTmp_he79674ea__0));
     vlSelf->top__DOT____Vcellinp__wbu0__bresp = vlSelf->top__DOT__bresp
         [1U];
-    vlSelf->top__DOT____Vcellout__wbu0__awvalid = (
-                                                   (~ 
-                                                    vlSelf->top__DOT__bresp
-                                                    [1U]) 
-                                                   & (0x23U 
-                                                      == 
-                                                      (0x7fU 
-                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     vlSelf->top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__hit 
         = ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg) 
            == vlSelf->top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__key_list
@@ -797,11 +781,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__5(Vtop___024root* vlSelf) 
               [3U]));
     vlSelf->top__DOT__data0__DOT__mem0__DOT__memmask 
         = vlSelf->top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__lut_out;
-    vlSelf->top__DOT__data0__DOT__awvalid_sram = (0U 
-                                                  != 
-                                                  (((IData)(vlSelf->top__DOT____Vcellout__wbu0__awvalid) 
-                                                    << 1U) 
-                                                   & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)));
 }
 
 void Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(IData/*31:0*/ pc);

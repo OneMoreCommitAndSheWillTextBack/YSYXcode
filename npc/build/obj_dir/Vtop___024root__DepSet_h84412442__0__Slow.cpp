@@ -170,14 +170,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
            | ((vlSelf->top__DOT__ifu0__DOT__inst_reg 
                >> 0x14U) == vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list
               [3U]));
-    vlSelf->top__DOT__data0__DOT__wvalid_sram = (0U 
-                                                 != 
-                                                 ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
-                                                  & ((0x23U 
-                                                      == 
-                                                      (0x7fU 
-                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                                     << 1U)));
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out 
         = ((- (IData)(((vlSelf->top__DOT__ifu0__DOT__inst_reg 
                         >> 0x14U) == vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__key_list
@@ -206,6 +198,12 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                    & vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     vlSelf->top__DOT__csrrs = (IData)((0x2073U == (0x707fU 
                                                    & vlSelf->top__DOT__ifu0__DOT__inst_reg)));
+    vlSelf->top__DOT____Vcellout__wbu0__awvalid = (
+                                                   (~ (IData)(vlSelf->top__DOT__wbu0__DOT__bresp_get)) 
+                                                   & (0x23U 
+                                                      == 
+                                                      (0x7fU 
+                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     vlSelf->top__DOT__muxsig = ((((0x67U == (0x7fU 
                                              & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
                                   | ((0x6fU == (0x7fU 
@@ -377,6 +375,16 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
               | ((0x13U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
                  | ((7U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
                     | (0x73U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg))))));
+    vlSelf->top__DOT__data0__DOT__awvalid_sram = (0U 
+                                                  != 
+                                                  (((IData)(vlSelf->top__DOT____Vcellout__wbu0__awvalid) 
+                                                    << 1U) 
+                                                   & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)));
+    vlSelf->top__DOT__data0__DOT__wvalid_sram = (0U 
+                                                 != 
+                                                 ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
+                                                  & ((IData)(vlSelf->top__DOT____Vcellout__wbu0__awvalid) 
+                                                     << 1U)));
     vlSelf->top__DOT__ifu_valid = (1U & (~ ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                             | (0U == vlSelf->top__DOT__ifu0__DOT__inst_reg))));
     vlSelf->top__DOT__ready_idu_to_ifu = ((0U == ((3U 
@@ -559,14 +567,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                    & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)));
     vlSelf->top__DOT____Vcellinp__wbu0__bresp = vlSelf->top__DOT__bresp
         [1U];
-    vlSelf->top__DOT____Vcellout__wbu0__awvalid = (
-                                                   (~ 
-                                                    vlSelf->top__DOT__bresp
-                                                    [1U]) 
-                                                   & (0x23U 
-                                                      == 
-                                                      (0x7fU 
-                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     vlSelf->top__DOT__data0__DOT____Vcellinp__arviter0__wstrb[1U] 
         = vlSelf->top__DOT____Vcellinp__data0__wstrb
         [1U];
@@ -614,11 +614,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                            | (1U == (IData)(vlSelf->top__DOT__aluop)))
                                            ? (IData)(vlSelf->top__DOT__exu0__DOT__alucontrol0__DOT__IRop)
                                            : 1U));
-    vlSelf->top__DOT__data0__DOT__awvalid_sram = (0U 
-                                                  != 
-                                                  (((IData)(vlSelf->top__DOT____Vcellout__wbu0__awvalid) 
-                                                    << 1U) 
-                                                   & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)));
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__wstrb_out_reg = 0U;
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__wdata_out_reg = 0U;
     vlSelf->top__DOT__wbu0__DOT__muxpc__DOT__i0__DOT__pair_list[0U] 

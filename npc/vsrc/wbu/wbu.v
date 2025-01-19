@@ -47,9 +47,9 @@ module wbu(
                  4'b0000;
   
 
-	assign awvalid = memew & ~bresp;
+	assign awvalid = memew & ~bresp_get;
   assign awaddr = res;
-  assign wvalid = memew;
+  assign wvalid = memew & ~bresp_get;
   assign wdata = regout2;
   assign bready = memew;
   assign arvalid = memer;
