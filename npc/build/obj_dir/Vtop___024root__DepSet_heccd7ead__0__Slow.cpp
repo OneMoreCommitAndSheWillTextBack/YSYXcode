@@ -28,8 +28,6 @@ VL_ATTR_COLD void Vtop___024root___eval_initial(Vtop___024root* vlSelf) {
     vlSelf->__Vm_traceActivity[1U] = 1U;
     vlSelf->__Vm_traceActivity[0U] = 1U;
     vlSelf->__Vtrigrprev__TOP__clk = vlSelf->clk;
-    vlSelf->__Vtrigrprev__TOP__top__DOT__ready_idu_to_ifu 
-        = vlSelf->top__DOT__ready_idu_to_ifu;
     vlSelf->__Vtrigrprev__TOP__rst = vlSelf->rst;
     vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__bresp 
         = vlSelf->top__DOT____Vcellinp__wbu0__bresp;
@@ -167,16 +165,13 @@ VL_ATTR_COLD void Vtop___024root___dump_triggers__act(Vtop___024root* vlSelf) {
         VL_DBG_MSGF("         'act' region trigger index 0 is active: @(posedge clk)\n");
     }
     if (vlSelf->__VactTriggered.at(1U)) {
-        VL_DBG_MSGF("         'act' region trigger index 1 is active: @([changed] top.ready_idu_to_ifu)\n");
+        VL_DBG_MSGF("         'act' region trigger index 1 is active: @(posedge clk or posedge rst)\n");
     }
     if (vlSelf->__VactTriggered.at(2U)) {
-        VL_DBG_MSGF("         'act' region trigger index 2 is active: @(posedge clk or posedge rst)\n");
+        VL_DBG_MSGF("         'act' region trigger index 2 is active: @([changed] top.__Vcellinp__wbu0__bresp or [changed] top.__Vcellinp__wbu0__rvalid)\n");
     }
     if (vlSelf->__VactTriggered.at(3U)) {
-        VL_DBG_MSGF("         'act' region trigger index 3 is active: @([changed] top.__Vcellinp__wbu0__bresp or [changed] top.__Vcellinp__wbu0__rvalid)\n");
-    }
-    if (vlSelf->__VactTriggered.at(4U)) {
-        VL_DBG_MSGF("         'act' region trigger index 4 is active: @([changed] top.data0.mem0.state)\n");
+        VL_DBG_MSGF("         'act' region trigger index 3 is active: @([changed] top.data0.mem0.state)\n");
     }
 }
 #endif  // VL_DEBUG
@@ -194,16 +189,13 @@ VL_ATTR_COLD void Vtop___024root___dump_triggers__nba(Vtop___024root* vlSelf) {
         VL_DBG_MSGF("         'nba' region trigger index 0 is active: @(posedge clk)\n");
     }
     if (vlSelf->__VnbaTriggered.at(1U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 1 is active: @([changed] top.ready_idu_to_ifu)\n");
+        VL_DBG_MSGF("         'nba' region trigger index 1 is active: @(posedge clk or posedge rst)\n");
     }
     if (vlSelf->__VnbaTriggered.at(2U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 2 is active: @(posedge clk or posedge rst)\n");
+        VL_DBG_MSGF("         'nba' region trigger index 2 is active: @([changed] top.__Vcellinp__wbu0__bresp or [changed] top.__Vcellinp__wbu0__rvalid)\n");
     }
     if (vlSelf->__VnbaTriggered.at(3U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 3 is active: @([changed] top.__Vcellinp__wbu0__bresp or [changed] top.__Vcellinp__wbu0__rvalid)\n");
-    }
-    if (vlSelf->__VnbaTriggered.at(4U)) {
-        VL_DBG_MSGF("         'nba' region trigger index 4 is active: @([changed] top.data0.mem0.state)\n");
+        VL_DBG_MSGF("         'nba' region trigger index 3 is active: @([changed] top.data0.mem0.state)\n");
     }
 }
 #endif  // VL_DEBUG
@@ -352,7 +344,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__data0__DOT__awvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__wvalid_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arvalid_sram = VL_RAND_RESET_I(1);
-    vlSelf->top__DOT__data0__DOT__rready_sram = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__bvalid_sram = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
         vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[__Vi0] = VL_RAND_RESET_I(1);
@@ -400,10 +391,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->__VdfgTmp_he79674ea__0 = 0;
     vlSelf->__Vfunc_guest_read__8__Vfuncout = 0;
     vlSelf->__Vtableidx1 = 0;
-    vlSelf->__Vdly__top__DOT__data0__DOT__mem0__DOT__state = VL_RAND_RESET_I(2);
-    vlSelf->__Vdly__top__DOT__data0__DOT__mem0__DOT__random_count = VL_RAND_RESET_I(4);
     vlSelf->__Vtrigrprev__TOP__clk = VL_RAND_RESET_I(1);
-    vlSelf->__Vtrigrprev__TOP__top__DOT__ready_idu_to_ifu = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__rst = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__bresp = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__rvalid = VL_RAND_RESET_I(1);
