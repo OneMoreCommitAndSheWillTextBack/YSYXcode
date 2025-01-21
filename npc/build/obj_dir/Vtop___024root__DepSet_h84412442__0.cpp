@@ -47,12 +47,15 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__0\n"); );
     // Init
+    CData/*1:0*/ __Vdly__top__DOT__ifu0__DOT__state;
+    __Vdly__top__DOT__ifu0__DOT__state = 0;
     CData/*3:0*/ __Vdly__top__DOT__data0__DOT__mem0__DOT__random_count;
     __Vdly__top__DOT__data0__DOT__mem0__DOT__random_count = 0;
     // Body
     Vtop___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(
                                                                (1U 
                                                                 == (IData)(vlSelf->top__DOT__ifu0__DOT__state)));
+    __Vdly__top__DOT__ifu0__DOT__state = vlSelf->top__DOT__ifu0__DOT__state;
     __Vdly__top__DOT__data0__DOT__mem0__DOT__random_count 
         = vlSelf->top__DOT__data0__DOT__mem0__DOT__random_count;
     vlSelf->__Vdly__top__DOT__data0__DOT__mem0__DOT__state 
@@ -61,13 +64,11 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
         = ((0xfeU & ((IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__random_num) 
                      << 1U)) | (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__feedback));
     if ((1U & (IData)(vlSelf->top__DOT__data0__DOT__rvalid_out))) {
-        vlSelf->top__DOT__ifu0__DOT__state = 0U;
-    }
-    if ((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__state))) {
-        vlSelf->top__DOT__ifu0__DOT__state = 1U;
-    }
-    if ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__state))) {
-        vlSelf->top__DOT__ifu0__DOT__state = 2U;
+        __Vdly__top__DOT__ifu0__DOT__state = 0U;
+    } else if ((0U == (IData)(vlSelf->top__DOT__ifu0__DOT__state))) {
+        __Vdly__top__DOT__ifu0__DOT__state = 1U;
+    } else if ((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__state))) {
+        __Vdly__top__DOT__ifu0__DOT__state = 2U;
     }
     vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__feedback 
         = (1U & VL_REDXOR_8((0xb8U & (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__random_num))));
@@ -120,6 +121,7 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
     } else {
         vlSelf->__Vdly__top__DOT__data0__DOT__mem0__DOT__state = 0U;
     }
+    vlSelf->top__DOT__ifu0__DOT__state = __Vdly__top__DOT__ifu0__DOT__state;
     vlSelf->top__DOT__data0__DOT__mem0__DOT__random_count 
         = __Vdly__top__DOT__data0__DOT__mem0__DOT__random_count;
     if (vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy) {

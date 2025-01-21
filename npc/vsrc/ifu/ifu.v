@@ -42,14 +42,11 @@ module ifu(
   always @(posedge clk) begin
     if(rvalid) begin
       inst_reg <= rdata;
-      state = FIRST;
-    end
-
-    if(state == FIRST)
-      state = PROCESSION;
-      
-    if(state == PROCESSION)
-      state = WAIT;
+      state <= FIRST;
+    end else if(state == FIRST)
+      state <= PROCESSION; 
+    else if(state == PROCESSION)
+      state <= WAIT;
   end
 
   // Assign outputs
