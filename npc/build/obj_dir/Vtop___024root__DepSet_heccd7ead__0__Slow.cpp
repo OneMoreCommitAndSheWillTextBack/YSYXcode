@@ -249,6 +249,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
         vlSelf->top__DOT____Vcellinp__data0__araddr[__Vi0] = VL_RAND_RESET_I(32);
     }
     vlSelf->top__DOT__ifu0__DOT__pcbridge = VL_RAND_RESET_I(32);
+    vlSelf->top__DOT__ifu0__DOT__state = VL_RAND_RESET_I(2);
     vlSelf->top__DOT__ifu0__DOT__inst_reg = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U = VL_RAND_RESET_I(1);
@@ -377,6 +378,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->__VdfgTmp_he79674ea__0 = 0;
     vlSelf->__Vfunc_guest_read__8__Vfuncout = 0;
     vlSelf->__Vtableidx1 = 0;
+    vlSelf->__Vdly__top__DOT__data0__DOT__mem0__DOT__state = VL_RAND_RESET_I(2);
     vlSelf->__Vtrigrprev__TOP__clk = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__rst = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__top__DOT__data0__DOT__mem0__DOT__state = VL_RAND_RESET_I(2);

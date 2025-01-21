@@ -21,6 +21,13 @@ module ifu(
 
   wire [31:0] pcbridge;
   wire infetch_ready;
+  reg [1:0] state;
+
+  typedef enum logic[1:0]{
+    FIRST,
+    PROCESSION,
+    WAIT
+  } state_t;
 
   // PC register module
   pcreg pcreg0(
@@ -33,8 +40,16 @@ module ifu(
   
   reg [31:0] inst_reg;
   always @(posedge clk) begin
-    if(rvalid)
+    if(rvalid) begin
       inst_reg <= rdata;
+      state = FIRST;
+    end
+
+    if(state == FIRST)
+      state = PROCESSION;
+      
+    if(state == PROCESSION)
+      state = WAIT;
   end
 
   // Assign outputs
@@ -47,10 +62,10 @@ module ifu(
   assign rready = ready;
 
   assign infetch_ready = rvalid;
-  assign regprocess = arready;
+  assign regprocess = state == PROCESSION;
 
   always @(posedge clk) begin
-    host_get_valid({31'b0, arready});
+    host_get_valid({31'b0, state == PROCESSION});
   end
 
 endmodule
