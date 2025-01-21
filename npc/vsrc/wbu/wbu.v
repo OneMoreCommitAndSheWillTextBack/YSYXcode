@@ -75,7 +75,7 @@ module wbu(
   assign ready_to = ((memer | memew) == 0) ? 1 :
                     ((rvalid_get & memer) == 1) ? 1 : 
                     ((bresp_get & memew) == 1) ? 1 : 0;
-  assign memvalid = ready_to;
+  assign memvalid = rvalid & memer;
 
   always @(bresp or rvalid) begin
     if(bresp)
