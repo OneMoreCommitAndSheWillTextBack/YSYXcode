@@ -90,7 +90,7 @@ module top(
   regheap regfile(
     .clk(clk),
     .rst(rst),
-    .ew(regew & (memvalid | reg_process)),
+    .ew((regew & reg_process) | memvalid),
     .addr(rd),
     .src1(src1),
     .src2(src2),

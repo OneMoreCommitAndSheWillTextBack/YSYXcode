@@ -95,18 +95,19 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
                                        << 1U) & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant)))));
         bufp->chgBit(oldp+48,(((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
                                & (0U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
-        bufp->chgBit(oldp+49,((((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
-                                | ((0x33U == (0x7fU 
-                                              & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                   | ((0x6fU == (0x7fU 
+        bufp->chgBit(oldp+49,((((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__state)) 
+                                & ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
+                                   | ((0x33U == (0x7fU 
                                                  & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                      | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
-                                         | (3U == (0x7fU 
-                                                   & vlSelf->top__DOT__ifu0__DOT__inst_reg)))))) 
-                               & (((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                   & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
-                                      >> 1U)) | (1U 
-                                                 == (IData)(vlSelf->top__DOT__ifu0__DOT__state))))));
+                                      | ((0x6fU == 
+                                          (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                                         | ((3U != 
+                                             (0x7fU 
+                                              & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                                            & (IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U)))))) 
+                               | ((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                                  & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
+                                     >> 1U)))));
         bufp->chgBit(oldp+50,((1U & (((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                       & (- (IData)(
                                                    ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
@@ -217,9 +218,9 @@ void Vtop___024root__trace_chg_sub_0(Vtop___024root* vlSelf, VerilatedVcd::Buffe
                                               & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
                                    | ((0x6fU == (0x7fU 
                                                  & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                      | ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U) 
-                                         | (3U == (0x7fU 
-                                                   & vlSelf->top__DOT__ifu0__DOT__inst_reg))))))));
+                                      | ((3U != (0x7fU 
+                                                 & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                                         & (IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U)))))));
         bufp->chgBit(oldp+141,((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg))));
         bufp->chgBit(oldp+142,((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg))));
         bufp->chgBit(oldp+143,(vlSelf->top__DOT__muximm));
