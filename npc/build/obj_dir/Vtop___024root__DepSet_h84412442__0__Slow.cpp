@@ -243,11 +243,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                 & (- (IData)(
                                                              (1U 
                                                               == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
-    vlSelf->top__DOT__memsextsig = ((4U != (7U & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
-                                                  >> 0xcU))) 
-                                    & (5U != (7U & 
-                                              (vlSelf->top__DOT__ifu0__DOT__inst_reg 
-                                               >> 0xcU))));
     vlSelf->top__DOT__data0__DOT____Vcellout__arviter0__bresp[0U] 
         = ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
            & (IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant));
@@ -255,6 +250,11 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
         = ((2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)) 
            & ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
               >> 1U));
+    vlSelf->top__DOT__memsextsig = ((4U != (7U & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
+                                                  >> 0xcU))) 
+                                    & (5U != (7U & 
+                                              (vlSelf->top__DOT__ifu0__DOT__inst_reg 
+                                               >> 0xcU))));
     vlSelf->top__DOT__memmask = ((0U == (7U & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
                                                >> 0xcU)))
                                   ? 1U : ((1U == (7U 
@@ -413,9 +413,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                       & vlSelf->top__DOT__ifu0__DOT__inst_reg))) 
                                                  << 1U) 
                                                 | (IData)(vlSelf->top__DOT__ready_idu_to_ifu));
-    vlSelf->top__DOT____Vcellinp__wbu0__rvalid = (1U 
-                                                  & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
-                                                     >> 1U));
     vlSelf->top__DOT__ifu_valid = (1U & (~ ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                             | (0U == vlSelf->top__DOT__ifu0__DOT__inst_reg))));
     vlSelf->top__DOT____Vcellout__data0__bresp[1U] 
@@ -512,7 +509,8 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                         == 
                                                         (0x7fU 
                                                          & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                                       & (IData)(vlSelf->top__DOT____Vcellinp__wbu0__rvalid)) 
+                                                       & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
+                                                          >> 1U)) 
                                                       | ((IData)(vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant) 
                                                          & ((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
                                                             & (0U 
@@ -576,8 +574,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
                                                         >> 0xcU)))));
     vlSelf->top__DOT__exu0__DOT__alucontrol0__DOT__IRop 
         = Vtop__ConstPool__TABLE_ha43bcb51_0[vlSelf->__Vtableidx1];
-    vlSelf->top__DOT____Vcellinp__wbu0__bresp = vlSelf->top__DOT__bresp
-        [1U];
     vlSelf->top__DOT__data0__DOT____Vcellinp__arviter0__wstrb[1U] 
         = vlSelf->top__DOT____Vcellinp__data0__wstrb
         [1U];

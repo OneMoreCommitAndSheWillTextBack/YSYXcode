@@ -21,8 +21,6 @@ class Vtop___024root final : public VerilatedModule {
     struct {
         VL_IN8(clk,0,0);
         VL_IN8(rst,0,0);
-        CData/*0:0*/ top__DOT____Vcellinp__wbu0__rvalid;
-        CData/*0:0*/ top__DOT____Vcellinp__wbu0__bresp;
         CData/*0:0*/ top__DOT__ready_idu_to_ifu;
         CData/*0:0*/ top__DOT__ifu_valid;
         CData/*0:0*/ top__DOT__muximm;
@@ -72,8 +70,6 @@ class Vtop___024root final : public VerilatedModule {
         CData/*5:0*/ __Vtableidx1;
         CData/*0:0*/ __Vtrigrprev__TOP__clk;
         CData/*0:0*/ __Vtrigrprev__TOP__rst;
-        CData/*0:0*/ __Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__bresp;
-        CData/*0:0*/ __Vtrigrprev__TOP__top__DOT____Vcellinp__wbu0__rvalid;
         CData/*1:0*/ __Vtrigrprev__TOP__top__DOT__data0__DOT__mem0__DOT__state;
         CData/*0:0*/ __VactDidInit;
         CData/*0:0*/ __VactContinue;
@@ -83,12 +79,12 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__regout1;
         IData/*31:0*/ top__DOT__regout2;
         IData/*31:0*/ top__DOT__res;
-    };
-    struct {
         IData/*31:0*/ top__DOT__pcwritereg;
         IData/*31:0*/ top__DOT__ifu0__DOT__pcbridge;
         IData/*31:0*/ top__DOT__ifu0__DOT__inst_reg;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__I_imm;
+    };
+    struct {
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__S_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__J_imm;
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__B_imm;
@@ -148,11 +144,11 @@ class Vtop___024root final : public VerilatedModule {
         VlUnpacked<CData/*6:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__pair_list;
         VlUnpacked<CData/*3:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__key_list;
         VlUnpacked<CData/*2:0*/, 4> top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__data_list;
-        VlUnpacked<CData/*0:0*/, 6> __Vm_traceActivity;
+        VlUnpacked<CData/*0:0*/, 5> __Vm_traceActivity;
     };
     VlTriggerVec<1> __VstlTriggered;
-    VlTriggerVec<4> __VactTriggered;
-    VlTriggerVec<4> __VnbaTriggered;
+    VlTriggerVec<3> __VactTriggered;
+    VlTriggerVec<3> __VnbaTriggered;
 
     // INTERNAL VARIABLES
     Vtop__Syms* const vlSymsp;

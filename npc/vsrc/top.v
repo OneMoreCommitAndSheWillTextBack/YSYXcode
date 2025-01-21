@@ -155,6 +155,7 @@ module top(
 
   wire memvalid;
   wbu wbu0(
+  .clk(clk),
   .res(res),
   .regout2(regout2),
   .memew(memew),

@@ -1,4 +1,5 @@
 module wbu(
+  input clk,
   input [31:0] res,
   input [31:0] regout2,
   input memew,
@@ -77,7 +78,7 @@ module wbu(
                     ((bresp_get & memew) == 1) ? 1 : 0;
   assign memvalid = rvalid & memer;
 
-  always @(bresp or rvalid) begin
+  always @(posedge clk) begin
     if(bresp)
       bresp_get <= 1;
 
