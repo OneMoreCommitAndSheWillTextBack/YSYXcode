@@ -41,7 +41,7 @@ static void exe_once() {
 #endif
 }
 
-static int start_diff = 0;
+static int start_diff = -1;
 void trace_or_diff() {
   exe_wp();
 #ifdef ITRACE

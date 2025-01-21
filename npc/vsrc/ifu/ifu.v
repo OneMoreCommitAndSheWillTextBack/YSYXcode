@@ -49,7 +49,7 @@ module ifu(
   assign infetch_ready = rvalid;
   assign regprocess = arready;
 
-  always @(*) begin
+  always @(posedge clk) begin
     host_get_valid({31'b0, arready});
   end
 
