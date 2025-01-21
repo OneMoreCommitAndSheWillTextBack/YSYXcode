@@ -37,6 +37,7 @@ VL_ATTR_COLD void Vtop___024root___eval_initial__TOP(Vtop___024root* vlSelf) {
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___eval_initial__TOP\n"); );
     // Body
+    vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = 4U;
     vlSelf->top__DOT__wstrb[0U] = 0U;
     vlSelf->top__DOT__wdata[0U] = 0U;
     vlSelf->top__DOT__awaddr[0U] = 0U;
