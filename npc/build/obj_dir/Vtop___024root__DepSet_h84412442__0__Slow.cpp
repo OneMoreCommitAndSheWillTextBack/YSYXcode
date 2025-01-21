@@ -26,8 +26,6 @@ VL_ATTR_COLD void Vtop___024root___eval_triggers__stl(Vtop___024root* vlSelf) {
 }
 
 void Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(IData/*31:0*/ pc);
-void Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(IData/*31:0*/ regval, IData/*31:0*/ regnum);
-void Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(IData/*31:0*/ csrval, IData/*31:0*/ csrnum);
 extern const VlUnpacked<CData/*3:0*/, 64> Vtop__ConstPool__TABLE_ha43bcb51_0;
 void Vtop___024unit____Vdpiimwrap_host_get_pc_TOP____024unit(IData/*31:0*/ pc);
 void Vtop___024unit____Vdpiimwrap_host_get_inst_TOP____024unit(IData/*31:0*/ inst);
@@ -41,114 +39,6 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     if ((0x100073U == vlSelf->top__DOT__ifu0__DOT__inst_reg)) {
         Vtop___024unit____Vdpiimwrap_ret_TOP____024unit(0U);
     }
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0U], 0U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [1U], 1U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [2U], 2U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [3U], 3U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [4U], 4U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [5U], 5U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [6U], 6U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [7U], 7U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [8U], 8U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [9U], 9U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0xaU], 0xaU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0xbU], 0xbU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0xcU], 0xcU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0xdU], 0xdU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0xeU], 0xeU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0xfU], 0xfU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x10U], 0x10U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x11U], 0x11U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x12U], 0x12U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x13U], 0x13U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x14U], 0x14U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x15U], 0x15U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x16U], 0x16U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x17U], 0x17U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x18U], 0x18U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x19U], 0x19U);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x1aU], 0x1aU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x1bU], 0x1bU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x1cU], 0x1cU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x1dU], 0x1dU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x1eU], 0x1eU);
-    Vtop___024unit____Vdpiimwrap_host_get_reg_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr
-                                                             [0x1fU], 0x1fU);
-    Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
-                                                             [0U], 0U);
-    Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
-                                                             [1U], 1U);
-    Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
-                                                             [2U], 2U);
-    Vtop___024unit____Vdpiimwrap_host_get_csr_TOP____024unit(
-                                                             vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
-                                                             [3U], 3U);
     vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__feedback 
         = (1U & VL_REDXOR_8((0xb8U & (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__lsfr0__DOT__random_num))));
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit 
