@@ -19,6 +19,7 @@ module top(
   wire [31:0] ifu_araddr;
   wire ifu_rvalid, ifu_rready;
   wire [31:0] ifu_rdata;
+  wire reg_process;
 
   ifu ifu0(
     .clk(clk),
@@ -34,7 +35,8 @@ module top(
     .araddr(ifu_araddr),
     .rvalid(ifu_rvalid),
     .rready(ifu_rready),
-    .rdata(ifu_rdata)
+    .rdata(ifu_rdata),
+    .regprocess(reg_process)
   );
 
 
@@ -88,7 +90,7 @@ module top(
   regheap regfile(
     .clk(clk),
     .rst(rst),
-    .ew(regew & memvalid),
+    .ew(regew & (memvalid | reg_process)),
     .addr(rd),
     .src1(src1),
     .src2(src2),

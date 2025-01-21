@@ -8,6 +8,7 @@ module ifu(
   output [31:0] pc,
   output [31:0] inst,
   output valid,
+  output regprocess,
 
   // AXI-Lite interface for external SRAM
   output arvalid,          // Read address valid
@@ -46,6 +47,7 @@ module ifu(
   assign rready = ready;
 
   assign infetch_ready = rvalid;
+  assign regprocess = arready;
 
   always @(*) begin
     host_get_valid({31'b0, arready});
