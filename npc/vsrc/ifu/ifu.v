@@ -43,9 +43,12 @@ module ifu(
     if(rvalid) begin
       inst_reg <= rdata;
       state <= FIRST;
-    end else if(state == FIRST)
+    end
+
+    if(state == FIRST)
       state <= PROCESSION; 
-    else if(state == PROCESSION)
+      
+    if(state == PROCESSION)
       state <= WAIT;
   end
 

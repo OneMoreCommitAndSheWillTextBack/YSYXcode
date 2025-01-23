@@ -779,14 +779,13 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+49,(((~ (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__busy)) 
                             & (0U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state)))));
     bufp->fullBit(oldp+50,((((1U == (IData)(vlSelf->top__DOT__ifu0__DOT__state)) 
-                             & ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
-                                | ((0x33U == (0x7fU 
-                                              & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                   | ((0x6fU == (0x7fU 
+                             & ((3U != (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                                & ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
+                                   | ((0x33U == (0x7fU 
                                                  & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                      | ((3U != (0x7fU 
-                                                 & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                         & (IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U)))))) 
+                                      | ((0x6fU == 
+                                          (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                                         | (IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U)))))) 
                             | ((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
                                & ((IData)(vlSelf->top__DOT__data0__DOT__rvalid_out) 
                                   >> 1U)))));
@@ -890,13 +889,13 @@ VL_ATTR_COLD void Vtop___024root__trace_full_sub_0(Vtop___024root* vlSelf, Veril
     bufp->fullBit(oldp+138,((0x100073U == vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     bufp->fullBit(oldp+139,((0x30200073U == vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     bufp->fullBit(oldp+140,((0x73U == vlSelf->top__DOT__ifu0__DOT__inst_reg)));
-    bufp->fullBit(oldp+141,(((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
-                             | ((0x33U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                | ((0x6fU == (0x7fU 
+    bufp->fullBit(oldp+141,(((3U != (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                             & ((IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_I) 
+                                | ((0x33U == (0x7fU 
                                               & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                   | ((3U != (0x7fU 
-                                              & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
-                                      & (IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U)))))));
+                                   | ((0x6fU == (0x7fU 
+                                                 & vlSelf->top__DOT__ifu0__DOT__inst_reg)) 
+                                      | (IData)(vlSelf->top__DOT__idu0__DOT__decoder0__DOT__type_U)))))));
     bufp->fullBit(oldp+142,((0x23U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg))));
     bufp->fullBit(oldp+143,((3U == (0x7fU & vlSelf->top__DOT__ifu0__DOT__inst_reg))));
     bufp->fullBit(oldp+144,(vlSelf->top__DOT__muximm));

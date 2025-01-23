@@ -51,7 +51,6 @@ void trace_or_diff() {
   if (start_diff < 1 && cpu->valid == 1)
     start_diff++;
   if (start_diff == 1 && cpu->valid == 1) {
-    printf("diff test here\n");
     diff_step();
   }
 
