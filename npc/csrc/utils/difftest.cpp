@@ -61,6 +61,12 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
 extern Npc *npc;
 void checkregs(context *ref_context) {
   int i = 0;
+
+  if (ref_context->pc != cpu->con.pc) {
+    printf("pc: 0x%08x -> 0x%08x\n", cpu->con.pc, ref_context->pc);
+    goto regdiferror;
+  }
+
   for (i = 0; i < 32; i++) {
     if (ref_context->gpr[i] != cpu->con.gpr[i]) {
       goto regdiferror;
@@ -71,12 +77,6 @@ void checkregs(context *ref_context) {
   CHECK_CSR(mepc);
   CHECK_CSR(mtvec);
   CHECK_CSR(mcause);
-
-  if (ref_context->pc != cpu->con.pc) {
-    printf("pc: 0x%08x -> 0x%08x\n", cpu->con.pc, ref_context->pc);
-    goto regdiferror;
-  }
-
   return;
 
 regdiferror:

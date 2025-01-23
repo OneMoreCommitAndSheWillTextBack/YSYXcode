@@ -1,4 +1,3 @@
-import "DPI-C" function void host_get_valid(int valid);
 module wbu(
   input clk,
   input [31:0] res,
@@ -14,51 +13,53 @@ module wbu(
 
   output [31:0] regwrite,
   output ready_to,
-  output memvalid
+  output memvalid,
+
+  // axi-lite interface
+  output awvalid,
+  input awready,
+  output [31:0] awaddr,
+
+  output wvalid,
+  input wready,
+  output [31:0] wdata,
+  output [3:0] wstrb,
+
+  input bvalid,
+  output bready,
+  input bresp,
+
+  output arvalid,
+  input arready,
+  output [31:0] araddr,
+
+  input rvalid,
+  output rready,
+  input [31:0] rdata
 );
 
-  wire [31:0] readdata;
   wire [31:0] memread;
+  reg bresp_get;
+  reg rvalid_get;
 
-  wire [3:0] wstrb = (memmask == 3'b001) ? 4'b0001 :
-                     (memmask == 3'b010) ? 4'b0010 :
-                     (memmask == 3'b011) ? 4'b0100 :
-                     (memmask == 3'b100) ? 4'b1000 :
-                     4'b0000;
+  assign wstrb = (memmask == 3'b001) ? 4'b0001 :
+                 (memmask == 3'b010) ? 4'b0010 :
+                 (memmask == 3'b011) ? 4'b0100 :
+                 (memmask == 3'b100) ? 4'b1000 :
+                 4'b0000;
   
-  wire awready, wready, bvalid;
-  wire arready, rvalid, bresp;
-  sram mem(
-	  .clk(clk),
-	  // write address channel
-	  .awvalid(memew),
-	  .awready(awready),
-	  .awaddr(res),
-	
-	  // write data channel
-	  .wvalid(memew),
-	  .wready(wready),
-	  .wdata(regout2),
-	  .wstrb(wstrb),
-	  
-	  // write response channel
-	  .bvalid(bvalid),
-	  .bready(memew),
-	  .bresp(bresp),
-	
-	  // read address channel
-	  .arvalid(memer),
-	  .arready(arready),
-	  .araddr(res),
-	
-	  // read data channel
-	  .rvalid(rvalid),
-	  .rready(memer),
-	  .rdata(readdata)
-  );
+
+	assign awvalid = memew & ~bresp_get;
+  assign awaddr = res;
+  assign wvalid = memew & ~bresp_get;
+  assign wdata = regout2;
+  assign bready = memew;
+  assign arvalid = memer & ~rvalid_get;
+  assign araddr = res;
+  assign rready = memer; 
 
   memreadlen memreadlen0(
-    .data(readdata),
+    .data(rdata),
     .memsextsig(memsextsig),
     .memmask(memmask),
     .read(memread)
@@ -70,19 +71,23 @@ module wbu(
     3'b010, imm,
     3'b100, pcwritereg
   });
-  
 
   wire ready = arready & wready & awready;
-  wire [31:0] valid;
-
   assign ready_to = ((memer | memew) == 0) ? 1 :
-                    ((rvalid & memer) == 1) ? 1 : 
-                    ((bresp & memew) == 1) ? 1 : 0;
-  assign valid = {31'b0,valid_from & ready};
-  assign memvalid = ready_to;
+                    ((rvalid_get & memer) == 1) ? 1 : 
+                    ((bresp_get & memew) == 1) ? 1 : 0;
+  assign memvalid = rvalid & memer;
 
-  always @(*) begin
-    host_get_valid(valid);
+  always @(posedge clk) begin
+    if(bresp)
+      bresp_get <= 1;
+
+    if(rvalid)
+      rvalid_get <= 1;
+
+    if(~valid_from) begin
+      bresp_get <= 0;
+      rvalid_get <= 0;
+    end
   end
-
 endmodule

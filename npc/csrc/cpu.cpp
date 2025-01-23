@@ -10,7 +10,7 @@ Cpu *cpu = NULL;
 Trace *trace = NULL;
 #endif
 
-int times = 0;
+int times = 1;
 
 void demp_wave() {
 #ifdef TRACE
@@ -50,8 +50,9 @@ void trace_or_diff() {
 #ifdef DIFFTEST
   if (start_diff < 1 && cpu->valid == 1)
     start_diff++;
-  if (start_diff == 1 && cpu->valid == 1)
+  if (start_diff == 1 && cpu->valid == 1) {
     diff_step();
+  }
 
 #endif
 }
