@@ -271,7 +271,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[__Vi0] = VL_RAND_RESET_I(32);
     }
-    vlSelf->top__DOT__regfile__DOT____Vcellinp__registers0__ew = VL_RAND_RESET_I(1);
     for (int __Vi0 = 0; __Vi0 < 4; ++__Vi0) {
         vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__pair_list[__Vi0] = VL_RAND_RESET_I(14);
     }
@@ -284,7 +283,6 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out = VL_RAND_RESET_I(2);
     vlSelf->top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = VL_RAND_RESET_I(32);
-    vlSelf->top__DOT__regfile__DOT__registers0__DOT__tmp = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__exu0__DOT__pcaddimmbridge = VL_RAND_RESET_I(32);
     vlSelf->top__DOT__exu0__DOT__aluopcode = VL_RAND_RESET_I(5);
     vlSelf->top__DOT__exu0__DOT__aluarg2 = VL_RAND_RESET_I(32);
@@ -378,6 +376,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     vlSelf->__VdfgTmp_he79674ea__0 = 0;
     vlSelf->__Vfunc_guest_read__8__Vfuncout = 0;
     vlSelf->__Vtableidx1 = 0;
+    vlSelf->__Vdly__top__DOT__ifu0__DOT__state = VL_RAND_RESET_I(2);
     vlSelf->__Vdly__top__DOT__data0__DOT__mem0__DOT__state = VL_RAND_RESET_I(2);
     vlSelf->__Vtrigrprev__TOP__clk = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__rst = VL_RAND_RESET_I(1);

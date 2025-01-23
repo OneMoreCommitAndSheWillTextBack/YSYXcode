@@ -35,7 +35,6 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__idu0__DOT__decoder0__DOT__type_I;
         CData/*0:0*/ top__DOT__idu0__DOT__decoder0__DOT__type_U;
         CData/*1:0*/ top__DOT__regfile__DOT__csr_choose;
-        CData/*0:0*/ top__DOT__regfile__DOT____Vcellinp__registers0__ew;
         CData/*1:0*/ top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__lut_out;
         CData/*0:0*/ top__DOT__regfile__DOT__muxcsr__DOT__i0__DOT__hit;
         CData/*4:0*/ top__DOT__exu0__DOT__aluopcode;
@@ -69,6 +68,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__data0__DOT__mem0__DOT__muxpc__DOT__i0__DOT__hit;
         CData/*3:0*/ __VdfgTmp_he79674ea__0;
         CData/*5:0*/ __Vtableidx1;
+        CData/*1:0*/ __Vdly__top__DOT__ifu0__DOT__state;
         CData/*1:0*/ __Vdly__top__DOT__data0__DOT__mem0__DOT__state;
         CData/*0:0*/ __Vtrigrprev__TOP__clk;
         CData/*0:0*/ __Vtrigrprev__TOP__rst;
@@ -92,7 +92,6 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__idu0__DOT__decoder0__DOT__B_imm;
         IData/*31:0*/ top__DOT__regfile__DOT__reg_write_data;
         IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__i;
-        IData/*31:0*/ top__DOT__regfile__DOT__registers0__DOT__tmp;
         IData/*31:0*/ top__DOT__exu0__DOT__pcaddimmbridge;
         IData/*31:0*/ top__DOT__exu0__DOT__aluarg2;
         IData/*31:0*/ top__DOT__exu0__DOT__chosmuximm__DOT__i0__DOT__lut_out;

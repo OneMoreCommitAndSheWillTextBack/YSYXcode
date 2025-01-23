@@ -17,31 +17,30 @@ module registers(
 );
   
   integer i;
-  reg [31:0] tmp;
 
   // write op
   always @(posedge clk or posedge rst) begin 
     if(rst) begin
       for(i=0;i<32;i=i+1) begin
-        gr[i] = 0;
+        gr[i] <= 0;
       end
     end else if(ew) begin
-      gr[addr] = data;
+      gr[addr] <= data;
       // $display("reg[%d] write a 0x%08x", addr, data);
       gr[0] <= 0;
     end 
 
     if(csrrw) begin 
-      {gr[addr], csr[csr_choose]} = {csr[csr_choose], data};
+      {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data};
     end
   
     if(csrrs) begin
-      {gr[addr], csr[csr_choose]} = {csr[csr_choose], data|csr[csr_choose]};
+      {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data|csr[csr_choose]};
     end
 
     if(ecall) begin
-      csr[2] = data;
-      csr[3] = 1;
+      csr[2] <= data;
+      csr[3] <= 1;
     end
   end
 
