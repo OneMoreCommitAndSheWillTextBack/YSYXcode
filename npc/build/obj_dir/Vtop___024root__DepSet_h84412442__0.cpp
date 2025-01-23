@@ -186,12 +186,21 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__csr__v0 = 0;
     IData/*31:0*/ __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__csr__v0;
     __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__csr__v0 = 0;
+<<<<<<< HEAD
     CData/*4:0*/ __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35;
     __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35 = 0;
     IData/*31:0*/ __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35;
     __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35 = 0;
     CData/*0:0*/ __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35;
     __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35 = 0;
+=======
+    CData/*4:0*/ __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36;
+    __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36 = 0;
+    IData/*31:0*/ __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36;
+    __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36 = 0;
+    CData/*0:0*/ __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36;
+    __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36 = 0;
+>>>>>>> dev
     CData/*1:0*/ __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__csr__v1;
     __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__csr__v1 = 0;
     IData/*31:0*/ __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__csr__v1;
@@ -206,7 +215,11 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v0 = 0U;
     __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v32 = 0U;
     __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v34 = 0U;
+<<<<<<< HEAD
     __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35 = 0U;
+=======
+    __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36 = 0U;
+>>>>>>> dev
     if (vlSelf->rst) {
         vlSelf->top__DOT__regfile__DOT__registers0__DOT__i = 0x20U;
     }
@@ -251,11 +264,19 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
             = vlSelf->top__DOT__regfile__DOT__csr_choose;
     }
     if (vlSelf->top__DOT__csrrs) {
+<<<<<<< HEAD
         __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35 
             = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
             [vlSelf->top__DOT__regfile__DOT__csr_choose];
         __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35 = 1U;
         __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35 
+=======
+        __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36 
+            = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
+            [vlSelf->top__DOT__regfile__DOT__csr_choose];
+        __Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36 = 1U;
+        __Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36 
+>>>>>>> dev
             = (0x1fU & (vlSelf->top__DOT__ifu0__DOT__inst_reg 
                         >> 7U));
         __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__csr__v1 
@@ -275,7 +296,11 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[__Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__csr__v0] 
             = __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__csr__v0;
     }
+<<<<<<< HEAD
     if (__Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35) {
+=======
+    if (__Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36) {
+>>>>>>> dev
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr[__Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__csr__v1] 
             = __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__csr__v1;
     }
@@ -326,10 +351,18 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     if (__Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v34) {
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[__Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v34] 
             = __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v34;
+<<<<<<< HEAD
     }
     if (__Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35) {
         vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[__Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35] 
             = __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v35;
+=======
+        vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[0U] = 0U;
+    }
+    if (__Vdlyvset__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36) {
+        vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__gr[__Vdlyvdim0__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36] 
+            = __Vdlyvval__top__DOT__regfile__DOT____Vcellout__registers0__gr__v36;
+>>>>>>> dev
     }
     vlSelf->top__DOT__regfile__DOT__rf_csr[3U] = vlSelf->top__DOT__regfile__DOT____Vcellout__registers0__csr
         [3U];

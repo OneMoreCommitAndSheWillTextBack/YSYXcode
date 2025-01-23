@@ -32,10 +32,12 @@ module registers(
 
     if(csrrw) begin 
       {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data};
+      gr[0] <= 0;
     end
   
     if(csrrs) begin
       {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data|csr[csr_choose]};
+      gr[0] <= 0;
     end
 
     if(ecall) begin
