@@ -63,6 +63,9 @@ module xbar(
       })
   );
 
+  wire test = ({32{m_awvalid}} & m_awaddr) >= 32'ha00003f8 &&
+              ({32{m_awvalid}} & m_awaddr) <= 32'ha00003ff;
+
   assign sig_sram = ~sig_urt;
   
   axiinputbatchtool urt_input(

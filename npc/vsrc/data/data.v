@@ -17,7 +17,7 @@ module data #(parameter NUM=2)(
   input [31:0] araddr [NUM-1:0],
   output [31:0] rdata [NUM-1:0],
   input [31:0] awaddr [NUM-1:0],
-input [31:0] wdata [NUM-1:0],
+  input [31:0] wdata [NUM-1:0],
   input [3:0] wstrb [NUM-1:0],
   output bresp [NUM-1:0]
 );

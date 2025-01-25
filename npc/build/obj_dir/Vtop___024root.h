@@ -114,6 +114,7 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__data0__DOT__xbar__DOT____Vcellinp__mux__data;
         IData/*31:0*/ top__DOT__data0__DOT__xbar__DOT__m_rdata_urt;
         IData/*31:0*/ top__DOT__data0__DOT__xbar__DOT__m_rdata_sram;
+        IData/*31:0*/ top__DOT__data0__DOT__xbar__DOT____VdfgTmp_h62cc6d96__0;
         IData/*31:0*/ top__DOT__data0__DOT__mem0__DOT__rdatareg;
         IData/*31:0*/ __Vfunc_guest_read__8__Vfuncout;
         IData/*31:0*/ __VstlIterCount;
@@ -148,9 +149,9 @@ class Vtop___024root final : public VerilatedModule {
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellout__arviter0__rdata;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__wdata;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__awaddr;
-        VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__araddr;
     };
     struct {
+        VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__araddr;
         VlUnpacked<CData/*0:0*/, 2> top__DOT__data0__DOT__awvalid_from_xbar;
         VlUnpacked<CData/*0:0*/, 2> top__DOT__data0__DOT__wvalid_from_xbar;
         VlUnpacked<CData/*0:0*/, 2> top__DOT__data0__DOT__arvalid_from_xbar;
