@@ -53,8 +53,8 @@ module uart(
 
   always @(*) begin
     if (state == OUTPUT) begin
-      $display("reagh here");
-      $display("%s", wdata[7:0]);
+      // $display("reagh here");
+      $write("%s", wdata[7:0]);
     end
   end
 
