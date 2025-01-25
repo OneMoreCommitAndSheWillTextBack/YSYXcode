@@ -99,7 +99,7 @@ arbiter #(NUM + DEVICE) arviter0(
   .bresp_in(bresp_from_arbiter)
 );
 
-// `define needxbar
+`define needxbar
 `ifndef needxbar
 sram mem0(
   .clk(clk),
