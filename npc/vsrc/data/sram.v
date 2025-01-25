@@ -126,7 +126,7 @@ module sram(
   });
   
   reg [31:0] rdatareg;
-  always @(state) begin
+  always @(*) begin
     if (state == WRITE_VALID) begin
         guest_write(awaddr, wdata, {{29{1'b0}}, memmask});
     end
