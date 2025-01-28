@@ -157,8 +157,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
         = __Vdly__top__DOT__data0__DOT__mem0__DOT__random_count;
     vlSelf->top__DOT__data0__DOT__mem0__DOT__state 
         = __Vdly__top__DOT__data0__DOT__mem0__DOT__state;
-    vlSelf->top__DOT__data0__DOT__arready_from_xbar[1U] 
-        = (1U & (~ (IData)(vlSelf->top__DOT__data0__DOT__uart0__DOT__state)));
     vlSelf->top__DOT__data0__DOT__wready_from_xbar[1U] 
         = (1U & (~ (IData)(vlSelf->top__DOT__data0__DOT__uart0__DOT__state)));
     vlSelf->top__DOT__data0__DOT__awready_from_xbar[1U] 
@@ -178,12 +176,6 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__0(Vtop___024root* vlSelf) 
         = (1U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
     vlSelf->top__DOT__data0__DOT__bresp_from_xbar[0U] 
         = (2U == (IData)(vlSelf->top__DOT__data0__DOT__mem0__DOT__state));
-    vlSelf->top__DOT__data0__DOT____Vcellinp__xbar__s_arready[1U] 
-        = vlSelf->top__DOT__data0__DOT__arready_from_xbar
-        [1U];
-    vlSelf->top__DOT__data0__DOT____Vcellinp__xbar__s_arready[0U] 
-        = vlSelf->top__DOT__data0__DOT__arready_from_xbar
-        [0U];
     vlSelf->top__DOT__data0__DOT____Vcellinp__xbar__s_wready[1U] 
         = vlSelf->top__DOT__data0__DOT__wready_from_xbar
         [1U];
@@ -576,6 +568,12 @@ VL_INLINE_OPT void Vtop___024root___nba_sequent__TOP__2(Vtop___024root* vlSelf) 
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___nba_sequent__TOP__2\n"); );
     // Body
     vlSelf->top__DOT__ifu0__DOT__state = vlSelf->__Vdly__top__DOT__ifu0__DOT__state;
+    vlSelf->top__DOT__data0__DOT____Vcellinp__xbar__s_arready[1U] 
+        = vlSelf->top__DOT__data0__DOT__arready_from_xbar
+        [1U];
+    vlSelf->top__DOT__data0__DOT____Vcellinp__xbar__s_arready[0U] 
+        = vlSelf->top__DOT__data0__DOT__arready_from_xbar
+        [0U];
     if ((1U & (IData)(vlSelf->top__DOT__data0__DOT__rvalid_out))) {
         vlSelf->top__DOT__ifu0__DOT__inst_reg = vlSelf->top__DOT__rdata
             [0U];

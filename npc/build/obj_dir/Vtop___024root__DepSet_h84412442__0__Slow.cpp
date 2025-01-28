@@ -200,7 +200,7 @@ VL_ATTR_COLD void Vtop___024root___stl_sequent__TOP__0(Vtop___024root* vlSelf) {
     vlSelf->top__DOT__csrrs = (IData)((0x2073U == (0x707fU 
                                                    & vlSelf->top__DOT__ifu0__DOT__inst_reg)));
     vlSelf->top__DOT__data0__DOT__arready_from_xbar[1U] 
-        = (1U & (~ (IData)(vlSelf->top__DOT__data0__DOT__uart0__DOT__state)));
+        = vlSelf->top__DOT__data0__DOT____Vcellout__uart0__arready;
     vlSelf->top__DOT__data0__DOT__wready_from_xbar[1U] 
         = (1U & (~ (IData)(vlSelf->top__DOT__data0__DOT__uart0__DOT__state)));
     vlSelf->top__DOT__data0__DOT__awready_from_xbar[1U] 

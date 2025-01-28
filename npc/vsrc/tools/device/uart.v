@@ -60,7 +60,6 @@ module uart(
 
   assign awready = (state == WAITING);
   assign wready = (state == WAITING);
-  assign arready = (state == WAITING);
 
   assign bresp = state == OUTPUT;
   assign rvalid = 0;

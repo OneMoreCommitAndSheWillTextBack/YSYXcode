@@ -59,6 +59,7 @@ class Vtop___024root final : public VerilatedModule {
         CData/*0:0*/ top__DOT__data0__DOT__rvalid_from_arbiter;
         CData/*0:0*/ top__DOT__data0__DOT__bresp_from_arbiter;
         CData/*0:0*/ top__DOT__data0__DOT____Vcellout__mem0__bvalid;
+        CData/*0:0*/ top__DOT__data0__DOT____Vcellout__uart0__arready;
         CData/*0:0*/ top__DOT__data0__DOT____Vcellout__uart0__bvalid;
         CData/*0:0*/ top__DOT__data0__DOT__arviter0__DOT__busy;
         CData/*1:0*/ top__DOT__data0__DOT__arviter0__DOT__giant;
@@ -82,9 +83,9 @@ class Vtop___024root final : public VerilatedModule {
         IData/*31:0*/ top__DOT__npc;
         IData/*31:0*/ top__DOT__imm;
         IData/*31:0*/ top__DOT__regwrite;
-        IData/*31:0*/ top__DOT__regout1;
     };
     struct {
+        IData/*31:0*/ top__DOT__regout1;
         IData/*31:0*/ top__DOT__regout2;
         IData/*31:0*/ top__DOT__res;
         IData/*31:0*/ top__DOT__pcwritereg;
@@ -148,9 +149,9 @@ class Vtop___024root final : public VerilatedModule {
         VlUnpacked<CData/*3:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__wstrb;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellout__arviter0__rdata;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__wdata;
-        VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__awaddr;
     };
     struct {
+        VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__awaddr;
         VlUnpacked<IData/*31:0*/, 2> top__DOT__data0__DOT____Vcellinp__arviter0__araddr;
         VlUnpacked<CData/*0:0*/, 2> top__DOT__data0__DOT__awvalid_from_xbar;
         VlUnpacked<CData/*0:0*/, 2> top__DOT__data0__DOT__wvalid_from_xbar;

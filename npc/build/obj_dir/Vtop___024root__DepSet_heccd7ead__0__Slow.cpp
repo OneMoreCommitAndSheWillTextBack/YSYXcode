@@ -442,6 +442,7 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
         vlSelf->top__DOT__data0__DOT____Vcellout__xbar__s_awvalid[__Vi0] = VL_RAND_RESET_I(1);
     }
     vlSelf->top__DOT__data0__DOT____Vcellout__mem0__bvalid = VL_RAND_RESET_I(1);
+    vlSelf->top__DOT__data0__DOT____Vcellout__uart0__arready = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT____Vcellout__uart0__bvalid = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__busy = VL_RAND_RESET_I(1);
     vlSelf->top__DOT__data0__DOT__arviter0__DOT__giant = VL_RAND_RESET_I(2);
