@@ -127,18 +127,22 @@ sram mem0(
 );
 
 `else
+localparam device_num = 3;
 wire  
-  awvalid_from_xbar [1:0], wvalid_from_xbar [1:0], arvalid_from_xbar [1:0], rready_from_xbar [1:0], 
-  bready_from_xbar [1:0],
-  rvalid_from_xbar [1:0], awready_from_xbar [1:0], wready_from_xbar [1:0], arready_from_xbar [1:0],
-  bvalid_from_xbar [1:0];
+  awvalid_from_xbar [device_num-1:0], wvalid_from_xbar [device_num-1:0],
+  arvalid_from_xbar [device_num-1:0], rready_from_xbar [device_num-1:0], 
+  bready_from_xbar [device_num-1:0],
+  rvalid_from_xbar [device_num-1:0], awready_from_xbar [device_num-1:0],
+  wready_from_xbar [device_num-1:0], arready_from_xbar [device_num-1:0],
+  bvalid_from_xbar [device_num-1:0];
 
 wire [31:0] 
-  awaddr_from_xbar [1:0], araddr_from_xbar [1:0], wdata_from_xbar [1:0], rdata_from_xbar [1:0];
+  awaddr_from_xbar [device_num-1:0], araddr_from_xbar [device_num-1:0],
+  wdata_from_xbar [device_num-1:0], rdata_from_xbar [device_num-1:0];
 wire [3:0]
-  wstrb_from_xbar [1:0];
+  wstrb_from_xbar [device_num-1:0];
 wire
-  bresp_from_xbar [1:0];
+  bresp_from_xbar [device_num-1:0];
 
 xbar xbar(
   .m_awvalid(awvalid_from_arbiter),
@@ -230,6 +234,30 @@ uart uart0(
   .rready(rready_from_xbar[1]),
   .rvalid(rvalid_from_xbar[1]),
   .rdata(rdata_from_xbar[1])
+);
+
+client client0(
+  .clk(clk),
+  .awvalid(awvalid_from_xbar[2]),
+  .awready(awready_from_xbar[2]),
+  .awaddr(awaddr_from_xbar[2]),
+  
+  .wvalid(wvalid_from_xbar[2]),
+  .wready(wready_from_xbar[2]),
+  .wdata(wdata_from_xbar[2]),
+  .wstrb(wstrb_from_xbar[2]),
+
+  .bvalid(bvalid_from_xbar[2]),
+  .bready(bready_from_xbar[2]),
+  .bresp(bresp_from_xbar[2]),
+
+  .arvalid(arvalid_from_xbar[2]),
+  .arready(arready_from_xbar[2]),
+  .araddr(araddr_from_xbar[2]),
+
+  .rready(rready_from_xbar[2]),
+  .rvalid(rvalid_from_xbar[2]),
+  .rdata(rdata_from_xbar[2])
 );
 
 `endif
