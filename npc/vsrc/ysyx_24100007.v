@@ -321,7 +321,10 @@ ysyx_24100007_arbiter #(2) arviter0(
   .bresp_in(io_master_bresp)
 );
 
-  assign io_master_arsize = 3'b011;
-  assign io_master_arid = 4'b001;
+  assign io_master_arsize = 3'b010;
+  assign io_master_arid = 4'b0001;
+  assign io_master_arburst = 2'b01;
+  assign io_master_arlen = 3;
+  
 
 endmodule

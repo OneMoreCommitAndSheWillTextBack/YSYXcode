@@ -2760,8 +2760,8 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_init_sub__TOP__0(VysyxSoCFull___
     tracep->declBit(c+621,"tf_overrun", false,-1);
     tracep->declBus(c+1143,"s_idle", false,-1, 2,0);
     tracep->declBus(c+1118,"s_send_start", false,-1, 2,0);
-    tracep->declBus(c+1203,"s_send_byte", false,-1, 2,0);
-    tracep->declBus(c+1136,"s_send_parity", false,-1, 2,0);
+    tracep->declBus(c+1136,"s_send_byte", false,-1, 2,0);
+    tracep->declBus(c+1203,"s_send_parity", false,-1, 2,0);
     tracep->declBus(c+1175,"s_send_stop", false,-1, 2,0);
     tracep->declBus(c+1204,"s_pop_byte", false,-1, 2,0);
     tracep->pushNamePrefix("fifo_tx ");
@@ -4585,9 +4585,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_full_sub_0(VysyxSoCFull___024roo
     bufp->fullCData(oldp+1132,(vlSelf->ysyxSoCFull__DOT__asic__DOT___cpu_auto_master_out_awburst),2);
     bufp->fullBit(oldp+1133,(vlSelf->ysyxSoCFull__DOT__asic__DOT___cpu_auto_master_out_wlast));
     bufp->fullCData(oldp+1134,(1U),4);
-    bufp->fullCData(oldp+1135,(vlSelf->ysyxSoCFull__DOT__asic__DOT___cpu_auto_master_out_arlen),8);
-    bufp->fullCData(oldp+1136,(3U),3);
-    bufp->fullCData(oldp+1137,(vlSelf->ysyxSoCFull__DOT__asic__DOT___cpu_auto_master_out_arburst),2);
+    bufp->fullCData(oldp+1135,(3U),8);
+    bufp->fullCData(oldp+1136,(2U),3);
+    bufp->fullCData(oldp+1137,(1U),2);
     bufp->fullBit(oldp+1138,(1U));
     bufp->fullBit(oldp+1139,(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__io_slave_awready));
     bufp->fullIData(oldp+1140,(0U),32);
@@ -4652,6 +4652,6 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_full_sub_0(VysyxSoCFull___024roo
     bufp->fullCData(oldp+1200,(0xaU),4);
     bufp->fullIData(oldp+1201,(0xbU),32);
     bufp->fullIData(oldp+1202,(5U),32);
-    bufp->fullCData(oldp+1203,(2U),3);
+    bufp->fullCData(oldp+1203,(3U),3);
     bufp->fullCData(oldp+1204,(5U),3);
 }
