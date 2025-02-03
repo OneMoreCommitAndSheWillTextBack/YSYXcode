@@ -10,6 +10,8 @@
 
 #include "common.h"
 
+#define RESET_TIME 10
+
 void init_disasm(const char *triple);
 
 uint32_t img[] = {0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513,
@@ -110,13 +112,15 @@ void init(int argc, char *argv[]) {
   npc->top = new VysyxSoCFull;
 
   init_trace();
-  npc->state = STOP;
-  npc->top->reset = 1;
-  npc->top->eval();
-  demp_wave();
-  npc->top->reset = 0;
-  npc->top->eval();
-  demp_wave();
+  for (int i=0;i<RESET_TIME;i++){
+    npc->state = STOP;
+    npc->top->reset = 1;
+    npc->top->eval();
+    demp_wave();
+    npc->top->reset = 0;
+    npc->top->eval();
+    demp_wave();
+  }
 #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
 #endif
