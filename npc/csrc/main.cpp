@@ -1,9 +1,9 @@
 #include "common.h"
 
 extern "C" void flash_read(int32_t addr, int32_t *data) { assert(0); }
-extern "C" int mrom_read(int32_t addr, int32_t *data) {
+extern "C" void mrom_read(int32_t addr, int32_t *data) {
   printf("call the function mrom_read\n");
-  return 0b00000000000100000000000001110011;
+  *data =  0b00000000000100000000000001110011;
 }
 
 extern int times;
