@@ -112,9 +112,11 @@ void init(int argc, char *argv[]) {
   npc->top = new VysyxSoCFull;
 
   init_trace();
+  npc->state = STOP;
   npc->top->reset = 1;
   for (int i=0;i<RESET_TIME;i++){
     npc->top->eval();
+    demp_wave();
   }
   npc->top->reset = 0;
   npc->top->eval();
