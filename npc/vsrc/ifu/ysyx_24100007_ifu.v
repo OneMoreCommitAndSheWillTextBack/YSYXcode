@@ -48,7 +48,7 @@ module ysyx_24100007_ifu(
     if(state == FIRST)
       state <= PROCESSION; 
       
-    if(arready)
+    if(arready & state == FIRST)
       state <= WAIT;
   end
 
