@@ -10,7 +10,7 @@
 
 #include "common.h"
 
-#define RESET_TIME 10
+#define RESET_TIME 100
 
 void init_disasm(const char *triple);
 

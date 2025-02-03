@@ -48,7 +48,7 @@ module ysyx_24100007_ifu(
     if(state == FIRST)
       state <= PROCESSION; 
       
-    if(state == PROCESSION)
+    if(arready)
       state <= WAIT;
   end
 
@@ -57,7 +57,7 @@ module ysyx_24100007_ifu(
   assign inst = inst_reg;
   assign valid = (inst != 0) & ~rvalid;
 
-  assign arvalid = ready;
+  assign arvalid = ready & (state != WAIT);
   assign araddr = npc;
   assign rready = ready;
 
