@@ -322,5 +322,6 @@ ysyx_24100007_arbiter #(2) arviter0(
 );
 
   assign io_master_arsize = 3'b011;
+  assign io_master_arid = 4'b001;
 
 endmodule
