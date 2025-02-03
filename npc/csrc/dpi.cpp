@@ -7,6 +7,8 @@ extern Cpu *cpu;
 extern "C" void ret(int pc) {
   if (pc != 0)
     cpu->con.pc = (uint32_t)pc;
+  if (pc == 0)
+    printf("get a ebraek\n");
   set_npc_end();
 }
 

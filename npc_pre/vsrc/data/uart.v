@@ -1,5 +1,4 @@
-module uart(
-  // global
+module client(
   input clk,
 
   // write address channel
@@ -28,42 +27,55 @@ module uart(
   output rvalid,
   output [31:0] rdata
 );
+  
+  // the mtime has two part
+  // mtime[0] is lower 32 bit
+  // mtime[1] is upper 32 bit
+  reg [31:0] mtime_reg [1:0];
+
+  always @(posedge clk) begin
+    mtime_reg[0] <= mtime_reg[0] + 1;
+    if (mtime_reg[0] == 32'hFFFFFFFF) begin
+      mtime_reg[1] <= mtime_reg[1] + 1;
+    end
+  end
+
   typedef enum logic {
-      WAITING,
-      OUTPUT
+    WAITING,
+    OUTPUT
   } state_t;
 
   reg state;
-
+  
   always @(posedge clk) begin
-    case (state)
+    case(state) 
       WAITING: begin
-        if(awvalid & wvalid) begin
+        if (arvalid) begin
           state <= OUTPUT;
         end
       end
-      
+
       OUTPUT: begin
-        if(awvalid & wvalid) begin
+        if (arvalid & rready) begin
           state <= WAITING;
         end
       end
     endcase
   end
 
-  always @(*) begin
-    if (state == OUTPUT) begin
-      $write("%s", wdata[7:0]);
-      $fflush();
-    end
-  end
+  assign rdata = (state == WAITING) ? 0 :
+                 (araddr == 32'ha0000048) ? mtime_reg[0] :
+                 (araddr == 32'ha000004c) ? mtime_reg[1] :
+                 0;
 
+<<<<<<<< HEAD:npc/vsrc/tools/device/ysyx_24100007_client.v
+  assign arready = (state == WAITING);
+========
   assign awready = (state == WAITING);
   assign wready = (state == WAITING);
+>>>>>>>> tracer-ysyx:npc_pre/vsrc/data/uart.v
 
-  assign bresp = state == OUTPUT;
-  assign rvalid = 0;
+  assign bresp = 0;
+  assign rvalid = state == OUTPUT;
 
-  assign rdata = 0;
-  
 endmodule

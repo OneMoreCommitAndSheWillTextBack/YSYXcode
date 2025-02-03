@@ -1,4 +1,4 @@
-module arbiter #(parameter DEVICE_NUM=2) (
+module ysyx_24100007_arbiter #(parameter DEVICE_NUM=2) (
   input wire clk,
 
   // master interface
@@ -19,7 +19,7 @@ module arbiter #(parameter DEVICE_NUM=2) (
   input [31:0] wdata  [DEVICE_NUM-1:0],
   input [3:0] wstrb [DEVICE_NUM-1:0],
   output [31:0] rdata [DEVICE_NUM-1:0],
-  output bresp [DEVICE_NUM-1:0],
+  output [1:0] bresp [DEVICE_NUM-1:0],
 
   // subordinate interface
   output awvalid_out, 
@@ -38,7 +38,7 @@ module arbiter #(parameter DEVICE_NUM=2) (
   output [31:0] wdata_out,
   output [3:0] wstrb_out,
   input [31:0] rdata_in,
-  input bresp_in
+  input [1:0] bresp_in
 );
 reg busy;
 reg [DEVICE_NUM-1:0] giant;
@@ -46,7 +46,7 @@ integer i;
 
 always @(posedge clk) begin
   if(busy) begin
-    if(rvalid_in | bresp_in) begin
+    if(rvalid_in | bvalid_in) begin
       busy <= 0;
       giant <= {DEVICE_NUM{1'b0}};
     end
@@ -102,7 +102,7 @@ assign wstrb_out = wstrb_out_reg;
 
 assign rdata[0] = rdata_in;
 assign rdata[1] = rdata_in;
-assign bresp[0] = bresp_in & giant[0];
-assign bresp[1] = bresp_in & giant[1];
+assign bresp[0] = bresp_in & {2{giant[0]}};
+assign bresp[1] = bresp_in & {2{giant[1]}};
 
 endmodule

@@ -13,6 +13,7 @@
 /fceux-am
 /nvboard
 /am-kernels
+/npc_pre
 /.nvim
 /.hdl_checker
 /.git
