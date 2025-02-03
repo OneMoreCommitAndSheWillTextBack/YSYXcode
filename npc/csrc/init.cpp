@@ -1,4 +1,4 @@
-#include "Vtop.h"
+#include "VysyxSoCFull.h"
 #include "map.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
@@ -107,14 +107,14 @@ void init(int argc, char *argv[]) {
   npc = new Npc;
   cpu = new Cpu;
   cpu->con.pc = MBASE - 8;
-  npc->top = new Vtop;
+  npc->top = new VysyxSoCFull;
 
   init_trace();
   npc->state = STOP;
-  npc->top->rst = 1;
+  npc->top->reset = 1;
   npc->top->eval();
   demp_wave();
-  npc->top->rst = 0;
+  npc->top->reset = 0;
   npc->top->eval();
   demp_wave();
 #ifdef DIFFTEST

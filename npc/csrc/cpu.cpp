@@ -20,10 +20,10 @@ void demp_wave() {
 }
 
 static void exe_once() {
-  npc->top->clk = 1;
+  npc->top->clock = 1;
   npc->top->eval();
   demp_wave();
-  npc->top->clk = 0;
+  npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
   times += 1;

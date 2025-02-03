@@ -1,8 +1,12 @@
 #include "common.h"
 
+extern "C" void flash_read(int32_t addr, int32_t *data) { assert(0); }
+extern "C" void mrom_read(int32_t addr, int32_t *data) { assert(0); }
+
 extern int times;
 extern Npc *npc;
 int main(int argc, char *argv[]) {
+  Verilated::commandArgs(argc, argv);
   init(argc, argv);
 
   if (batch_mode()) {

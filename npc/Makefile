@@ -1,7 +1,9 @@
-TOPNAME=top
+TOPNAME = ysyxSoCFull
 VERILATOR=verilator
-VERILATOR_CFLAGS = --trace --prof-exec --cc --exe --build
+VERILATOR_FLAGS = --trace --prof-exec --cc --MMD  --exe --build
+SOCPATH = /home/ysyx/project/ysyx-workbench/ysyxSoC
 INCLUDE_PATH = $(abspath ./include/)
+VERILATOR_INCLUDE_PATH = $(abspath ./vsrc/include/)
 
 VSRC=$(shell find $(abspath ./vsrc/) -name "*.v")
 CSRC=$(shell find $(abspath ./csrc/) -name "*.cpp")
@@ -12,6 +14,14 @@ CFLAGS = $(patsubst %, --CFLAGS "-I%", $(INCLUDE_PATH))
 CFLAGS += $(patsubst %, --CFLAGS "%", $(LLVMFLAGS) -fPIE)
 CFLAGS += $(patsubst %, --LDFLAGS "%", $(shell llvm-config --libs))
 
+VERILATOR_FLAGS += --timescale "1ns/1ns" --no-timing
+VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
+VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/spi/rtl
+VSRC += $(shell find $(SOCPATH)/perip -name "*.v")
+VSRC += $(SOCPATH)/build/ysyxSoCFull.v
+
+VERILATOR_INCLUDE = $(patsubst %, -I%, $(VERILATOR_INCLUDE_PATH))
+
 BUILDDIR = ./build
 OBJDIR = $(BUILDDIR)/obj_dir
 BIN = $(BUILDDIR)/$(TOPNAME)
@@ -20,9 +30,9 @@ $(shell mkdir -p $(BUILDDIR))
 
 $(BIN): $(VSRC) $(CSRC)
 	@rm -rf $(OBJDIR)
-	$(VERILATOR) $(VERILATOR_CFLAGS) $^ \
+	$(VERILATOR) $(VERILATOR_FLAGS) $^ \
 		$(CFLAGS) \
-		-I./vsrc/include/ \
+		$(VERILATOR_INCLUDE) \
 		--top-module $(TOPNAME) \
 		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN))
 

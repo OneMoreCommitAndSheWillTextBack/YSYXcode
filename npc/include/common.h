@@ -1,4 +1,4 @@
-#include "Vtop.h"
+#include "VysyxSoCFull.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include <cstdint>
@@ -15,7 +15,7 @@
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 
 typedef struct {
-  Vtop *top;
+  VysyxSoCFull *top;
   enum npcstate state;
 } Npc;
 
