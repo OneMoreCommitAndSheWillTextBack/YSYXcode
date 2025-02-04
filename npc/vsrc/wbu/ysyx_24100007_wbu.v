@@ -38,23 +38,27 @@ module ysyx_24100007_wbu(
   input [31:0] rdata
 );
 
+  typedef enum logic [1:0]{
+    READY,
+    WAIT_HAMDSHAKE,
+    WAIT_SLAVE
+  } state_t;
+  reg [1:0] state;
+
   wire [31:0] memread;
-  reg bresp_get;
-  reg rvalid_get;
 
   assign wstrb = (memmask == 3'b001) ? 4'b0001 :
                  (memmask == 3'b010) ? 4'b0011 :
                  (memmask == 3'b011) ? 4'b0111 :
                  (memmask == 3'b100) ? 4'b1111 :
                  4'b1111;
-  
 
-	assign awvalid = memew & ~bresp_get;
+	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
   assign awaddr = res;
-  assign wvalid = memew & ~bresp_get;
+  assign wvalid = memew & (state == WAIT_HAMDSHAKE);
   assign wdata = regout2;
   assign bready = memew;
-  assign arvalid = memer & ~rvalid_get;
+  assign arvalid = memer & (state == WAIT_HAMDSHAKE);
   assign araddr = res;
   assign rready = memer; 
 
@@ -73,22 +77,29 @@ module ysyx_24100007_wbu(
   });
 
   wire ready = arready & wready & awready;
-  assign ready_to = ((memer | memew) == 0) ? 1 :
-                    ((rvalid_get & memer) == 1) ? 1 : 
-                    ((bresp_get & memew) == 1) ? 1 : 0;
+  assign ready_to = state == READY;
   assign memvalid = rvalid & memer;
 
   always @(posedge clk) begin
-    if(bready)
-      if(bresp == 2'b00)
-        bresp_get <= 1;
+    case(state)
+      READY: begin
+        if (memer | memew) 
+          state <= WAIT_HAMDSHAKE;
+      end
 
-    if(rvalid)
-      rvalid_get <= 1;
+      WAIT_HAMDSHAKE: begin
+        if(arready | (awready & wready))
+          state <= WAIT_SLAVE;
+      end
 
-    if(~valid_from) begin
-      bresp_get <= 0;
-      rvalid_get <= 0;
-    end
+      WAIT_SLAVE: begin
+        if(rvalid | (bvalid & bresp == 2'b00))
+          state <= READY;
+      end
+
+      default: begin
+        state <= READY;
+      end
+    endcase
   end
 endmodule
