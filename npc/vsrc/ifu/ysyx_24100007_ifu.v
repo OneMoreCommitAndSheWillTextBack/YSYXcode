@@ -61,8 +61,10 @@ module ysyx_24100007_ifu(
         end
 
         VALID: begin
-          if (ready)
+          if (ready) begin
             state <= WAIT_HANDSHAKE;
+            inst_reg <= 0;
+          end
         end
 
         WAIT_HANDSHAKE: begin

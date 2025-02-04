@@ -15,8 +15,8 @@ extern "C" void ret(int pc) {
 extern "C" void flash_read(int32_t addr, int32_t *data) { assert(0); }
 extern "C" void mrom_read(int32_t addr, int32_t *data) {
   *data = pmem_read(guest_to_host(addr), 4);
-  if(*data != 0)
-    printf("read mrom addr 0x%08x data 0x%08x\n", addr, *data);
+  // if(*data != 0)
+  //   printf("read mrom addr 0x%08x data 0x%08x\n", addr, *data);
 }
 
 extern "C" void host_get_pc(int pc) {

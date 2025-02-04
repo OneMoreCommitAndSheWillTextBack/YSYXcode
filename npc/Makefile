@@ -1,6 +1,6 @@
 TOPNAME = ysyxSoCFull
 VERILATOR=verilator
-VERILATOR_FLAGS = --trace --prof-exec --cc --MMD  --exe --build
+VERILATOR_FLAGS = --trace --prof-exec --cc --MMD  --exe --build --autoflush
 SOCPATH = /home/ysyx/project/ysyx-workbench/ysyxSoC
 INCLUDE_PATH = $(abspath ./include/)
 VERILATOR_INCLUDE_PATH = $(abspath ./vsrc/include/)

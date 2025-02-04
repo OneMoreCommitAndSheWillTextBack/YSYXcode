@@ -17,8 +17,8 @@ module ysyx_24100007_pcreg(
       pcout <= init;
     end else
     if (ready_from == 1) begin
-      if (npc == pcout) 
-        ret(0);
+      // if (npc == pcout) 
+      //   ret(0);
       pcout <= npc;
     end
   end
