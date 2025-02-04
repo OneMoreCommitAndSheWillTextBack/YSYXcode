@@ -83,13 +83,13 @@ module ysyx_24100007_ifu(
   // Assign outputs
   assign pc = pcbridge;
   assign inst = inst_reg;
-  assign valid = state == VALID;
+  assign valid = state == VALID | state == PROCESSION;
 
   assign arvalid = state == WAIT_HANDSHAKE;
   assign araddr = pc;
   assign rready = ready;
 
-  assign infetch_ready = (state == VALID) & ready;
+  assign infetch_ready = valid & ready;
   assign regprocess = state == PROCESSION;
 
   always @(posedge clk) begin

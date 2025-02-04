@@ -21,23 +21,20 @@ module ysyx_24100007_registers(
   // write op
   always @(posedge clk or posedge rst) begin 
     if(rst) begin
-      for(i=0;i<32;i=i+1) begin
+      for(i=1;i<32;i=i+1) begin
         gr[i] <= 0;
       end
     end else if(ew) begin
       gr[addr] <= data;
       // $display("reg[%d] write a 0x%08x", addr, data);
-      gr[0] <= 0;
     end 
 
     if(csrrw) begin 
       {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data};
-      gr[0] <= 0;
     end
   
     if(csrrs) begin
       {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data|csr[csr_choose]};
-      gr[0] <= 0;
     end
 
     if(ecall) begin
@@ -47,9 +44,11 @@ module ysyx_24100007_registers(
   end
 
   always @(*) begin
-    for(i=0;i<32;i=i+1) begin
+    host_get_reg(0, 0);
+    for(i=1;i<32;i=i+1) begin
       host_get_reg(gr[i], i);
     end
+
     for(i=0;i<4;i++) begin
       host_get_csr(csr[i], i);
     end
