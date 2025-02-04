@@ -55,6 +55,7 @@ module ysyx_24100007_ifu(
         PROCESSION: begin
           if (ready) begin
             state <= WAIT_HANDSHAKE;
+            inst_reg <= 0;
           end else begin
             state <= VALID;
           end
