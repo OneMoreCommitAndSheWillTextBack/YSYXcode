@@ -65,6 +65,7 @@ module ysyx_24100007_ifu(
         WAIT_SLAVE: begin
           if (rvalid) begin
             state <= VALID;
+            inst_reg <= rdata;
           end
         end
       endcase
@@ -77,7 +78,7 @@ module ysyx_24100007_ifu(
   assign valid = state == VALID;
 
   assign arvalid = state == WAIT_HANDSHAKE;
-  assign araddr = npc;
+  assign araddr = pc;
   assign rready = ready;
 
   assign infetch_ready = state == VALID;
