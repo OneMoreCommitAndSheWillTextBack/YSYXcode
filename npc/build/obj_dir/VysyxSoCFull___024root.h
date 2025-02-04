@@ -630,10 +630,10 @@ class VysyxSoCFull___024root final : public VerilatedModule {
         CData/*3:0*/ __VdfgTmp_hcd113934__0;
         CData/*2:0*/ __VdfgTmp_ha17ae98a__0;
         CData/*5:0*/ __Vtableidx1;
-        CData/*1:0*/ __Vtableidx3;
-        CData/*7:0*/ __Vtableidx4;
-        CData/*7:0*/ __Vtableidx7;
-        CData/*3:0*/ __Vtableidx9;
+        CData/*1:0*/ __Vtableidx2;
+        CData/*7:0*/ __Vtableidx3;
+        CData/*7:0*/ __Vtableidx6;
+        CData/*3:0*/ __Vtableidx8;
         CData/*2:0*/ __Vdly__ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__state;
         CData/*0:0*/ __Vdly__ysyxSoCFull__DOT___asic_spi_mosi;
         CData/*2:0*/ __Vdly__ysyxSoCFull__DOT__flash__DOT__state;
@@ -740,7 +740,7 @@ class VysyxSoCFull___024root final : public VerilatedModule {
         IData/*31:0*/ ysyxSoCFull__DOT__flash__DOT__rdata;
         IData/*31:0*/ ysyxSoCFull__DOT__flash__DOT__data_bswap;
         IData/*31:0*/ __VdfgTmp_hf132a334__0;
-        IData/*31:0*/ __Vtask_ysyxSoCFull__DOT__asic__DOT__lmrom__DOT__mrom__DOT__mrom_read__7__rdata;
+        IData/*31:0*/ __Vtask_ysyxSoCFull__DOT__asic__DOT__lmrom__DOT__mrom__DOT__mrom_read__8__rdata;
         IData/*23:0*/ __Vdly__ysyxSoCFull__DOT__flash__DOT__addr;
         IData/*31:0*/ __Vdly__ysyxSoCFull__DOT__flash__DOT__data;
     };

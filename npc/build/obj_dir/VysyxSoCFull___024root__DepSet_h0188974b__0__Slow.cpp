@@ -1029,12 +1029,12 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->__VdfgTmp_h1b89b898__0 = 0;
     vlSelf->__VdfgTmp_hcd113934__0 = 0;
     vlSelf->__VdfgTmp_ha17ae98a__0 = 0;
-    vlSelf->__Vtask_ysyxSoCFull__DOT__asic__DOT__lmrom__DOT__mrom__DOT__mrom_read__7__rdata = 0;
+    vlSelf->__Vtask_ysyxSoCFull__DOT__asic__DOT__lmrom__DOT__mrom__DOT__mrom_read__8__rdata = 0;
     vlSelf->__Vtableidx1 = 0;
+    vlSelf->__Vtableidx2 = 0;
     vlSelf->__Vtableidx3 = 0;
-    vlSelf->__Vtableidx4 = 0;
-    vlSelf->__Vtableidx7 = 0;
-    vlSelf->__Vtableidx9 = 0;
+    vlSelf->__Vtableidx6 = 0;
+    vlSelf->__Vtableidx8 = 0;
     vlSelf->__Vdly__ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__state = VL_RAND_RESET_I(3);
     vlSelf->__Vdly__ysyxSoCFull__DOT___asic_spi_mosi = VL_RAND_RESET_I(1);
     vlSelf->__Vdly__ysyxSoCFull__DOT__flash__DOT__state = VL_RAND_RESET_I(3);

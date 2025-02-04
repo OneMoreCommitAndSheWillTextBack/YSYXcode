@@ -99,7 +99,8 @@ module ysyx_24100007_wbu(
       end
 
       FINISH: begin
-        
+        if (~valid_from)
+          state <= READY;
       end
     endcase
   end
