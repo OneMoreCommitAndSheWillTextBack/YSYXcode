@@ -21,10 +21,11 @@ module ysyx_24100007_ifu(
 
   wire [31:0] pcbridge;
   wire infetch_ready;
-  reg [1:0] state;
+  reg [2:0] state;
 
-  typedef enum logic[1:0]{
+  typedef enum logic[2:0]{
     START,
+    PROCESSION,
     VALID,
     WAIT_HANDSHAKE,
     WAIT_SLAVE
@@ -51,6 +52,10 @@ module ysyx_24100007_ifu(
           end
         end
 
+        PROCESSION: begin
+          state <= VALID;
+        end
+
         VALID: begin
           if (ready)
             state <= WAIT_HANDSHAKE;
@@ -64,10 +69,13 @@ module ysyx_24100007_ifu(
 
         WAIT_SLAVE: begin
           if (rvalid) begin
-            state <= VALID;
+            state <= PROCESSION;
             inst_reg <= rdata;
           end
         end
+
+        default:
+          $error("state error");
       endcase
     end
   end
@@ -82,6 +90,7 @@ module ysyx_24100007_ifu(
   assign rready = ready;
 
   assign infetch_ready = (state == VALID) & ready;
+  assign regprocess = state == PROCESSION;
 
   always @(posedge clk) begin
     host_get_valid({31'b0, arready});
