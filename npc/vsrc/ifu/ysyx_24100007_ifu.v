@@ -53,7 +53,11 @@ module ysyx_24100007_ifu(
         end
 
         PROCESSION: begin
-          state <= VALID;
+          if (ready) begin
+            state <= WAIT_HANDSHAKE;
+          end else begin
+            state <= VALID;
+          end
         end
 
         VALID: begin
@@ -89,7 +93,7 @@ module ysyx_24100007_ifu(
   assign araddr = pc;
   assign rready = ready;
 
-  assign infetch_ready = valid & ready;
+  assign infetch_ready =  & ready;
   assign regprocess = state == PROCESSION;
 
   always @(posedge clk) begin
