@@ -76,7 +76,7 @@ module ysyx_24100007_ifu(
   assign inst = inst_reg;
   assign valid = state == VALID;
 
-  assign arvalid = ready & (state != WAIT_HANDSHAKE);
+  assign arvalid = state == WAIT_HANDSHAKE;
   assign araddr = npc;
   assign rready = ready;
 
