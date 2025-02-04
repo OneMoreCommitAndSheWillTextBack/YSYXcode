@@ -41,7 +41,8 @@ module ysyx_24100007_wbu(
   typedef enum logic [1:0]{
     READY,
     WAIT_HAMDSHAKE,
-    WAIT_SLAVE
+    WAIT_SLAVE,
+    FINISH
   } state_t;
   reg [1:0] state;
 
@@ -94,11 +95,12 @@ module ysyx_24100007_wbu(
 
       WAIT_SLAVE: begin
         if(rvalid | (bvalid & bresp == 2'b00))
-          state <= READY;
+          state <= FINISH;
       end
 
-      default: begin
-        state <= READY;
+      FINISH: begin
+        if (~valid_from)
+          state <= READY;
       end
     endcase
   end
