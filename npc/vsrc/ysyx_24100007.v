@@ -327,7 +327,7 @@ ysyx_24100007_arbiter #(2) arviter0(
   assign io_master_arburst = 2'b01;
   assign io_master_arlen = 0;
 
-  assign io_master_awsize = 3'b100;
+  assign io_master_awsize = 3'b010;
   assign io_master_awburst = 2'b01;
   assign io_master_arlen = 0;
 endmodule
