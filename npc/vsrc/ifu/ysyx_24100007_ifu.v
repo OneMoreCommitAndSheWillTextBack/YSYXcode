@@ -41,30 +41,34 @@ module ysyx_24100007_ifu(
   
   reg [31:0] inst_reg;
   always @(posedge clk) begin
-     case (state)
-      START: begin
-        if (ready) begin
-          state <= WAIT_HANDSHAKE;
+    if(rst) begin
+      state <= START;
+    end else begin
+      case (state)
+        START: begin
+          if (ready) begin
+            state <= WAIT_HANDSHAKE;
+          end
         end
-      end
 
-      VALID: begin
-        if (ready)
-          state <= WAIT_HANDSHAKE;
-      end
-
-      WAIT_HANDSHAKE: begin
-        if (arready) begin
-          state <= WAIT_SLAVE;
+        VALID: begin
+          if (ready)
+            state <= WAIT_HANDSHAKE;
         end
-      end
 
-      WAIT_SLAVE: begin
-        if (rvalid) begin
-          state <= VALID;
+        WAIT_HANDSHAKE: begin
+          if (arready) begin
+            state <= WAIT_SLAVE;
+          end
         end
-      end
-     endcase
+
+        WAIT_SLAVE: begin
+          if (rvalid) begin
+            state <= VALID;
+          end
+        end
+      endcase
+    end
   end
 
   // Assign outputs
