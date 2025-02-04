@@ -53,9 +53,9 @@ module ysyx_24100007_wbu(
                  (memmask == 3'b100) ? 4'b1111 :
                  4'b1111;
 
-	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
+	assign awvalid = memew;
   assign awaddr = res;
-  assign wvalid = memew & (state == WAIT_HAMDSHAKE);
+  assign wvalid = memew;
   assign wdata = regout2;
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
