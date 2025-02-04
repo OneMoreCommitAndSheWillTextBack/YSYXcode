@@ -15,6 +15,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___eval_static(VysyxSoCFull___024root* v
     VL_DEBUG_IF(VL_DBG_MSGF("+    VysyxSoCFull___024root___eval_static\n"); );
     // Body
     VysyxSoCFull___024root___eval_static__TOP(vlSelf);
+    vlSelf->__Vm_traceActivity[9U] = 1U;
     vlSelf->__Vm_traceActivity[8U] = 1U;
     vlSelf->__Vm_traceActivity[7U] = 1U;
     vlSelf->__Vm_traceActivity[6U] = 1U;
@@ -47,6 +48,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___eval_initial(VysyxSoCFull___024root* 
     VL_DEBUG_IF(VL_DBG_MSGF("+    VysyxSoCFull___024root___eval_initial\n"); );
     // Body
     VysyxSoCFull___024root___eval_initial__TOP(vlSelf);
+    vlSelf->__Vm_traceActivity[9U] = 1U;
     vlSelf->__Vm_traceActivity[8U] = 1U;
     vlSelf->__Vm_traceActivity[7U] = 1U;
     vlSelf->__Vm_traceActivity[6U] = 1U;
@@ -159,6 +161,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___eval_stl(VysyxSoCFull___024root* vlSe
     // Body
     if (vlSelf->__VstlTriggered.at(0U)) {
         VysyxSoCFull___024root___stl_sequent__TOP__0(vlSelf);
+        vlSelf->__Vm_traceActivity[9U] = 1U;
         vlSelf->__Vm_traceActivity[8U] = 1U;
         vlSelf->__Vm_traceActivity[7U] = 1U;
         vlSelf->__Vm_traceActivity[6U] = 1U;
@@ -450,6 +453,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__io_slave_rlast = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__io_slave_rid = VL_RAND_RESET_I(4);
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__npc = VL_RAND_RESET_I(32);
+    vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__reg_process = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__imm = VL_RAND_RESET_I(32);
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__muximm = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__muxsig = VL_RAND_RESET_I(3);
@@ -1025,15 +1029,13 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->ysyxSoCFull__DOT__flash__DOT__rdata = VL_RAND_RESET_I(32);
     vlSelf->ysyxSoCFull__DOT__flash__DOT__data_bswap = VL_RAND_RESET_I(32);
     vlSelf->__VdfgTmp_hf132a334__0 = 0;
-    vlSelf->__VdfgTmp_h1b89b898__0 = 0;
     vlSelf->__VdfgTmp_ha02280b2__0 = 0;
     vlSelf->__VdfgTmp_ha17ae98a__0 = 0;
     vlSelf->__Vtask_ysyxSoCFull__DOT__asic__DOT__lmrom__DOT__mrom__DOT__mrom_read__7__rdata = 0;
-    vlSelf->__Vtableidx1 = 0;
-    vlSelf->__Vtableidx2 = 0;
     vlSelf->__Vtableidx3 = 0;
-    vlSelf->__Vtableidx6 = 0;
-    vlSelf->__Vtableidx8 = 0;
+    vlSelf->__Vtableidx4 = 0;
+    vlSelf->__Vtableidx7 = 0;
+    vlSelf->__Vtableidx9 = 0;
     vlSelf->__Vdly__ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__state = VL_RAND_RESET_I(2);
     vlSelf->__Vdly__ysyxSoCFull__DOT___asic_spi_mosi = VL_RAND_RESET_I(1);
     vlSelf->__Vdly__ysyxSoCFull__DOT__flash__DOT__state = VL_RAND_RESET_I(3);
@@ -1046,7 +1048,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->__Vtrigrprev__TOP__reset = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__ysyxSoCFull__DOT____Vcellinp__flash__ss = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__ysyxSoCFull__DOT___asic_spi_sck = VL_RAND_RESET_I(1);
-    for (int __Vi0 = 0; __Vi0 < 9; ++__Vi0) {
+    for (int __Vi0 = 0; __Vi0 < 10; ++__Vi0) {
         vlSelf->__Vm_traceActivity[__Vi0] = 0;
     }
 }

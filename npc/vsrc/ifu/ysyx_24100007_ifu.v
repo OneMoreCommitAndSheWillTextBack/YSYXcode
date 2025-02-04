@@ -24,9 +24,10 @@ module ysyx_24100007_ifu(
   reg [1:0] state;
 
   typedef enum logic[1:0]{
-    FIRST,
-    PROCESSION,
-    WAIT
+    START,
+    VALID,
+    WAIT_HANDSHAKE,
+    WAIT_SLAVE
   } state_t;
 
   // PC register module
@@ -40,29 +41,42 @@ module ysyx_24100007_ifu(
   
   reg [31:0] inst_reg;
   always @(posedge clk) begin
-    if(rvalid) begin
-      inst_reg <= rdata;
-      state <= FIRST;
-    end
+     case (state)
+      START: begin
+        if (ready) begin
+          state <= WAIT_HANDSHAKE;
+        end
+      end
 
-    if(state == FIRST)
-      state <= PROCESSION; 
-      
-    if(arready & state == FIRST)
-      state <= WAIT;
+      VALID: begin
+        if (ready)
+          state <= WAIT_HANDSHAKE;
+      end
+
+      WAIT_HANDSHAKE: begin
+        if (arready) begin
+          state <= WAIT_SLAVE;
+        end
+      end
+
+      WAIT_SLAVE: begin
+        if (rvalid) begin
+          state <= VALID;
+        end
+      end
+     endcase
   end
 
   // Assign outputs
   assign pc = pcbridge;
   assign inst = inst_reg;
-  assign valid = (inst != 0) & ~rvalid;
+  assign valid = state == VALID;
 
-  assign arvalid = ready & (state != WAIT);
+  assign arvalid = ready & (state != WAIT_HANDSHAKE);
   assign araddr = npc;
   assign rready = ready;
 
-  assign infetch_ready = rvalid;
-  assign regprocess = state == PROCESSION;
+  assign infetch_ready = state == VALID;
 
   always @(posedge clk) begin
     host_get_valid({31'b0, arready});
