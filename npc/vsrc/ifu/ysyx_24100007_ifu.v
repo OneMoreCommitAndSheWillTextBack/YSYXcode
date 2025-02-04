@@ -93,7 +93,7 @@ module ysyx_24100007_ifu(
   assign araddr = pc;
   assign rready = ready;
 
-  assign infetch_ready =  & ready;
+  assign infetch_ready = valid & ready;
   assign regprocess = state == PROCESSION;
 
   always @(posedge clk) begin
