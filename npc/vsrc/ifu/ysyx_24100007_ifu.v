@@ -81,7 +81,7 @@ module ysyx_24100007_ifu(
   assign araddr = pc;
   assign rready = ready;
 
-  assign infetch_ready = state == VALID;
+  assign infetch_ready = (state == VALID) & ready;
 
   always @(posedge clk) begin
     host_get_valid({31'b0, arready});
