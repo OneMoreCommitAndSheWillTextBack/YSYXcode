@@ -77,7 +77,7 @@ module ysyx_24100007_wbu(
   });
 
   wire ready = arready & wready & awready;
-  assign ready_to = state == READY;
+  assign ready_to = state == READY & ~(memer | memew);
   assign memvalid = rvalid & memer;
 
   always @(posedge clk) begin
