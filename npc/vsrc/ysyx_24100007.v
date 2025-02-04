@@ -280,6 +280,7 @@ assign ifu_rdata = rdata[0];
 
 ysyx_24100007_arbiter #(2) arviter0(
   .clk(clock), //input
+  .reset(reset),
 
   // master interface
   .awvalid(awvalid),   //input
@@ -324,7 +325,7 @@ ysyx_24100007_arbiter #(2) arviter0(
   assign io_master_arsize = 3'b100;
   assign io_master_arid = 4'b0001;
   assign io_master_arburst = 2'b01;
-  assign io_master_arlen = 3;
+  assign io_master_arlen = 0;
 
 
 endmodule

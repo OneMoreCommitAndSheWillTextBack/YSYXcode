@@ -1,5 +1,6 @@
 module ysyx_24100007_arbiter #(parameter DEVICE_NUM=2) (
   input wire clk,
+  input wire reset,
 
   // master interface
   input [DEVICE_NUM-1:0] awvalid, 
@@ -60,12 +61,12 @@ always @(posedge clk) begin
   end
 end
 
-assign awvalid_out = |(awvalid & giant);
-assign wvalid_out = |(wvalid & giant);
-assign arvalid_out = |(arvalid & giant);
+assign awvalid_out = |(awvalid & giant) & ~reset;
+assign wvalid_out = |(wvalid & giant) & ~reset;
+assign arvalid_out = |(arvalid & giant) & ~reset;
 
-assign rready_out = |(rready & giant);
-assign bready_out = |(bready & giant);
+assign rready_out = |(rready & giant) & ~reset;
+assign bready_out = |(bready & giant)& ~reset;
 
 assign awready = (giant & {DEVICE_NUM{awready_in}});
 assign wready = (giant & {DEVICE_NUM{wready_in}});

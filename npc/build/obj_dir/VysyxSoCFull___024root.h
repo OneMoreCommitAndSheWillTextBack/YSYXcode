@@ -629,7 +629,7 @@ class VysyxSoCFull___024root final : public VerilatedModule {
         CData/*7:0*/ ysyxSoCFull__DOT__flash__DOT__counter;
         CData/*7:0*/ ysyxSoCFull__DOT__flash__DOT__cmd;
         CData/*3:0*/ __VdfgTmp_h1b89b898__0;
-        CData/*3:0*/ __VdfgTmp_hbfb8fd89__0;
+        CData/*3:0*/ __VdfgTmp_hfe004635__0;
         CData/*2:0*/ __VdfgTmp_ha17ae98a__0;
         CData/*5:0*/ __Vtableidx1;
         CData/*1:0*/ __Vtableidx2;

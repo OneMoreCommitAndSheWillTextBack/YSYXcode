@@ -111,7 +111,6 @@ void init(int argc, char *argv[]) {
   cpu->con.pc = MBASE - 8;
   npc->top = new VysyxSoCFull;
 
-  init_trace();
   npc->state = STOP;
   npc->top->reset = 1;
   for (int i=0;i<RESET_TIME-1;i++){
@@ -120,6 +119,7 @@ void init(int argc, char *argv[]) {
     npc->top->clock = 0;
     npc->top->eval();
   }
+  init_trace();
   npc->top->clock = 1;
   npc->top->eval();
   demp_wave();
