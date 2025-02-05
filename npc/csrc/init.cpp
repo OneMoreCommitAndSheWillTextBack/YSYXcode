@@ -10,6 +10,8 @@
 
 #include "common.h"
 
+#define RESET_TIME 10
+
 void init_disasm(const char *triple);
 
 uint32_t img[] = {0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513,
@@ -109,9 +111,19 @@ void init(int argc, char *argv[]) {
   cpu->con.pc = MBASE - 8;
   npc->top = new VysyxSoCFull;
 
-  init_trace();
   npc->state = STOP;
   npc->top->reset = 1;
+  for (int i=0;i<RESET_TIME-1;i++){
+    npc->top->clock = 1;
+    npc->top->eval();
+    npc->top->clock = 0;
+    npc->top->eval();
+  }
+  init_trace();
+  npc->top->clock = 1;
+  npc->top->eval();
+  demp_wave();
+  npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
   npc->top->reset = 0;

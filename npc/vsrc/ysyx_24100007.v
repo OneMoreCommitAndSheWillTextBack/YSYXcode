@@ -77,7 +77,7 @@ module ysyx_24100007(
 );
 
   always @(*) begin
-    host_get_pc(npc);
+    host_get_pc(pcbridge);
     host_get_inst(inst);
   end
   //
@@ -280,6 +280,7 @@ assign ifu_rdata = rdata[0];
 
 ysyx_24100007_arbiter #(2) arviter0(
   .clk(clock), //input
+  .reset(reset),
 
   // master interface
   .awvalid(awvalid),   //input
@@ -321,4 +322,12 @@ ysyx_24100007_arbiter #(2) arviter0(
   .bresp_in(io_master_bresp)
 );
 
+  assign io_master_arsize = 3'b010;
+  assign io_master_arid = 4'b0001;
+  assign io_master_arburst = 2'b01;
+  assign io_master_arlen = 0;
+
+  assign io_master_awsize = 3'b010;
+  assign io_master_awburst = 2'b01;
+  assign io_master_arlen = 0;
 endmodule

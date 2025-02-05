@@ -47,8 +47,8 @@ module ysyx_24100007_regheap(
     .csr(rf_csr)
   );
 
-  assign regout1 = rf[src1];
-  assign regout2 = rf[src2];
+  assign regout1 = (src1 == 0) ? 0 : rf[src1];
+  assign regout2 = (src2 == 0) ? 0 : rf[src2];
 
   assign mepc = rf_csr[2];
   assign mtvec = rf_csr[1];

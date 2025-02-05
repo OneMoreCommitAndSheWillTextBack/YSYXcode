@@ -35,13 +35,13 @@ typedef struct diff_context {
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
   if (direction == DIFFTEST_TO_REF) {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; i++){
       paddr_write(addr + i, 2, *((uint8_t *)buf + i));
+    }
   } else {
     assert(0);
   }
 }
-
 
 // get DIFFTEST_TO_REF means init the nemu, input the state of 
 // npc and set the npc state to nemu

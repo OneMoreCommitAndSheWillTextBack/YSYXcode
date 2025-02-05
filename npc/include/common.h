@@ -10,7 +10,7 @@
 // config
 #include "selfconfig.h"
 
-#define MBASE 0x80000000
+#define MBASE 0x20000000
 
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 
@@ -51,6 +51,7 @@ typedef struct {
 // memory.cpp
 bool in_pmem(uint32_t addr);
 uint8_t *guest_to_host(uint32_t addr);
+uint32_t pmem_read(uint8_t *addr, uint32_t len);
 uint32_t paddr_read(uint32_t address, uint32_t len);
 void paddr_write(uint32_t address, uint32_t len, uint32_t data);
 

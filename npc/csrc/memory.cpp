@@ -5,7 +5,12 @@
 #include <cstdint>
 #include <iostream>
 
-const unsigned int msize = 0x8000000;
+/*
+  due to add the soc 
+  so the pre memory has changed to mrom
+*/
+
+const unsigned int msize = 0x800000;
 static uint8_t pmem[msize] = {};
 
 bool in_pmem(uint32_t addr) { return addr - MBASE < msize; }
@@ -69,3 +74,4 @@ void paddr_write(uint32_t addr, uint32_t len, uint32_t data) {
   printf("[paddr_write]the addr 0x%08x is out of bound\n", addr);
   assert(0);
 }
+

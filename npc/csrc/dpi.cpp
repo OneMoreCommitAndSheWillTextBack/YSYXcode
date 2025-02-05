@@ -7,23 +7,16 @@ extern Cpu *cpu;
 extern "C" void ret(int pc) {
   if (pc != 0)
     cpu->con.pc = (uint32_t)pc;
+  if (pc == 0)
+    printf("get a ebraek\n");
   set_npc_end();
 }
 
-extern "C" int guest_read(int addr, int len) {
-  uint32_t ret = paddr_read((uint32_t)addr, len);
-  return ret;
-}
-
-extern "C" void guest_write(uint32_t addr, uint32_t data, uint32_t len) {
-  // printf("the write addr is %08x\n", addr);
-  paddr_write((uint32_t)addr, len, (uint32_t)data);
-  return;
-}
-
-extern "C" int get_inst(int pc) {
-  uint32_t *inst = (uint32_t *)guest_to_host((uint32_t)pc);
-  return *inst;
+extern "C" void flash_read(int32_t addr, int32_t *data) { assert(0); }
+extern "C" void mrom_read(int32_t addr, int32_t *data) {
+  *data = pmem_read(guest_to_host(addr), 4);
+  // if(*data != 0)
+  //   printf("read mrom addr 0x%08x data 0x%08x\n", addr, *data);
 }
 
 extern "C" void host_get_pc(int pc) {

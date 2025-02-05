@@ -21,12 +21,14 @@ module ysyx_24100007_ifu(
 
   wire [31:0] pcbridge;
   wire infetch_ready;
-  reg [1:0] state;
+  reg [2:0] state;
 
-  typedef enum logic[1:0]{
-    FIRST,
+  typedef enum logic[2:0]{
+    START,
     PROCESSION,
-    WAIT
+    VALID,
+    WAIT_HANDSHAKE,
+    WAIT_SLAVE
   } state_t;
 
   // PC register module
@@ -40,32 +42,65 @@ module ysyx_24100007_ifu(
   
   reg [31:0] inst_reg;
   always @(posedge clk) begin
-    if(rvalid) begin
-      inst_reg <= rdata;
-      state <= FIRST;
-    end
+    if(rst) begin
+      state <= START;
+    end else begin
+      case (state)
+        START: begin
+          if (ready) begin
+            state <= WAIT_HANDSHAKE;
+          end
+        end
 
-    if(state == FIRST)
-      state <= PROCESSION; 
-      
-    if(state == PROCESSION)
-      state <= WAIT;
+        PROCESSION: begin
+          if (ready) begin
+            state <= WAIT_HANDSHAKE;
+            inst_reg <= 0;
+          end else begin
+            state <= VALID;
+          end
+        end
+
+        VALID: begin
+          if (ready) begin
+            state <= WAIT_HANDSHAKE;
+            inst_reg <= 0;
+          end
+        end
+
+        WAIT_HANDSHAKE: begin
+          if (arready) begin
+            state <= WAIT_SLAVE;
+          end
+        end
+
+        WAIT_SLAVE: begin
+          if (rvalid) begin
+            state <= PROCESSION;
+            inst_reg <= rdata;
+          end
+        end
+
+        default:
+          $error("state error");
+      endcase
+    end
   end
 
   // Assign outputs
   assign pc = pcbridge;
   assign inst = inst_reg;
-  assign valid = (inst != 0) & ~rvalid;
+  assign valid = state == VALID | state == PROCESSION;
 
-  assign arvalid = ready;
-  assign araddr = npc;
+  assign arvalid = state == WAIT_HANDSHAKE;
+  assign araddr = pc;
   assign rready = ready;
 
-  assign infetch_ready = rvalid;
+  assign infetch_ready = valid & ready;
   assign regprocess = state == PROCESSION;
 
   always @(posedge clk) begin
-    host_get_valid({31'b0, arready});
+    host_get_valid({31'b0, infetch_ready});
   end
 
 endmodule

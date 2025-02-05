@@ -68,12 +68,7 @@ module client(
                  (araddr == 32'ha000004c) ? mtime_reg[1] :
                  0;
 
-<<<<<<<< HEAD:npc/vsrc/tools/device/ysyx_24100007_client.v
   assign arready = (state == WAITING);
-========
-  assign awready = (state == WAITING);
-  assign wready = (state == WAITING);
->>>>>>>> tracer-ysyx:npc_pre/vsrc/data/uart.v
 
   assign bresp = 0;
   assign rvalid = state == OUTPUT;
