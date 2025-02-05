@@ -42,7 +42,6 @@ __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction)
   }
 }
 
-
 // get DIFFTEST_TO_REF means init the nemu, input the state of 
 // npc and set the npc state to nemu
 // get DIFFTEST_TO_DUT means the npc instance a diffcontext and
