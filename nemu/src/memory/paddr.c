@@ -51,8 +51,8 @@ static void out_of_bound(paddr_t addr);
 
   void soc_write(paddr_t addr, int len, word_t data) {
     if (addr >= MROM_START && addr <= MROM_END) {
-      printf("the mrom cannot be written\n");
-      assert(0);
+      host_write(mrom + addr - MROM_START, len, data);
+      return ;
     }
     if (addr >= SRAM_START && addr <= SRAM_END) {
       host_write(sram + addr - SRAM_START, len, data);
