@@ -38,11 +38,12 @@ static void out_of_bound(paddr_t addr);
   static uint8_t sram[SRAM_SIZE] PG_ALIGN = {};
 
   word_t soc_read(paddr_t addr, int len) {
+
     if (addr >= MROM_START && addr <= MROM_END) {
-      return mrom[addr - MROM_START];
+      return host_read(mrom + addr - MROM_START, len);
     }
     if (addr >= SRAM_START && addr <= SRAM_END) {
-      return sram[addr - SRAM_START];
+      return host_read(sram + addr - SRAM_START, len);
     }
     out_of_bound(addr);
     return 0;
@@ -50,11 +51,11 @@ static void out_of_bound(paddr_t addr);
 
   void soc_write(paddr_t addr, int len, word_t data) {
     if (addr >= MROM_START && addr <= MROM_END) {
-      mrom[addr - MROM_START] = data;
-      return ;
+      printf("the mrom cannot be written\n");
+      assert(0);
     }
     if (addr >= SRAM_START && addr <= SRAM_END) {
-      sram[addr - SRAM_START] = data;
+      host_write(sram + addr - SRAM_START, len, data);
       return ;
     }
     out_of_bound(addr);
