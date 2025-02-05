@@ -11,16 +11,20 @@ SECTIONS {
     } > MROM
 
     .data : {
+        . = ALIGN(4);
         _sdata_vma = .;         
         *(.data .data.*)
+        . = ALIGN(4);
         _edata_vma = .;
     } > SRAM AT> MROM           
     _sdata_lma = LOADADDR(.data); 
 
     .bss : {
+        . = ALIGN(4);
         _sbss_vma = .;
         *(.bss .bss.*)
         *(COMMON)
+        . = ALIGN(4);
         _ebss_vma = .;
     } > SRAM
 
