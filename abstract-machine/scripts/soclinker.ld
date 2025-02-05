@@ -10,4 +10,5 @@ SECTIONS {
         *(.text*)
     } > MROM
     _stack_pointer = 0x0f001fff;
+    _heap_start = 0x0f000000;
 }
