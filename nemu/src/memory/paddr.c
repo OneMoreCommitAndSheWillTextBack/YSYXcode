@@ -24,6 +24,42 @@ static uint8_t *pmem = NULL;
 static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 #endif
 
+static void out_of_bound(paddr_t addr);
+
+#ifdef CONFIG_TARGET_SHARE
+  #define MROM_SIZE 0xfff
+  #define MROM_START 0x20000000
+  #define MROM_END 0x20000fff
+  static uint8_t mrom[MROM_SIZE] PG_ALIGN = {};
+
+  #define SRAM_SIZE 8 * 1024 * 1024
+  #define SRAM_START 0x0f000000
+  #define SRAM_END 0x0f001fff
+  static uint8_t sram[SRAM_SIZE] PG_ALIGN = {};
+
+  word_t soc_read(paddr_t addr, int len) {
+    if (addr >= MROM_START && addr <= MROM_END) {
+      return mrom[addr - MROM_START];
+    }
+    if (addr >= SRAM_START && addr <= SRAM_END) {
+      return sram[addr - SRAM_START];
+    }
+    out_of_bound(addr);
+    return 0;
+  }
+
+  void soc_write(paddr_t addr, int len, word_t data) {
+    if (addr >= MROM_START && addr <= MROM_END) {
+      mrom[addr - MROM_START] = data;
+    }
+    if (addr >= SRAM_START && addr <= SRAM_END) {
+      sram[addr - SRAM_START] = data;
+    }
+    out_of_bound(addr);
+  }
+    
+#endif
+
 uint8_t *guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
 paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + CONFIG_MBASE; }
 
@@ -62,6 +98,7 @@ word_t paddr_read(paddr_t addr, int len) {
   if (likely(in_pmem(addr)))
     return pmem_read(addr, len);
   IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));
+  IFDEF(CONFIG_TARGET_SHARE, return soc_read(addr, len);)
   out_of_bound(addr);
   return 0;
 }
@@ -72,5 +109,6 @@ void paddr_write(paddr_t addr, int len, word_t data) {
     return;
   }
   IFDEF(CONFIG_DEVICE, mmio_write(addr, len, data); return);
+  IFDEF(CONFIG_TARGET_SHARE, soc_write(addr, len, data); return);
   out_of_bound(addr);
 }

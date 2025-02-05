@@ -9,5 +9,5 @@ SECTIONS {
         *(entry)
         *(.text*)
     } > MROM
-    _stack_pointer = _pmem_start;
+    _stack_pointer = 0x0f001fff;
 }
