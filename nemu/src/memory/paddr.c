@@ -51,9 +51,11 @@ static void out_of_bound(paddr_t addr);
   void soc_write(paddr_t addr, int len, word_t data) {
     if (addr >= MROM_START && addr <= MROM_END) {
       mrom[addr - MROM_START] = data;
+      return ;
     }
     if (addr >= SRAM_START && addr <= SRAM_END) {
       sram[addr - SRAM_START] = data;
+      return ;
     }
     out_of_bound(addr);
   }
