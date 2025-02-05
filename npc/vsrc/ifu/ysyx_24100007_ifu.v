@@ -100,7 +100,7 @@ module ysyx_24100007_ifu(
   assign regprocess = state == PROCESSION;
 
   always @(posedge clk) begin
-    host_get_valid({31'b0, arready});
+    host_get_valid({31'b0, infetch_ready});
   end
 
 endmodule

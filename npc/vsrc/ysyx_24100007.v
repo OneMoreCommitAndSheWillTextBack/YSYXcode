@@ -77,7 +77,7 @@ module ysyx_24100007(
 );
 
   always @(*) begin
-    host_get_pc(npc);
+    host_get_pc(pcbridge);
     host_get_inst(inst);
   end
   //
