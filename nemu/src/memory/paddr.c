@@ -60,7 +60,11 @@ static void out_of_bound(paddr_t addr);
     }
     out_of_bound(addr);
   }
-    
+
+  void init_soc() {
+    memset(mrom, 0, MROM_SIZE);
+    memset(sram, 0, SRAM_SIZE);
+  }
 #endif
 
 uint8_t *guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
@@ -75,6 +79,9 @@ static word_t pmem_read(paddr_t addr, int len) {
 }
 
 static void pmem_write(paddr_t addr, int len, word_t data) {
+  if(addr == 0x0f00010c){
+    printf("the wirte data is %u\n", data);
+  }
   host_write(guest_to_host(addr), len, data);
 #ifdef CONFIG_MTRACE
   printf("[memory write] %u to 0x%08x\n", data, addr);
@@ -93,6 +100,7 @@ void init_mem() {
   assert(pmem);
 #endif
   IFDEF(CONFIG_MEM_RANDOM, memset(pmem, rand(), CONFIG_MSIZE));
+  IFDEF(CONFIG_TARGET_SHARE, init_soc());
   Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT,
       PMEM_RIGHT);
 }
