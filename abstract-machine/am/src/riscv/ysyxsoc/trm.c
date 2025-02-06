@@ -22,16 +22,28 @@ extern char _sbss_vma;
 extern char _ebss_vma;
 
 void loader_init() {
-  //复制.data段（LMA->VMA）
-  char *src = (char*)&_sdata_lma;  // MROM中的源地址
-  char *dst = (char*)&_sdata_vma;  // SRAM中的目标地址
-  unsigned int len = (uintptr_t)&_edata_vma - (uintptr_t)dst;
+  // 复制.data段（LMA->VMA）
+  int *src = (int*)&_sdata_lma;  // 源地址（按int对齐）
+  int *dst = (int*)&_sdata_vma;  // 目标地址（按int对齐）
+  unsigned int len = (uintptr_t)&_edata_vma - (uintptr_t)dst;  // 总字节数
+  unsigned int int_len = len / sizeof(int);  // 按int复制的次数
 
-  while (len--) {
-    *dst++ = *src++;
+  for (unsigned int i = 0; i < int_len; i++) {
+    dst[i] = src[i];
   }
 
-  for (char *p = (char*)&_sbss_vma; p < (char*)&_ebss_vma; p++) {
+  unsigned int remaining = len % sizeof(int);
+  if (remaining != 0) {
+    char *src_remain = (char*)src + int_len * sizeof(int);  // 正确偏移量
+    char *dst_remain = (char*)dst + int_len * sizeof(int);  // 正确偏移量
+    for (unsigned int i = 0; i < remaining; i++) {
+      dst_remain[i] = src_remain[i];
+    }
+  }
+
+  char *bss_start = (char*)&_sbss_vma;
+  char *bss_end = (char*)&_ebss_vma;
+  for (char *p = bss_start; p < bss_end; p++) {
     *p = 0;
   }
 }

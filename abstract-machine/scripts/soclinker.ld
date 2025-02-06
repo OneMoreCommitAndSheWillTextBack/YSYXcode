@@ -10,7 +10,7 @@ SECTIONS {
         *(.text*)
     } > MROM
 
-    .data : {
+    .data : ALIGN(4) {
         . = ALIGN(4);
         _sdata_vma = .;         
         *(.data .data.*)
@@ -19,7 +19,7 @@ SECTIONS {
     } > SRAM AT> MROM           
     _sdata_lma = LOADADDR(.data); 
 
-    .bss : {
+    .bss : ALIGN(4) {
         . = ALIGN(4);
         _sbss_vma = .;
         *(.bss .bss.*)
