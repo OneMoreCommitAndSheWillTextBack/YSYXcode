@@ -39,7 +39,9 @@ static void out_of_bound(paddr_t addr);
   #define SRAM_END 0x0f001fff
   static uint8_t sram[SRAM_SIZE] PG_ALIGN = {};
   
+  extern CPU_state cpu;
   word_t soc_read(paddr_t addr, int len) {
+    printf("%08x, the data is %x\n",cpu.pc ,host_read(sram + 0x0f00010c - SRAM_START, 4));
     if (addr >= MROM_START && addr <= MROM_END) {
       return host_read(mrom + addr - MROM_START, len);
     }
