@@ -48,11 +48,11 @@ module ysyx_24100007_wbu(
 
   wire [31:0] memread;
 
-  assign wstrb = (memmask == 3'b001) ? 4'b0001 :
-                 (memmask == 3'b010) ? 4'b0011 :
-                 (memmask == 3'b011) ? 4'b0111 :
-                 (memmask == 3'b100) ? 4'b1111 :
-                 4'b1111;
+  ysyx_24100007_memwritelen strbcontol(
+    .wirtelen(memmask),
+    .final2b(awaddr[1:0]),
+    .wstrb(wstrb)
+  );
 
 	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
   assign awaddr = res;
@@ -66,6 +66,7 @@ module ysyx_24100007_wbu(
   ysyx_24100007_memreadlen memreadlen0(
     .data(rdata),
     .memsextsig(memsextsig),
+    .addr_offset(araddr[1:0]),
     .memmask(memmask),
     .read(memread)
   );
