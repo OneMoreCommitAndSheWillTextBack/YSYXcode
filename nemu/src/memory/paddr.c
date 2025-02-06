@@ -40,6 +40,9 @@ static void out_of_bound(paddr_t addr);
   static uint8_t sram[SRAM_SIZE] PG_ALIGN = {};
 
   word_t soc_read(paddr_t addr, int len) {
+    if(addr == 0x0f00010c){
+      printf("the data is %x\n", host_read(sram + addr - SRAM_START, 4));
+    }
 
     if (addr >= MROM_START && addr <= MROM_END) {
       return host_read(mrom + addr - MROM_START, len);
@@ -58,10 +61,6 @@ static void out_of_bound(paddr_t addr);
     }
     if (addr >= SRAM_START && addr <= SRAM_END) {
       host_write(sram + addr - SRAM_START, len, data);
-      if(addr == 0x0f00010c){
-      printf("the wirte data is %u\n", data);
-      printf("the data is %x\n", host_read(sram + addr - SRAM_START, 4));
-    }
       return ;
     }
     out_of_bound(addr);
