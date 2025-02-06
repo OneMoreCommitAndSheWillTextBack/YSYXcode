@@ -54,6 +54,7 @@ static void out_of_bound(paddr_t addr);
   void soc_write(paddr_t addr, int len, word_t data) {
     if(addr == 0x0f00010c){
       printf("the wirte data is %u\n", data);
+      printf("the data is %x\n", host_read(sram + addr - SRAM_START, 4));
     }
 
     if (addr >= MROM_START && addr <= MROM_END) {
