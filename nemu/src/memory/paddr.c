@@ -52,6 +52,10 @@ static void out_of_bound(paddr_t addr);
   }
 
   void soc_write(paddr_t addr, int len, word_t data) {
+    if(addr == 0x0f00010c){
+      printf("the wirte data is %u\n", data);
+    }
+
     if (addr >= MROM_START && addr <= MROM_END) {
       host_write(mrom + addr - MROM_START, len, data);
       return ;
@@ -81,10 +85,6 @@ static word_t pmem_read(paddr_t addr, int len) {
 }
 
 static void pmem_write(paddr_t addr, int len, word_t data) {
-  printf("111\n");
-  if(addr == 0x0f00010c){
-    printf("the wirte data is %u\n", data);
-  }
   host_write(guest_to_host(addr), len, data);
 #ifdef CONFIG_MTRACE
   printf("[memory write] %u to 0x%08x\n", data, addr);
