@@ -81,6 +81,7 @@ static word_t pmem_read(paddr_t addr, int len) {
 }
 
 static void pmem_write(paddr_t addr, int len, word_t data) {
+  printf("111\n");
   if(addr == 0x0f00010c){
     printf("the wirte data is %u\n", data);
   }
