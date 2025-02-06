@@ -1,7 +1,7 @@
 AM_SRCS := riscv/ysyxsoc/start.S \
            riscv/ysyxsoc/trm.c 
 
-CFLAGS    += -fdata-sections -ffunction-sections
+CFLAGS    += -fdata-sections -ffunction-sections -O2
 LDFLAGS   += -T $(AM_HOME)/scripts/soclinker.ld \
 						 --defsym=_pmem_start=0x0f000000 --defsym=_entry_offset=0x0
 
