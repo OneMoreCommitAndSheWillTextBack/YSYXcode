@@ -29,7 +29,9 @@ SECTIONS {
     .bss : ALIGN(4) {
         . = ALIGN(4);
         _sbss_vma = .;
-        *(.bss .bss.*)
+        *(.bss.*)
+        *(.sbss*)
+        *(.scommon*)
         *(COMMON)
         . = ALIGN(4);
         _ebss_vma = .;
@@ -37,5 +39,5 @@ SECTIONS {
 
     _stack_pointer = 0x0f001000;
     . = _stack_pointer + 0x8000;
-    _heap_start = 0x0f000000;
+    _heap_start = _ebss_vma;
 }
