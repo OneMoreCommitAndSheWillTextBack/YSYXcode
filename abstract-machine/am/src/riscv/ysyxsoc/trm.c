@@ -29,48 +29,28 @@ void loader_init() {
   int *src_data = (int*)&_sdata_lma;  // .data段的源地址（MROM）
   int *dst_data = (int*)&_sdata_vma;  // .data段的目标地址（SRAM）
   unsigned int data_len = (uintptr_t)&_edata_vma - (uintptr_t)dst_data;  // .data段的总字节数
-  unsigned int data_int_len = data_len / sizeof(int);  // 按int复制的次数
+  unsigned int data_int_len = data_len / sizeof(int) + 1;  // 按int复制的次数
 
   // 按int复制.data段
   for (unsigned int i = 0; i < data_int_len; i++) {
     dst_data[i] = src_data[i];
   }
 
-  // 处理.data段的剩余字节
-  unsigned int data_remaining = data_len % sizeof(int);
-  if (data_remaining != 0) {
-    char *src_data_remain = (char*)src_data + data_int_len * sizeof(int);  // 剩余字节的源地址
-    char *dst_data_remain = (char*)dst_data + data_int_len * sizeof(int);  // 剩余字节的目标地址
-    for (unsigned int i = 0; i < data_remaining; i++) {
-      dst_data_remain[i] = src_data_remain[i];
-    }
-  }
-
   // 复制.rodata段（LMA->VMA）
   int *src_rodata = (int*)&_srodata_lma;  // .rodata段的源地址（MROM）
   int *dst_rodata = (int*)&_srodata_vma;  // .rodata段的目标地址（SRAM）
   unsigned int rodata_len = (uintptr_t)&_erodata_vma - (uintptr_t)dst_rodata;  // .rodata段的总字节数
-  unsigned int rodata_int_len = rodata_len / sizeof(int);  // 按int复制的次数
+  unsigned int rodata_int_len = rodata_len / sizeof(int) + 1;  // 按int复制的次数
 
   // 按int复制.rodata段
   for (unsigned int i = 0; i < rodata_int_len; i++) {
     dst_rodata[i] = src_rodata[i];
   }
 
-  // 处理.rodata段的剩余字节
-  unsigned int rodata_remaining = rodata_len % sizeof(int);
-  if (rodata_remaining != 0) {
-    char *src_rodata_remain = (char*)src_rodata + rodata_int_len * sizeof(int);  // 剩余字节的源地址
-    char *dst_rodata_remain = (char*)dst_rodata + rodata_int_len * sizeof(int);  // 剩余字节的目标地址
-    for (unsigned int i = 0; i < rodata_remaining; i++) {
-      dst_rodata_remain[i] = src_rodata_remain[i];
-    }
-  }
-
   // 清零.bss段
   char *bss_start = (char*)&_sbss_vma;
   char *bss_end = (char*)&_ebss_vma;
-  for (char *p = bss_start; p < bss_end; p++) {
+  for (char *p = bss_start; p <= bss_end; p++) {
     *p = 0;
   }
 }
