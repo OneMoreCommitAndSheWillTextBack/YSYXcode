@@ -15,32 +15,59 @@ Area heap = RANGE(&_heap_start, PMEM_END);
 static const char mainargs[] = MAINARGS;
 
 extern char _sdata_lma;
+extern char _srodata_lma;
 extern char _bss_lma;
 extern char _sdata_vma;
 extern char _edata_vma;
+extern char _srodata_vma;
+extern char _erodata_vma;
 extern char _sbss_vma;
 extern char _ebss_vma;
 
 void loader_init() {
   // 复制.data段（LMA->VMA）
-  int *src = (int*)&_sdata_lma;  // 源地址（按int对齐）
-  int *dst = (int*)&_sdata_vma;  // 目标地址（按int对齐）
-  unsigned int len = (uintptr_t)&_edata_vma - (uintptr_t)dst;  // 总字节数
-  unsigned int int_len = len / sizeof(int);  // 按int复制的次数
+  int *src_data = (int*)&_sdata_lma;  // .data段的源地址（MROM）
+  int *dst_data = (int*)&_sdata_vma;  // .data段的目标地址（SRAM）
+  unsigned int data_len = (uintptr_t)&_edata_vma - (uintptr_t)dst_data;  // .data段的总字节数
+  unsigned int data_int_len = data_len / sizeof(int);  // 按int复制的次数
 
-  for (unsigned int i = 0; i < int_len; i++) {
-    dst[i] = src[i];
+  // 按int复制.data段
+  for (unsigned int i = 0; i < data_int_len; i++) {
+    dst_data[i] = src_data[i];
   }
 
-  unsigned int remaining = len % sizeof(int);
-  if (remaining != 0) {
-    char *src_remain = (char*)src + int_len * sizeof(int);  // 正确偏移量
-    char *dst_remain = (char*)dst + int_len * sizeof(int);  // 正确偏移量
-    for (unsigned int i = 0; i < remaining; i++) {
-      dst_remain[i] = src_remain[i];
+  // 处理.data段的剩余字节
+  unsigned int data_remaining = data_len % sizeof(int);
+  if (data_remaining != 0) {
+    char *src_data_remain = (char*)src_data + data_int_len * sizeof(int);  // 剩余字节的源地址
+    char *dst_data_remain = (char*)dst_data + data_int_len * sizeof(int);  // 剩余字节的目标地址
+    for (unsigned int i = 0; i < data_remaining; i++) {
+      dst_data_remain[i] = src_data_remain[i];
     }
   }
 
+  // 复制.rodata段（LMA->VMA）
+  int *src_rodata = (int*)&_srodata_lma;  // .rodata段的源地址（MROM）
+  int *dst_rodata = (int*)&_srodata_vma;  // .rodata段的目标地址（SRAM）
+  unsigned int rodata_len = (uintptr_t)&_erodata_vma - (uintptr_t)dst_rodata;  // .rodata段的总字节数
+  unsigned int rodata_int_len = rodata_len / sizeof(int);  // 按int复制的次数
+
+  // 按int复制.rodata段
+  for (unsigned int i = 0; i < rodata_int_len; i++) {
+    dst_rodata[i] = src_rodata[i];
+  }
+
+  // 处理.rodata段的剩余字节
+  unsigned int rodata_remaining = rodata_len % sizeof(int);
+  if (rodata_remaining != 0) {
+    char *src_rodata_remain = (char*)src_rodata + rodata_int_len * sizeof(int);  // 剩余字节的源地址
+    char *dst_rodata_remain = (char*)dst_rodata + rodata_int_len * sizeof(int);  // 剩余字节的目标地址
+    for (unsigned int i = 0; i < rodata_remaining; i++) {
+      dst_rodata_remain[i] = src_rodata_remain[i];
+    }
+  }
+
+  // 清零.bss段
   char *bss_start = (char*)&_sbss_vma;
   char *bss_end = (char*)&_ebss_vma;
   for (char *p = bss_start; p < bss_end; p++) {
