@@ -10,4 +10,4 @@
   } soc_device;
 
 void init_soc();
-soc_device *fetch_the_soc(uint32_t addr);
+soc_device *fetch_the_soc(paddr_t addr);
