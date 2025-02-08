@@ -33,6 +33,8 @@ static void out_of_bound(paddr_t addr);
   word_t soc_read(paddr_t addr, int len) {
     soc_device *dev = fetch_the_soc(addr);
     if(dev!= NULL){
+      if(dev->space == NULL)
+        panic("device %s is not able to read\n", dev->name);
       return host_read(dev->space + addr - dev->soc_start, len);
     }
     out_of_bound(addr);
@@ -42,6 +44,8 @@ static void out_of_bound(paddr_t addr);
   void soc_write(paddr_t addr, int len, word_t data) {
     soc_device *dev = fetch_the_soc(addr);
     if(dev != NULL){
+      if(dev->space == NULL)
+        return;
       host_write(dev->space + addr - dev->soc_start, len, data);
       return ;
     }

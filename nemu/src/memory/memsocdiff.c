@@ -14,6 +14,7 @@
   soc_device soc_devices[] = {
     {0x20000000, 0x20000fff, "mrom", mrom},
     {0x0f000000, 0x0f001fff, "sram", sram},
+    {0x10000000, 0x10000fff, "uart", NULL},
   };
 
   soc_device* fetch_the_soc(paddr_t addr){
