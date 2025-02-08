@@ -1,5 +1,7 @@
 #include <klib-macros.h>
 #include "am.h"
+#define UART_BASE 0x10000000
+#define UART_TX   0
 
 extern char _heap_start;
 int main(const char *args);
@@ -55,7 +57,7 @@ void loader_init() {
   }
 }
 
-void putch(char ch) { *(char *)0x10000000 = ch; }
+void putch(char ch) { *(char *)(UART_BASE + UART_TX) = ch; }
 
 void halt(int code) {
   while (1)

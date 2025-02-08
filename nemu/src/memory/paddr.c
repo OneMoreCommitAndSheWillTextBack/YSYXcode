@@ -20,6 +20,8 @@
 
 #include <stdio.h>
 
+#include <memory/memsocdiff.h>
+
 #if defined(CONFIG_PMEM_MALLOC)
 static uint8_t *pmem = NULL;
 #else // CONFIG_PMEM_GARRAY
@@ -27,44 +29,23 @@ static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 #endif
 
 static void out_of_bound(paddr_t addr);
-
 #ifdef CONFIG_TARGET_SHARE
-  #define MROM_SIZE 0xfff
-  #define MROM_START 0x20000000
-  #define MROM_END 0x20000fff
-  static uint8_t mrom[MROM_SIZE] PG_ALIGN = {};
-
-  #define SRAM_SIZE 8 * 1024 * 1024
-  #define SRAM_START 0x0f000000
-  #define SRAM_END 0x0f001fff
-  static uint8_t sram[SRAM_SIZE] PG_ALIGN = {};
-  
   word_t soc_read(paddr_t addr, int len) {
-    if (addr >= MROM_START && addr <= MROM_END) {
-      return host_read(mrom + addr - MROM_START, len);
-    }
-    if (addr >= SRAM_START && addr <= SRAM_END) {
-      return host_read(sram + addr - SRAM_START, len);
+    soc_device *dev = fetch_the_soc(addr);
+    if(dev!= NULL){
+      return host_read(dev->space + addr - dev->soc_start, len);
     }
     out_of_bound(addr);
     return 0;
   }
 
   void soc_write(paddr_t addr, int len, word_t data) {
-    if (addr >= MROM_START && addr <= MROM_END) {
-      host_write(mrom + addr - MROM_START, len, data);
-      return ;
-    }
-    if (addr >= SRAM_START && addr <= SRAM_END) {
-      host_write(sram + addr - SRAM_START, len, data);
+    soc_device *dev = fetch_the_soc(addr);
+    if(dev != NULL){
+      host_write(dev->space + addr - dev->soc_start, len, data);
       return ;
     }
     out_of_bound(addr);
-  }
-
-  void init_soc() {
-    memset(mrom, 0, MROM_SIZE);
-    memset(sram, 0, SRAM_SIZE);
   }
 #endif
 

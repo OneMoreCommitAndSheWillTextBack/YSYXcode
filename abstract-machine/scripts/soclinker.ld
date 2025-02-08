@@ -13,10 +13,11 @@ SECTIONS {
     .data : ALIGN(4) {
         . = ALIGN(4);
         _sdata_vma = .;         
-        *(.data .data.*)
+        *(.data.*)
+        *(.sdata.*)
         . = ALIGN(4);
-        _edata_vma = .;
-    } > SRAM AT> MROM           
+    } > SRAM AT> MROM
+    _edata_vma = .;     
     _sdata_lma = LOADADDR(.data); 
 
     .rodata : ALIGN(4) {
