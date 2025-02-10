@@ -2,6 +2,7 @@
 #include "am.h"
 #define UART_BASE 0x10000000
 #define UART_TX   0
+#define UART_LCR 3
 
 extern char _heap_start;
 int main(const char *args);
@@ -57,6 +58,15 @@ void loader_init() {
   }
 }
 
+void serial_init() {
+  // set the 7th bit of LCR to 1
+  *(char *)(UART_BASE + UART_LCR) |= (1 << 7);
+  // set the band rate
+  *(char *)(UART_BASE + UART_TX) = 0x01;
+  // set the 7th bit of LCR to 0
+  *(char *)(UART_BASE + UART_LCR) &= ~(1 << 7);
+}
+
 void putch(char ch) { *(char *)(UART_BASE + UART_TX) = ch; }
 
 void halt(int code) {
@@ -66,6 +76,7 @@ void halt(int code) {
 
 void _trm_init() {
   loader_init();
+  serial_init();
   int ret = main(mainargs);
   halt(ret);
 }
