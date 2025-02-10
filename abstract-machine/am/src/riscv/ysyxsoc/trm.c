@@ -2,8 +2,8 @@
 #include "am.h"
 #define UART_BASE 0x10000000
 #define UART_TX   0
-#define UART_LCR 3 * 8
-#define UART_LSR 5 * 8
+#define UART_LCR 3
+#define UART_LSR 5
 
 extern char _heap_start;
 int main(const char *args);
@@ -63,15 +63,13 @@ void serial_init() {
   // set the 7th bit of LCR to 1
   *(int *)(UART_BASE + UART_LCR * 8) |= (1 << 7);
   // set the band rate
-  *(int *)(UART_BASE + UART_TX * 8) = 0x0f;
-  // set the 7th bit of LCR to 0
-  *(int *)(UART_BASE + UART_LCR * 8 * 4) &= ~(1 << 7);
+  // *(int *)(UART_BASE + UART_TX * 8) = 0x01;
+  // // set the 7th bit of LCR to 0
+  // *(int *)(UART_BASE + UART_LCR * 8 * 4) &= ~(1 << 7);
 }
 
 void putch(char ch) {
-    // 等待发送FIFO为空（检查LSR的位5）
-    while (!(*(volatile unsigned int *)(UART_BASE + UART_LSR) & (1 << 5)));
-    // 写入字符到发送寄存器
+    // while (!(*(volatile unsigned int *)(UART_BASE + UART_LSR) & (1 << 5)));
     *(volatile unsigned char *)(UART_BASE + UART_TX) = ch;
 }
 
