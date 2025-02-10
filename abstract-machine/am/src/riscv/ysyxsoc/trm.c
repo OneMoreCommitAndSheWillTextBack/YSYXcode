@@ -79,6 +79,7 @@ void halt(int code) {
 }
 
 void _trm_init() {
+  halt(-1);
   loader_init();
   serial_init();
   int ret = main(mainargs);
