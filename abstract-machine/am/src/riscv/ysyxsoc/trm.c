@@ -63,9 +63,9 @@ void serial_init() {
   // set the 7th bit of LCR to 1
   *(unsigned char *)(UART_BASE + UART_LCR) |= (1 << 7);
   // set the band rate
-  // *(unsigned char *)(UART_BASE + UART_TX) = 0x01;
-  // // set the 7th bit of LCR to 0
-  // *(unsigned char *)(UART_BASE + UART_LCR) &= ~(1 << 7);
+  *(unsigned char *)(UART_BASE + UART_TX) = 0x01;
+  // set the 7th bit of LCR to 0
+  *(unsigned char *)(UART_BASE + UART_LCR) &= ~(1 << 7);
 }
 
 void putch(char ch) {
@@ -79,11 +79,6 @@ void halt(int code) {
 }
 
 void _trm_init() {
-  volatile char test = *(unsigned char*)(UART_BASE + UART_LCR);
-  if(test != 0x03){
-    putch('T');
-    halt(-1);
-  }
   loader_init();
   serial_init();
   int ret = main(mainargs);
