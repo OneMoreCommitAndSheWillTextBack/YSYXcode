@@ -80,7 +80,8 @@ void halt(int code) {
 
 void _trm_init() {
   *(unsigned char*)(UART_BASE + UART_LCR) = 0b10000011;
-  if(*(unsigned char*)(UART_BASE + UART_LCR) == 0b10000011){
+  unsigned char test = *(unsigned char*)(UART_BASE + UART_LCR);
+  if(test == 0b10000011){
     halt(1);
   };
   halt(0);
