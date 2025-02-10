@@ -79,11 +79,11 @@ void halt(int code) {
 }
 
 void _trm_init() {
-  unsigned char test = *(unsigned char*)(UART_BASE + UART_LCR);
-  if(test == 0x03){
+  volatile char test = *(unsigned char*)(UART_BASE + UART_LCR);
+  if(test != 0x03){
+    putch('T');
     halt(-1);
   }
-  halt(0);
   loader_init();
   serial_init();
   int ret = main(mainargs);
