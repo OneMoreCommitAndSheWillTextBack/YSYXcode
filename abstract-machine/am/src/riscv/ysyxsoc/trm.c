@@ -61,8 +61,8 @@ void loader_init() {
 
 void serial_init() {
   // set the 7th bit of LCR to 1
-  *(int *)(UART_BASE + UART_LCR * 8) |= (1 << 7);
-  halt(0);
+  *(unsigned char *)(UART_BASE + UART_LCR) |= (1 << 6);
+  // halt(0);
   // set the band rate
   // *(int *)(UART_BASE + UART_TX * 8) = 0x01;
   // // set the 7th bit of LCR to 0
