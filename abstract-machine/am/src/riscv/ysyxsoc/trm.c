@@ -2,7 +2,7 @@
 #include "am.h"
 #define UART_BASE 0x10000000
 #define UART_TX   0
-#define UART_LCR 3
+#define UART_LCR 4
 #define UART_LSR 5
 
 extern char _heap_start;
