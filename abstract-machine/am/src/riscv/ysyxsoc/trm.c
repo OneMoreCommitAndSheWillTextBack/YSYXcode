@@ -60,9 +60,9 @@ void loader_init() {
 }
 
 void serial_init() {
-  *(unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
-  *(unsigned char *)(UART_BASE + UART_TX) = 0x01;
-  *(unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
+  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x01;
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
 }
 
 void putch(char ch) {
