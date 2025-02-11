@@ -1507,36 +1507,36 @@ void VysyxSoCFull___024root__trace_chg_sub_0(VysyxSoCFull___024root* vlSelf, Ver
                                                     ? 0xfU
                                                     : 0U))) 
                                                 << 0x12U) 
-                                               | (((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__wstrb_halfword) 
-                                                   << 6U) 
-                                                  | ((4U 
+                                               | ((((4U 
+                                                     == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
+                                                     ? 1U
+                                                     : 
+                                                    ((5U 
                                                       == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
-                                                      ? 1U
+                                                      ? 2U
                                                       : 
-                                                     ((5U 
+                                                     ((6U 
                                                        == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
-                                                       ? 2U
+                                                       ? 4U
                                                        : 
-                                                      ((6U 
+                                                      ((7U 
                                                         == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
-                                                        ? 4U
+                                                        ? 8U
                                                         : 
-                                                       ((7U 
+                                                       ((8U 
                                                          == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
-                                                         ? 8U
+                                                         ? 3U
                                                          : 
-                                                        ((8U 
+                                                        ((0xaU 
                                                           == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
-                                                          ? 3U
+                                                          ? 0xcU
                                                           : 
-                                                         ((0xaU 
+                                                         ((0x10U 
                                                            == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
-                                                           ? 0xcU
-                                                           : 
-                                                          ((0x10U 
-                                                            == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__mux))
-                                                            ? 0xfU
-                                                            : 0U))))))))))),24);
+                                                           ? 0xfU
+                                                           : 0U))))))) 
+                                                   << 6U) 
+                                                  | (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__wstrb_word))))),24);
         bufp->chgCData(oldp+1026,(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__wstrb_mux__DOT__i0__DOT__pair_list[0]),6);
         bufp->chgCData(oldp+1027,(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__wstrb_mux__DOT__i0__DOT__pair_list[1]),6);
         bufp->chgCData(oldp+1028,(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__wstrb_mux__DOT__i0__DOT__pair_list[2]),6);

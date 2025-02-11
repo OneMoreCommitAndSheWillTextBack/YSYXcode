@@ -45,10 +45,8 @@ module ysyx_24100007_memwritelen(
     assign wstrb_byte = 4'b0001;
 
     wire [3:0] wstrb_halfword;
-    
-    wire [3:0] wstrb_word;
     wire [4:0] mux = {wirtelen, awaddr[1:0]};
-    assign wstrb_word = (mux == 5'b00100) ? 4'b0001 :
+    assign wstrb_halfword = (mux == 5'b00100) ? 4'b0001 :
                         (mux == 5'b00101) ? 4'b0010 :
                         (mux == 5'b00110) ? 4'b0100 :
                         (mux == 5'b00111) ? 4'b1000 :
@@ -56,6 +54,8 @@ module ysyx_24100007_memwritelen(
                         (mux == 5'b01010) ? 4'b1100 :
                         (mux == 5'b10000) ? 4'b1111 :
                         4'b0000;
+    
+    wire [3:0] wstrb_word;
 
     ysyx_24100007_MuxKey #(4, 2, 4) wstrb_mux(
         .out(wstrb),
