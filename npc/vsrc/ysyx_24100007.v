@@ -247,7 +247,8 @@ module ysyx_24100007(
 
   .rvalid(rvalid[1]),
   .rready(rready[1]),
-  .rdata(rdata[1])
+  .rdata(rdata[1]),
+  .awsize(awsize[1])
 );
 
 wire [1:0] 
@@ -263,6 +264,7 @@ wire [31:0] awaddr [1:0];
 wire [31:0] wdata [1:0];
 wire [3:0] wstrb [1:0];
 wire [1:0] bresp [1:0];
+wire [2:0] awsize [1:0];
 
 assign awvalid[0] = 0;
 assign awaddr[0] = 0;
@@ -270,6 +272,7 @@ assign wvalid[0] = 0;
 assign wdata[0] = 0;
 assign wstrb[0] = 0;
 assign bready[0] = 0;
+assign awsize[0] = 3'b010;
 
 assign arvalid[0] = ifu_arvalid;
 assign ifu_arready = arready[0];

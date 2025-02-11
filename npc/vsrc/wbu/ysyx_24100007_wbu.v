@@ -35,7 +35,8 @@ module ysyx_24100007_wbu(
 
   input rvalid,
   output rready,
-  input [31:0] rdata
+  input [31:0] rdata,
+  output [2:0] awsize
 );
 
   typedef enum logic [1:0]{
@@ -50,14 +51,16 @@ module ysyx_24100007_wbu(
 
   ysyx_24100007_memwritelen strbcontol(
     .wirtelen(memmask),
-    .final2b(awaddr[1:0]),
-    .wstrb(wstrb)
+    .wstrb(wstrb),
+    .awsize(awsize),
+    .wdata_in(regout2),
+    .awaddr(awaddr)
   );
 
 	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
   assign awaddr = res;
   assign wvalid = memew & (state == WAIT_HAMDSHAKE);
-  assign wdata = regout2 << awaddr[1:0]*8;
+  // assign wdata = regout2 << awaddr[1:0]*8;
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
   assign araddr = res;
