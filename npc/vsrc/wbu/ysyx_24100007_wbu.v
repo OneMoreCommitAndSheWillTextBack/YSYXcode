@@ -51,19 +51,19 @@ module ysyx_24100007_wbu(
   reg [1:0] state;
 
   wire [31:0] memread;
-
+  wire [1:0] wdata_offset;
   ysyx_24100007_memwritelen strbcontol(
     .wirtelen(memmask),
     .wstrb(wstrb),
     .awsize(awsize),
-    .wdata_in(regout2),
-    .awaddr(awaddr)
+    .awaddr(awaddr),
+    .wdata_offset(wdata_offset)
   );
 
 	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
   assign awaddr = res;
   assign wvalid = memew & (state == WAIT_HAMDSHAKE);
-  assign wdata = regout2;
+  assign wdata = regout2 << wdata_offset * 8;
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
   assign araddr = res;
