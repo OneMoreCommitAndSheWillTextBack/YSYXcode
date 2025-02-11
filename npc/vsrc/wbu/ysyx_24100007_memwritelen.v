@@ -18,7 +18,7 @@ module ysyx_24100007_memwritelen(
         .key({insram,inuart}),
         .default_out(`GENERAL),
         .lut({
-            2'b10 , `WORD,
+            2'b10 , `HALFWORD,
             2'b01 , `BYTE
         })
     );
