@@ -30,6 +30,5 @@ module ysyx_24100007_memreadlen(
                   (memmask == 3'b010) ? {{16{1'b0}}, halfword_data} :  // lhu
                   data;  // lw
 
-  // 根据符号扩展信号选择最终的输出
   assign read = (memsextsig == 1) ? read_s : read_u;
 endmodule
