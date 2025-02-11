@@ -248,7 +248,8 @@ module ysyx_24100007(
   .rvalid(rvalid[1]),
   .rready(rready[1]),
   .rdata(rdata[1]),
-  .awsize(awsize[1])
+  .awsize(awsize[1]),
+  .arsize(arsize[1])
 );
 
 wire [1:0] 
@@ -265,6 +266,7 @@ wire [31:0] wdata [1:0];
 wire [3:0] wstrb [1:0];
 wire [1:0] bresp [1:0];
 wire [2:0] awsize [1:0];
+wire [2:0] arsize [1:0];
 
 assign awvalid[0] = 0;
 assign awaddr[0] = 0;
@@ -272,7 +274,8 @@ assign wvalid[0] = 0;
 assign wdata[0] = 0;
 assign wstrb[0] = 0;
 assign bready[0] = 0;
-assign awsize[0] = 3'b010;
+assign awsize[0] = 0;
+assign arsize[0] = 3'b010;
 
 assign arvalid[0] = ifu_arvalid;
 assign ifu_arready = arready[0];
@@ -304,6 +307,8 @@ ysyx_24100007_arbiter #(2) arviter0(
   .rdata(rdata),
   .wstrb(wstrb),
   .bresp(bresp),
+  .awsize(awsize),
+  .arsize(arsize),
 
   // subordinate interface
   .awvalid_out(io_master_awvalid), 
@@ -322,15 +327,14 @@ ysyx_24100007_arbiter #(2) arviter0(
   .wdata_out(io_master_wdata),
   .wstrb_out(io_master_wstrb),
   .rdata_in(io_master_rdata),
-  .bresp_in(io_master_bresp)
+  .bresp_in(io_master_bresp),
+  .awsize_out(io_master_awsize),
+  .arsize_out(io_master_arsize)
 );
-
-  assign io_master_arsize = 3'b010;
   assign io_master_arid = 4'b0001;
   assign io_master_arburst = 2'b01;
   assign io_master_arlen = 0;
 
-  assign io_master_awsize = 3'b010;
   assign io_master_awburst = 2'b01;
   assign io_master_arlen = 0;
 endmodule

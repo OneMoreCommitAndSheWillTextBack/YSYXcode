@@ -36,7 +36,8 @@ module ysyx_24100007_wbu(
   input rvalid,
   output rready,
   input [31:0] rdata,
-  output [2:0] awsize
+  output [2:0] awsize,
+  output [2:0] arsize
 );
 
   typedef enum logic [1:0]{
@@ -64,12 +65,12 @@ module ysyx_24100007_wbu(
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
   assign araddr = res;
-  assign rready = memer; 
+  assign rready = memer;
+  assign arsize = memmask;
 
   ysyx_24100007_memreadlen memreadlen0(
     .data(rdata),
     .memsextsig(memsextsig),
-    .addr_offset(araddr[1:0]),
     .memmask(memmask),
     .read(memread)
   );
