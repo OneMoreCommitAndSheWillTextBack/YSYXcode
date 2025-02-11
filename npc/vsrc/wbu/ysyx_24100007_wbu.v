@@ -60,7 +60,7 @@ module ysyx_24100007_wbu(
 	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
   assign awaddr = res;
   assign wvalid = memew & (state == WAIT_HAMDSHAKE);
-  // assign wdata = regout2 << awaddr[1:0]*8;
+  assign wdata = regout2;
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
   assign araddr = res;
