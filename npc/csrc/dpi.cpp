@@ -50,3 +50,8 @@ extern "C" void host_get_inst(int inst) {
 }
 
 extern "C" void host_get_valid(int valid) { cpu->valid = valid; }
+
+extern "C" void host_get_skip(uint32_t addr) { 
+  if(addr >= 0x10000000 && addr < 0x10000fff)
+    set_diff_pass();
+}

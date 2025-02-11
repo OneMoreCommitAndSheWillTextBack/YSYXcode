@@ -1,3 +1,5 @@
+import "DPI-C" function void host_get_skip(int addr);
+
 module ysyx_24100007_wbu(
   input clk,
   input [31:0] res,
@@ -100,6 +102,7 @@ module ysyx_24100007_wbu(
 
       WAIT_SLAVE: begin
         if(rvalid | (bvalid & bresp == 2'b00))
+          host_get_skip(awaddr);
           state <= FINISH;
       end
 

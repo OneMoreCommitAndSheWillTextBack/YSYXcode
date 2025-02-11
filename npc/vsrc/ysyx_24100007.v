@@ -331,7 +331,6 @@ ysyx_24100007_arbiter #(2) arviter0(
   .awsize_out(io_master_awsize),
   .arsize_out(io_master_arsize)
 );
-  assign io_master_arid = 4'b0001;
   assign io_master_arburst = 2'b01;
   assign io_master_arlen = 0;
 
