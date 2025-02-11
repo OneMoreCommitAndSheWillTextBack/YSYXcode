@@ -68,6 +68,6 @@ module ysyx_24100007_memwritelen(
         })
     );
 
-    assign wdata_offset = (bus_size == `WORD) ? awaddr[1:0] : 2'b0;
+    assign wdata_offset = (bus_size == `HALFWORD) ? awaddr[1:0] : 2'b0;
 
 endmodule
