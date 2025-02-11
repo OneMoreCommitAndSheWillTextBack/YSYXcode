@@ -14,12 +14,12 @@ module ysyx_24100007_memwritelen(
     wire inuart = (awaddr >= 32'h10000000) && (awaddr <= 32'h10000fff);
     wire insram = (awaddr >= 32'h0f000000) && (awaddr <= 32'h0fffffff);
     wire [1:0] bus_size;
-    ysyx_24100007_MuxKeyWithDefault #(1, 2, 2) type_mux(
+    ysyx_24100007_MuxKeyWithDefault #(2, 2, 2) type_mux(
         .out(bus_size),
         .key({insram,inuart}),
         .default_out(`GENERAL),
         .lut({
-            // 2'b10 , `HALFWORD,
+            2'b10 , `WORD,
             2'b01 , `BYTE
         })
     );
@@ -46,8 +46,10 @@ module ysyx_24100007_memwritelen(
     assign wstrb_byte = 4'b0001;
 
     wire [3:0] wstrb_halfword;
+
+    wire [3:0] wstrb_word;
     wire [4:0] mux = {wirtelen, awaddr[1:0]};
-    assign wstrb_halfword = (mux == 5'b00100) ? 4'b0001 :
+    assign wstrb_word = (mux == 5'b00100) ? 4'b0001 :
                         (mux == 5'b00101) ? 4'b0010 :
                         (mux == 5'b00110) ? 4'b0100 :
                         (mux == 5'b00111) ? 4'b1000 :
@@ -55,8 +57,6 @@ module ysyx_24100007_memwritelen(
                         (mux == 5'b01010) ? 4'b1100 :
                         (mux == 5'b10000) ? 4'b1111 :
                         4'b0000;
-    
-    wire [3:0] wstrb_word;
 
     ysyx_24100007_MuxKey #(4, 2, 4) wstrb_mux(
         .out(wstrb),
@@ -69,7 +69,7 @@ module ysyx_24100007_memwritelen(
         })
     );
 
-    assign wdata_offset = (bus_size == `HALFWORD) ? awaddr[1:0] : 2'b0;
+    assign wdata_offset = (bus_size == `WORD) ? awaddr[1:0] : 2'b0;
     assign awburst = (inuart == 1) ? 2'b00 : 2'b01;
 
 endmodule

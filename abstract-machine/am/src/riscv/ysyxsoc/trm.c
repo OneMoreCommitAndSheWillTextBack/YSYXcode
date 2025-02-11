@@ -66,7 +66,7 @@ void serial_init() {
 }
 
 void putch(char ch) {
-    while (!(*(volatile unsigned int *)(UART_BASE + UART_LSR) & (1 << 5)));
+    while (!(*(volatile unsigned char *)(UART_BASE + UART_LSR) & 0b00100000));
     *(volatile unsigned char *)(UART_BASE + UART_TX) = ch;
 }
 
