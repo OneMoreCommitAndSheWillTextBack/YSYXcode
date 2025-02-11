@@ -39,7 +39,8 @@ module ysyx_24100007_wbu(
   output rready,
   input [31:0] rdata,
   output [2:0] awsize,
-  output [2:0] arsize
+  output [2:0] arsize,
+  output [1:0] awburst
 );
 
   typedef enum logic [1:0]{
@@ -57,7 +58,8 @@ module ysyx_24100007_wbu(
     .wstrb(wstrb),
     .awsize(awsize),
     .awaddr(awaddr),
-    .wdata_offset(wdata_offset)
+    .wdata_offset(wdata_offset),
+    .awburst(awburst)
   );
 
 	assign awvalid = memew & (state == WAIT_HAMDSHAKE);

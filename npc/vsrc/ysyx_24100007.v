@@ -249,7 +249,8 @@ module ysyx_24100007(
   .rready(rready[1]),
   .rdata(rdata[1]),
   .awsize(awsize[1]),
-  .arsize(arsize[1])
+  .arsize(arsize[1]),
+  .awburst(io_master_awburst)
 );
 
 wire [1:0] 

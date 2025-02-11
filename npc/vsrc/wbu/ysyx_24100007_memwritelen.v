@@ -8,7 +8,8 @@ module ysyx_24100007_memwritelen(
     input [2:0] wirtelen,
     output [3:0] wstrb,
     output [2:0] awsize,
-    output [1:0] wdata_offset
+    output [1:0] wdata_offset,
+    output [1:0] awburst
 );
     wire inuart = (awaddr >= 32'h10000000) && (awaddr <= 32'h10000fff);
     wire insram = (awaddr >= 32'h0f000000) && (awaddr <= 32'h0fffffff);
@@ -69,5 +70,6 @@ module ysyx_24100007_memwritelen(
     );
 
     assign wdata_offset = (bus_size == `HALFWORD) ? awaddr[1:0] : 2'b0;
+    assign awburst = (inuart == 1) ? 2'b00 : 2'b01;
 
 endmodule
