@@ -11,7 +11,7 @@ extern "C" void ret(int pc) {
 }
 
 extern "C" void flash_read(int32_t addr, int32_t *data) { 
-  *data = paddr_read(addr, 4);
+  *data = paddr_read(FBASE + addr, 4);
 }
 extern "C" void mrom_read(int32_t addr, int32_t *data) {
   *data = paddr_read(addr, 4);

@@ -15,9 +15,9 @@ const unsigned int fsize = 0xfffffff;
 static uint8_t pmem[msize] = {};
 static uint8_t flash[fsize] = {};
 
-bool in_flash(uint32_t addr) { return addr - FBASE < fsize; }
-bool in_mrom(uint32_t addr) { return addr - MBASE < msize; }
-bool in_pmem(uint32_t addr) { return in_mrom(addr) | in_flash(addr); }
+bool in_flash(uint32_t addr) { return (addr >= FBASE) && (addr <= FBASE + fsize); }
+bool in_mrom(uint32_t addr) { return (addr >= MBASE) && (addr <= MBASE + msize); }
+bool in_pmem(uint32_t addr) { return in_mrom(addr) || in_flash(addr); }
 
 uint8_t *mrom_to_host(uint32_t addr) { return pmem + addr - MBASE; }
 uint8_t *flash_to_host(uint32_t addr) { return flash + addr - FBASE; }
