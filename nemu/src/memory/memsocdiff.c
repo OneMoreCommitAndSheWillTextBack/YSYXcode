@@ -11,10 +11,16 @@
   #define SRAM_END 0x0f001fff
   static uint8_t sram[SRAM_SIZE] PG_ALIGN = {};
 
+  #define FALSH_SIZE 0x0fffffff
+  #define FALSH_START 0x30000000
+  #define FALSH_END 0x3fffffff
+  static uint8_t flash[FALSH_SIZE] PG_ALIGN = {};
+
   soc_device soc_devices[] = {
     {0x20000000, 0x20000fff, "mrom", mrom},
     {0x0f000000, 0x0f001fff, "sram", sram},
     {0x10000000, 0x10000fff, "uart", NULL},
+    {0x30000000, 0x3fffffff, "flash", flash},
   };
 
   soc_device* fetch_the_soc(paddr_t addr){

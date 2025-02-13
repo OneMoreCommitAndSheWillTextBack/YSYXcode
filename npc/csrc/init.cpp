@@ -90,6 +90,13 @@ void init_trace() {
   return;
 }
 
+void init_flash() {
+  for(int i=0;i<10;i++)
+    paddr_write(FBASE + i, 1, i);
+  for(int i=0;i<10;i++)
+    paddr_write(FBASE + 10 + 4*i, 4, i);
+}
+
 void init(int argc, char *argv[]) {
   long img_size = 0;
   parse_args(argc, argv);
@@ -105,6 +112,8 @@ void init(int argc, char *argv[]) {
   init_regex();
   init_wp_pool();
   device_init();
+
+  init_flash();
 
   npc = new Npc;
   cpu = new Cpu;

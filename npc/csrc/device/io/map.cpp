@@ -79,6 +79,15 @@ static void invoke_callback(io_callback_t c, uint32_t offset, int len,
   }
 }
 
+uint32_t mmio_read(uint32_t addr, int len) {
+  return map_read(addr, len, fetch_mmio_map(addr));
+}
+
+void mmio_write(uint32_t addr, int len, uint32_t data) {
+  map_write(addr, len, data, fetch_mmio_map(addr));
+  return;
+}
+
 uint32_t map_read(uint32_t addr, int len, IOMAP *map) {
   if (map == NULL) {
     std::cout << "[paddr_read]the addr 0x" << std::setw(8) << std::hex << addr
@@ -90,7 +99,7 @@ uint32_t map_read(uint32_t addr, int len, IOMAP *map) {
   uint32_t offset = addr - map->low;
   invoke_callback(map->callback, offset, len, false);
   // prepare data to read
-  uint32_t ret = pmem_read((uint8_t *)(map->space + offset), len);
+  uint32_t ret = paddr_read(addr, len);
   return ret;
 }
 
@@ -103,15 +112,6 @@ void map_write(uint32_t addr, int len, uint32_t data, IOMAP *map) {
   }
   assert(len >= 1 && len <= 8);
   uint32_t offset = addr - map->low;
-  pmem_write((uint8_t *)(map->space) + offset, len, data);
+  paddr_write(addr, len, data);
   invoke_callback(map->callback, offset, len, true);
-}
-
-uint32_t mmio_read(uint32_t addr, int len) {
-  return map_read(addr, len, fetch_mmio_map(addr));
-}
-
-void mmio_write(uint32_t addr, int len, uint32_t data) {
-  map_write(addr, len, data, fetch_mmio_map(addr));
-  return;
 }

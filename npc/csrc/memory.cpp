@@ -7,17 +7,30 @@
 
 /*
   due to add the soc 
-  so the pre memory has changed to mrom
+  so the pre memory has changed to flash
 */
 
 const unsigned int msize = 0x800000;
+const unsigned int fsize = 0xfffffff;
 static uint8_t pmem[msize] = {};
+static uint8_t flash[fsize] = {};
 
-bool in_pmem(uint32_t addr) { return addr - MBASE < msize; }
+bool in_flash(uint32_t addr) { return addr - FBASE < fsize; }
+bool in_mrom(uint32_t addr) { return addr - MBASE < msize; }
+bool in_pmem(uint32_t addr) { return in_mrom(addr) | in_flash(addr); }
 
-uint8_t *guest_to_host(uint32_t addr) { return pmem + addr - MBASE; }
+uint8_t *mrom_to_host(uint32_t addr) { return pmem + addr - MBASE; }
+uint8_t *flash_to_host(uint32_t addr) { return flash + addr - FBASE; }
+uint8 *guest_to_host(uint32_t addr) {
+  if(in_mrom(addr))
+    return mrom_to_host(addr);
+  if(in_flash(addr))
+    return flash_to_host(addr);
+  printf("[guest_to_host]the addr 0x%08x is out of bound\n", addr);
+  assert(0);
+}
 
-uint32_t pmem_read(uint8_t *addr, uint32_t len) {
+static uint32_t pmem_read(uint8_t *addr, uint32_t len) {
   switch (len) {
   case 1:
     return *(uint8_t *)addr;
@@ -31,7 +44,7 @@ uint32_t pmem_read(uint8_t *addr, uint32_t len) {
   return *(uint32_t *)addr;
 }
 
-void pmem_write(uint8_t *addr, uint32_t len, uint32_t data) {
+static void pmem_write(uint8_t *addr, uint32_t len, uint32_t data) {
   switch (len) {
   case 1:
     *(uint8_t *)addr = data;
@@ -74,4 +87,3 @@ void paddr_write(uint32_t addr, uint32_t len, uint32_t data) {
   printf("[paddr_write]the addr 0x%08x is out of bound\n", addr);
   assert(0);
 }
-

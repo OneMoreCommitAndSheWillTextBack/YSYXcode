@@ -70,7 +70,9 @@ module ysyx_24100007_wbu(
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
   assign araddr = res;
   assign rready = memer;
-  assign arsize = memmask;
+  assign arsize = (memmask == 3'b001) ? 3'b000 :
+                  (memmask == 3'b010) ? 3'b001 :
+                  3'b010;
 
   ysyx_24100007_memreadlen memreadlen0(
     .data(rdata),

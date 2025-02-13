@@ -61,13 +61,12 @@ void loader_init() {
 
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
-  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x01;
+  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
 }
 
 void putch(char ch) {
-    while ((*(volatile unsigned int *)(UART_BASE + UART_LSR) & 0b00100000))
-      halt(1);
+    while (!(*(volatile unsigned char *)(UART_BASE + UART_LSR) & 0b00100000));
     *(volatile unsigned char *)(UART_BASE + UART_TX) = ch;
 }
 
