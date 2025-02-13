@@ -54,6 +54,9 @@ bool in_pmem(uint32_t addr);
 uint8_t *guest_to_host(uint32_t addr);
 uint32_t paddr_read(uint32_t address, uint32_t len);
 void paddr_write(uint32_t address, uint32_t len, uint32_t data);
+void pmem_write(uint8_t *addr, uint32_t len, uint32_t data);
+uint32_t pmem_read(uint8_t *addr, uint32_t len);
+
 
 // init.cpp
 void init(int argc, char *argv[]);

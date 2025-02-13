@@ -21,7 +21,7 @@ bool in_pmem(uint32_t addr) { return in_mrom(addr) | in_flash(addr); }
 
 uint8_t *mrom_to_host(uint32_t addr) { return pmem + addr - MBASE; }
 uint8_t *flash_to_host(uint32_t addr) { return flash + addr - FBASE; }
-uint8 *guest_to_host(uint32_t addr) {
+uint8_t *guest_to_host(uint32_t addr) {
   if(in_mrom(addr))
     return mrom_to_host(addr);
   if(in_flash(addr))
@@ -30,7 +30,7 @@ uint8 *guest_to_host(uint32_t addr) {
   assert(0);
 }
 
-static uint32_t pmem_read(uint8_t *addr, uint32_t len) {
+uint32_t pmem_read(uint8_t *addr, uint32_t len) {
   switch (len) {
   case 1:
     return *(uint8_t *)addr;
@@ -44,7 +44,7 @@ static uint32_t pmem_read(uint8_t *addr, uint32_t len) {
   return *(uint32_t *)addr;
 }
 
-static void pmem_write(uint8_t *addr, uint32_t len, uint32_t data) {
+void pmem_write(uint8_t *addr, uint32_t len, uint32_t data) {
   switch (len) {
   case 1:
     *(uint8_t *)addr = data;
