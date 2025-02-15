@@ -59,6 +59,10 @@ void loader_init() {
   }
 }
 
+uint32_t flash_read(uint32_t addr){
+  return 0;
+}
+
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
   *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;

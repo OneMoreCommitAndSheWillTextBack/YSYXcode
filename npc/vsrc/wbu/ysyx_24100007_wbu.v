@@ -106,9 +106,10 @@ module ysyx_24100007_wbu(
       end
 
       WAIT_SLAVE: begin
-        if(rvalid | (bvalid & bresp == 2'b00))
+        if(rvalid | (bvalid & bresp == 2'b00)) begin
           host_get_skip(awaddr);
           state <= FINISH;
+        end
       end
 
       FINISH: begin
