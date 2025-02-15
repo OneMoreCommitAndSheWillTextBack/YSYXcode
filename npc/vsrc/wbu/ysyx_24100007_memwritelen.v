@@ -11,16 +11,19 @@ module ysyx_24100007_memwritelen(
     output [1:0] wdata_offset,
     output [1:0] awburst
 );
+    localparam device_num = 3;
     wire inuart = (awaddr >= 32'h10000000) && (awaddr <= 32'h10000fff);
     wire insram = (awaddr >= 32'h0f000000) && (awaddr <= 32'h0fffffff);
+    wire inflash = (awaddr >= 32'h30000000) && (awaddr <= 32'h3fffffff);
     wire [1:0] bus_size;
-    ysyx_24100007_MuxKeyWithDefault #(2, 2, 2) type_mux(
+    ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
         .out(bus_size),
-        .key({insram,inuart}),
+        .key({insram,inuart,inflash}),
         .default_out(`GENERAL),
         .lut({
-            2'b10 , `WORD,
-            2'b01 , `BYTE
+            3'b100 , `WORD,
+            3'b010 , `BYTE,
+            3'b001 , `BYTE
         })
     );
 

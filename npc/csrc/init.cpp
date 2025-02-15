@@ -94,7 +94,7 @@ void init_flash() {
   for(int i=0;i<10;i++)
     paddr_write(FBASE + i, 1, i);
   for(int i=0;i<10;i++)
-    paddr_write(FBASE + 10 + 4*i, 4, i);
+    paddr_write(FBASE + 0xc + 4*i, 4, i);
 }
 
 void init(int argc, char *argv[]) {

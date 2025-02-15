@@ -17,10 +17,11 @@
   static uint8_t flash[FALSH_SIZE] PG_ALIGN = {};
 
   soc_device soc_devices[] = {
-    {0x20000000, 0x20000fff, "mrom", mrom},
-    {0x0f000000, 0x0f001fff, "sram", sram},
-    {0x10000000, 0x10000fff, "uart", NULL},
+    {0x20000000, 0x20000fff, "mrom" , mrom},
+    {0x0f000000, 0x0f001fff, "sram" , sram},
+    {0x10000000, 0x10000fff, "uart" , NULL},
     {0x30000000, 0x3fffffff, "flash", flash},
+    {0x10001000, 0x10001fff, "spi"  , NULL},
   };
 
   soc_device* fetch_the_soc(paddr_t addr){
