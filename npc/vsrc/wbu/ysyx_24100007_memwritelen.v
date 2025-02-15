@@ -15,10 +15,11 @@ module ysyx_24100007_memwritelen(
     wire inuart = (awaddr >= 32'h10000000) && (awaddr <= 32'h10000fff);
     wire insram = (awaddr >= 32'h0f000000) && (awaddr <= 32'h0fffffff);
     wire inflash = (awaddr >= 32'h30000000) && (awaddr <= 32'h3fffffff);
+    wire inspi = (awaddr >= 32'h10001000) && (awaddr <= 32'h10001fff);
     wire [1:0] bus_size;
     ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
         .out(bus_size),
-        .key({insram,inuart,inflash}),
+        .key({insram|inspi,inuart,inflash}),
         .default_out(`GENERAL),
         .lut({
             3'b100 , `WORD,
