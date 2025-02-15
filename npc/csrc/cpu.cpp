@@ -42,18 +42,12 @@ static void exe_once() {
 }
 
 static int start_diff = 0;
-static int diff_pass = 0;
 void trace_or_diff() {
   exe_wp();
 #ifdef ITRACE
   printf("%s\n", cpu->logbuf);
 #endif
 #ifdef DIFFTEST
-  if(diff_pass == 1){
-    set_ref_skip();
-    diff_pass = 0;
-  }
-
   if (start_diff < 1 && cpu->valid == 1)
     start_diff++;
   if (start_diff == 1 && cpu->valid == 1) {
@@ -133,4 +127,4 @@ void npc_diff_quit() {
   assert(0);
 }
 
-void set_diff_pass() { diff_pass = 1; }
+void set_diff_pass() { set_ref_skip(); }
