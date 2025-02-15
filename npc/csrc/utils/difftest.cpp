@@ -105,11 +105,11 @@ void diff_step() {
     return;
   }
 
-  if (inst_skip_nr > 0) {
-    ref_difftest_regcpy(&cpu->con, DIFF_TO_REF);
-    inst_skip_nr = 0;
-    return;
-  }
+  // if (inst_skip_nr > 0) {
+  //   ref_difftest_regcpy(&cpu->con, DIFF_TO_REF);
+  //   inst_skip_nr = 0;
+  //   return;
+  // }
 
   context ref_context;
   ref_difftest_exec(1);
