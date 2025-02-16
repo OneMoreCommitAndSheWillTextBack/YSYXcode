@@ -47,7 +47,6 @@ static void out_of_bound(paddr_t addr);
       if(dev->space == NULL)
         return;
       host_write(dev->space + addr - dev->soc_start, len, data);
-      printf("soc 0x%08x write %08x\n", addr, data);
       return ;
     }
     out_of_bound(addr);
