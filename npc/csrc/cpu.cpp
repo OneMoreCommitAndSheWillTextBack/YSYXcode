@@ -127,8 +127,4 @@ void npc_diff_quit() {
   assert(0);
 }
 
-void set_diff_pass() { 
-  #ifdef DIFFTEST
-    set_diff_pass();
-  #endif
- }
+void set_diff_pass() { set_ref_skip(); }
