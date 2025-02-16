@@ -1936,7 +1936,8 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                            >> 5U))]) | ((1U & ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__u0_spi_top__DOT__shift__DOT__rx_clk)
                                                 ? (
                                                    ((IData)(vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss) 
-                                                    | ((~ (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
+                                                    | ((2U 
+                                                        != (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
                                                        | ((IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer) 
                                                           >> 
                                                           (7U 
@@ -3290,18 +3291,11 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__7(VysyxSoCFull___0
     // Body
     if (vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss) {
         vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer = 0U;
-        vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__state = 0U;
+        vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__state = 1U;
         vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__count = 0U;
-    } else if (vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state) {
-        if (vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state) {
-            vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__count 
-                = (7U & ((IData)(1U) + (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count)));
-            if ((7U == (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count))) {
-                vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__state = 0U;
-                vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__count = 0U;
-            }
-        }
-    } else {
+    } else if ((1U == (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state))) {
+        vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__state = 0U;
+    } else if ((0U == (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state))) {
         vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer 
             = (((~ ((IData)(1U) << (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count))) 
                 & (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer)) 
@@ -3313,6 +3307,15 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__7(VysyxSoCFull___0
             vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__state = 1U;
             vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__count = 0U;
         }
+    } else if (VL_LIKELY((2U == (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)))) {
+        vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__count 
+            = (7U & ((IData)(1U) + (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count)));
+        if ((7U == (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count))) {
+            vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__state = 0U;
+            vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__count = 0U;
+        }
+    } else {
+        VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/bitrev/bitrev.v", 49, "");
     }
     vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state = vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__state;
     vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count = vlSelf->__Vdly__ysyxSoCFull__DOT__bitrev__DOT__count;

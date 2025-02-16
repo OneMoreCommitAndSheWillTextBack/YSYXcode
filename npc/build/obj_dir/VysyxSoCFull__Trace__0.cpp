@@ -1373,7 +1373,7 @@ void VysyxSoCFull___024root__trace_chg_sub_0(VysyxSoCFull___024root* vlSelf, Ver
     if (VL_UNLIKELY(vlSelf->__Vm_traceActivity[6U])) {
         bufp->chgCData(oldp+945,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer),8);
         bufp->chgCData(oldp+946,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count),3);
-        bufp->chgBit(oldp+947,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state));
+        bufp->chgCData(oldp+947,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state),2);
         bufp->chgBit(oldp+948,((1U & ((IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer) 
                                       >> (7U & ((IData)(7U) 
                                                 - (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count)))))));
@@ -1717,7 +1717,7 @@ void VysyxSoCFull___024root__trace_chg_sub_0(VysyxSoCFull___024root* vlSelf, Ver
     bufp->chgBit(oldp+1145,(vlSelf->externalPins_uart_tx));
     bufp->chgBit(oldp+1146,(vlSelf->ysyxSoCFull__DOT___asic_spi_mosi));
     bufp->chgBit(oldp+1147,((1U & (((IData)(vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss) 
-                                    | ((~ (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
+                                    | ((2U != (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
                                        | ((IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer) 
                                           >> (7U & 
                                               ((IData)(7U) 
@@ -1848,7 +1848,7 @@ void VysyxSoCFull___024root__trace_chg_sub_0(VysyxSoCFull___024root* vlSelf, Ver
     bufp->chgCData(oldp+1179,(vlSelf->ysyxSoCFull__DOT__asic__DOT__luart__DOT__muart__DOT__Uregs__DOT__transmitter__DOT__tf_data_out),8);
     bufp->chgBit(oldp+1180,(vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss));
     bufp->chgBit(oldp+1181,((1U & ((IData)(vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss) 
-                                   | ((~ (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
+                                   | ((2U != (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
                                       | ((IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer) 
                                          >> (7U & ((IData)(7U) 
                                                    - (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count)))))))));

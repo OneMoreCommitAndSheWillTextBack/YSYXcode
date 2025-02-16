@@ -2975,7 +2975,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_init_sub__TOP__0(VysyxSoCFull___
     tracep->declBit(c+1182,"miso", false,-1);
     tracep->declBus(c+946,"buffer", false,-1, 7,0);
     tracep->declBus(c+947,"count", false,-1, 2,0);
-    tracep->declBit(c+948,"state", false,-1);
+    tracep->declBus(c+948,"state", false,-1, 1,0);
     tracep->declBit(c+949,"buffer_out", false,-1);
     tracep->popNamePrefix(1);
     tracep->pushNamePrefix("flash ");
@@ -4368,7 +4368,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_full_sub_0(VysyxSoCFull___024roo
                              & (0x17U == (IData)(vlSelf->ysyxSoCFull__DOT__flash__DOT__counter)))));
     bufp->fullCData(oldp+946,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer),8);
     bufp->fullCData(oldp+947,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count),3);
-    bufp->fullBit(oldp+948,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state));
+    bufp->fullCData(oldp+948,(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state),2);
     bufp->fullBit(oldp+949,((1U & ((IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer) 
                                    >> (7U & ((IData)(7U) 
                                              - (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__count)))))));
@@ -4700,7 +4700,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_full_sub_0(VysyxSoCFull___024roo
     bufp->fullBit(oldp+1146,(vlSelf->externalPins_uart_tx));
     bufp->fullBit(oldp+1147,(vlSelf->ysyxSoCFull__DOT___asic_spi_mosi));
     bufp->fullBit(oldp+1148,((1U & (((IData)(vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss) 
-                                     | ((~ (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
+                                     | ((2U != (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
                                         | ((IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer) 
                                            >> (7U & 
                                                ((IData)(7U) 
@@ -4831,7 +4831,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_full_sub_0(VysyxSoCFull___024roo
     bufp->fullCData(oldp+1180,(vlSelf->ysyxSoCFull__DOT__asic__DOT__luart__DOT__muart__DOT__Uregs__DOT__transmitter__DOT__tf_data_out),8);
     bufp->fullBit(oldp+1181,(vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss));
     bufp->fullBit(oldp+1182,((1U & ((IData)(vlSelf->ysyxSoCFull__DOT____Vcellinp__bitrev__ss) 
-                                    | ((~ (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
+                                    | ((2U != (IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state)) 
                                        | ((IData)(vlSelf->ysyxSoCFull__DOT__bitrev__DOT__buffer) 
                                           >> (7U & 
                                               ((IData)(7U) 
