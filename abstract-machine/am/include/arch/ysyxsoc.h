@@ -35,5 +35,6 @@ uint32_t flash_read(uint32_t addr);
 #define TX 0x0
 #define CTRL 0x10
 #define SS 0x18
+#define DIVIDER 0x14
 
 #endif
