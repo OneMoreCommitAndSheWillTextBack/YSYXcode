@@ -65,7 +65,7 @@ uint32_t flash_read(uint32_t addr){
 
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
-  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;
+  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x01;
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
 }
 
