@@ -70,7 +70,7 @@ uint32_t flash_read(uint32_t addr){
   *spi_tx = 0x03 << 24 | (addr - 0x30000000);
   *spi_ss = 0b00000001;
   *spi_divider = 0b1;
-  *spi_ctrl = 0b100101000000;
+  *spi_ctrl = 0b000100100000;
   
   while ((*spi_ctrl & (1 << 8)));
   volatile uint32_t get_data = *spi_tx;
