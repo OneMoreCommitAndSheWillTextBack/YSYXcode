@@ -62,18 +62,19 @@ void loader_init() {
 uint32_t flash_read(uint32_t addr){
   // 设置相关寄存器 -》 轮询flash接口，是否传输完毕
   // reset 相关寄存器
-  volatile int *spi_tx = SPI(TX);
+  volatile int *spi_tx_0 = SPI(TX);
+  volatile int *spi_tx_1 = SPI(TX + 1);
   volatile int *spi_ctrl = SPI(CTRL);
   volatile int *spi_ss = SPI(SS);
   volatile int *spi_divider = SPI(DIVIDER);
 
-  *spi_tx = 0x03 << 24 | (addr - 0x30000000);
+  *spi_tx_1 = 0x03 << 24 | (addr - 0x30000000);
   *spi_ss = 0b00000001;
   *spi_divider = 0b1;
-  *spi_ctrl = 0b000101000000;
+  *spi_ctrl = 0b000100000000 | 0x40;
   
   while ((*spi_ctrl & (1 << 8)));
-  volatile uint32_t get_data = *spi_tx;
+  volatile uint32_t get_data = *spi_tx_0;
   *spi_ss = 0b00000000;
 
   return get_data;
