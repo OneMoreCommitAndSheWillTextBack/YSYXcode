@@ -91,10 +91,14 @@ void init_trace() {
 }
 
 void init_flash() {
-  for(int i=0;i<10;i++)
-    paddr_write(FBASE + i, 1, i);
-  for(int i=0;i<10;i++)
-    paddr_write(FBASE + 0xc + 4*i, 4, i);
+  uint32_t img[] = {  
+    0x100007b7, 0x04100713, 0x00e78023,
+    0x00e78023, 0x00a00713, 0x00e78023,
+    0x0000006f
+  };
+  for(int i=0;i<sizeof(img)/sizeof(uint32_t);i++){
+    pmem_write(guest_to_host(FBASE+4*i), 4, img[i]);
+  }
 }
 
 void init(int argc, char *argv[]) {

@@ -13,7 +13,7 @@
 const unsigned int msize = 0x800000;
 const unsigned int fsize = 0xfffffff;
 static uint8_t pmem[msize] = {};
-static uint8_t flash[fsize] = {};
+static uint8_t flash[fsize] =  {};
 
 bool in_flash(uint32_t addr) { return (addr >= FBASE) && (addr <= FBASE + fsize); }
 bool in_mrom(uint32_t addr) { return (addr >= MBASE) && (addr <= MBASE + msize); }

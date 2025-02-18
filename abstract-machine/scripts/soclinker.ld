@@ -23,6 +23,7 @@ SECTIONS {
     .rodata : ALIGN(4) {
         _srodata_vma = .;
         *(.rodata*)
+        *(.srodata*)
         _erodata_vma = .;
     } > SRAM AT> MROM
     _srodata_lma = LOADADDR(.rodata);
