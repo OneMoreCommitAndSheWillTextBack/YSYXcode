@@ -74,10 +74,14 @@ uint32_t flash_read(uint32_t addr){
   *spi_ctrl = 0b000100000000 | 0x40;
   
   while ((*spi_ctrl & (1 << 8)));
-  volatile uint32_t get_data = *spi_tx_0;
+  volatile uint32_t value = *spi_tx_0;
   *spi_ss = 0b00000000;
+  // 因为特殊的设置，要对数据做一点特殊的处理
 
-  return get_data;
+  return ((value & 0xFF) << 24) |        // 取最低字节放到最高位
+         ((value & 0xFF00) << 8) |       // 取次低字节左移16位
+         ((value & 0xFF0000) >> 8) |     // 取次高字节右移8位
+         ((value & 0xFF000000) >> 24);   // 取最高字节放到最低位
 }
 
 void serial_init() {
