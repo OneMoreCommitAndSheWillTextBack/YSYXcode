@@ -1,3 +1,5 @@
+import "DPI-C" function void host_get_skip(int addr);
+
 module ysyx_24100007_wbu(
   input clk,
   input [31:0] res,
@@ -35,7 +37,10 @@ module ysyx_24100007_wbu(
 
   input rvalid,
   output rready,
-  input [31:0] rdata
+  input [31:0] rdata,
+  output [2:0] awsize,
+  output [2:0] arsize,
+  output [1:0] awburst
 );
 
   typedef enum logic [1:0]{
@@ -47,28 +52,34 @@ module ysyx_24100007_wbu(
   reg [1:0] state;
 
   wire [31:0] memread;
-
+  wire [1:0] wdata_offset;
   ysyx_24100007_memwritelen strbcontol(
     .wirtelen(memmask),
-    .final2b(awaddr[1:0]),
-    .wstrb(wstrb)
+    .wstrb(wstrb),
+    .awsize(awsize),
+    .awaddr(awaddr),
+    .wdata_offset(wdata_offset),
+    .awburst(awburst)
   );
 
 	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
   assign awaddr = res;
   assign wvalid = memew & (state == WAIT_HAMDSHAKE);
-  assign wdata = regout2 << awaddr[1:0]*8;
+  assign wdata = regout2 << wdata_offset * 8;
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
   assign araddr = res;
-  assign rready = memer; 
+  assign rready = memer;
+  assign arsize = (memmask == 3'b001) ? 3'b000 :
+                  (memmask == 3'b010) ? 3'b001 :
+                  3'b010;
 
   ysyx_24100007_memreadlen memreadlen0(
     .data(rdata),
     .memsextsig(memsextsig),
-    .addr_offset(araddr[1:0]),
     .memmask(memmask),
-    .read(memread)
+    .read(memread),
+    .addr_offset(araddr[1:0])
   );
 
   ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
@@ -95,8 +106,10 @@ module ysyx_24100007_wbu(
       end
 
       WAIT_SLAVE: begin
-        if(rvalid | (bvalid & bresp == 2'b00))
+        if(rvalid | (bvalid & bresp == 2'b00)) begin
+          host_get_skip(awaddr);
           state <= FINISH;
+        end
       end
 
       FINISH: begin

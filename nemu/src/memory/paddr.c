@@ -34,7 +34,7 @@ static void out_of_bound(paddr_t addr);
     soc_device *dev = fetch_the_soc(addr);
     if(dev!= NULL){
       if(dev->space == NULL)
-        panic("device %s is not able to read\n", dev->name);
+        return 0;
       return host_read(dev->space + addr - dev->soc_start, len);
     }
     out_of_bound(addr);

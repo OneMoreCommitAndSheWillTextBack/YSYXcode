@@ -11,6 +11,7 @@
 #include "selfconfig.h"
 
 #define MBASE 0x20000000
+#define FBASE 0x30000000
 
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 
@@ -51,9 +52,11 @@ typedef struct {
 // memory.cpp
 bool in_pmem(uint32_t addr);
 uint8_t *guest_to_host(uint32_t addr);
-uint32_t pmem_read(uint8_t *addr, uint32_t len);
 uint32_t paddr_read(uint32_t address, uint32_t len);
 void paddr_write(uint32_t address, uint32_t len, uint32_t data);
+void pmem_write(uint8_t *addr, uint32_t len, uint32_t data);
+uint32_t pmem_read(uint8_t *addr, uint32_t len);
+
 
 // init.cpp
 void init(int argc, char *argv[]);
@@ -64,6 +67,7 @@ void cpu_exec(int n);
 void set_npc_end();
 void set_npc_quit();
 void set_npc_stop();
+void set_diff_pass();
 #ifdef DIFFTEST
 void npc_diff_quit();
 #endif
@@ -98,4 +102,5 @@ extern "C" void disassemble(char *str, int size, uint64_t pc, uint8_t *code,
 void init_difftest(char *ref_so_file, long img_size, int port);
 void diff_step();
 void set_ref_skip();
+void set_diff_pass();
 #endif

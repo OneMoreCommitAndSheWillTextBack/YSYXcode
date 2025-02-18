@@ -2,6 +2,8 @@
 #include "am.h"
 #define UART_BASE 0x10000000
 #define UART_TX   0
+#define UART_LCR 3
+#define UART_LSR 5
 
 extern char _heap_start;
 int main(const char *args);
@@ -57,7 +59,41 @@ void loader_init() {
   }
 }
 
-void putch(char ch) { *(char *)(UART_BASE + UART_TX) = ch; }
+uint32_t flash_read(uint32_t addr){
+  // 设置相关寄存器 -》 轮询flash接口，是否传输完毕
+  // reset 相关寄存器
+  volatile int *spi_tx_0 = SPI(TX);
+  volatile int *spi_tx_1 = SPI(TX + 0x4);
+  volatile int *spi_ctrl = SPI(CTRL);
+  volatile int *spi_ss = SPI(SS);
+  volatile int *spi_divider = SPI(DIVIDER);
+
+  *spi_tx_1 = 0x03 << 24 | (addr - 0x30000000);
+  *spi_ss = 0b00000001;
+  *spi_divider = 0b1;
+  *spi_ctrl = 0b000100000000 | 0x40;
+  
+  while ((*spi_ctrl & (1 << 8)));
+  volatile uint32_t value = *spi_tx_0;
+  *spi_ss = 0b00000000;
+  // 因为特殊的设置，要对数据做一点特殊的处理
+
+  return ((value & 0xFF) << 24) |        // 取最低字节放到最高位
+         ((value & 0xFF00) << 8) |       // 取次低字节左移16位
+         ((value & 0xFF0000) >> 8) |     // 取次高字节右移8位
+         ((value & 0xFF000000) >> 24);   // 取最高字节放到最低位
+}
+
+void serial_init() {
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
+  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x01;
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
+}
+
+void putch(char ch) {
+    while (!(*(volatile unsigned char *)(UART_BASE + UART_LSR) & 0b00100000));
+    *(volatile unsigned char *)(UART_BASE + UART_TX) = ch;
+}
 
 void halt(int code) {
   while (1)
@@ -66,6 +102,7 @@ void halt(int code) {
 
 void _trm_init() {
   loader_init();
+  serial_init();
   int ret = main(mainargs);
   halt(ret);
 }
