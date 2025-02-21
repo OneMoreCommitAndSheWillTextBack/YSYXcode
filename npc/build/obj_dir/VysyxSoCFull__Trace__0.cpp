@@ -888,7 +888,11 @@ void VysyxSoCFull___024root__trace_chg_sub_0(VysyxSoCFull___024root* vlSelf, Ver
                                                    (3U 
                                                     == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__state))
                                                     ? 0x14U
-                                                    : 0U))))),5);
+                                                    : 
+                                                   ((5U 
+                                                     == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__state))
+                                                     ? 0x10U
+                                                     : 0U)))))),5);
         bufp->chgBit(oldp+607,(((1U == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__state)) 
                                 | ((2U == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__state)) 
                                    | ((4U == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__state)) 
