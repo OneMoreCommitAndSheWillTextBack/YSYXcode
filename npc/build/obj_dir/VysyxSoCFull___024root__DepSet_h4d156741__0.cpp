@@ -2658,8 +2658,8 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__2(VysyxSoCFull___0
                     vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__penable = 0U;
                 }
             } else if ((1U & (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__state))) {
-                if (((0x40U == vlSelf->ysyxSoCFull__DOT__asic__DOT___lspi_auto_in_prdata) 
-                     & (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__apb_pready))) {
+                if (((~ (vlSelf->ysyxSoCFull__DOT__asic__DOT___lspi_auto_in_prdata 
+                         >> 8U)) & (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__apb_pready))) {
                     __Vdly__ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__state = 6U;
                     vlSelf->ysyxSoCFull__DOT__asic__DOT__lspi__DOT__mspi__DOT__penable = 0U;
                 }
