@@ -1,5 +1,6 @@
 MEMORY {
     MROM (rx) : ORIGIN = 0x20000000, LENGTH = 4K
+    FLASH (rx) : ORIGIN = 0x30000000, LENGTH = 32M
     SRAM (rwx) : ORIGIN = 0x0f000000, LENGTH = 8K
 }
 
@@ -8,7 +9,7 @@ SECTIONS {
     .text : {
         *(entry)
         *(.text*)
-    } > MROM
+    } > FLASH
 
     .data : ALIGN(4) {
         . = ALIGN(4);
@@ -16,7 +17,7 @@ SECTIONS {
         *(.data.*)
         *(.sdata.*)
         . = ALIGN(4);
-    } > SRAM AT> MROM
+    } > SRAM AT> FLASH
     _edata_vma = .;     
     _sdata_lma = LOADADDR(.data); 
 
@@ -25,7 +26,7 @@ SECTIONS {
         *(.rodata*)
         *(.srodata*)
         _erodata_vma = .;
-    } > SRAM AT> MROM
+    } > SRAM AT> FLASH
     _srodata_lma = LOADADDR(.rodata);
 
     .bss : ALIGN(4) {

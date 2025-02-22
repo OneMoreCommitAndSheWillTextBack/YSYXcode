@@ -6,7 +6,7 @@ module ysyx_24100007_pcreg(
   output reg [31:0] pcout
 );
   // localparam init = 32'h80000000 - 4;
-  localparam init = 32'h20000000;
+  localparam init = 32'h30000000;
 
   initial begin 
     pcout = init;
