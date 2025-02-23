@@ -9,14 +9,19 @@ module ysyx_24100007_registers(
   input csrrw,
   input csrrs,
   input ecall,
-  input [1:0]csr_choose,
+  input [2:0]csr_choose,
   input [4:0] addr,
   input [31:0] data,
   output reg [31:0] gr [31:0],
-  output reg [31:0] csr [3:0]
+  output reg [31:0] csr [5:0]
 );
   
   integer i;
+
+  initial begin
+    csr[4] = 32'h79737978;
+    csr[5] = 32'h0d16FBCA7;
+  end
 
   // write op
   always @(posedge clk or posedge rst) begin 

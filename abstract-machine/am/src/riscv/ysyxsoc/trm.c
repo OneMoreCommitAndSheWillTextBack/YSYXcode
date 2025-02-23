@@ -59,30 +59,30 @@ void loader_init() {
   }
 }
 
-uint32_t flash_read(uint32_t addr){
-  // 设置相关寄存器 -》 轮询flash接口，是否传输完毕
-  // reset 相关寄存器
-  volatile int *spi_tx_0 = SPI(TX);
-  volatile int *spi_tx_1 = SPI(TX + 0x4);
-  volatile int *spi_ctrl = SPI(CTRL);
-  volatile int *spi_ss = SPI(SS);
-  volatile int *spi_divider = SPI(DIVIDER);
+// uint32_t flash_read(uint32_t addr){
+//   // 设置相关寄存器 -》 轮询flash接口，是否传输完毕
+//   // reset 相关寄存器
+//   volatile int *spi_tx_0 = SPI(TX);
+//   volatile int *spi_tx_1 = SPI(TX + 0x4);
+//   volatile int *spi_ctrl = SPI(CTRL);
+//   volatile int *spi_ss = SPI(SS);
+//   volatile int *spi_divider = SPI(DIVIDER);
 
-  *spi_tx_1 = 0x03 << 24 | (addr - 0x30000000);
-  *spi_ss = 0b00000001;
-  *spi_divider = 0b1;
-  *spi_ctrl = 0b000100000000 | 0x40;
+//   *spi_tx_1 = 0x03 << 24 | (addr - 0x30000000);
+//   *spi_ss = 0b00000001;
+//   *spi_divider = 0b1;
+//   *spi_ctrl = 0b000100000000 | 0x40;
   
-  while ((*spi_ctrl & (1 << 8)));
-  volatile uint32_t value = *spi_tx_0;
-  *spi_ss = 0b00000000;
-  // 因为特殊的设置，要对数据做一点特殊的处理
+//   while ((*spi_ctrl & (1 << 8)));
+//   volatile uint32_t value = *spi_tx_0;
+//   *spi_ss = 0b00000000;
+//   // 因为特殊的设置，要对数据做一点特殊的处理
 
-  return ((value & 0xFF) << 24) |        // 取最低字节放到最高位
-         ((value & 0xFF00) << 8) |       // 取次低字节左移16位
-         ((value & 0xFF0000) >> 8) |     // 取次高字节右移8位
-         ((value & 0xFF000000) >> 24);   // 取最高字节放到最低位
-}
+//   return ((value & 0xFF) << 24) |        // 取最低字节放到最高位
+//          ((value & 0xFF00) << 8) |       // 取次低字节左移16位
+//          ((value & 0xFF0000) >> 8) |     // 取次高字节右移8位
+//          ((value & 0xFF000000) >> 24);   // 取最高字节放到最低位
+// }
 
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
@@ -100,9 +100,29 @@ void halt(int code) {
     ;
 }
 
+void display_ysyx(){
+  uint32_t ysyx_ascll;
+  uint32_t ysyx_num;
+  asm volatile("csrr a0, 0xf11" : "=r"(ysyx_ascll));
+  asm volatile("csrr a0, 0xf12" : "=r"(ysyx_num));
+  if(ysyx_ascll != 0x79737978){
+    putch('E');
+  }
+  for(int i = 0; i < 8; i++){
+    putch((ysyx_ascll >> (i * 8)) & 0xFF);
+  }
+
+  while(ysyx_num > 0){
+    putch((ysyx_num % 10) + '0');
+    ysyx_num /= 10;
+  }
+  putch('\n');
+}
+
 void _trm_init() {
   loader_init();
   serial_init();
+  display_ysyx();
   int ret = main(mainargs);
   halt(ret);
 }
