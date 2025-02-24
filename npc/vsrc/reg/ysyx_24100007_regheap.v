@@ -18,19 +18,21 @@ module ysyx_24100007_regheap(
 );
 
   wire [31:0] rf [31:0];
-  wire [31:0] rf_csr [3:0];
-  wire [1:0] csr_choose;
+  wire [31:0] rf_csr [5:0];
+  wire [2:0] csr_choose;
   wire [31:0] reg_write_data;
 
 
   assign reg_write_data = (csrrw | csrrs) ? rf[src1] : 
                                             data;
 
-  ysyx_24100007_MuxKey#(4, 12, 2) muxcsr(csr_choose, csr, {
-    12'h300, 2'b00, // mstatus
-    12'h305, 2'b01, // mtvec
-    12'h341, 2'b10, // mepc
-    12'h342, 2'b11  // mcause
+  ysyx_24100007_MuxKey#(6, 12, 3) muxcsr(csr_choose, csr, {
+    12'h300, 3'b000, // mstatus
+    12'h305, 3'b001, // mtvec
+    12'h341, 3'b010, // mepc
+    12'h342, 3'b011, // mcause
+    12'hf11, 3'b100, // mvendorid
+    12'hf12, 3'b101  // marchid
 });
 
   ysyx_24100007_registers registers0(
