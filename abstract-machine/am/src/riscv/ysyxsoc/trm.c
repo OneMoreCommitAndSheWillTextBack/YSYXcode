@@ -86,7 +86,7 @@ void loader_init() {
 
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
-  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x01;
+  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
 }
 
@@ -103,18 +103,21 @@ void halt(int code) {
 void display_ysyx(){
   uint32_t ysyx_ascll;
   uint32_t ysyx_num;
-  asm volatile("csrr a0, 0xf11" : "=r"(ysyx_ascll));
-  asm volatile("csrr a0, 0xf12" : "=r"(ysyx_num));
-  if(ysyx_ascll != 0x79737978){
-    putch('E');
-  }
+  asm volatile("csrr %0, 0xf11" : "=r"(ysyx_ascll));
+  asm volatile("csrr %0, 0xf12" : "=r"(ysyx_num));
   for(int i = 0; i < 8; i++){
-    putch((ysyx_ascll >> (i * 8)) & 0xFF);
+    putch((ysyx_ascll >> ((4-i) * 8)) & 0xFF);
   }
 
+  char buffer[10];
+  int i = 0;
   while(ysyx_num > 0){
-    putch((ysyx_num % 10) + '0');
+    buffer[i] = (ysyx_num % 10) + '0';
     ysyx_num /= 10;
+    i++;
+  }
+  for(int j = i - 1; j >= 0; j--){
+    putch(buffer[j]);
   }
   putch('\n');
 }

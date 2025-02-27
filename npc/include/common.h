@@ -12,6 +12,7 @@
 
 #define MBASE 0x20000000
 #define FBASE 0x30000000
+#define PSBASE 0x80000000
 
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 

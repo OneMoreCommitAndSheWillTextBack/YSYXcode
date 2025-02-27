@@ -1,31 +1,47 @@
 #include "common.h"
 #include "host.h"
 #include "map.h"
+#include "memory.h"
 #include <assert.h>
 #include <cstdint>
 #include <iostream>
 
-/*
-  due to add the soc 
-  so the pre memory has changed to flash
-*/
-
 const unsigned int msize = 0x800000;
 const unsigned int fsize = 0xfffffff;
+const unsigned int psize = 0x1ffffff;
 static uint8_t pmem[msize] = {};
 static uint8_t flash[fsize] =  {};
+static uint8_t psram[psize] = {};
 
-bool in_flash(uint32_t addr) { return (addr >= FBASE) && (addr <= FBASE + fsize); }
-bool in_mrom(uint32_t addr) { return (addr >= MBASE) && (addr <= MBASE + msize); }
-bool in_pmem(uint32_t addr) { return in_mrom(addr) || in_flash(addr); }
+#define SPACE_NUM 3
+socspace soc_spaces[] = {
+  {"mrom" , MBASE , MBASE + msize, pmem },
+  {"flash", FBASE , FBASE + fsize, flash },
+  {"psram", PSBASE, PSBASE + psize, psram},
+};
 
-uint8_t *mrom_to_host(uint32_t addr) { return pmem + addr - MBASE; }
-uint8_t *flash_to_host(uint32_t addr) { return flash + addr - FBASE; }
+bool in_pmem(uint32_t addr) {
+  for(int i = 0; i < SPACE_NUM; i++)
+    if(addr >= soc_spaces[i].start && addr <= soc_spaces[i].end)
+      return true;
+  
+  return false;
+}
+
+int space_to_host(uint32_t addr, socspace** space) {
+  for(int i = 0; i < SPACE_NUM; i++)
+    if(addr >= soc_spaces[i].start && addr <= soc_spaces[i].end){
+      *space = &soc_spaces[i];
+      return 1;
+    }
+  return -1;
+}
+
 uint8_t *guest_to_host(uint32_t addr) {
-  if(in_mrom(addr))
-    return mrom_to_host(addr);
-  if(in_flash(addr))
-    return flash_to_host(addr);
+  socspace* space;
+  if(space_to_host(addr, &space)){
+    return (uint8_t*)space->space + addr - space->start;
+  }
   printf("[guest_to_host]the addr 0x%08x is out of bound\n", addr);
   assert(0);
 }

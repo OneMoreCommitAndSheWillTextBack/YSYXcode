@@ -17,6 +17,13 @@ extern "C" void mrom_read(int32_t addr, int32_t *data) {
   *data = paddr_read(addr, 4);
 }
 
+extern "C" uint8_t psram_read(uint32_t addr) {
+  return paddr_read(PSBASE + addr, 1);
+}
+extern "C" void psram_write(uint32_t addr, uint8_t data) {
+  paddr_write(PSBASE + addr, 1, data);
+}
+
 extern "C" void host_get_pc(int pc) {
   cpu->con.pc = (uint32_t)pc;
   return;

@@ -29,7 +29,6 @@ BIN = $(BUILDDIR)/$(TOPNAME)
 $(shell mkdir -p $(BUILDDIR))
 
 $(BIN): $(VSRC) $(CSRC)
-	@rm -rf $(OBJDIR)
 	$(VERILATOR) $(VERILATOR_FLAGS) $^ \
 		$(CFLAGS) \
 		$(VERILATOR_INCLUDE) \
