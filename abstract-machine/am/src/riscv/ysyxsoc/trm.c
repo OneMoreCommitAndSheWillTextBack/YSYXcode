@@ -125,7 +125,7 @@ void display_ysyx(){
 void _trm_init() {
   loader_init();
   serial_init();
-  display_ysyx();
+  // display_ysyx();
   int ret = main(mainargs);
   halt(ret);
 }
