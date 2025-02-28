@@ -32,9 +32,9 @@ extern "C" {
     extern void host_get_valid(int valid);
     // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/build/ysyxSoCFull.v:4648:30
     extern void mrom_read(int raddr, int* rdata);
-    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v:121:32
+    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v:124:32
     extern char psram_read(int addr);
-    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v:120:32
+    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v:123:32
     extern void psram_write(int addr, char data);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/idu/ysyx_24100007_maincontrol.v:1:30
     extern void ret(int pc);

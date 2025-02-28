@@ -3507,21 +3507,23 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                         VL_FWRITEF(0x80000002U,"Assertion failed: Unsupport command `%xh`\n",
                                    8,vlSelf->ysyxSoCFull__DOT__psram__DOT__inst_buffer);
                         if (0x80000002U) { VL_FFLUSH_I(0x80000002U); }
-                        VL_WRITEF("[%0t] %%Error: psram.v:107: Assertion failed in %NysyxSoCFull.psram\n",
+                        VL_WRITEF("[%0t] %%Error: psram.v:110: Assertion failed in %NysyxSoCFull.psram\n",
                                   64,VL_TIME_UNITED_Q(1000),
                                   -9,vlSymsp->name());
                         Verilated::runFlushCallbacks();
-                        VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v", 107, "");
+                        VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v", 110, "");
                     }
                 }
             }
         } else if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__state))) {
             if ((1U & (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__state))) {
                 if ((6U == (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__wait_counter))) {
-                    VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_read_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout);
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__state = 4U;
-                    __Vdly__ysyxSoCFull__DOT__psram__DOT__data 
-                        = __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout;
+                    vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_out_reg 
+                        = (0xfU & ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__data) 
+                                   >> 4U));
+                    vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_en = 1U;
+                    __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 1U;
                 } else {
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter 
                         = (7U & ((IData)(1U) + (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__wait_counter)));
@@ -3535,7 +3537,10 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                               << 4U));
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 1U;
                 } else {
+                    VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_read_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout);
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__state = 3U;
+                    __Vdly__ysyxSoCFull__DOT__psram__DOT__data 
+                        = __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout;
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter = 1U;
                 }
             } else {
