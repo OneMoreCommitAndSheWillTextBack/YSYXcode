@@ -3499,22 +3499,22 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                         }
                     } else if (VL_LIKELY((0xebU == (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__inst_buffer)))) {
                         if (vlSelf->ysyxSoCFull__DOT__psram__DOT__finish) {
+                            VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_read_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout);
                             vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_out_reg 
                                 = (0xfU & (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__data));
                             vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_en = 1U;
                             __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 0U;
-                        } else {
-                            VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_read_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout);
-                            vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_out_reg 
-                                = (0xfU & ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__data) 
-                                           >> 4U));
-                            vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_en = 1U;
-                            __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 1U;
                             __Vdly__ysyxSoCFull__DOT__psram__DOT__data 
                                 = __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout;
                             __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer 
                                 = (0xffffffU & ((IData)(1U) 
                                                 + vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer));
+                        } else {
+                            vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_out_reg 
+                                = (0xfU & ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__data) 
+                                           >> 4U));
+                            vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_en = 1U;
+                            __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 1U;
                         }
                     } else {
                         VL_FWRITEF(0x80000002U,"Assertion failed: Unsupport command `%xh`\n",
