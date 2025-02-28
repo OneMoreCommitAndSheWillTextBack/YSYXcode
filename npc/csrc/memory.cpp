@@ -80,6 +80,7 @@ void pmem_write(uint8_t *addr, uint32_t len, uint32_t data) {
 uint32_t paddr_read(uint32_t addr, uint32_t len) {
   if (in_pmem(addr)) {
     uint32_t ret = pmem_read(guest_to_host(addr), len);
+    // printf("\t[paddr_read]space mrom, addr 0x%08x data %u\n", addr, ret);
 #ifdef MTRACE
     printf("[memory read] %u from 0x%08x\n", ret, addr);
 #endif
@@ -93,6 +94,7 @@ uint32_t paddr_read(uint32_t addr, uint32_t len) {
 void paddr_write(uint32_t addr, uint32_t len, uint32_t data) {
   if (in_pmem(addr)) {
     pmem_write(guest_to_host(addr), len, data);
+    // printf("\t[paddr_write]space mrom, addr 0x%08x data %u\n", addr, data);
 #ifdef MTRACE
     printf("[memory write] %u to 0x%08x\n", data, addr);
 #endif
