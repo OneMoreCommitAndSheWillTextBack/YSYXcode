@@ -20,7 +20,7 @@ module ysyx_24100007_memwritelen(
     wire [1:0] bus_size;
     ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
         .out(bus_size),
-        .key({insram|inspi,inuart|inflash|inpsram}),
+        .key({insram|inspi|inpsram,inuart|inflash}),
         .default_out(`GENERAL),
         .lut({
             2'b10 , `WORD,
