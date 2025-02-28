@@ -3488,6 +3488,9 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                             __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 0U;
                         } else {
                             VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_write_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__data));
+                            __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer 
+                                = (0xffffffU & ((IData)(1U) 
+                                                + vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer));
                             __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 1U;
                             __Vdly__ysyxSoCFull__DOT__psram__DOT__data 
                                 = ((0xfU & (IData)(__Vdly__ysyxSoCFull__DOT__psram__DOT__data)) 
@@ -3517,11 +3520,11 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                         VL_FWRITEF(0x80000002U,"Assertion failed: Unsupport command `%xh`\n",
                                    8,vlSelf->ysyxSoCFull__DOT__psram__DOT__inst_buffer);
                         if (0x80000002U) { VL_FFLUSH_I(0x80000002U); }
-                        VL_WRITEF("[%0t] %%Error: psram.v:114: Assertion failed in %NysyxSoCFull.psram\n",
+                        VL_WRITEF("[%0t] %%Error: psram.v:113: Assertion failed in %NysyxSoCFull.psram\n",
                                   64,VL_TIME_UNITED_Q(1000),
                                   -9,vlSymsp->name());
                         Verilated::runFlushCallbacks();
-                        VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v", 114, "");
+                        VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v", 113, "");
                     }
                 }
             }
