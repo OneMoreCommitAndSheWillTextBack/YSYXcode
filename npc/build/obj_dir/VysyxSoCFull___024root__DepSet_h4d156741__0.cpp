@@ -3544,21 +3544,21 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter = 1U;
                 }
             } else {
-                vlSelf->ysyxSoCFull__DOT__psram__DOT____Vlvbound_h5ca5d073__0 
+                vlSelf->ysyxSoCFull__DOT__psram__DOT____Vlvbound_h57fb771c__0 
                     = vlSelf->ysyxSoCFull__DOT__asic__DOT__lpsram__DOT__mpsram__DOT__din;
-                if ((0x17U >= (0x1fU & ((IData)(0x13U) 
+                if ((0x17U >= (0x1fU & ((IData)(0x14U) 
                                         - ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_counter) 
                                            << 2U))))) {
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer 
                         = (((~ ((IData)(0xfU) << (0x1fU 
-                                                  & ((IData)(0x13U) 
+                                                  & ((IData)(0x14U) 
                                                      - 
                                                      ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_counter) 
                                                       << 2U))))) 
                             & __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer) 
-                           | (0xffffffU & ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT____Vlvbound_h5ca5d073__0) 
+                           | (0xffffffU & ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT____Vlvbound_h57fb771c__0) 
                                            << (0x1fU 
-                                               & ((IData)(0x13U) 
+                                               & ((IData)(0x14U) 
                                                   - 
                                                   ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_counter) 
                                                    << 2U))))));

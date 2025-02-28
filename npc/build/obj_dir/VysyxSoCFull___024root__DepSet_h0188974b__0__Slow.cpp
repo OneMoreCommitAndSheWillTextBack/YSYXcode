@@ -1169,7 +1169,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_out_reg = VL_RAND_RESET_I(4);
     vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_en = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__psram__DOT__reset = VL_RAND_RESET_I(1);
-    vlSelf->ysyxSoCFull__DOT__psram__DOT____Vlvbound_h5ca5d073__0 = VL_RAND_RESET_I(4);
+    vlSelf->ysyxSoCFull__DOT__psram__DOT____Vlvbound_h57fb771c__0 = VL_RAND_RESET_I(4);
     vlSelf->__VdfgTmp_hf132a334__0 = 0;
     vlSelf->__VdfgTmp_h1b89b898__0 = 0;
     vlSelf->__VdfgTmp_h9e7e4328__0 = 0;
