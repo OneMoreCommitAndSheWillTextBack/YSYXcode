@@ -3426,8 +3426,8 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
     VysyxSoCFull__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    VysyxSoCFull___024root___nba_sequent__TOP__3\n"); );
     // Init
-    CData/*7:0*/ __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__12__Vfuncout;
-    __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__12__Vfuncout = 0;
+    CData/*7:0*/ __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout;
+    __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout = 0;
     CData/*3:0*/ __Vdly__ysyxSoCFull__DOT__psram__DOT__state;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__state = 0;
     CData/*2:0*/ __Vdly__ysyxSoCFull__DOT__psram__DOT__inst_counter;
@@ -3438,17 +3438,17 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
     __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter = 0;
     CData/*7:0*/ __Vdly__ysyxSoCFull__DOT__psram__DOT__inst_buffer;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__inst_buffer = 0;
-    IData/*23:0*/ __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer;
-    __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer = 0;
     CData/*0:0*/ __Vdly__ysyxSoCFull__DOT__psram__DOT__finish;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 0;
+    IData/*23:0*/ __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer;
+    __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer = 0;
     CData/*7:0*/ __Vdly__ysyxSoCFull__DOT__psram__DOT__data;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__data = 0;
     // Body
     __Vdly__ysyxSoCFull__DOT__psram__DOT__data = vlSelf->ysyxSoCFull__DOT__psram__DOT__data;
-    __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = vlSelf->ysyxSoCFull__DOT__psram__DOT__finish;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer 
         = vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer;
+    __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = vlSelf->ysyxSoCFull__DOT__psram__DOT__finish;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__inst_buffer 
         = vlSelf->ysyxSoCFull__DOT__psram__DOT__inst_buffer;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter 
@@ -3459,16 +3459,17 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
         = vlSelf->ysyxSoCFull__DOT__psram__DOT__inst_counter;
     __Vdly__ysyxSoCFull__DOT__psram__DOT__state = vlSelf->ysyxSoCFull__DOT__psram__DOT__state;
     if (vlSelf->ysyxSoCFull__DOT__psram__DOT__reset) {
+        VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_write_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__data));
         __Vdly__ysyxSoCFull__DOT__psram__DOT__state = 0U;
         __Vdly__ysyxSoCFull__DOT__psram__DOT__inst_counter = 0U;
         __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_counter = 0U;
         __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter = 0U;
         __Vdly__ysyxSoCFull__DOT__psram__DOT__inst_buffer = 0U;
-        __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer = 0U;
         __Vdly__ysyxSoCFull__DOT__psram__DOT__finish = 0U;
-        __Vdly__ysyxSoCFull__DOT__psram__DOT__data = 0U;
         vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_en = 0U;
         vlSelf->ysyxSoCFull__DOT__psram__DOT__dio_out_reg = 0U;
+        __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer = 0U;
+        __Vdly__ysyxSoCFull__DOT__psram__DOT__data = 0U;
     } else if ((1U & (~ ((IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__state) 
                          >> 3U)))) {
         if ((4U & (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__state))) {
@@ -3506,21 +3507,21 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
                         VL_FWRITEF(0x80000002U,"Assertion failed: Unsupport command `%xh`\n",
                                    8,vlSelf->ysyxSoCFull__DOT__psram__DOT__inst_buffer);
                         if (0x80000002U) { VL_FFLUSH_I(0x80000002U); }
-                        VL_WRITEF("[%0t] %%Error: psram.v:106: Assertion failed in %NysyxSoCFull.psram\n",
+                        VL_WRITEF("[%0t] %%Error: psram.v:107: Assertion failed in %NysyxSoCFull.psram\n",
                                   64,VL_TIME_UNITED_Q(1000),
                                   -9,vlSymsp->name());
                         Verilated::runFlushCallbacks();
-                        VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v", 106, "");
+                        VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/psram/psram.v", 107, "");
                     }
                 }
             }
         } else if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__state))) {
             if ((1U & (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__state))) {
                 if ((6U == (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__wait_counter))) {
-                    VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_read_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__12__Vfuncout);
+                    VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram__DOT__psram_read_TOP(vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer, __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout);
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__state = 4U;
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__data 
-                        = __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__12__Vfuncout;
+                        = __Vfunc_ysyxSoCFull__DOT__psram__DOT__psram_read__13__Vfuncout;
                 } else {
                     __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter 
                         = (7U & ((IData)(1U) + (IData)(vlSelf->ysyxSoCFull__DOT__psram__DOT__wait_counter)));
@@ -3597,9 +3598,9 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__3(VysyxSoCFull___0
         = __Vdly__ysyxSoCFull__DOT__psram__DOT__wait_counter;
     vlSelf->ysyxSoCFull__DOT__psram__DOT__inst_buffer 
         = __Vdly__ysyxSoCFull__DOT__psram__DOT__inst_buffer;
+    vlSelf->ysyxSoCFull__DOT__psram__DOT__finish = __Vdly__ysyxSoCFull__DOT__psram__DOT__finish;
     vlSelf->ysyxSoCFull__DOT__psram__DOT__addr_buffer 
         = __Vdly__ysyxSoCFull__DOT__psram__DOT__addr_buffer;
-    vlSelf->ysyxSoCFull__DOT__psram__DOT__finish = __Vdly__ysyxSoCFull__DOT__psram__DOT__finish;
     vlSelf->ysyxSoCFull__DOT__psram__DOT__data = __Vdly__ysyxSoCFull__DOT__psram__DOT__data;
 }
 
