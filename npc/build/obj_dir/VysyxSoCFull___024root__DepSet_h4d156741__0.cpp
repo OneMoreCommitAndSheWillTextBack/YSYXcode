@@ -201,9 +201,10 @@ void VysyxSoCFull___024unit____Vdpiimwrap_host_get_valid_TOP____024unit(IData/*3
 extern const VlUnpacked<CData/*0:0*/, 128> VysyxSoCFull__ConstPool__TABLE_h3de247c1_0;
 extern const VlUnpacked<CData/*1:0*/, 128> VysyxSoCFull__ConstPool__TABLE_h00cce6e5_0;
 void VysyxSoCFull___024unit____Vdpiimwrap_host_get_skip_TOP____024unit(IData/*31:0*/ addr);
-extern const VlUnpacked<CData/*2:0*/, 128> VysyxSoCFull__ConstPool__TABLE_h255d2e09_0;
+extern const VlUnpacked<CData/*3:0*/, 128> VysyxSoCFull__ConstPool__TABLE_hbf167cd6_0;
 extern const VlUnpacked<CData/*1:0*/, 128> VysyxSoCFull__ConstPool__TABLE_hafb3f511_0;
 extern const VlUnpacked<CData/*0:0*/, 128> VysyxSoCFull__ConstPool__TABLE_he5700ac7_0;
+extern const VlUnpacked<CData/*2:0*/, 128> VysyxSoCFull__ConstPool__TABLE_h7fa21b48_0;
 
 VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__2(VysyxSoCFull___024root* vlSelf) {
     if (false && vlSelf) {}  // Prevent unused
@@ -2241,22 +2242,28 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__2(VysyxSoCFull___0
                      << 4U) | (((IData)(vlSelf->reset) 
                                 << 3U) | (((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lpsram__DOT__mpsram__DOT__u0__DOT__QPI__DOT__state) 
                                            << 1U) | (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lpsram__DOT__mpsram__DOT__u0__DOT__QPI__DOT__finish))));
-    if ((1U & VysyxSoCFull__ConstPool__TABLE_h255d2e09_0
+    if ((1U & VysyxSoCFull__ConstPool__TABLE_hbf167cd6_0
          [__Vtableidx7])) {
         vlSelf->ysyxSoCFull__DOT__asic__DOT__lpsram__DOT__mpsram__DOT__u0__DOT__QPI__DOT__state 
             = VysyxSoCFull__ConstPool__TABLE_hafb3f511_0
             [__Vtableidx7];
     }
-    if ((2U & VysyxSoCFull__ConstPool__TABLE_h255d2e09_0
+    if ((2U & VysyxSoCFull__ConstPool__TABLE_hbf167cd6_0
          [__Vtableidx7])) {
         vlSelf->ysyxSoCFull__DOT__asic__DOT__lpsram__DOT__mpsram__DOT__u0__DOT__qpi_ce_n 
             = VysyxSoCFull__ConstPool__TABLE_he5700ac7_0
             [__Vtableidx7];
     }
-    if ((4U & VysyxSoCFull__ConstPool__TABLE_h255d2e09_0
+    if ((4U & VysyxSoCFull__ConstPool__TABLE_hbf167cd6_0
          [__Vtableidx7])) {
         vlSelf->ysyxSoCFull__DOT__asic__DOT__lpsram__DOT__mpsram__DOT__u0__DOT__QPI__DOT__finish 
             = VysyxSoCFull__ConstPool__TABLE_he5700ac7_0
+            [__Vtableidx7];
+    }
+    if ((8U & VysyxSoCFull__ConstPool__TABLE_hbf167cd6_0
+         [__Vtableidx7])) {
+        vlSelf->ysyxSoCFull__DOT__asic__DOT__lpsram__DOT__mpsram__DOT__u0__DOT__QPI__DOT__counter 
+            = VysyxSoCFull__ConstPool__TABLE_h7fa21b48_0
             [__Vtableidx7];
     }
     if (vlSelf->ysyxSoCFull__DOT__asic__DOT__lmrom__DOT___nodeIn_rid_T) {
