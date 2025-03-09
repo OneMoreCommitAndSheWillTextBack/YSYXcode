@@ -27,7 +27,7 @@ SECTIONS {
         *(.rodata*)
         *(.srodata*)
         _erodata_vma = .;
-    } > SRAM AT> FLASH
+    } > PSRAM AT> FLASH
     _srodata_lma = LOADADDR(.rodata);
 
     .bss : ALIGN(4) {
@@ -39,9 +39,8 @@ SECTIONS {
         *(COMMON)
         . = ALIGN(4);
         _ebss_vma = .;
-    } > SRAM
+    } > PSRAM
 
     _stack_pointer = 0x0f001000;
-    . = _stack_pointer + 0x8000;
-    _heap_start = 0x80000000;
+    _heap_start = _ebss_vma;
 }
