@@ -8,7 +8,7 @@
 
 const unsigned int msize = 0x800000;
 const unsigned int fsize = 0xfffffff;
-const unsigned int psize = 0x1ffffff;
+const unsigned int psize = 0x1fffffff;
 static uint8_t pmem[msize] = {};
 static uint8_t flash[fsize] =  {};
 static uint8_t psram[psize] = {};
