@@ -15,7 +15,7 @@ extern Cpu *cpu;
 void display_reg() {
   for (int i = 0; i < REGNUM; i++) {
     std::cout << std::left << std::setfill(' ') << std::setw(3) << regs[i];
-    std::cout << " 0x" << std::hex << std::setfill('0') << std::setw(8)
+    std::cout << " 0x" << std::right << std::hex << std::setfill('0') << std::setw(8)
               << cpu->con.gpr[i];
 
     std::cout << " " << std::dec << cpu->con.gpr[i];

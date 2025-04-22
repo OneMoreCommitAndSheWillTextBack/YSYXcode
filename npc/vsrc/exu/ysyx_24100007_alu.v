@@ -44,10 +44,10 @@ module ysyx_24100007_alu(
   reg [31:0] shfres;
   always @(*) begin
     case(op[1:0])
-      2'b00: shfres = (type_I) ? A << B[4:0] : A << B;
-      2'b01: shfres = (type_I) ? A >> B[4:0] : A >> B;
+      2'b00: shfres = (type_I) ? A << B[4:0] : A << B[4:0];
+      2'b01: shfres = (type_I) ? A >> B[4:0] : A >> B[4:0];
       2'b10: shfres = (type_I) ? ($signed(A)) >>> B[4:0] : 
-                                 ($signed(A)) >>> B;
+                                 ($signed(A)) >>> B[4:0];
       default: shfres = 32'b0;
     endcase
   end

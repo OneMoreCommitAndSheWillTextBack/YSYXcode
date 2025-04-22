@@ -9,10 +9,10 @@ extern char _heap_start;
 int main(const char *args);
 
 extern char _pmem_start;
-#define PMEM_SIZE (8 * 1024 * 1024)
-#define PMEM_END ((uintptr_t) & _pmem_start + PMEM_SIZE)
+// #define PMEM_SIZE (8 * 1024 * 1024)
+// #define PMEM_END ((uintptr_t) & _pmem_start + PMEM_SIZE)
 
-Area heap = RANGE(&_heap_start, PMEM_END);
+Area heap = RANGE(&_heap_start, 0x9fffffff);
 #ifndef MAINARGS
 #define MAINARGS ""
 #endif
@@ -59,34 +59,11 @@ void loader_init() {
   }
 }
 
-// uint32_t flash_read(uint32_t addr){
-//   // 设置相关寄存器 -》 轮询flash接口，是否传输完毕
-//   // reset 相关寄存器
-//   volatile int *spi_tx_0 = SPI(TX);
-//   volatile int *spi_tx_1 = SPI(TX + 0x4);
-//   volatile int *spi_ctrl = SPI(CTRL);
-//   volatile int *spi_ss = SPI(SS);
-//   volatile int *spi_divider = SPI(DIVIDER);
 
-//   *spi_tx_1 = 0x03 << 24 | (addr - 0x30000000);
-//   *spi_ss = 0b00000001;
-//   *spi_divider = 0b1;
-//   *spi_ctrl = 0b000100000000 | 0x40;
-  
-//   while ((*spi_ctrl & (1 << 8)));
-//   volatile uint32_t value = *spi_tx_0;
-//   *spi_ss = 0b00000000;
-//   // 因为特殊的设置，要对数据做一点特殊的处理
-
-//   return ((value & 0xFF) << 24) |        // 取最低字节放到最高位
-//          ((value & 0xFF00) << 8) |       // 取次低字节左移16位
-//          ((value & 0xFF0000) >> 8) |     // 取次高字节右移8位
-//          ((value & 0xFF000000) >> 24);   // 取最高字节放到最低位
-// }
 
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
-  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x01;
+  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
 }
 
@@ -121,11 +98,13 @@ void display_ysyx(){
   }
   putch('\n');
 }
+void ioe_read(int reg, void *buf){}
+bool ioe_init(){return true;};
 
 void _trm_init() {
   loader_init();
   serial_init();
-  display_ysyx();
+  // display_ysyx();
   int ret = main(mainargs);
   halt(ret);
 }
