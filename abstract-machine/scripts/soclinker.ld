@@ -49,6 +49,6 @@ SECTIONS {
         _ebss_vma = .;
     } > SRAM
 
-    _stack_pointer = 0x9ffff000;
+    _stack_pointer = 0x0f002000;
     _heap_start = _ebss_vma;
 }
