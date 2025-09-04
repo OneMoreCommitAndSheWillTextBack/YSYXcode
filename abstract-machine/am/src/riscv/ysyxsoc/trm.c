@@ -118,7 +118,7 @@ __attribute__((section(".bootloader")))
 void _trm_init() {
   loader_init();
   serial_init();
-  // display_ysyx();
+  display_ysyx();
   int ret = main(mainargs);
   halt(ret);
 }
