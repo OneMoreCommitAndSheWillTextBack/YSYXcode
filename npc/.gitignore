@@ -1,4 +1,4 @@
-./build
+./build/*
 !./csrc/*.cpp
 !./vsrc/*.h
 !*.v

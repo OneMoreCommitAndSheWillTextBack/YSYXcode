@@ -21,13 +21,18 @@ static const char mainargs[] = MAINARGS;
 extern char _sdata_lma;
 extern char _srodata_lma;
 extern char _bss_lma;
+extern char _stext_lma;
+
 extern char _sdata_vma;
 extern char _edata_vma;
 extern char _srodata_vma;
 extern char _erodata_vma;
 extern char _sbss_vma;
 extern char _ebss_vma;
+extern char _stext_vma;
+extern char _etext_vma;
 
+__attribute__((section(".bootloader")))
 void loader_init() {
   // 复制.data段（LMA->VMA）
   int *src_data = (int*)&_sdata_lma;  // .data段的源地址（MROM）
@@ -57,8 +62,17 @@ void loader_init() {
   for (char *p = bss_start; p <= bss_end; p++) {
     *p = 0;
   }
+
+  char *src_stext = (char*)&_stext_lma;
+  char *dst_stext = (char*)&_stext_vma;
+  unsigned int stext_len = (uintptr_t)&_etext_vma - (uintptr_t)dst_stext;
+  for (unsigned int i = 0; i < stext_len; i++) {
+    dst_stext[i] = src_stext[i];
+  }
 }
 
+
+__attribute__((section(".bootloader")))
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
   *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;
@@ -75,6 +89,7 @@ void halt(int code) {
     ;
 }
 
+__attribute__((section(".bootloader")))
 void display_ysyx(){
   uint32_t ysyx_ascll;
   uint32_t ysyx_num;
@@ -99,6 +114,7 @@ void display_ysyx(){
 void ioe_read(int reg, void *buf){}
 bool ioe_init(){return true;};
 
+__attribute__((section(".bootloader")))
 void _trm_init() {
   loader_init();
   serial_init();
