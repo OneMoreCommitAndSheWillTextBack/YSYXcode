@@ -79,7 +79,7 @@ module ysyx_24100007_wbu(
     .memsextsig(memsextsig),
     .memmask(memmask),
     .read(memread),
-    .addr_offset(araddr[1:0])
+    .addr_offset(res[1:0])
   );
 
   ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
