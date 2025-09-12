@@ -4,6 +4,9 @@
 #define UART_TX   0
 #define UART_LCR 3
 #define UART_LSR 5
+#define UART_DLL 0
+#define UART_DLM 1
+#define UART_FCR 2
 
 extern char _heap_start;
 int main(const char *args);
@@ -72,11 +75,13 @@ void loader_init() {
 }
 
 
-// __attribute__((section(".bootloader")))
+__attribute__((section(".bootloader")))
 void serial_init() {
-  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
-  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;
-  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
+  *(volatile unsigned char *)(UART_BASE + UART_FCR) = 0x07;
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0x80;  
+  *(volatile unsigned char *)(UART_BASE + UART_DLL) = 26;    
+  *(volatile unsigned char *)(UART_BASE + UART_DLM) = 0;
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0x03; 
 }
 
 void putch(char ch) {
@@ -89,7 +94,7 @@ void halt(int code) {
     ;
 }
 
-// __attribute__((section(".bootloader")))
+__attribute__((section(".bootloader")))
 void display_ysyx(){
   uint32_t ysyx_ascll;
   uint32_t ysyx_num;
@@ -118,7 +123,7 @@ __attribute__((section(".bootloader")))
 void _trm_init() {
   loader_init();
   serial_init();
-  display_ysyx();
+  // display_ysyx();
   int ret = main(mainargs);
   halt(ret);
 }
