@@ -77,15 +77,13 @@ void loader_init() {
 
 __attribute__((section(".bootloader")))
 void serial_init() {
-  *(volatile unsigned char *)(UART_BASE + UART_FCR) = 0x07;
-  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0x80;  
-  *(volatile unsigned char *)(UART_BASE + UART_DLL) = 26;    
-  *(volatile unsigned char *)(UART_BASE + UART_DLM) = 0;
-  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0x03; 
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
+  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0x0f;
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
 }
 
 void putch(char ch) {
-    while (!(*(volatile unsigned char *)(UART_BASE + UART_LSR) & 0b00100000));
+    while ((*(volatile unsigned char *)(UART_BASE + UART_LSR) & 0x20) == 0);
     *(volatile unsigned char *)(UART_BASE + UART_TX) = ch;
 }
 
