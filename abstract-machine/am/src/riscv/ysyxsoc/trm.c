@@ -83,7 +83,7 @@ void serial_init() {
 }
 
 void putch(char ch) {
-    while ((*(volatile unsigned char *)(UART_BASE + UART_LSR) & 0x20) == 0);
+    while ((*(volatile unsigned char *)(UART_BASE + UART_LSR) & 0x60) == 0);
     *(volatile unsigned char *)(UART_BASE + UART_TX) = ch;
 }
 
