@@ -66,6 +66,7 @@ void loader_init() {
     *p = 0;
   }
 
+  // text 段
   char *src_stext = (char*)&_stext_lma;
   char *dst_stext = (char*)&_stext_vma;
   unsigned int stext_len = (uintptr_t)&_etext_vma - (uintptr_t)dst_stext;

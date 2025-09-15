@@ -68,7 +68,7 @@ module ysyx_24100007_wbu(
   assign wdata = regout2 << wdata_offset * 8;
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
-  assign araddr = res;
+  assign araddr = {res[31:2], 2'b00};
   assign rready = memer;
   assign arsize = (memmask == 3'b001) ? 3'b000 :
                   (memmask == 3'b010) ? 3'b001 :
