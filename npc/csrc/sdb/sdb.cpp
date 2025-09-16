@@ -40,6 +40,8 @@ const Command cmd_table[] = {
     {"p", "eval the expreesion", cmd_p},
     {"b", "alloc new watchpoint", cmd_b},
     {"d", "delete a watchpoint", cmd_d},
+    {"x", "print memory", cmd_x},
+    {"m", "add memory guard", cmd_add_mem_guard},
 };
 
 #define NR_CMD sizeof(cmd_table) / sizeof(cmd_table[0])
@@ -58,6 +60,16 @@ int cmd_help(const std::string &args) {
     }
     std::cout << "Unknown command '" << args << "'" << std::endl;
   }
+  return 0;
+}
+
+int cmd_add_mem_guard(const std::string &args){
+  if(args.empty()){
+    std::cout << "[error] add a paddr to check the mem" << std::endl;
+    return 0;
+  }
+  uint32_t paddr = std::atoi(args.c_str(), nullptr, 16);
+  add_mem_guard(paddr, 4);
   return 0;
 }
 

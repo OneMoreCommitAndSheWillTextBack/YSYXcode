@@ -73,6 +73,10 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
   }
 }
 
+__EXPORT uint32_t difftest_get_mem(paddr_t addr) {
+  return paddr_read(addr, 4);
+}
+
 __EXPORT void difftest_exec(uint64_t n) { cpu_exec(n); }
 
 __EXPORT void difftest_raise_intr(word_t NO) { assert(0); }
