@@ -68,19 +68,30 @@ module ysyx_24100007_wbu(
   assign wdata = regout2 << wdata_offset * 8;
   assign bready = memew;
   assign arvalid = memer & (state == WAIT_HAMDSHAKE);
-  assign araddr = res;
   assign rready = memer;
   assign arsize = (memmask == 3'b001) ? 3'b000 :
                   (memmask == 3'b010) ? 3'b001 :
                   3'b010;
 
+  wire [1:0] access_size_i = (memmask == 3'b010) ? 2'b01 :
+                             (memmask == 3'b100) ? 2'b10 :
+                             2'b00;
+  wire is_unaligned_o;
+  assign is_unaligned_o = 
+    (access_size_i == 2'b01) ? |res[0] :     // 2字节访问：检查addr[0]
+    (access_size_i == 2'b10) ? |res[1:0] :   // 4字节访问：检查addr[1:0]
+    1'b0;                                    // 1字节访问：总是对齐
+
   ysyx_24100007_memreadlen memreadlen0(
+    .is_unalign(is_unaligned_o),
     .data(rdata),
     .memsextsig(memsextsig),
     .memmask(memmask),
     .read(memread),
     .addr_offset(res[1:0])
   );
+
+  assign araddr = (is_unaligned_o == 1) ? {res[31:2], 2'b00} : res;
 
   ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b000, res,
