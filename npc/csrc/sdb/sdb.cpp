@@ -24,6 +24,7 @@ int cmd_x(const std::string &args);
 int cmd_p(const std::string &args);
 int cmd_b(const std::string &args);
 int cmd_d(const std::string &args);
+int cmd_add_mem_guard(const std::string &args);
 
 struct Command {
   const std::string name;
@@ -68,7 +69,7 @@ int cmd_add_mem_guard(const std::string &args){
     std::cout << "[error] add a paddr to check the mem" << std::endl;
     return 0;
   }
-  uint32_t paddr = std::atoi(args.c_str(), nullptr, 16);
+  uint32_t paddr = std::stoi(args, nullptr, 16);
   add_mem_guard(paddr, 4);
   return 0;
 }

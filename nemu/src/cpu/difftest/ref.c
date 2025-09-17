@@ -73,7 +73,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
   }
 }
 
-__EXPORT uint32_t difftest_get_mem(paddr_t addr) {
+__EXPORT uint32_t difftest_get_mem(uint32_t addr) {
   return paddr_read(addr, 4);
 }
 

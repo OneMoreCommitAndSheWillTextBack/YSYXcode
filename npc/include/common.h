@@ -93,6 +93,10 @@ void new_wp(char *exp);
 void free_wp(int wp_num);
 void info_wp();
 
+// memcheck.cpp
+int add_mem_guard(uint32_t paddr, size_t size);
+int check_mem_guard();
+
 // disasm.cpp
 extern "C" void init_disasm(const char *triple);
 extern "C" void disassemble(char *str, int size, uint64_t pc, uint8_t *code,
@@ -104,5 +108,5 @@ void init_difftest(char *ref_so_file, long img_size, int port);
 void diff_step();
 void set_ref_skip();
 void set_diff_pass();
-void difftest_check_mem(paddr_t addr, uint32_t expect);
+void difftest_check_mem(uint32_t addr, uint32_t expect);
 #endif

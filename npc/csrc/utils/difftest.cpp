@@ -21,7 +21,7 @@ void (*ref_difftest_memcpy)(uint32_t addr, void *buf, size_t n, bool direction);
 void (*ref_difftest_regcpy)(void *dut, bool direction);
 void (*ref_difftest_exec)(uint64_t n);
 void (*ref_difftest_init)(int port);
-void (*ref_difftest_get_mem)(paddr_t addr);
+uint32_t (*ref_difftest_get_mem)(uint32_t addr);
 
 enum { DIFF_TO_DUT, DIFF_TO_REF };
 extern Cpu *cpu;
@@ -54,7 +54,7 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
   ref_difftest_init = (void (*)(int))dlsym(handle, "difftest_init");
   assert(ref_difftest_init);
 
-  ref_difftest_get_mem = (void (*)(uint32_t))dlsym(handle, "difftest_get_mem");
+  ref_difftest_get_mem = (uint32_t (*)(uint32_t))dlsym(handle, "difftest_get_mem");
   assert(ref_difftest_get_mem);
 
   ref_difftest_init(port);
@@ -116,7 +116,7 @@ void diff_step() {
   checkregs(&ref_context);
 }
 
-void difftest_check_mem(paddr_t addr, uint32_t expect) {
+void difftest_check_mem(uint32_t addr, uint32_t expect) {
   uint32_t mem = ref_difftest_get_mem(addr);
   if (mem != expect) {
     printf("difftest failed at mem 0x%08x\n", addr);

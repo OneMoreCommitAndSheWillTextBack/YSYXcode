@@ -43,7 +43,12 @@ static void exe_once() {
 
 static int start_diff = 0;
 void trace_or_diff() {
+#ifdef WATCH_POINT
   exe_wp();
+#endif
+#ifdef MEMORY_GUARD
+  check_mem_guard();
+#endif
 #ifdef ITRACE
   printf("%s\n", cpu->logbuf);
 #endif
