@@ -116,8 +116,17 @@ void diff_step() {
   checkregs(&ref_context);
 }
 
-void difftest_check_mem(uint32_t addr, uint32_t expect) {
+void difftest_check_mem(uint32_t addr, uint32_t expect, size_t size) {
   uint32_t mem = ref_difftest_get_mem(addr);
+  if(size == 1) {
+    mem = (uint8_t)mem;
+  } else if(size == 2) {
+    mem = (uint16_t)mem;
+  } else if(size == 4) {
+    mem = (uint32_t)mem;
+  } else {
+    assert(0);
+  }
   if (mem != expect) {
     printf("difftest failed at mem 0x%08x\n", addr);
     printf("mem npc: 0x%08x nemu: 0x%08x\n", mem, expect);

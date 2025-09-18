@@ -1,6 +1,7 @@
 #include "VysyxSoCFull.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
+
 #include <cstdint>
 #include <stdint.h>
 #include <stdio.h>
@@ -108,5 +109,5 @@ void init_difftest(char *ref_so_file, long img_size, int port);
 void diff_step();
 void set_ref_skip();
 void set_diff_pass();
-void difftest_check_mem(uint32_t addr, uint32_t expect);
+void difftest_check_mem(uint32_t addr, uint32_t expect, size_t size);
 #endif

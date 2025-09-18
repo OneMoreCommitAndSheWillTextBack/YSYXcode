@@ -69,8 +69,19 @@ int cmd_add_mem_guard(const std::string &args){
     std::cout << "[error] add a paddr to check the mem" << std::endl;
     return 0;
   }
-  uint32_t paddr = std::stoi(args, nullptr, 16);
-  add_mem_guard(paddr, 4);
+  std::stringstream ss(args);
+  std::vector<std::string> arr;
+  std::string item;
+  while(std::getline(ss, item, ' ')) {
+    arr.push_back(item);
+  }
+  uint32_t paddr = std::stoul(arr[0], nullptr, 16);
+  size_t size = std::stoi(arr[1]);
+  if(size <= 0 || size > 4) {
+    std::cout << "[error] get a invaild size: " << size << std::endl;
+    return 0;
+  }
+  add_mem_guard(paddr, size);
   return 0;
 }
 
