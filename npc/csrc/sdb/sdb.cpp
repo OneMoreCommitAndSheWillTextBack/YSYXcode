@@ -64,6 +64,7 @@ int cmd_help(const std::string &args) {
   return 0;
 }
 
+#ifdef DIFFTEST
 int cmd_add_mem_guard(const std::string &args){
   if(args.empty()){
     std::cout << "[error] add a paddr to check the mem" << std::endl;
@@ -84,6 +85,15 @@ int cmd_add_mem_guard(const std::string &args){
   add_mem_guard(paddr, size);
   return 0;
 }
+
+#else
+
+int cmd_add_mem_guard(const std::string &args){
+  std::cout << "[error] not support add mem guard without difftest" << std::endl;
+  return 0;
+}
+
+#endif
 
 int cmd_c(const std::string &args) {
   cpu_exec(-1);
