@@ -23,15 +23,15 @@ module ysyx_24100007_memwritelen(
                                 (wirtelen == 3'b100) ? 3'b010 :
                                 3'b000;
 
-    // ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
-    //     .out(bus_size),
-    //     .key({insram|inspi,inuart|inflash}),
-    //     .default_out(`GENERAL),
-    //     .lut({
-    //         2'b10 , `WORD,
-    //         2'b01 , `BYTE
-    //     })
-    // );
+    ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
+        .out(bus_size),
+        .key({insram|inspi,inuart|inflash}),
+        .default_out(`GENERAL),
+        .lut({
+            2'b10 , `WORD,
+            2'b01 , `BYTE
+        })
+    );
 
     ysyx_24100007_MuxKeyWithDefault #(3, 2, 3) len_mux(
         .out(awsize),
