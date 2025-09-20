@@ -35,6 +35,8 @@ extern char _ebss_vma;
 extern char _stext_vma;
 extern char _etext_vma;
 
+
+
 __attribute__((section(".bootloader")))
 void loader_init() {
   // 复制.data段（LMA->VMA）
