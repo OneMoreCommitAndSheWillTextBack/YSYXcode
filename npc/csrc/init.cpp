@@ -68,7 +68,7 @@ void parse_args(int argc, char *argv[]) {
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-d:p:f:bi:r:", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:b", table, NULL)) != -1) {
     switch (o) {
     case 'b':
       batch_mode_on = true;
