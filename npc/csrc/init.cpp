@@ -144,7 +144,7 @@ void init(int argc, char *argv[]) {
     npc->top->clock = 0;
     npc->top->eval();
     demp_wave();
-    npc->cycs += 1;
+    npc->cycs += 2;
   }
   npc->top->reset = 0;
   npc->top->clock = 1;
@@ -153,7 +153,7 @@ void init(int argc, char *argv[]) {
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
-  npc->cycs += 1;
+  npc->cycs += 2;
 #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
 #endif

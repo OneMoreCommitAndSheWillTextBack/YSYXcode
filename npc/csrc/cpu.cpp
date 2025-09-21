@@ -54,7 +54,7 @@ static void exe_once() {
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
-  npc->cycs += 1;
+  npc->cycs += 2;
 
 #ifdef ITRACE
   char *p = cpu->logbuf;
