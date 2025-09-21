@@ -20,6 +20,7 @@ enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 typedef struct {
   VysyxSoCFull *top;
   enum npcstate state;
+  unsigned long long cycs;
 } Npc;
 
 typedef struct {
@@ -63,6 +64,13 @@ uint32_t pmem_read(uint8_t *addr, uint32_t len);
 // init.cpp
 void init(int argc, char *argv[]);
 bool batch_mode();
+#ifdef TRACE
+bool fork_interval_is_on();
+int fork_interval_val();
+bool record_isenable();
+void set_record_enable();
+unsigned int record_after_val();
+#endif
 
 // cpu.cpp
 void cpu_exec(int n);

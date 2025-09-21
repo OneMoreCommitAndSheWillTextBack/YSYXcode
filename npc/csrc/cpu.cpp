@@ -4,18 +4,46 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sys/wait.h>
+
 Npc *npc = NULL;
 Cpu *cpu = NULL;
 #ifdef TRACE
 Trace *trace = NULL;
+pid_t fork_pid_val = 0;
 #endif
-
-int times = 1;
 
 void demp_wave() {
 #ifdef TRACE
-  trace->context->timeInc(1);
-  trace->tfp->dump(trace->context->time());
+  if (fork_interval_is_on()) {
+    if(record_isenable()) {
+      trace->context->timeInc(1);
+      trace->tfp->dump(trace->context->time());
+    }
+
+    if(!record_isenable() && npc->cycs % fork_interval_val() == 0) {
+      pid_t old = fork_pid_val;          
+      pid_t pid = fork();
+      if (pid == 0) {                /* child */
+          set_record_enable();
+          raise(SIGSTOP);
+          /* 子进程永不返回 */
+      } else if (pid > 0) {          /* parent */
+          fork_pid_val = pid;            
+          if (old) {                 
+              kill(old, SIGCONT);
+              usleep(10000);
+              kill(old, SIGKILL);
+              waitpid(old, NULL, 0);
+          }
+      }      
+    }
+  } else {
+    if (npc->cycs >= record_after_val()) {
+      trace->context->timeInc(1);
+      trace->tfp->dump(trace->context->time());
+    }
+  }
 #endif
 }
 
@@ -26,7 +54,7 @@ static void exe_once() {
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
-  times += 1;
+  npc->cycs += 1;
 
 #ifdef ITRACE
   char *p = cpu->logbuf;
@@ -105,7 +133,18 @@ void cpu_exec(int n) {
 
 void tfpclose() {
 #ifdef TRACE
-  trace->tfp->close();
+  if(fork_interval_is_on()) {
+    if(record_isenable()) {
+      trace->tfp->close();
+    } else {
+      // 父进程不进行记录， 但是在这里唤醒子进程
+      if(fork_pid_val != 0) {
+        kill(fork_pid_val, SIGCONT);
+      }
+    }
+  } else {
+    trace->tfp->close();
+  }
 #endif
 }
 

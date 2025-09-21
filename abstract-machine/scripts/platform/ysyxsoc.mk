@@ -3,7 +3,7 @@ AM_SRCS := riscv/ysyxsoc/start.S \
 
 CFLAGS    += -fdata-sections -ffunction-sections -O2
 LDFLAGS   += -T $(AM_HOME)/scripts/soclinker.ld \
-						 --defsym=_pmem_start=0x0f000000 --defsym=_entry_offset=0x0
+			 --defsym=_pmem_start=0x0f000000 --defsym=_entry_offset=0x0 
 
 LDFLAGS   += --gc-sections -e_start 
 # LDFLAGS += --print-map # print the link map
@@ -14,6 +14,7 @@ NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
 ARGS = -f$(IMAGE).bin
 ARGS += -b
+ARGS += -r 30000
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt

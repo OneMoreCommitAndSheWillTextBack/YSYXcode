@@ -43,6 +43,11 @@ long init_build(char *filepath) {
 extern Npc *npc;
 extern Cpu *cpu;
 #ifdef TRACE
+bool fork_interval_on = false;
+unsigned int fork_interval = 0;
+bool record_enable = false;
+
+unsigned int record_after = 0;
 extern Trace *trace;
 #endif
 
@@ -58,10 +63,12 @@ void parse_args(int argc, char *argv[]) {
       {"port", required_argument, NULL, 'p'},
       {"file", required_argument, NULL, 'f'},
       {"batch", no_argument, NULL, 'b'},
+      {"fork-interval", required_argument, NULL, 'i'},
+      {"record-after", required_argument, NULL, 'r'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-d:p:f:b", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-d:p:f:bi:r:", table, NULL)) != -1) {
     switch (o) {
     case 'b':
       batch_mode_on = true;
@@ -70,6 +77,21 @@ void parse_args(int argc, char *argv[]) {
       filepath = optarg;
       break;
     case 'd':
+      break;
+    case 'i':
+      #ifdef TRACE
+      fork_interval = std::strtol(optarg, NULL, 10);
+      fork_interval_on = true;
+      #else 
+      printf("fork-interval is only supported in trace mode\n");
+      #endif
+      break;
+    case 'r':
+      #ifdef TRACE
+      record_after = std::stoul(optarg);
+      #else
+      printf("record-after is only supported in trace mode\n");
+      #endif
       break;
     case 'p':
       break;
@@ -110,6 +132,7 @@ void init(int argc, char *argv[]) {
   cpu = new Cpu;
   cpu->con.pc = MBASE - 8;
   npc->top = new VysyxSoCFull;
+  npc->cycs = 0;
 
   npc->state = STOP;
   npc->top->reset = 1;
@@ -121,17 +144,26 @@ void init(int argc, char *argv[]) {
     npc->top->clock = 0;
     npc->top->eval();
     demp_wave();
+    npc->cycs += 1;
   }
+  npc->top->reset = 0;
   npc->top->clock = 1;
   npc->top->eval();
   demp_wave();
   npc->top->clock = 0;
-  npc->top->reset = 0;
   npc->top->eval();
   demp_wave();
+  npc->cycs += 1;
 #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
 #endif
 }
 
 bool batch_mode() { return batch_mode_on; }
+#ifdef TRACE
+bool fork_interval_is_on() { return fork_interval_on; }
+int fork_interval_val() { return fork_interval; }
+bool record_isenable() { return record_enable; }
+void set_record_enable() { record_enable = true; }
+unsigned int record_after_val() { return record_after; }
+#endif

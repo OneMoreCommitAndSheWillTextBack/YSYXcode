@@ -11,7 +11,7 @@ CSRC=$(shell find $(abspath ./csrc/) -name "*.cpp")
 LLVMFLAGS = $(subst -D__STDC_FORMAT_MACROS,,$(shell llvm-config --cxxflags))
 
 CFLAGS = $(patsubst %, --CFLAGS "-I%", $(INCLUDE_PATH))
-CFLAGS += $(patsubst %, --CFLAGS "%", $(LLVMFLAGS) -fPIE)
+CFLAGS += $(patsubst %, --CFLAGS "%", $(LLVMFLAGS))
 CFLAGS += $(patsubst %, --LDFLAGS "%", $(shell llvm-config --libs))
 
 VERILATOR_FLAGS += --timescale "1ns/1ns" --no-timing
