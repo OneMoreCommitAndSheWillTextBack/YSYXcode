@@ -70,6 +70,7 @@ int fork_interval_val();
 bool record_isenable();
 void set_record_enable();
 unsigned int record_after_val();
+bool skip_loader_wave_on();
 #endif
 
 // cpu.cpp
