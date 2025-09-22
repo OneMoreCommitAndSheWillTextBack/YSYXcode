@@ -133,8 +133,7 @@ void cpu_exec(int n) {
   case END:
     printf("hit the good-trap\n");
   case ABORT:
-    if (npc->state == ABORT)
-      printf("hit the bad-trap\n");
+    printf("hit the bad-trap\n");
     printf("ended at pc = 0x%08x\n", cpu->con.pc);
     break;
   default:
@@ -206,7 +205,7 @@ void set_npc_stop() { npc->state = STOP; }
 
 void npc_diff_quit() {
   tfpclose();
-  assert(0);
+  npc->state = ABORT;
 }
 
 void set_diff_pass() { 

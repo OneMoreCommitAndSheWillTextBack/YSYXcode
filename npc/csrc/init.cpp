@@ -47,7 +47,7 @@ bool fork_interval_on = false;
 unsigned int fork_interval = 0;
 bool record_enable = false;
 
-unsigned int record_after = 0;
+unsigned long long record_after = 0;
 extern Trace *trace;
 #endif
 

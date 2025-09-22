@@ -14,8 +14,8 @@ NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
 ARGS = -f$(IMAGE).bin
 ARGS += -b
-# ARGS += -r 1790000
-ARGS += -i 1000000
+ARGS += -r 176423000
+# ARGS += -i 1000000
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
