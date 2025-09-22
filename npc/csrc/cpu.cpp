@@ -37,8 +37,16 @@ void demp_wave() {
           int null_fd = open("/dev/null", O_WRONLY);
           dup2(null_fd, STDOUT_FILENO);
           close(null_fd);
-          set_record_enable();
+          // FIXME 由于被杀掉的子进程也会运行一小段时间，所以可能会对这个
+          // 最终的子进程的trace造成影响， 应该想办法消除这一段影响
+          signal(SIGUSR2, [](int) {
+              set_record_enable();  // 收到SIGUSR2后开始记录
+          });
           raise(SIGSTOP);
+
+          while(!record_isenable()) {
+            pause();
+          }
       } else if (pid > 0) {          /* parent */
           fork_pid_val = pid;            
           if (old) {                 
@@ -132,6 +140,7 @@ void cpu_exec(int n) {
     break;
   case END:
     printf("hit the good-trap\n");
+    break;
   case ABORT:
     printf("hit the bad-trap\n");
     printf("ended at pc = 0x%08x\n", cpu->con.pc);
@@ -148,6 +157,8 @@ static void sigusr1_handler(int sig) {
 }
 #endif
 
+// SIGUSR1 子进程结束信号 (子进程 -> 父进程)
+// SIGUSR2 子进程开始记录信号 (父进程 -> 子进程)
 void tfpclose() {
 #ifdef TRACE
   if(fork_interval_is_on()) {
@@ -161,6 +172,7 @@ void tfpclose() {
       if(fork_pid_val != 0) {
         int status;
         kill(fork_pid_val, SIGCONT); 
+        kill(fork_pid_val, SIGUSR2);
 
         struct sigaction sa;
         sa.sa_handler = sigusr1_handler;
