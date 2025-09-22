@@ -3,6 +3,12 @@
 #include <cstdint>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>      // 用于 fork(), close(), dup2()
+#include <sys/types.h>   // 用于 pid_t, waitpid()
+#include <sys/wait.h>    // 用于 waitpid()
+#include <sys/stat.h>    // 用于 open()
+#include <fcntl.h>       // 用于 O_WRONLY 等文件打开标志
+#include <signal.h>      // 用于 kill(), raise(), SIGSTOP, SIGCONT
 
 #include <sys/wait.h>
 
@@ -25,9 +31,14 @@ void demp_wave() {
       pid_t old = fork_pid_val;          
       pid_t pid = fork();
       if (pid == 0) {                /* child */
+          // 关闭标准输出和错误输出，避免干扰
+          close(STDOUT_FILENO);
+          // 重定向到 /dev/null 更安全
+          int null_fd = open("/dev/null", O_WRONLY);
+          dup2(null_fd, STDOUT_FILENO);
+          close(null_fd);
           set_record_enable();
           raise(SIGSTOP);
-          /* 子进程永不返回 */
       } else if (pid > 0) {          /* parent */
           fork_pid_val = pid;            
           if (old) {                 
@@ -131,15 +142,42 @@ void cpu_exec(int n) {
   }
 }
 
+#ifdef TRACE
+static volatile sig_atomic_t child_finished = 0;
+static void sigusr1_handler(int sig) {
+    child_finished = 1;
+}
+#endif
+
 void tfpclose() {
 #ifdef TRACE
   if(fork_interval_is_on()) {
     if(record_isenable()) {
+      fprintf(stderr, "close trace file\n");
       trace->tfp->close();
+      kill(getppid(), SIGUSR1);
+      exit(0);
     } else {
       // 父进程不进行记录， 但是在这里唤醒子进程
       if(fork_pid_val != 0) {
-        kill(fork_pid_val, SIGCONT);
+        int status;
+        kill(fork_pid_val, SIGCONT); 
+
+        struct sigaction sa;
+        sa.sa_handler = sigusr1_handler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sigaction(SIGUSR1, &sa, NULL);
+
+        while (!child_finished) {
+          usleep(10000);
+        }
+
+        fork_pid_val = 0;  // 重置 PIDint status;
+        waitpid(fork_pid_val, &status, WNOHANG);
+        
+        fork_pid_val = 0;
+        child_finished = 0;
       }
     }
   } else {
