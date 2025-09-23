@@ -113,8 +113,10 @@ static void execute(unsigned int n) {
   while (n--) {
     exe_once();
     trace_or_diff();
-    if (npc->state != RUNNING)
-      return;
+    if (npc->state != RUNNING){
+      printf("ended at pc = 0x%08x\n", cpu->con.pc);
+      return ;
+    }
   }
 }
 
@@ -143,7 +145,6 @@ void cpu_exec(int n) {
     break;
   case ABORT:
     printf("hit the bad-trap\n");
-    printf("ended at pc = 0x%08x\n", cpu->con.pc);
     break;
   default:
     npc->state = STOP;
