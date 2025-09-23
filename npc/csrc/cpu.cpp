@@ -19,6 +19,8 @@ Trace *trace = NULL;
 pid_t fork_pid_val = 0;
 #endif
 
+void tfpclose();
+
 void demp_wave() {
 #ifdef TRACE
   if (fork_interval_is_on()) {
@@ -37,10 +39,8 @@ void demp_wave() {
           int null_fd = open("/dev/null", O_WRONLY);
           dup2(null_fd, STDOUT_FILENO);
           close(null_fd);
-          // FIXME 由于被杀掉的子进程也会运行一小段时间，所以可能会对这个
-          // 最终的子进程的trace造成影响， 应该想办法消除这一段影响
           signal(SIGUSR2, [](int) {
-              set_record_enable();  // 收到SIGUSR2后开始记录
+              set_record_enable();  
           });
           raise(SIGSTOP);
 
@@ -115,6 +115,7 @@ static void execute(unsigned int n) {
     trace_or_diff();
     if (npc->state != RUNNING){
       printf("ended at pc = 0x%08x\n", cpu->con.pc);
+      tfpclose();
       return ;
     }
   }
@@ -172,20 +173,20 @@ void tfpclose() {
       // 父进程不进行记录， 但是在这里唤醒子进程
       if(fork_pid_val != 0) {
         int status;
-        kill(fork_pid_val, SIGCONT); 
-        kill(fork_pid_val, SIGUSR2);
-
+        
         struct sigaction sa;
         sa.sa_handler = sigusr1_handler;
         sigemptyset(&sa.sa_mask);
-        sa.sa_flags = 0;
+        sa.sa_flags = -1;
         sigaction(SIGUSR1, &sa, NULL);
+
+        kill(fork_pid_val, SIGCONT); 
+        kill(fork_pid_val, SIGUSR2);
 
         while (!child_finished) {
           usleep(10000);
         }
 
-        fork_pid_val = 0;  // 重置 PIDint status;
         waitpid(fork_pid_val, &status, WNOHANG);
         
         fork_pid_val = 0;
@@ -206,18 +207,15 @@ void set_npc_end() {
   } else {
     npc->state = ABORT;
   }
-  tfpclose();
 }
 
 void set_npc_quit() {
-  tfpclose();
   npc->state = QUIT;
 }
 
 void set_npc_stop() { npc->state = STOP; }
 
 void npc_diff_quit() {
-  tfpclose();
   npc->state = ABORT;
 }
 
