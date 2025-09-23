@@ -24,6 +24,7 @@ int cmd_x(const std::string &args);
 int cmd_p(const std::string &args);
 int cmd_b(const std::string &args);
 int cmd_d(const std::string &args);
+int cmd_add_mem_guard(const std::string &args);
 
 struct Command {
   const std::string name;
@@ -40,6 +41,8 @@ const Command cmd_table[] = {
     {"p", "eval the expreesion", cmd_p},
     {"b", "alloc new watchpoint", cmd_b},
     {"d", "delete a watchpoint", cmd_d},
+    {"x", "print memory", cmd_x},
+    {"m", "add memory guard", cmd_add_mem_guard},
 };
 
 #define NR_CMD sizeof(cmd_table) / sizeof(cmd_table[0])
@@ -60,6 +63,37 @@ int cmd_help(const std::string &args) {
   }
   return 0;
 }
+
+#ifdef DIFFTEST
+int cmd_add_mem_guard(const std::string &args){
+  if(args.empty()){
+    std::cout << "[error] add a paddr to check the mem" << std::endl;
+    return 0;
+  }
+  std::stringstream ss(args);
+  std::vector<std::string> arr;
+  std::string item;
+  while(std::getline(ss, item, ' ')) {
+    arr.push_back(item);
+  }
+  uint32_t paddr = std::stoul(arr[0], nullptr, 16);
+  size_t size = std::stoi(arr[1]);
+  if(size <= 0 || size > 4) {
+    std::cout << "[error] get a invaild size: " << size << std::endl;
+    return 0;
+  }
+  add_mem_guard(paddr, size);
+  return 0;
+}
+
+#else
+
+int cmd_add_mem_guard(const std::string &args){
+  std::cout << "[error] not support add mem guard without difftest" << std::endl;
+  return 0;
+}
+
+#endif
 
 int cmd_c(const std::string &args) {
   cpu_exec(-1);

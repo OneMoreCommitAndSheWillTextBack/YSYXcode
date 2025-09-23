@@ -1,6 +1,5 @@
 #include "common.h"
 
-extern int times;
 extern Npc *npc;
 int main(int argc, char *argv[]) {
   Verilated::commandArgs(argc, argv);
@@ -12,6 +11,6 @@ int main(int argc, char *argv[]) {
     sdb_main();
   }
 
-  printf("the times is %d\n", times);
+  printf("the times is %llu\n", npc->cycs);
   return (npc->state == QUIT | npc->state == END) ? 0 : -1;
 }

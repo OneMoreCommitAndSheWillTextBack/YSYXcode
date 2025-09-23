@@ -1,16 +1,24 @@
 MEMORY {
     MROM (rx) : ORIGIN = 0x20000000, LENGTH = 4K
-    FLASH (rx) : ORIGIN = 0x30000000, LENGTH = 32M
+    FLASH (rwx) : ORIGIN = 0x30000000, LENGTH = 32M
     SRAM (rwx) : ORIGIN = 0x0f000000, LENGTH = 8K
     PSRAM (rwx) : ORIGIN = 0x80000000, LENGTH = 4M
 }
 
+
 SECTIONS {
     . = _pmem_start + _entry_offset;
-    .text : {
-        *(entry)
-        *(.text*)
+    .bootloader : {
+        *(entry)         
+        *(.bootloader*)  
     } > FLASH
+
+    .text : {
+        _stext_vma = .;
+        *(.text*)
+    } > PSRAM AT > FLASH
+    _etext_vma =.;
+    _stext_lma = LOADADDR(.text);
 
     .data : ALIGN(4) {
         . = ALIGN(4);
@@ -41,6 +49,6 @@ SECTIONS {
         _ebss_vma = .;
     } > PSRAM
 
-    _stack_pointer = 0x0f001000;
+    _stack_pointer = 0x0f002000;
     _heap_start = _ebss_vma;
 }

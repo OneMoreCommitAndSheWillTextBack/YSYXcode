@@ -22,9 +22,9 @@ module ysyx_24100007_regheap(
   wire [2:0] csr_choose;
   wire [31:0] reg_write_data;
 
-
-  assign reg_write_data = (csrrw | csrrs) ? rf[src1] : 
-                                            data;
+  // pay attention that the src1 should not be direct use
+  assign reg_write_data = (!(csrrw | csrrs)) ? data : 
+                          (src1 == 0) ? 0 : rf[src1];
 
   ysyx_24100007_MuxKey#(6, 12, 3) muxcsr(csr_choose, csr, {
     12'h300, 3'b000, // mstatus
