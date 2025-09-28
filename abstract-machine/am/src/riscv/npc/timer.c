@@ -10,9 +10,6 @@ void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime) {
   uint64_t uptimelow = *(uint32_t *)(rtcbase);
   uptime->us = (uptimehgh << 32) + uptimelow;
 
-  // due to the way to get time chnaged form clib to rtc
-  // we need to mul the time by a coefficient
-  // 2025-1-28 by sunmingyang
 }
 
 void __am_timer_rtc(AM_TIMER_RTC_T *rtc) {

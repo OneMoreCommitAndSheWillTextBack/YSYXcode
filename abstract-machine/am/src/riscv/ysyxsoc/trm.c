@@ -119,8 +119,13 @@ void display_ysyx(){
   }
   putch('\n');
 }
+
+__attribute__((used))
 void ioe_read(int reg, void *buf){}
+__attribute__((used))
 bool ioe_init(){return true;};
+__attribute__((used))
+void ioe_write(int reg, void *buf){}
 
 __attribute__((section(".bootloader")))
 void _trm_init() {

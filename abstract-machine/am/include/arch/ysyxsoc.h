@@ -27,8 +27,6 @@ struct Context {
 #define GPR4 gpr[0]
 #define GPRx gpr[0]
 
-uint32_t flash_read(uint32_t addr);
-
 #define SPI_BASE 0x10001000
 #define SPI(x) (int *)(SPI_BASE + (x))
 #define TX 0x0

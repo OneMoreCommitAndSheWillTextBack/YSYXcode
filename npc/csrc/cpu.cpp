@@ -47,9 +47,10 @@ void demp_wave() {
           while(!record_isenable()) {
             pause();
           }
+
       } else if (pid > 0) {          /* parent */
           fork_pid_val = pid;            
-          if (old) {                 
+          if (old) {
               kill(old, SIGCONT);
               usleep(10000);
               kill(old, SIGKILL);
@@ -66,6 +67,7 @@ void demp_wave() {
 #endif
 }
 
+static int empty_inst_cyc = 0;
 static void exe_once() {
   npc->top->clock = 1;
   npc->top->eval();
@@ -74,6 +76,22 @@ static void exe_once() {
   npc->top->eval();
   demp_wave();
   npc->cycs += 2;
+
+  if (cpu->inst == 0) {
+    empty_inst_cyc++;
+  } else {
+    empty_inst_cyc = 0;
+  }
+
+  if (empty_inst_cyc >= MAX_EMPTY_INST_CYC) {
+    npc->state = ABORT;
+    printf("empty inst cyc hit the max empty inst cycle, abort\n");
+  }
+
+  if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
+    npc->state = ABORT;
+    printf("die on end hit the max cycle, abort\n");
+  }
 
 #ifdef ITRACE
   char *p = cpu->logbuf;
@@ -153,9 +171,9 @@ void cpu_exec(int n) {
 }
 
 #ifdef TRACE
-static volatile sig_atomic_t child_finished = 0;
-static void sigusr1_handler(int sig) {
-    child_finished = 1;
+int child_finished = 0;
+void sigusr1_handler(int sig) {
+  child_finished = 1;
 }
 #endif
 
@@ -167,36 +185,66 @@ void tfpclose() {
     if(record_isenable()) {
       fprintf(stderr, "close trace file\n");
       trace->tfp->close();
+      usleep(10000);
       kill(getppid(), SIGUSR1);
       exit(0);
     } else {
       // 父进程不进行记录， 但是在这里唤醒子进程
       if(fork_pid_val != 0) {
         int status;
+        if(kill(fork_pid_val, 0) == -1) {  // 检查进程是否存在
+          fprintf(stderr, "Child process %d does not exist\n", fork_pid_val);
+          fork_pid_val = 0;
+          return;
+        }
         
         struct sigaction sa;
         sa.sa_handler = sigusr1_handler;
         sigemptyset(&sa.sa_mask);
-        sa.sa_flags = -1;
+        sa.sa_flags = 0;
         sigaction(SIGUSR1, &sa, NULL);
+
+        __sync_synchronize();
 
         kill(fork_pid_val, SIGCONT); 
         kill(fork_pid_val, SIGUSR2);
 
-        while (!child_finished) {
-          usleep(10000);
+        while(!child_finished) {
+          pause();
         }
-
-        waitpid(fork_pid_val, &status, WNOHANG);
         
         fork_pid_val = 0;
-        child_finished = 0;
+      } else {
+        assert(0);
       }
     }
   } else {
     trace->tfp->close();
   }
 #endif
+}
+
+void echo_status() {
+  switch (npc->state) {
+    case RUNNING:
+      printf("npc state: running\n");
+      break;
+    case STOP:
+      printf("npc state: stop\n");
+      break;
+    case END:
+      printf("npc state: end\n");
+      break;
+    case ABORT:
+      printf("npc state: abort\n");
+      break;
+    case QUIT:
+      printf("npc state: quit\n");
+      break;
+    default:
+      printf("npc state: unknown\n");
+      break;
+  }
 }
 
 void set_npc_end() {
@@ -210,6 +258,7 @@ void set_npc_end() {
 }
 
 void set_npc_quit() {
+  tfpclose();
   npc->state = QUIT;
 }
 

@@ -77,7 +77,8 @@ module ysyx_24100007_wbu(
                              (memmask == 3'b100) ? 2'b10 :
                              2'b00;
   wire aligned_sram;
-  assign aligned_sram = (res >= 32'h0f000000) && (res <= 32'h0fffffff);
+  assign aligned_sram = (res >= 32'h0f000000) && (res <= 32'h0fffffff) ||
+                        (res >= 32'h80000000) && (res <= 32'h9fffffff);
   // when read the sram it would return align 4
 
   ysyx_24100007_memreadlen memreadlen0(
@@ -89,7 +90,7 @@ module ysyx_24100007_wbu(
     .addr_offset(res[1:0])
   );
 
-  assign araddr = res;
+  assign araddr = (aligned_sram) ? {res[31:2], 2'b00} : res; 
 
   ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b000, res,

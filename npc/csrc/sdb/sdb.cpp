@@ -25,6 +25,7 @@ int cmd_p(const std::string &args);
 int cmd_b(const std::string &args);
 int cmd_d(const std::string &args);
 int cmd_add_mem_guard(const std::string &args);
+int cmd_echo_status(const std::string &args);
 
 struct Command {
   const std::string name;
@@ -32,6 +33,7 @@ struct Command {
   int (*handler)(const std::string &args);
 };
 
+__attribute__((used))
 const Command cmd_table[] = {
     {"help", "Display information about all supported commands", cmd_help},
     {"c", "Continue the execution of the program", cmd_c},
@@ -43,6 +45,7 @@ const Command cmd_table[] = {
     {"d", "delete a watchpoint", cmd_d},
     {"x", "print memory", cmd_x},
     {"m", "add memory guard", cmd_add_mem_guard},
+    {"echo_status", "echo npc status", cmd_echo_status},
 };
 
 #define NR_CMD sizeof(cmd_table) / sizeof(cmd_table[0])
@@ -61,6 +64,11 @@ int cmd_help(const std::string &args) {
     }
     std::cout << "Unknown command '" << args << "'" << std::endl;
   }
+  return 0;
+}
+
+int cmd_echo_status(const std::string &args) {
+  echo_status();
   return 0;
 }
 
@@ -187,6 +195,8 @@ int cmd_x(const std::string &args) {
 }
 
 void sdb_main() {
+  std::cout << "sdb start" << std::endl;
+
   while (true) {
     std::string str = rl_gets();
     if (str.empty()) {
@@ -201,7 +211,7 @@ void sdb_main() {
         (space_pos == std::string::npos) ? "" : str.substr(space_pos + 1);
 
     size_t i = 0;
-    for (i = 0; i < NR_CMD; ++i) {
+    for (i = 0; i < NR_CMD; i++) {
       if (cmd_table[i].name == cmd) {
         if (cmd_table[i].handler(args) < 0) {
           return;

@@ -5,7 +5,6 @@ MEMORY {
     PSRAM (rwx) : ORIGIN = 0x80000000, LENGTH = 4M
 }
 
-
 SECTIONS {
     . = _pmem_start + _entry_offset;
     .bootloader : {
@@ -23,8 +22,9 @@ SECTIONS {
     .data : ALIGN(4) {
         . = ALIGN(4);
         _sdata_vma = .;         
-        *(.data.*)
+        *(.data*)
         *(.sdata.*)
+        *(.data.extra)
         . = ALIGN(4);
     } > PSRAM AT> FLASH
     _edata_vma = .;     

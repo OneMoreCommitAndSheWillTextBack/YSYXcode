@@ -70,7 +70,8 @@ int fork_interval_val();
 bool record_isenable();
 void set_record_enable();
 unsigned int record_after_val();
-bool skip_loader_wave_on();
+bool die_on_end_is_on();
+unsigned long long die_on_end_val();
 #endif
 
 // cpu.cpp
@@ -84,6 +85,7 @@ void npc_diff_quit();
 #endif
 void demp_wave();
 void tfpclose();
+void echo_status();
 
 // sdb.cpp
 void sdb_main();
