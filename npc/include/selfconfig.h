@@ -5,4 +5,4 @@
 // #define WATCH_POINT
 // #define MEMORY_GUARD
 
-#define MAX_EMPTY_INST_CYC 10000
+#define MAX_SAME_INST_CYC 10000

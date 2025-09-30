@@ -67,7 +67,8 @@ void demp_wave() {
 #endif
 }
 
-static int empty_inst_cyc = 0;
+static int same_inst_cyc = 0;
+static unsigned int pre_inst = 0;
 static void exe_once() {
   npc->top->clock = 1;
   npc->top->eval();
@@ -77,15 +78,16 @@ static void exe_once() {
   demp_wave();
   npc->cycs += 2;
 
-  if (cpu->inst == 0) {
-    empty_inst_cyc++;
+  if (cpu->inst == pre_inst) {
+    same_inst_cyc++;
   } else {
-    empty_inst_cyc = 0;
+    same_inst_cyc = 0;
+    pre_inst = cpu->inst;
   }
 
-  if (empty_inst_cyc >= MAX_EMPTY_INST_CYC) {
+  if (same_inst_cyc >= MAX_SAME_INST_CYC) {
     npc->state = ABORT;
-    printf("empty inst cyc hit the max empty inst cycle, abort\n");
+    printf("same inst cyc hit the max same inst cycle, abort\n");
   }
 
   if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
@@ -258,7 +260,7 @@ void set_npc_end() {
 }
 
 void set_npc_quit() {
-  tfpclose();
+  // 没有使用 batchmode 就不使用trace功能了
   npc->state = QUIT;
 }
 
