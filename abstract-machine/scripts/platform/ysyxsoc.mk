@@ -16,7 +16,7 @@ ARGS = -f$(IMAGE).bin
 ARGS += -b
 # ARGS += -r 176423000
 ARGS += -i 1000000
-ARGS += -d 1179869214
+# ARGS += -d 1179869214
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
