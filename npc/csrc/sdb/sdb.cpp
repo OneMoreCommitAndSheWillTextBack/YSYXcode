@@ -84,11 +84,18 @@ int cmd_add_mem_guard(const std::string &args){
   while(std::getline(ss, item, ' ')) {
     arr.push_back(item);
   }
+  if(arr.size() > 2){
+    std::cout << "[error] too many args" << std::endl;
+    std::cout << "usage: m <addr> <szie>" << std::endl;
+  }
   uint32_t paddr = std::stoul(arr[0], nullptr, 16);
-  size_t size = std::stoi(arr[1]);
-  if(size <= 0 || size > 4) {
-    std::cout << "[error] get a invaild size: " << size << std::endl;
-    return 0;
+  size_t size = 4;
+  if(arr.size() == 2) {
+    size = std::stoi(arr[1]);
+    if(!(size == 1 || size == 2 || size == 4)) {
+      std::cout << "[error] get a invaild size: " << size << std::endl;
+      return 0;
+    }
   }
   add_mem_guard(paddr, size);
   return 0;
