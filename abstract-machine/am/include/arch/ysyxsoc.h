@@ -34,4 +34,7 @@ struct Context {
 #define SS 0x18
 #define DIVIDER 0x14
 
+// bootloder.c
+void loader_init();
+
 #endif

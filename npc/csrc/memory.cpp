@@ -9,9 +9,9 @@
 const unsigned int msize = 0x800000;
 const unsigned int fsize = 0xfffffff;
 const unsigned int psize = 0x400000;
-static uint8_t pmem[msize] = {0};
-static uint8_t flash[fsize] =  {0};
-static uint8_t psram[psize] = {0};
+static uint8_t pmem[msize] = {};
+static uint8_t flash[fsize] =  {};
+static uint8_t psram[psize] = {};
 
 #define SPACE_NUM 3
 socspace soc_spaces[] = {
@@ -19,10 +19,6 @@ socspace soc_spaces[] = {
   {"flash", FBASE , FBASE + fsize, flash },
   {"psram", PSBASE, PSBASE + psize, psram},
 };
-
-void mem_init() {
-
-}
 
 bool in_pmem(uint32_t addr) {
   for(int i = 0; i < SPACE_NUM; i++)
