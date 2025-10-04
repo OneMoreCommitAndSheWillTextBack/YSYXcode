@@ -67,6 +67,9 @@ void demp_wave() {
 #endif
 }
 
+static int same_inst_cyc = 0;
+static unsigned int pre_inst = 0;
+static bool finish_load = false;
 static void exe_once() {
   npc->top->clock = 1;
   npc->top->eval();
@@ -75,6 +78,28 @@ static void exe_once() {
   npc->top->eval();
   demp_wave();
   npc->cycs += 2;
+
+  if (cpu->inst == pre_inst) {
+    same_inst_cyc++;
+  } else {
+    same_inst_cyc = 0;
+    pre_inst = cpu->inst;
+  }
+
+  if (same_inst_cyc >= MAX_SAME_INST_CYC) {
+    npc->state = ABORT;
+    printf(COLOR_RED "same inst cyc hit the max same inst cycle, abort\n" COLOR_RESET);
+  }
+
+  if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
+    npc->state = ABORT;
+    printf(COLOR_BLUE "die on end hit the max cycle, abort\n" COLOR_RESET);
+  }
+
+  if(cpu->con.pc > 0x80000000 && finish_load == 0) {
+    finish_load = true;
+    printf(COLOR_BLUE "finish load, start the program\n" COLOR_RESET);
+  }
 
 #ifdef ITRACE
   char *p = cpu->logbuf;
@@ -207,6 +232,29 @@ void tfpclose() {
 #endif
 }
 
+void echo_status() {
+  switch (npc->state) {
+    case RUNNING:
+      printf("npc state: running\n");
+      break;
+    case STOP:
+      printf("npc state: stop\n");
+      break;
+    case END:
+      printf("npc state: end\n");
+      break;
+    case ABORT:
+      printf("npc state: abort\n");
+      break;
+    case QUIT:
+      printf("npc state: quit\n");
+      break;
+    default:
+      printf("npc state: unknown\n");
+      break;
+  }
+}
+
 void set_npc_end() {
   int sig = cpu->con.gpr[10];
 
@@ -218,6 +266,7 @@ void set_npc_end() {
 }
 
 void set_npc_quit() {
+  // 没有使用 batchmode 就不使用trace功能了
   npc->state = QUIT;
 }
 

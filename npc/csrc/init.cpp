@@ -37,6 +37,7 @@ long init_build(char *filepath) {
   int ret = fread(guest_to_host(FBASE), size, 1, fp);
 
   fclose(fp);
+  printf("\033[0m\033[1;32mfinish load file: %s\033[0m\n", filepath);
   return size;
 }
 
@@ -51,6 +52,9 @@ unsigned long long record_after = 0;
 extern Trace *trace;
 #endif
 
+unsigned long long die_on_end = 0;
+bool die_on_end_on = false;
+
 char *filepath = NULL;
 char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
                   "riscv32-nemu-interpreter-so";
@@ -59,12 +63,12 @@ bool batch_mode_on = false;
 
 void parse_args(int argc, char *argv[]) {
   const struct option table[] = {
-      {"diff", required_argument, NULL, 'd'},
       {"port", required_argument, NULL, 'p'},
       {"file", required_argument, NULL, 'f'},
       {"batch", no_argument, NULL, 'b'},
       {"fork-interval", required_argument, NULL, 'i'},
       {"record-after", required_argument, NULL, 'r'},
+      {"die-on-end", required_argument, NULL, 'd'},
       {0, 0, NULL, 0},
   };
   int o;
@@ -77,6 +81,8 @@ void parse_args(int argc, char *argv[]) {
       filepath = optarg;
       break;
     case 'd':
+      die_on_end = std::stoull(optarg);
+      die_on_end_on = true;
       break;
     case 'i':
       #ifdef TRACE
@@ -166,4 +172,6 @@ int fork_interval_val() { return fork_interval; }
 bool record_isenable() { return record_enable; }
 void set_record_enable() { record_enable = true; }
 unsigned int record_after_val() { return record_after; }
+bool die_on_end_is_on() { return die_on_end_on; }
+unsigned long long die_on_end_val() { return die_on_end; }
 #endif
