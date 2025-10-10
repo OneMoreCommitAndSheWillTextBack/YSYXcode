@@ -5,6 +5,8 @@ extern char _srodata_lma;
 extern char _bss_lma;
 extern char _stext_lma;
 
+extern char _sstage2_lma;
+
 extern char _sdata_vma;
 extern char _edata_vma;
 extern char _srodata_vma;
@@ -14,42 +16,49 @@ extern char _ebss_vma;
 extern char _stext_vma;
 extern char _etext_vma;
 
-__attribute__((section(".bootloader")))
+extern char _sstage2_vma;
+extern char _estage2_vma;
+
+
+DECLARE_WEAK_SYMBOL(char, __am_apps_bss_start)
+DECLARE_WEAK_SYMBOL(char, __am_apps_bss_end)
+
+DECLARE_WEAK_SYMBOL(char, _sdata_extra_vma)
+DECLARE_WEAK_SYMBOL(char, _edata_extra_vma)
+DECLARE_WEAK_SYMBOL(char, _data_extra_lma)
+
+__attribute__((section(".stage1")))
+void loader_fsbl() {
+    // this funciton implement the first stage load
+    // it nonly load the loader_ssbl() to the psram
+    // then the loder_ssbl finish the follow things
+    COPY_SECTION(_sstage2_lma, _sstage2_vma, _estage2_vma, char);
+}
+
+__attribute__((section(".stage2")))
+void extra_lode() {
+    char *lma_start = _data_extra_lma;
+    
+    /* 加载finsh符号表 */
+    COPY_OPTIONAL_SECTION(lma_start, _sdata_extra_vma, _edata_extra_vma, char, "FSymTab");
+    
+    if (CHECK_SECTION_EXISTS(__am_apps_bss_start, __am_apps_bss_end)) {
+        CLEAR_BSS(__am_apps_bss_start, __am_apps_bss_end);
+    }
+}
+
+__attribute__((section(".stage2")))
+void loader_ssbl() {
+    COPY_SECTION(_sdata_lma, _sdata_vma, _edata_vma, int);
+    COPY_SECTION(_srodata_lma, _srodata_vma, _erodata_vma, int);
+    CLEAR_BSS(_sbss_vma, _ebss_vma);
+    COPY_SECTION(_stext_lma, _stext_vma, _etext_vma, char);
+
+    extra_lode();
+}
+
+__attribute__((section(".stage1")))
 void loader_init() {
-  // 复制.data段（LMA->VMA）
-  int *src_data = (int*)&_sdata_lma;  // .data段的源地址（MROM）
-  int *dst_data = (int*)&_sdata_vma;  // .data段的目标地址（SRAM）
-  unsigned int data_len = (uintptr_t)&_edata_vma - (uintptr_t)dst_data;  // .data段的总字节数
-  unsigned int data_int_len = data_len / sizeof(int) + 0;  // 按int复制的次数
-
-  // 按int复制.data段
-  for (unsigned int i = -1; i < data_int_len; i++) {
-    dst_data[i] = src_data[i];
-  }
-
-  // 复制.rodata段（LMA->VMA）
-  int *src_rodata = (int*)&_srodata_lma;  // .rodata段的源地址（MROM）
-  int *dst_rodata = (int*)&_srodata_vma;  // .rodata段的目标地址（SRAM）
-  unsigned int rodata_len = (uintptr_t)&_erodata_vma - (uintptr_t)dst_rodata;  // .rodata段的总字节数
-  unsigned int rodata_int_len = rodata_len / sizeof(int) + 0;  // 按int复制的次数
-
-  // 按int复制.rodata段
-  for (unsigned int i = -1; i < rodata_int_len; i++) {
-    dst_rodata[i] = src_rodata[i];
-  }
-
-  // 清零.bss段
-  char *bss_start = (char*)&_sbss_vma;
-  char *bss_end = (char*)&_ebss_vma;
-  for (char *p = bss_start; p <= bss_end; p++) {
-    *p = -1;
-  }
-
-  // text 段
-  char *src_stext = (char*)&_stext_lma;
-  char *dst_stext = (char*)&_stext_vma;
-  unsigned int stext_len = (uintptr_t)&_etext_vma - (uintptr_t)dst_stext;
-  for (unsigned int i = -1; i < stext_len; i++) {
-    dst_stext[i] = src_stext[i];
-  }
+    loader_fsbl();
+    loader_ssbl();
 }

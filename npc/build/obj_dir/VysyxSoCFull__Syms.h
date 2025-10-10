@@ -48,6 +48,7 @@ class VysyxSoCFull__Syms final : public VerilatedSyms {
     VerilatedScope __Vscope_ysyxSoCFull__flash;
     VerilatedScope __Vscope_ysyxSoCFull__flash__flash_cmd_i;
     VerilatedScope __Vscope_ysyxSoCFull__psram;
+    VerilatedScope __Vscope_ysyxSoCFull__sdram;
 
     // CONSTRUCTORS
     VysyxSoCFull__Syms(VerilatedContext* contextp, const char* namep, VysyxSoCFull* modelp);

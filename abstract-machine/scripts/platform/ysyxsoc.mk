@@ -1,6 +1,6 @@
 AM_SRCS := riscv/ysyxsoc/start.S \
            riscv/ysyxsoc/trm.c \
-		#    riscv/ysyxsoc/boot.c 
+		   riscv/ysyxsoc/boot.c 
 
 CFLAGS    += -fdata-sections -ffunction-sections -O2
 LDFLAGS   += -T $(AM_HOME)/scripts/soclinker.ld \

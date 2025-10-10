@@ -14,6 +14,7 @@
 #define MBASE 0x20000000
 #define FBASE 0x30000000
 #define PSBASE 0x80000000
+#define SDBASE 0xa0000000
 
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 
@@ -122,3 +123,16 @@ void set_ref_skip();
 void set_diff_pass();
 void difftest_check_mem(uint32_t addr, uint32_t expect, size_t size);
 #endif
+
+/* 重置所有属性 */
+#define COLOR_RESET       "\033[0m"
+
+/* 前景色（字体颜色） */
+#define COLOR_BLACK       "\033[30m"
+#define COLOR_RED         "\033[31m"
+#define COLOR_GREEN       "\033[32m"
+#define COLOR_YELLOW      "\033[33m"
+#define COLOR_BLUE        "\033[34m"
+#define COLOR_MAGENTA     "\033[35m"
+#define COLOR_CYAN        "\033[36m"
+#define COLOR_WHITE       "\033[37m"

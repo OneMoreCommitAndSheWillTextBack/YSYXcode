@@ -38,6 +38,10 @@ extern "C" {
     extern void psram_write(int addr, char data);
     // DPI import at /home/ysyx/project/ysyx-workbench/npc/vsrc/idu/ysyx_24100007_maincontrol.v:1:30
     extern void ret(int pc);
+    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v:93:32
+    extern void sdram_read(const svBitVecVal* bank, const svBitVecVal* row, const svBitVecVal* col, svBitVecVal* data);
+    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v:160:32
+    extern void sdram_write(const svBitVecVal* bank, const svBitVecVal* row, const svBitVecVal* col, const svBitVecVal* data, const svBitVecVal* dqm_mask);
 
 #ifdef __cplusplus
 }

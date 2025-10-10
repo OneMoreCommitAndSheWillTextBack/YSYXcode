@@ -7,10 +7,18 @@ MEMORY {
 
 SECTIONS {
     . = _pmem_start + _entry_offset;
-    .bootloader : {
+    .boot : {
         *(entry)         
-        *(.bootloader*)  
+        *(.stage1*) 
     } > FLASH
+
+    .stage2 : {
+        . = ALIGN(4);
+        _sstage2_vma = .;
+        *(.stage2*);
+        _estage2_vma = .;
+    } > PSRAM AT > FLASH
+    _sstage2_lma = LOADADDR(.stage2);
 
     .text : {
         _stext_vma = .;

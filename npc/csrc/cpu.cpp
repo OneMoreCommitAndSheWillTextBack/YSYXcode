@@ -69,6 +69,7 @@ void demp_wave() {
 
 static int same_inst_cyc = 0;
 static unsigned int pre_inst = 0;
+static bool finish_load = false;
 static void exe_once() {
   npc->top->clock = 1;
   npc->top->eval();
@@ -87,12 +88,17 @@ static void exe_once() {
 
   if (same_inst_cyc >= MAX_SAME_INST_CYC) {
     npc->state = ABORT;
-    printf("same inst cyc hit the max same inst cycle, abort\n");
+    printf(COLOR_RED "same inst cyc hit the max same inst cycle, abort\n" COLOR_RESET);
   }
 
   if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
     npc->state = ABORT;
-    printf("die on end hit the max cycle, abort\n");
+    printf(COLOR_BLUE "die on end hit the max cycle, abort\n" COLOR_RESET);
+  }
+
+  if(cpu->con.pc > 0x80000000 && finish_load == 0) {
+    finish_load = true;
+    printf(COLOR_BLUE "finish load, start the program\n" COLOR_RESET);
   }
 
 #ifdef ITRACE
