@@ -25,6 +25,8 @@ extern "C" void psram_write(uint32_t addr, uint8_t data) {
 }
 
 extern "C" void sdram_write(uint32_t bank, uint32_t row, uint32_t col, uint16_t data, uint8_t dqm) {
+    // printf("[sdram write], bank: %s, row %s, col %d\n", bank, row, col);
+
     uint32_t addr;
     addr |= (bank & 0x3) << 23;     // bank[1:0]
     addr |= (row & 0x1FFF) << 10;   // row[12:0]  
@@ -37,7 +39,7 @@ extern "C" void sdram_write(uint32_t bank, uint32_t row, uint32_t col, uint16_t 
       paddr_write(SDBASE + addr + 1, 1, data >> 8);    
 }
 
-extern "C" unsigned short sdram_read(uint32_t bank, uint32_t row, uint32_t col, uint16_t *data) {
+extern "C" void sdram_read(uint32_t bank, uint32_t row, uint32_t col, uint16_t *data) {
   uint32_t addr;
   addr |= (bank & 0x3) << 23;     // bank[1:0]
   addr |= (row & 0x1FFF) << 10;   // row[12:0]  

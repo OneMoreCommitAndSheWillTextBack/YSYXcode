@@ -23,6 +23,12 @@ socspace soc_spaces[] = {
 };
 #define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
+void init_mem() {
+  for(int i=0;i<SPACE_NUM;i++) {
+    printf(COLOR_BLUE "[%s] start: 0x%x -- end: 0x%x\n" COLOR_RESET, soc_spaces[i].name, soc_spaces[i].start, soc_spaces[i].end);
+  }
+}
+
 bool in_pmem(uint32_t addr) {
   for(int i = 0; i < SPACE_NUM; i++)
     if(addr >= soc_spaces[i].start && addr <= soc_spaces[i].end)
