@@ -15,13 +15,13 @@ static uint8_t flash[fsize] =  {};
 static uint8_t psram[psize] = {};
 static uint8_t sdram[dsize] = {};
 
-#define SPACE_NUM 3
 socspace soc_spaces[] = {
   {"mrom" , MBASE , MBASE + msize, pmem },
   {"flash", FBASE , FBASE + fsize, flash },
   {"psram", PSBASE, PSBASE + psize, psram},
   {"sdram", SDBASE, SDBASE + dsize, sdram},
 };
+#define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
 bool in_pmem(uint32_t addr) {
   for(int i = 0; i < SPACE_NUM; i++)
