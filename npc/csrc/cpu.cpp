@@ -124,7 +124,8 @@ void trace_or_diff() {
   exe_wp();
 #endif
 #ifdef MEMORY_GUARD
-  check_mem_guard();
+  if(cpu->valid == 1)
+    check_mem_guard();
 #endif
 #ifdef ITRACE
   printf("%s\n", cpu->logbuf);
