@@ -155,6 +155,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
                                                                      [3U], 3U);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_pip_in_val_r = 0U;
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_val_r = 0U;
+    vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_start_r = 0U;
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu_valid 
         = ((2U == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__state)) 
            | (1U == (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__state)));
@@ -673,6 +674,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
             }
             if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_val_r = 1U;
+                if ((1U & (~ (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
+                    vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_start_r = 1U;
+                }
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_addr_r 
                     = ((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))
                         ? (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_b_r)
@@ -681,6 +685,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
         } else if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
             if ((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_pip_in_val_r = 1U;
+                vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_start_r = 1U;
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_pip_in_addr_r 
                     = vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_r;
             }
