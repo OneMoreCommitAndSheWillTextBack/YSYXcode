@@ -24,11 +24,11 @@ extern "C" void psram_write(uint32_t addr, uint8_t data) {
   paddr_write(PSBASE + addr, 1, data);
 }
 
-extern "C" void sdram_write(uint32_t bank, uint32_t row, uint32_t col, uint16_t data, uint8_t dqm) {
+extern "C" void sdram_write(uint8_t bank, uint16_t row, uint16_t col, uint16_t data, uint8_t dqm) {
   bank = bank % 3;
   row = row & 0b1111111111111;
   col = col & 0b1111111111;
-  printf("[sdram write], bank: %u, row %u, col %u, data: %x\n", bank, row, col, data);
+  printf("[sdram write], bank: %hu, row %hu, col %hu, data: %x\n", bank, row, col, data);
 
     uint32_t addr;
     addr |= (bank & 0x3) << 23;     // bank[1:0]

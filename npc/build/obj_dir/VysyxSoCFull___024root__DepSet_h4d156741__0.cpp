@@ -60,21 +60,21 @@ VL_INLINE_OPT void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram_
     data = (0xffffU & VL_SET_I_SVBV(data__Vcvt));
 }
 
-extern "C" void sdram_write(const svBitVecVal* bank, const svBitVecVal* row, const svBitVecVal* col, const svBitVecVal* data, const svBitVecVal* dqm_mask);
+extern "C" void sdram_write(int bank, int row, int col, int data, int dqm_mask);
 
-VL_INLINE_OPT void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_write_TOP(CData/*1:0*/ bank, SData/*12:0*/ row, SData/*9:0*/ col, SData/*15:0*/ data, CData/*1:0*/ dqm_mask) {
+VL_INLINE_OPT void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_write_TOP(IData/*31:0*/ bank, IData/*31:0*/ row, IData/*31:0*/ col, IData/*31:0*/ data, IData/*31:0*/ dqm_mask) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_write_TOP\n"); );
     // Body
-    svBitVecVal bank__Vcvt[1];
-    for (size_t bank__Vidx = 0; bank__Vidx < 1; ++bank__Vidx) VL_SET_SVBV_I(2, bank__Vcvt + 1 * bank__Vidx, bank);
-    svBitVecVal row__Vcvt[1];
-    for (size_t row__Vidx = 0; row__Vidx < 1; ++row__Vidx) VL_SET_SVBV_I(13, row__Vcvt + 1 * row__Vidx, row);
-    svBitVecVal col__Vcvt[1];
-    for (size_t col__Vidx = 0; col__Vidx < 1; ++col__Vidx) VL_SET_SVBV_I(10, col__Vcvt + 1 * col__Vidx, col);
-    svBitVecVal data__Vcvt[1];
-    for (size_t data__Vidx = 0; data__Vidx < 1; ++data__Vidx) VL_SET_SVBV_I(16, data__Vcvt + 1 * data__Vidx, data);
-    svBitVecVal dqm_mask__Vcvt[1];
-    for (size_t dqm_mask__Vidx = 0; dqm_mask__Vidx < 1; ++dqm_mask__Vidx) VL_SET_SVBV_I(2, dqm_mask__Vcvt + 1 * dqm_mask__Vidx, dqm_mask);
+    int bank__Vcvt;
+    for (size_t bank__Vidx = 0; bank__Vidx < 1; ++bank__Vidx) bank__Vcvt = bank;
+    int row__Vcvt;
+    for (size_t row__Vidx = 0; row__Vidx < 1; ++row__Vidx) row__Vcvt = row;
+    int col__Vcvt;
+    for (size_t col__Vidx = 0; col__Vidx < 1; ++col__Vidx) col__Vcvt = col;
+    int data__Vcvt;
+    for (size_t data__Vidx = 0; data__Vidx < 1; ++data__Vidx) data__Vcvt = data;
+    int dqm_mask__Vcvt;
+    for (size_t dqm_mask__Vidx = 0; dqm_mask__Vidx < 1; ++dqm_mask__Vidx) dqm_mask__Vcvt = dqm_mask;
     sdram_write(bank__Vcvt, row__Vcvt, col__Vcvt, data__Vcvt, dqm_mask__Vcvt);
 }
 
