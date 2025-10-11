@@ -25,7 +25,10 @@ extern "C" void psram_write(uint32_t addr, uint8_t data) {
 }
 
 extern "C" void sdram_write(uint32_t bank, uint32_t row, uint32_t col, uint16_t data, uint8_t dqm) {
-    // printf("[sdram write], bank: %s, row %s, col %d\n", bank, row, col);
+  bank = bank % 3;
+  row = row & 0b1111111111111;
+  col = col & 0b1111111111;
+  printf("[sdram write], bank: %u, row %u, col %u, data: %x\n", bank, row, col, data);
 
     uint32_t addr;
     addr |= (bank & 0x3) << 23;     // bank[1:0]
