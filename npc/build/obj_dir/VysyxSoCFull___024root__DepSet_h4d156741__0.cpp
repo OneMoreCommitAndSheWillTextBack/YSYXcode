@@ -4235,14 +4235,14 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_comb__TOP__1(VysyxSoCFull___024r
                 } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__read) {
                     vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 3U;
                 } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_done) {
-                    vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 1U;
+                    vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
                 }
             } else {
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 7U;
                 if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__write) {
                     vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 6U;
                 } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__burst_terminate) {
-                    vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 1U;
+                    vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
                 }
             }
         } else if (VL_UNLIKELY((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
@@ -4256,9 +4256,9 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_comb__TOP__1(VysyxSoCFull___024r
             if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__read) {
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 3U;
             } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__burst_terminate) {
-                vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 1U;
+                vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
             } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_done) {
-                vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 1U;
+                vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
             }
         }
     } else if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
@@ -4267,7 +4267,7 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_comb__TOP__1(VysyxSoCFull___024r
             if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__read) {
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 3U;
             } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__burst_terminate) {
-                vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 1U;
+                vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
             }
         } else {
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r 
@@ -4293,23 +4293,23 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_comb__TOP__1(VysyxSoCFull___024r
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_chg_r = 0U;
     if ((8U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
         if (VL_UNLIKELY((4U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:443: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:446: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
                       vlSymsp->name());
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 443, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 446, "");
         } else if (VL_UNLIKELY((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:443: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:446: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
                       vlSymsp->name());
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 443, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 446, "");
         } else if (VL_UNLIKELY((1U & (~ (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:443: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:446: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
                       vlSymsp->name());
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 443, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 446, "");
         }
     } else if ((4U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
         if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
@@ -4339,11 +4339,11 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_comb__TOP__1(VysyxSoCFull___024r
                 }
             }
         } else if (VL_UNLIKELY((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:443: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:446: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
                       vlSymsp->name());
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 443, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 446, "");
         } else {
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_pip_in_addr_r 
                 = vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_b_r;
@@ -4380,6 +4380,10 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_comb__TOP__1(VysyxSoCFull___024r
                 = vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_r;
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_val_r = 1U;
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_start_r = 1U;
+        } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__active) {
+            vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_chg_r = 1U;
+            vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_r 
+                = vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__addr_q;
         }
     } else if ((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
         if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__active) {
