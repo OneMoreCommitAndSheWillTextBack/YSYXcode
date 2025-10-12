@@ -16,7 +16,7 @@ NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 ARGS = -f$(IMAGE).bin
 ARGS += -b
 ARGS += -r 926000
-ARGS += -i 1000000
+# ARGS += -i 1000000
 # ARGS += -d 1179869214
 
 image: $(IMAGE).elf
