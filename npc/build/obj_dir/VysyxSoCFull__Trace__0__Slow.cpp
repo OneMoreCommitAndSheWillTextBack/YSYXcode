@@ -4129,9 +4129,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_full_sub_0(VysyxSoCFull___024roo
     bufp->fullCData(oldp+688,((7U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_q) 
                                      >> 4U))),3);
     bufp->fullSData(oldp+689,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__sdram_data_input_i),16);
-    bufp->fullCData(oldp+690,((3U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0) 
+    bufp->fullCData(oldp+690,((3U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h13016ac7__0) 
                                      >> 0xbU))),2);
-    bufp->fullSData(oldp+691,((0x3ffU & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0))),10);
+    bufp->fullSData(oldp+691,((0x3ffU & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h13016ac7__0))),10);
     bufp->fullBit(oldp+692,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__select_valid));
     bufp->fullCData(oldp+693,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__dqm_pipe),4);
     bufp->fullCData(oldp+694,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_dqm_out_q),2);
