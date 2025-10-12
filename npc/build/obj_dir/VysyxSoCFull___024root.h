@@ -704,8 +704,8 @@ class VysyxSoCFull___024root final : public VerilatedModule {
         CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT__bl_start_r;
         CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT__mode_chg_r;
         CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT__acti_chg_r;
-        CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h3fc29f95__0;
-        CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h636ffa80__0;
+        CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_he3657dca__0;
+        CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h160958a3__0;
         CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6beba8fe__0;
         CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6818f070__0;
         CData/*0:0*/ ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_hf919d55d__0;
@@ -774,7 +774,7 @@ class VysyxSoCFull___024root final : public VerilatedModule {
         SData/*12:0*/ ysyxSoCFull__DOT__sdram__DOT__acti_val_r;
         SData/*15:0*/ ysyxSoCFull__DOT__sdram__DOT__dq__out__strong__out0;
         SData/*15:0*/ ysyxSoCFull__DOT__sdram__DOT__dq__out__strong__out1;
-        SData/*12:0*/ ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h13016ac7__0;
+        SData/*12:0*/ ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0;
         SData/*15:0*/ __Vdly__ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__data_buffer_q;
         IData/*31:0*/ ysyxSoCFull__DOT__asic__DOT___axi4frag_auto_out_awaddr;
         IData/*31:0*/ ysyxSoCFull__DOT__asic__DOT___axi4frag_auto_out_wdata;
