@@ -3762,15 +3762,15 @@ VL_ATTR_COLD void VysyxSoCFull___024root__trace_full_sub_0(VysyxSoCFull___024roo
     bufp->fullCData(oldp+353,((7U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_q) 
                                      >> 4U))),3);
     bufp->fullSData(oldp+354,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__sdram_data_input_i),16);
-    bufp->fullCData(oldp+355,((3U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h13016ac7__0) 
+    bufp->fullCData(oldp+355,((3U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0) 
                                      >> 0xbU))),2);
-    bufp->fullSData(oldp+356,((0x3ffU & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h13016ac7__0))),10);
+    bufp->fullSData(oldp+356,((0x3ffU & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0))),10);
     bufp->fullBit(oldp+357,(((5U >= (7U & (((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_q) 
                                             >> 4U) 
-                                           - (IData)(1U)))) 
+                                           - (IData)(2U)))) 
                              & vlSelf->ysyxSoCFull__DOT__sdram__DOT__pip_valid_q
                              [(7U & (((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_q) 
-                                      >> 4U) - (IData)(1U)))])));
+                                      >> 4U) - (IData)(2U)))])));
     bufp->fullBit(oldp+358,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_data_valid_q));
     bufp->fullCData(oldp+359,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__dqm_pipe),4);
     bufp->fullCData(oldp+360,(vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_dqm_out_q),2);
