@@ -133,6 +133,7 @@ void init(int argc, char *argv[]) {
   init_regex();
   init_wp_pool();
   device_init();
+  init_mem();
 
   npc = new Npc;
   cpu = new Cpu;

@@ -68,7 +68,7 @@ bool ioe_init(){return true;};
 __attribute__((used))
 void ioe_write(int reg, void *buf){}
 
-__attribute__((section(".bootloader")))
+__attribute__((section(".stage1")))
 void _trm_init() {
   loader_init();
   serial_init();

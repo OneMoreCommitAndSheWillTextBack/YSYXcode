@@ -14,6 +14,7 @@
 #define MBASE 0x20000000
 #define FBASE 0x30000000
 #define PSBASE 0x80000000
+#define SDBASE 0xa0000000
 
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 
@@ -59,7 +60,7 @@ uint32_t paddr_read(uint32_t address, uint32_t len);
 void paddr_write(uint32_t address, uint32_t len, uint32_t data);
 void pmem_write(uint8_t *addr, uint32_t len, uint32_t data);
 uint32_t pmem_read(uint8_t *addr, uint32_t len);
-
+void init_mem();
 
 // init.cpp
 void init(int argc, char *argv[]);

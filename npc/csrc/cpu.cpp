@@ -79,6 +79,10 @@ static void exe_once() {
   demp_wave();
   npc->cycs += 2;
 
+  // printf("times: %lu\t", npc->cycs);
+  // printf("inst %x\t", cpu->inst);
+  // printf("pc %x\n", cpu->con.pc);
+
   if (cpu->inst == pre_inst) {
     same_inst_cyc++;
   } else {
@@ -120,7 +124,8 @@ void trace_or_diff() {
   exe_wp();
 #endif
 #ifdef MEMORY_GUARD
-  check_mem_guard();
+  if(cpu->valid == 1)
+    check_mem_guard();
 #endif
 #ifdef ITRACE
   printf("%s\n", cpu->logbuf);
