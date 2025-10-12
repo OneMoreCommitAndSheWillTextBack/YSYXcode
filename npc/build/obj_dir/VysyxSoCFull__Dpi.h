@@ -40,7 +40,7 @@ extern "C" {
     extern void ret(int pc);
     // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v:93:32
     extern void sdram_read(int bank, int row, int col, short* data);
-    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v:159:32
+    // DPI import at /home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v:163:32
     extern void sdram_write(int bank, int row, int col, int data, int dqm_mask);
 
 #ifdef __cplusplus
