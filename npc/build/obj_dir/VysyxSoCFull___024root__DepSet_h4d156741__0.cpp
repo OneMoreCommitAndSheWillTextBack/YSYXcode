@@ -44,20 +44,20 @@ VL_INLINE_OPT void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__psram_
     psram_read__Vfuncrtn = (0xffU & psram_read__Vfuncrtn__Vcvt);
 }
 
-extern "C" void sdram_read(const svBitVecVal* bank, const svBitVecVal* row, const svBitVecVal* col, svBitVecVal* data);
+extern "C" void sdram_read(int bank, int row, int col, short* data);
 
-VL_INLINE_OPT void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_read_TOP(CData/*1:0*/ bank, SData/*12:0*/ row, SData/*9:0*/ col, SData/*15:0*/ &data) {
+VL_INLINE_OPT void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_read_TOP(IData/*31:0*/ bank, IData/*31:0*/ row, IData/*31:0*/ col, SData/*15:0*/ &data) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_read_TOP\n"); );
     // Body
-    svBitVecVal bank__Vcvt[1];
-    for (size_t bank__Vidx = 0; bank__Vidx < 1; ++bank__Vidx) VL_SET_SVBV_I(2, bank__Vcvt + 1 * bank__Vidx, bank);
-    svBitVecVal row__Vcvt[1];
-    for (size_t row__Vidx = 0; row__Vidx < 1; ++row__Vidx) VL_SET_SVBV_I(13, row__Vcvt + 1 * row__Vidx, row);
-    svBitVecVal col__Vcvt[1];
-    for (size_t col__Vidx = 0; col__Vidx < 1; ++col__Vidx) VL_SET_SVBV_I(10, col__Vcvt + 1 * col__Vidx, col);
-    svBitVecVal data__Vcvt[1];
-    sdram_read(bank__Vcvt, row__Vcvt, col__Vcvt, data__Vcvt);
-    data = (0xffffU & VL_SET_I_SVBV(data__Vcvt));
+    int bank__Vcvt;
+    for (size_t bank__Vidx = 0; bank__Vidx < 1; ++bank__Vidx) bank__Vcvt = bank;
+    int row__Vcvt;
+    for (size_t row__Vidx = 0; row__Vidx < 1; ++row__Vidx) row__Vcvt = row;
+    int col__Vcvt;
+    for (size_t col__Vidx = 0; col__Vidx < 1; ++col__Vidx) col__Vcvt = col;
+    short data__Vcvt;
+    sdram_read(bank__Vcvt, row__Vcvt, col__Vcvt, &data__Vcvt);
+    data = (0xffffU & data__Vcvt);
 }
 
 extern "C" void sdram_write(int bank, int row, int col, int data, int dqm_mask);

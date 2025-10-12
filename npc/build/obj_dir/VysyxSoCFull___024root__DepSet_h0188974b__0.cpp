@@ -1431,7 +1431,7 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__0(VysyxSoCFull___0
         = vlSelf->ysyxSoCFull__DOT__bitrev__DOT__state;
 }
 
-void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_read_TOP(CData/*1:0*/ bank, SData/*12:0*/ row, SData/*9:0*/ col, SData/*15:0*/ &data);
+void VysyxSoCFull___024root____Vdpiimwrap_ysyxSoCFull__DOT__sdram__DOT__sdram_read_TOP(IData/*31:0*/ bank, IData/*31:0*/ row, IData/*31:0*/ col, SData/*15:0*/ &data);
 
 VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__4(VysyxSoCFull___024root* vlSelf) {
     if (false && vlSelf) {}  // Prevent unused
