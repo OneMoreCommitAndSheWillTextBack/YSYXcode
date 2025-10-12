@@ -1556,14 +1556,6 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__4(VysyxSoCFull___0
             : (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r));
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_val_q 
         = vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_val_r;
-    vlSelf->ysyxSoCFull__DOT__sdram__DOT__prev_addr_q 
-        = (((3U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)) 
-            | (6U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))
-            ? (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_r)
-            : (((4U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)) 
-                | (7U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))
-                ? (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_b_r)
-                : 0U));
     if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__cas_start) {
         __Vdly__ysyxSoCFull__DOT__sdram__DOT__cas_timer_q 
             = (7U & (((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_q) 
@@ -1576,6 +1568,16 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__4(VysyxSoCFull___0
     } else {
         vlSelf->ysyxSoCFull__DOT__sdram__DOT__counting = 0U;
     }
+    vlSelf->ysyxSoCFull__DOT__sdram__DOT__prev_addr_q 
+        = (((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__read) 
+            | (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__write))
+            ? (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_r)
+            : (((3U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)) 
+                | ((6U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)) 
+                   | ((4U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)) 
+                      | (7U == (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))))
+                ? (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_b_r)
+                : 0U));
     if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_start_q) {
         __Vdly__ysyxSoCFull__DOT__sdram__DOT__bl_timer_q 
             = (7U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_q) 
