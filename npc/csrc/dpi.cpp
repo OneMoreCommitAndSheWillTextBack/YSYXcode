@@ -29,14 +29,16 @@ extern "C" void sdram_write(uint8_t bank, uint16_t row, uint16_t col, uint16_t d
     addr |= (bank & 0x3) << 23;     // bank[1:0]
     addr |= (row & 0x1FFF) << 10;   // row[12:0]  
     addr |= (col & 0x1FF) << 2;     // col[8:0]
-  
-  printf("[sdram write], bank: %hu, row %hu, col %hu => 0x%x, data: %x\n", bank, row, col, addr, data);
 
-    if(!(dqm & 0b1))
+    if(!(dqm & 0b1)) {
+      printf("[sdram lowbyte write], bank: %hu, row %hu, col %hu => 0x%x, data: %x\n", bank, row, col, SDBASE + addr, data);
       paddr_write(SDBASE + addr, 1, data);
+    }
 
-    if(!(dqm & 0b10))
+    if(!(dqm & 0b10)) {
+      printf("[sdram lowbyte write], bank: %hu, row %hu, col %hu => 0x%x, data: %x\n", bank, row, col, SDBASE + addr + 1, data >> 8);
       paddr_write(SDBASE + addr + 1, 1, data >> 8);    
+    }
 }
 
 extern "C" void sdram_read(uint32_t bank, uint32_t row, uint32_t col, uint16_t *data) {
