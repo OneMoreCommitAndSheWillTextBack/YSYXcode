@@ -410,7 +410,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
            | (0x3ffU & ((IData)(1U) + (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__prev_addr_q))));
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_r 
         = (((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__bank_q) 
-            << 0xbU) | (0x3ffU & (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__addr_q)));
+            << 0xbU) | (0x7ffU & (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__addr_q)));
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__memsextsig 
         = ((4U != (7U & (vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__inst_reg 
                          >> 0xcU))) & (5U != (7U & 
@@ -677,13 +677,13 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
         vlSelf->ysyxSoCFull__DOT__asic__DOT__axi4frag__DOT___deq_q_io_deq_bits_burst = 1U;
         vlSelf->ysyxSoCFull__DOT__asic__DOT__axi4frag__DOT___deq_q_io_deq_bits_len = 0U;
     }
+    vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h84ea0254__0 
+        = ((~ ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q) 
+               >> 1U)) & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h9fe2f015__0));
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6818f070__0 
         = ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h9fe2f015__0) 
            & ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q) 
               >> 1U));
-    vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h84ea0254__0 
-        = ((~ ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q) 
-               >> 1U)) & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h9fe2f015__0));
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6beba8fe__0 
         = ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h2bb2a71e__0) 
            & ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q) 
@@ -921,12 +921,12 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
             << 1U) | ((3U != (0x7fU & vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__inst_reg)) 
                       & ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__idu0__DOT__maincontrol0__DOT__type_I) 
                          | (0x63U == (0x7fU & vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__inst_reg)))));
-    vlSelf->ysyxSoCFull__DOT__sdram__DOT__active = 
-        ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6818f070__0) 
-         & (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q));
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__load_mode_register 
         = ((~ (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q)) 
            & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h84ea0254__0));
+    vlSelf->ysyxSoCFull__DOT__sdram__DOT__active = 
+        ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6818f070__0) 
+         & (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q));
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__burst_terminate 
         = ((~ (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q)) 
            & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6beba8fe__0));
@@ -1025,25 +1025,25 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
             : (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__axi4frag__DOT___deq_q_io_deq_bits_len));
     if ((8U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
         if (VL_UNLIKELY((4U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:306: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:320: Assertion failed in %NysyxSoCFull.sdram: sdram state machine meet invalid state, the state is %b\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
-                      vlSymsp->name());
+                      vlSymsp->name(),4,(IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q));
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 306, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 320, "");
         } else if (VL_UNLIKELY((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:306: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:320: Assertion failed in %NysyxSoCFull.sdram: sdram state machine meet invalid state, the state is %b\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
-                      vlSymsp->name());
+                      vlSymsp->name(),4,(IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q));
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 306, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 320, "");
         } else if (VL_LIKELY((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 1U;
         } else {
-            VL_WRITEF("[%0t] %%Error: sdram.v:306: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:320: Assertion failed in %NysyxSoCFull.sdram: sdram state machine meet invalid state, the state is %b\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
-                      vlSymsp->name());
+                      vlSymsp->name(),4,(IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q));
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 306, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 320, "");
         }
     } else if ((4U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
         if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
@@ -1055,6 +1055,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
                     vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 3U;
                 } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_done) {
                     vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
+                    if ((0x400U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__prev_addr_q))) {
+                        vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 5U;
+                    }
                 }
             } else {
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 7U;
@@ -1064,12 +1067,8 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
                     vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
                 }
             }
-        } else if (VL_UNLIKELY((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:306: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
-                      64,VL_TIME_UNITED_Q(1000),-9,
-                      vlSymsp->name());
-            Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 306, "");
+        } else if ((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
+            vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 1U;
         } else {
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 4U;
             if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__read) {
@@ -1078,6 +1077,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
             } else if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__bl_done) {
                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 2U;
+                if ((0x400U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__prev_addr_q))) {
+                    vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = 5U;
+                }
             }
         }
     } else if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
@@ -1092,7 +1094,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r 
                 = ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__read)
                     ? 3U : ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__write)
-                             ? 6U : 2U));
+                             ? 6U : (((~ (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__command_q)) 
+                                      & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__decoder__DOT____VdfgTmp_h6818f070__0))
+                                      ? 5U : 2U)));
         }
     } else {
         vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r 
@@ -1112,23 +1116,23 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_chg_r = 0U;
     if ((8U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
         if (VL_UNLIKELY((4U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:447: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:467: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
                       vlSymsp->name());
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 447, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 467, "");
         } else if (VL_UNLIKELY((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:447: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:467: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
                       vlSymsp->name());
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 447, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 467, "");
         } else if (VL_UNLIKELY((1U & (~ (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:447: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
+            VL_WRITEF("[%0t] %%Error: sdram.v:467: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
                       64,VL_TIME_UNITED_Q(1000),-9,
                       vlSymsp->name());
             Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 447, "");
+            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 467, "");
         }
     } else if ((4U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
         if ((2U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q))) {
@@ -1157,13 +1161,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
                     vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_val_r = 0U;
                 }
             }
-        } else if (VL_UNLIKELY((1U & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
-            VL_WRITEF("[%0t] %%Error: sdram.v:447: Assertion failed in %NysyxSoCFull.sdram: sdram state mechine meet unvlaid state\n",
-                      64,VL_TIME_UNITED_Q(1000),-9,
-                      vlSymsp->name());
-            Verilated::runFlushCallbacks();
-            VL_STOP_MT("/home/ysyx/project/ysyx-workbench/ysyxSoC/perip/sdram/sdram.v", 447, "");
-        } else {
+        } else if ((1U & (~ (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q)))) {
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_pip_in_addr_r 
                 = vlSelf->ysyxSoCFull__DOT__sdram__DOT__cur_addr_b_r;
             vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_pip_in_val_r = 1U;
@@ -1423,6 +1421,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__insram 
         = ((0xf000000U <= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res) 
            & (0xfffffffU >= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res));
+    vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__insdram 
+        = ((0xa0000000U <= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res) 
+           & (0xbfffffffU >= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res));
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__arviter0__DOT__awaddr_out_reg = 0U;
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__npc 
         = ((0x6fU == (0x7fU & vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__ifu0__DOT__inst_reg))
@@ -1533,12 +1534,14 @@ VL_ATTR_COLD void VysyxSoCFull___024root___stl_sequent__TOP__0(VysyxSoCFull___02
             : vlSelf->ysyxSoCFull__DOT__asic__DOT__axi4frag__DOT___deq_q_1_io_deq_bits_addr);
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__aligned_sram 
         = ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__insram) 
-           | ((0x80000000U <= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res) 
-              & (0x9fffffffU >= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res)));
+           | (((0x80000000U <= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res) 
+               & (0x9fffffffU >= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res)) 
+              | (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__insdram)));
     vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT____Vcellinp__type_mux__key 
         = ((((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__insram) 
-             | ((0x10001000U <= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res) 
-                & (0x10001fffU >= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res))) 
+             | (((0x10001000U <= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res) 
+                 & (0x10001fffU >= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res)) 
+                | (IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__insdram))) 
             << 1U) | ((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__wbu0__DOT__strbcontol__DOT__inuart) 
                       | ((0x30000000U <= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res) 
                          & (0x3fffffffU >= vlSelf->ysyxSoCFull__DOT__asic__DOT__cpu__DOT__cpu__DOT__res))));

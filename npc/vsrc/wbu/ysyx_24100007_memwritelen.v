@@ -17,6 +17,8 @@ module ysyx_24100007_memwritelen(
     wire inflash = (awaddr >= 32'h30000000) && (awaddr <= 32'h3fffffff);
     wire inspi = (awaddr >= 32'h10001000) && (awaddr <= 32'h10001fff);
     wire inpsram = (awaddr >= 32'h80000000) && (awaddr <= 32'h9fffffff);
+    wire insdram = (awaddr >= 32'ha0000000) && (awaddr <= 32'hbfffffff);
+
     wire [1:0] bus_size;
     wire [2:0] awsize_general = (wirtelen == 3'b001) ? 3'b000 :     
                                 (wirtelen == 3'b010) ? 3'b001 :
@@ -25,7 +27,7 @@ module ysyx_24100007_memwritelen(
 
     ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
         .out(bus_size),
-        .key({insram|inspi,inuart|inflash}),
+        .key({insram|inspi|insdram,inuart|inflash}),
         .default_out(`GENERAL),
         .lut({
             2'b10 , `WORD,
