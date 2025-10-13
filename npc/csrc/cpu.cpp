@@ -125,10 +125,7 @@ void trace_or_diff() {
 #ifdef WATCH_POINT
   exe_wp();
 #endif
-#ifdef MEMORY_GUARD
-  if(cpu->valid == 1)
-    check_mem_guard();
-#endif
+
 #ifdef ITRACE
   printf("%s\n", cpu->logbuf);
 #endif
@@ -138,7 +135,10 @@ void trace_or_diff() {
   if (start_diff == 1 && cpu->valid == 1) {
     diff_step();
   }
-
+#endif
+#ifdef MEMORY_GUARD
+  if(cpu->valid == 1)
+    check_mem_guard();
 #endif
 }
 
@@ -276,7 +276,8 @@ void set_npc_end() {
 
 void set_npc_quit() {
   // 没有使用 batchmode 就不使用trace功能了
-  npc->state = QUIT;
+  if(npc->state != ABORT)
+    npc->state = QUIT;
 }
 
 void set_npc_stop() { npc->state = STOP; }
