@@ -48,6 +48,8 @@ void demp_wave() {
             pause();
           }
 
+          cpu_exec(-1);
+
       } else if (pid > 0) {          /* parent */
           fork_pid_val = pid;            
           if (old) {
@@ -144,9 +146,11 @@ static void execute(unsigned int n) {
   while (n--) {
     exe_once();
     trace_or_diff();
-    if (npc->state != RUNNING){
+    if (npc->state == END || npc->state == ABORT){
       printf("ended at pc = 0x%08x\n", cpu->con.pc);
       tfpclose();
+      return ;
+    } else if(npc->state == STOP) {
       return ;
     }
   }
