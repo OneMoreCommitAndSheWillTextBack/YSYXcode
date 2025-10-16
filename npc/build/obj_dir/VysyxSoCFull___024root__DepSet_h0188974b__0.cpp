@@ -1494,17 +1494,12 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__2(VysyxSoCFull___0
     __Vdlyvval__ysyxSoCFull__DOT__sdram__DOT__pip_addr_q__v5 
         = vlSelf->ysyxSoCFull__DOT__sdram__DOT__rd_pip_in_addr_r;
     if (vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_chg_q) {
-        vlSelf->ysyxSoCFull__DOT__sdram__DOT____Vlvbound_h9a333b04__0 
+        __Vdlyvval__ysyxSoCFull__DOT__sdram__DOT__row_reg__v0 
             = (0x1fffU & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_q));
-        if ((2U >= (3U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_q) 
-                          >> 0xdU)))) {
-            __Vdlyvval__ysyxSoCFull__DOT__sdram__DOT__row_reg__v0 
-                = vlSelf->ysyxSoCFull__DOT__sdram__DOT____Vlvbound_h9a333b04__0;
-            __Vdlyvset__ysyxSoCFull__DOT__sdram__DOT__row_reg__v0 = 1U;
-            __Vdlyvdim0__ysyxSoCFull__DOT__sdram__DOT__row_reg__v0 
-                = (3U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_q) 
-                         >> 0xdU));
-        }
+        __Vdlyvset__ysyxSoCFull__DOT__sdram__DOT__row_reg__v0 = 1U;
+        __Vdlyvdim0__ysyxSoCFull__DOT__sdram__DOT__row_reg__v0 
+            = (3U & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_q) 
+                     >> 0xdU));
     }
     ysyxSoCFull__DOT__sdram__DOT____Vlvbound_h909fa843__0 
         = vlSelf->ysyxSoCFull__DOT__sdram__DOT__pip_valid_q
@@ -3607,18 +3602,11 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__6(VysyxSoCFull___0
                                                                                 (3U 
                                                                                 & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_addr_q) 
                                                                                 >> 0xbU)), 
-                                                                                ((2U 
-                                                                                >= 
-                                                                                (3U 
-                                                                                & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_addr_q) 
-                                                                                >> 0xbU)))
-                                                                                 ? 
                                                                                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__row_reg
                                                                                 [
                                                                                 (3U 
                                                                                 & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_addr_q) 
-                                                                                >> 0xbU))]
-                                                                                 : 0U), 
+                                                                                >> 0xbU))], 
                                                                                 (0x3ffU 
                                                                                 & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_addr_q)), 
                                                                                 (((((IData)(vlSelf->ysyxSoCFull__DOT__asic__DOT__lsdram_apb__DOT__msdram__DOT__u_sdram_ctrl__DOT__data_rd_en_q)
@@ -3661,18 +3649,11 @@ VL_INLINE_OPT void VysyxSoCFull___024root___nba_sequent__TOP__6(VysyxSoCFull___0
                                                                                 (3U 
                                                                                 & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0) 
                                                                                 >> 0xbU)), 
-                                                                                ((2U 
-                                                                                >= 
-                                                                                (3U 
-                                                                                & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0) 
-                                                                                >> 0xbU)))
-                                                                                 ? 
                                                                                 vlSelf->ysyxSoCFull__DOT__sdram__DOT__row_reg
                                                                                 [
                                                                                 (3U 
                                                                                 & ((IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0) 
-                                                                                >> 0xbU))]
-                                                                                 : 0U), 
+                                                                                >> 0xbU))], 
                                                                                 (0x3ffU 
                                                                                 & (IData)(vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0)), __Vtask_ysyxSoCFull__DOT__sdram__DOT__sdram_read__15__data);
         vlSelf->ysyxSoCFull__DOT__sdram__DOT__sdram_data_input_i 
