@@ -26,26 +26,26 @@ extern "C" void psram_write(uint32_t addr, uint8_t data) {
 
 extern "C" void sdram_write(uint8_t bank, uint16_t row, uint16_t col, uint16_t data, uint8_t dqm) {
     uint32_t addr;
-    addr |= (col & 0xFF) << 2;            // col占据 bit[9:2]
+    addr |= (col & 0x1FF) << 1;            // col占据 bit[9:1]
     addr |= (bank & 0x3) << (9 + 1);      // bank占据 bit[11:10]
     addr |= (row & 0x1FFF) << (9 + 2 + 1); // row占据 bit[24:12]
 
     if(!(dqm & 0b1)) {
-      printf("[sdram lowbyte write], bank: %hu, row %hu, col %hu => 0x%x, data: %x\n", bank, row, col, SDBASE + addr, data);
+      // printf("[sdram lowbyte write], bank: %hu, row %hu, col %hu => 0x%x, data: %x\n", bank, row, col, SDBASE + addr, data);
       paddr_write(SDBASE + addr, 1, data);
     }
 
     if(!(dqm & 0b10)) {
-      printf("[sdram higbyte write], bank: %hu, row %hu, col %hu => 0x%x, data: %x\n", bank, row, col, SDBASE + addr + 1, data >> 8);
+      // printf("[sdram higbyte write], bank: %hu, row %hu, col %hu => 0x%x, data: %x\n", bank, row, col, SDBASE + addr + 1, data >> 8);
       paddr_write(SDBASE + addr + 1, 1, data >> 8);    
     }
 }
 
 extern "C" void sdram_read(uint32_t bank, uint32_t row, uint32_t col, uint16_t *data) {
   uint32_t addr;
-  addr |= (col & 0x1FF) << 2;           // col占据 bit[10:2]
-  addr |= (bank & 0x3) << (9 + 2);      // bank占据 bit[12:11]
-  addr |= (row & 0x1FFF) << (9 + 2 + 2); // row占据 bit[25:13]
+  addr |= (col & 0x1FF) << 1;            // col占据 bit[9:1]
+  addr |= (bank & 0x3) << (9 + 1);      // bank占据 bit[11:10]
+  addr |= (row & 0x1FFF) << (9 + 2 + 1); // row占据 bit[24:12]
 
   uint16_t ret = paddr_read(SDBASE + addr, 2);
   // printf("[sdram read], bank: %hu, row %hu, col %hu => 0x%x, reads: %x\n", bank, row, col, addr, ret);
