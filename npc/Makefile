@@ -1,19 +1,42 @@
 TOPNAME = ysyxSoCFull
-VERILATOR=verilator
-VERILATOR_FLAGS = --trace --prof-exec --cc --MMD  --exe --build --autoflush
+VERILATOR = verilator
+VERILATOR_FLAGS = --trace --prof-exec --cc --MMD --exe --build --autoflush
 SOCPATH = /home/ysyx/project/ysyx-workbench/ysyxSoC
 INCLUDE_PATH = $(abspath ./include/)
 VERILATOR_INCLUDE_PATH = $(abspath ./vsrc/include/)
 
-VSRC=$(shell find $(abspath ./vsrc/) -name "*.v")
-CSRC=$(shell find $(abspath ./csrc/) -name "*.cpp")
-HEADFILE=$(shell find $(INCLUDE_PATH) -name "*.h")
+VSRC = $(shell find $(abspath ./vsrc/) -name "*.v")
+CSRC = $(shell find $(abspath ./csrc/) -name "*.cpp")
+HEADFILE = $(shell find $(INCLUDE_PATH) -name "*.h")
 
 LLVMFLAGS = $(subst -D__STDC_FORMAT_MACROS,,$(shell llvm-config --cxxflags))
 
-CFLAGS = $(patsubst %, --CFLAGS "-I%", $(INCLUDE_PATH))
-CFLAGS += $(patsubst %, --CFLAGS "%", $(LLVMFLAGS))
-CFLAGS += $(patsubst %, --LDFLAGS "%", $(shell llvm-config --libs))
+# 条件包含NVBoard相关配置
+ifeq ($(NVBOARD_ENABLE),1)
+    NXDC_FILES = constr/$(TOPNAME).nxdc
+    SRC_AUTO_BIND = $(abspath $(BUILDDIR)/auto_bind.cpp)
+
+   # 自动生成引脚绑定文件
+    $(SRC_AUTO_BIND): $(NXDC_FILES)
+		python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@
+    
+    include $(NVBOARD_HOME)/scripts/nvboard.mk
+    CSRC += $(SRC_AUTO_BIND)
+endif
+
+# 构建模式选择
+NVBOARD_ENABLE ?= 1
+
+BUILDDIR = ./build
+OBJDIR = $(BUILDDIR)/obj_dir
+BIN = $(BUILDDIR)/$(TOPNAME)
+
+$(shell mkdir -p $(BUILDDIR))
+
+# 基础编译标志
+BASE_CFLAGS = $(patsubst %, --CFLAGS "-I%", $(INCLUDE_PATH)) \
+              $(patsubst %, --CFLAGS "%", $(LLVMFLAGS)) \
+              $(patsubst %, --LDFLAGS "%", $(shell llvm-config --libs))
 
 VERILATOR_FLAGS += --timescale "1ns/1ns" --no-timing
 VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
@@ -23,30 +46,42 @@ VSRC += $(SOCPATH)/build/ysyxSoCFull.v
 
 VERILATOR_INCLUDE = $(patsubst %, -I%, $(VERILATOR_INCLUDE_PATH))
 
-BUILDDIR = ./build
-OBJDIR = $(BUILDDIR)/obj_dir
-BIN = $(BUILDDIR)/$(TOPNAME)
+# NVBoard特定设置
+ifeq ($(NVBOARD_ENABLE),1)
+	CSRC += $(SRC_AUTO_BIND)
+	BASE_CFLAGS += --CFLAGS -D__NVBOARD__
+	BASE_CFLAGS += $(patsubst %, --CFLAGS "-I%", $(INC_PATH))
+	LDFLAGS += -lSDL2 -lSDL2_image -lSDL2_ttf
+endif
 
-$(shell mkdir -p $(BUILDDIR))
+normal: NVBOARD_ENABLE = 1
+normal: $(BIN)
 
-$(BIN): $(VSRC) $(CSRC) $(HEADFILE)
-	$(VERILATOR) $(VERILATOR_FLAGS) $(VSRC) $(CSRC) \
-		$(CFLAGS) \
+$(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD_ARCHIVE))
+	@rm -rf $(OBJDIR)
+	$(VERILATOR) $(VERILATOR_FLAGS) \
+		$(VSRC) $(CSRC) \
+		$(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD_ARCHIVE)) \
+		$(BASE_CFLAGS) \
 		$(VERILATOR_INCLUDE) \
 		--top-module $(TOPNAME) \
-		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN))
+		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN)) \
+		$(if $(filter 1,$(NVBOARD_ENABLE)),$(patsubst %, --LDFLAGS %, $(LDFLAGS)))
 
-run:$(BIN)
-	# $(call git_commit, "run npc")
+# 目标别名
+nvboard: NVBOARD_ENABLE = 1
+nvboard: $(BIN)
+
+without_nvboard: NVBOARD_ENABLE = 0
+without_nvboard: $(BIN)
+
+run: $(BIN)
 	$(BIN) $(ARGS)
 
 clean:
 	rm -rf $(BUILDDIR)
 
 sim:
-	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 	gtkwave ./wave.vcd
-	
 
-include ../Makefile
-
+.PHONY: run clean sim nvboard normal

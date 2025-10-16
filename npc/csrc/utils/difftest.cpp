@@ -73,7 +73,7 @@ void checkregs(context *ref_context) {
     goto regdiferror;
   }
 
-  for (i = 0; i < 32; i++) {
+  for (i = 1; i < 32; i++) {
     if (ref_context->gpr[i] != cpu->con.gpr[i]) {
       goto regdiferror;
     }

@@ -78,7 +78,8 @@ module ysyx_24100007_wbu(
                              2'b00;
   wire aligned_sram;
   assign aligned_sram = (res >= 32'h0f000000) && (res <= 32'h0fffffff) ||
-                        (res >= 32'h80000000) && (res <= 32'h9fffffff);
+                        (res >= 32'h80000000) && (res <= 32'h9fffffff) ||
+                        (res >= 32'ha0000000) && (res <= 32'hbfffffff);
   // when read the sram it would return align 4
 
   ysyx_24100007_memreadlen memreadlen0(

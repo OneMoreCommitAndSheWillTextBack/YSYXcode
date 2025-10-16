@@ -160,7 +160,7 @@ void init(int argc, char *argv[]) {
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
-  npc->cycs += 2;
+  npc->cycs = 0;
 #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
 #endif

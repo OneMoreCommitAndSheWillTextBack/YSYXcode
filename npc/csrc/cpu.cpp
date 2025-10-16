@@ -48,6 +48,8 @@ void demp_wave() {
             pause();
           }
 
+          cpu_exec(-1);
+
       } else if (pid > 0) {          /* parent */
           fork_pid_val = pid;            
           if (old) {
@@ -79,9 +81,6 @@ static void exe_once() {
   demp_wave();
   npc->cycs += 2;
 
-  // printf("times: %lu\t", npc->cycs);
-  // printf("inst %x\t", cpu->inst);
-  // printf("pc %x\n", cpu->con.pc);
 
   if (cpu->inst == pre_inst) {
     same_inst_cyc++;
@@ -123,10 +122,7 @@ void trace_or_diff() {
 #ifdef WATCH_POINT
   exe_wp();
 #endif
-#ifdef MEMORY_GUARD
-  if(cpu->valid == 1)
-    check_mem_guard();
-#endif
+
 #ifdef ITRACE
   printf("%s\n", cpu->logbuf);
 #endif
@@ -136,7 +132,10 @@ void trace_or_diff() {
   if (start_diff == 1 && cpu->valid == 1) {
     diff_step();
   }
-
+#endif
+#ifdef MEMORY_GUARD
+  if(cpu->valid == 1)
+    check_mem_guard();
 #endif
 }
 
@@ -144,9 +143,11 @@ static void execute(unsigned int n) {
   while (n--) {
     exe_once();
     trace_or_diff();
-    if (npc->state != RUNNING){
+    if (npc->state == END || npc->state == ABORT){
       printf("ended at pc = 0x%08x\n", cpu->con.pc);
       tfpclose();
+      return ;
+    } else if(npc->state == STOP) {
       return ;
     }
   }
@@ -272,7 +273,8 @@ void set_npc_end() {
 
 void set_npc_quit() {
   // 没有使用 batchmode 就不使用trace功能了
-  npc->state = QUIT;
+  if(npc->state != ABORT)
+    npc->state = QUIT;
 }
 
 void set_npc_stop() { npc->state = STOP; }
