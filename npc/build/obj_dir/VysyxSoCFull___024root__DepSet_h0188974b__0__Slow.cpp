@@ -15,6 +15,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___eval_static(VysyxSoCFull___024root* v
     VL_DEBUG_IF(VL_DBG_MSGF("+    VysyxSoCFull___024root___eval_static\n"); );
     // Body
     VysyxSoCFull___024root___eval_static__TOP(vlSelf);
+    vlSelf->__Vm_traceActivity[0xeU] = 1U;
     vlSelf->__Vm_traceActivity[0xdU] = 1U;
     vlSelf->__Vm_traceActivity[0xcU] = 1U;
     vlSelf->__Vm_traceActivity[0xbU] = 1U;
@@ -52,6 +53,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___eval_initial(VysyxSoCFull___024root* 
     VL_DEBUG_IF(VL_DBG_MSGF("+    VysyxSoCFull___024root___eval_initial\n"); );
     // Body
     VysyxSoCFull___024root___eval_initial__TOP(vlSelf);
+    vlSelf->__Vm_traceActivity[0xeU] = 1U;
     vlSelf->__Vm_traceActivity[0xdU] = 1U;
     vlSelf->__Vm_traceActivity[0xcU] = 1U;
     vlSelf->__Vm_traceActivity[0xbU] = 1U;
@@ -214,6 +216,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___eval_stl(VysyxSoCFull___024root* vlSe
     // Body
     if (vlSelf->__VstlTriggered.at(0U)) {
         VysyxSoCFull___024root___stl_sequent__TOP__0(vlSelf);
+        vlSelf->__Vm_traceActivity[0xeU] = 1U;
         vlSelf->__Vm_traceActivity[0xdU] = 1U;
         vlSelf->__Vm_traceActivity[0xcU] = 1U;
         vlSelf->__Vm_traceActivity[0xbU] = 1U;
@@ -1205,7 +1208,9 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->ysyxSoCFull__DOT__psram__DOT__reset = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__psram__DOT____Vlvbound_h57fb771c__0 = VL_RAND_RESET_I(4);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_q = VL_RAND_RESET_I(13);
-    vlSelf->ysyxSoCFull__DOT__sdram__DOT__row = VL_RAND_RESET_I(13);
+    for (int __Vi0 = 0; __Vi0 < 3; ++__Vi0) {
+        vlSelf->ysyxSoCFull__DOT__sdram__DOT__row_reg[__Vi0] = VL_RAND_RESET_I(13);
+    }
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__active = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__read = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__write = VL_RAND_RESET_I(1);
@@ -1234,7 +1239,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__wr_in_val_q = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_val_q = VL_RAND_RESET_I(13);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_chg_q = VL_RAND_RESET_I(1);
-    vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_q = VL_RAND_RESET_I(13);
+    vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_q = VL_RAND_RESET_I(15);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_chg_q = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_current_q = VL_RAND_RESET_I(4);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__state_next_r = VL_RAND_RESET_I(4);
@@ -1250,10 +1255,11 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_chg_r = VL_RAND_RESET_I(1);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__mode_val_r = VL_RAND_RESET_I(13);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_chg_r = VL_RAND_RESET_I(1);
-    vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_r = VL_RAND_RESET_I(13);
+    vlSelf->ysyxSoCFull__DOT__sdram__DOT__acti_val_r = VL_RAND_RESET_I(15);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__unnamedblk1__DOT__i = 0;
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__dq__out__strong__out0 = 0;
     vlSelf->ysyxSoCFull__DOT__sdram__DOT__dq__out__strong__out1 = 0;
+    vlSelf->ysyxSoCFull__DOT__sdram__DOT____Vlvbound_h9a333b04__0 = VL_RAND_RESET_I(13);
     vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h7c6dd055__0 = 0;
     vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_he546b431__0 = 0;
     vlSelf->ysyxSoCFull__DOT__sdram__DOT____VdfgTmp_h09eb8e3c__0 = 0;
@@ -1292,7 +1298,7 @@ VL_ATTR_COLD void VysyxSoCFull___024root___ctor_var_reset(VysyxSoCFull___024root
     vlSelf->__Vtrigrprev__TOP__ysyxSoCFull__DOT___asic_psram_sck = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__ysyxSoCFull__DOT__psram__DOT__reset = VL_RAND_RESET_I(1);
     vlSelf->__Vtrigrprev__TOP__ysyxSoCFull__DOT__sdram__DOT__valclk = VL_RAND_RESET_I(1);
-    for (int __Vi0 = 0; __Vi0 < 14; ++__Vi0) {
+    for (int __Vi0 = 0; __Vi0 < 15; ++__Vi0) {
         vlSelf->__Vm_traceActivity[__Vi0] = 0;
     }
 }

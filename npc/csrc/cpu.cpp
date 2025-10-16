@@ -81,9 +81,6 @@ static void exe_once() {
   demp_wave();
   npc->cycs += 2;
 
-  // printf("times: %lu\t", npc->cycs);
-  // printf("inst %x\t", cpu->inst);
-  // printf("pc %x\n", cpu->con.pc);
 
   if (cpu->inst == pre_inst) {
     same_inst_cyc++;
