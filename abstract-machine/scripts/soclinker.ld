@@ -60,5 +60,5 @@ SECTIONS {
 
     _stack_pointer = 0x0f002000;
     _heap_start = _ebss_vma;
-    _heap_end = _ebss_vma + 0x4000;
+    _heap_end = _ebss_vma + 0x40000;
 }
