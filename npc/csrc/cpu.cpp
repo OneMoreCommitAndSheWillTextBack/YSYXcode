@@ -11,6 +11,9 @@
 #include <signal.h>      // 用于 kill(), raise(), SIGSTOP, SIGCONT
 
 #include <sys/wait.h>
+#ifdef __NVBOARD__
+  #include "nvboard.h"
+#endif
 
 Npc *npc = NULL;
 Cpu *cpu = NULL;
@@ -79,6 +82,9 @@ static void exe_once() {
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
+  #ifdef __NVBOARD__
+  nvboard_update();
+  #endif
   npc->cycs += 2;
 
 
@@ -145,6 +151,10 @@ static void execute(unsigned int n) {
     trace_or_diff();
     if (npc->state == END || npc->state == ABORT){
       printf("ended at pc = 0x%08x\n", cpu->con.pc);
+      #ifdef __NVBOARD__
+      nvboard_quit();
+      printf("the nvboard_quit executed\n");
+      #endif
       tfpclose();
       return ;
     } else if(npc->state == STOP) {
@@ -272,9 +282,15 @@ void set_npc_end() {
 }
 
 void set_npc_quit() {
-  // 没有使用 batchmode 就不使用trace功能了
-  if(npc->state != ABORT)
+  if(npc->state == STOP) {
+    tfpclose();
+    printf("quit the nvboard\n");
+    #ifdef __NVBOARD__
+    nvboard_quit();
+    #endif
     npc->state = QUIT;
+  }
+  // 对于 ABORT 和 END 无需做任何事
 }
 
 void set_npc_stop() { npc->state = STOP; }

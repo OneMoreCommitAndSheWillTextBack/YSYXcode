@@ -28,6 +28,7 @@
     {0x30000000, 0x3fffffff, "flash", flash},
     {0x10001000, 0x10001fff, "spi"  , NULL},
     {0xa0000000, 0xbfffffff, "sdram", sdram},
+    {0x10002000, 0x1000200f, "gpio" , NULL},
   };
 
   soc_device* fetch_the_soc(paddr_t addr){

@@ -8,6 +8,10 @@
 #include <getopt.h>
 #include <string.h>
 
+#ifdef __NVBOARD__
+  #include "nvboard.h"
+#endif
+
 #include "common.h"
 
 #define RESET_TIME 15
@@ -61,6 +65,10 @@ char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
 int port = 0;
 bool batch_mode_on = false;
 
+#ifdef __NVBOARD__
+extern void nvboard_bind_all_pins(VysyxSoCFull* top);
+#endif
+
 void parse_args(int argc, char *argv[]) {
   const struct option table[] = {
       {"port", required_argument, NULL, 'p'},
@@ -69,10 +77,11 @@ void parse_args(int argc, char *argv[]) {
       {"fork-interval", required_argument, NULL, 'i'},
       {"record-after", required_argument, NULL, 'r'},
       {"die-on-end", required_argument, NULL, 'd'},
+      {"enable-record", no_argument, NULL, 'e'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:b", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:be", table, NULL)) != -1) {
     switch (o) {
     case 'b':
       batch_mode_on = true;
@@ -98,6 +107,10 @@ void parse_args(int argc, char *argv[]) {
       #else
       printf("record-after is only supported in trace mode\n");
       #endif
+      break;
+    case 'e':
+      record_enable = true;
+      printf(COLOR_BLUE "enable trace record\n" COLOR_RESET);
       break;
     case 'p':
       break;
@@ -161,9 +174,15 @@ void init(int argc, char *argv[]) {
   npc->top->eval();
   demp_wave();
   npc->cycs = 0;
-#ifdef DIFFTEST
+
+  #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
-#endif
+  #endif
+
+  #ifdef __NVBOARD__
+  nvboard_bind_all_pins(npc->top);
+  nvboard_init();
+  #endif
 }
 
 bool batch_mode() { return batch_mode_on; }
