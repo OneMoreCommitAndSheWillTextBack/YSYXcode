@@ -111,9 +111,9 @@ void info_wp() {
   return;
 }
 
-void exe_wp() {
+bool exe_wp_inner() {
   if (head == NULL) {
-    return;
+    return false;
   }
   WP *tmp = head;
   while (tmp != NULL) {
@@ -126,10 +126,18 @@ void exe_wp() {
       if (res != tmp->val) {
         printf("hit the watchpoint[%d], val changed from %d to %d\n", tmp->NO,
                tmp->val, res);
-        set_npc_stop();
+        return 1;
         tmp->val = res;
       }
     }
     tmp = tmp->next;
+  }
+  return false;
+}
+
+void exe_wp() {
+  bool hit = exe_wp_inner();
+  if (hit) {
+    set_npc_stop();
   }
 }

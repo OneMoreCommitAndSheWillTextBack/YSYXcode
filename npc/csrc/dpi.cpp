@@ -92,4 +92,7 @@ extern "C" void host_get_skip(uint32_t addr) {
   if(addr >= 0x10001000 && addr < 0x10001fff){
     set_diff_pass();
   }
+  if(addr >= 0x10002000 && addr < 0x1000200f){
+    set_diff_pass();
+  }
 }

@@ -63,6 +63,13 @@ void demp_wave() {
           }
       }      
     }
+  } else if (record_enable_when_on_val()) {
+    if(record_isenable()) {
+      trace->context->timeInc(1);
+      trace->tfp->dump(trace->context->time());
+    } else {
+      check_record_enable_when();
+    }
   } else {
     if (npc->cycs >= record_after_val()) {
       trace->context->timeInc(1);

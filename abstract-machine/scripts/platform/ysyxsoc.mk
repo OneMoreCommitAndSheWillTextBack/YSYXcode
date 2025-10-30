@@ -19,6 +19,7 @@ ARGS += -b
 # ARGS += -i 1000000
 # ARGS += -d 1926100
 # ARGS += -e
+# ARGS += "-w\$$$$pc==0x100027b7"
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt

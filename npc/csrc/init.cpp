@@ -54,6 +54,9 @@ bool record_enable = false;
 
 unsigned long long record_after = 0;
 extern Trace *trace;
+
+char *triple = NULL;
+bool record_enable_when_on = false;
 #endif
 
 unsigned long long die_on_end = 0;
@@ -78,10 +81,13 @@ void parse_args(int argc, char *argv[]) {
       {"record-after", required_argument, NULL, 'r'},
       {"die-on-end", required_argument, NULL, 'd'},
       {"enable-record", no_argument, NULL, 'e'},
+      {"enable-record-when", required_argument, NULL, 'w'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:be", table, NULL)) != -1) {
+  bool su;
+  int val;
+  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:bew:", table, NULL)) != -1) {
     switch (o) {
     case 'b':
       batch_mode_on = true;
@@ -111,6 +117,9 @@ void parse_args(int argc, char *argv[]) {
     case 'e':
       record_enable = true;
       printf(COLOR_BLUE "enable trace record\n" COLOR_RESET);
+      break;
+    case 'w':
+      printf("not support enable-record-when yet\n");
       break;
     case 'p':
       break;
@@ -194,4 +203,8 @@ void set_record_enable() { record_enable = true; }
 unsigned int record_after_val() { return record_after; }
 bool die_on_end_is_on() { return die_on_end_on; }
 unsigned long long die_on_end_val() { return die_on_end; }
+bool record_enable_when_on_val() { return record_enable_when_on; }
+void check_record_enable_when() {
+  return ;
+}
 #endif

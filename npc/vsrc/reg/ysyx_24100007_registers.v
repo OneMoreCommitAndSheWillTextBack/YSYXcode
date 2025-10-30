@@ -20,7 +20,7 @@ module ysyx_24100007_registers(
 
   initial begin
     csr[4] = 32'h79737978;
-    csr[5] = 32'h0016FBCA7;
+    csr[5] = 32'h016FBCA7;
   end
 
   // write op
