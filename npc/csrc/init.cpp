@@ -8,6 +8,10 @@
 #include <getopt.h>
 #include <string.h>
 
+#ifdef __NVBOARD__
+  #include "nvboard.h"
+#endif
+
 #include "common.h"
 
 #define RESET_TIME 15
@@ -50,6 +54,9 @@ bool record_enable = false;
 
 unsigned long long record_after = 0;
 extern Trace *trace;
+
+char *triple = NULL;
+bool record_enable_when_on = false;
 #endif
 
 unsigned long long die_on_end = 0;
@@ -61,6 +68,10 @@ char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
 int port = 0;
 bool batch_mode_on = false;
 
+#ifdef __NVBOARD__
+extern void nvboard_bind_all_pins(VysyxSoCFull* top);
+#endif
+
 void parse_args(int argc, char *argv[]) {
   const struct option table[] = {
       {"port", required_argument, NULL, 'p'},
@@ -69,10 +80,14 @@ void parse_args(int argc, char *argv[]) {
       {"fork-interval", required_argument, NULL, 'i'},
       {"record-after", required_argument, NULL, 'r'},
       {"die-on-end", required_argument, NULL, 'd'},
+      {"enable-record", no_argument, NULL, 'e'},
+      {"enable-record-when", required_argument, NULL, 'w'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:b", table, NULL)) != -1) {
+  bool su;
+  int val;
+  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:bew:", table, NULL)) != -1) {
     switch (o) {
     case 'b':
       batch_mode_on = true;
@@ -98,6 +113,13 @@ void parse_args(int argc, char *argv[]) {
       #else
       printf("record-after is only supported in trace mode\n");
       #endif
+      break;
+    case 'e':
+      record_enable = true;
+      printf(COLOR_BLUE "enable trace record\n" COLOR_RESET);
+      break;
+    case 'w':
+      printf("not support enable-record-when yet\n");
       break;
     case 'p':
       break;
@@ -141,6 +163,16 @@ void init(int argc, char *argv[]) {
   npc->top = new VysyxSoCFull;
   npc->cycs = 0;
 
+  #ifdef DIFFTEST
+  init_difftest(diff_ref, img_size, port);
+  #endif
+
+  #ifdef __NVBOARD__
+  nvboard_bind_all_pins(npc->top);
+  nvboard_init();
+  nvboard_set_divisor(16);
+  #endif
+
   npc->state = STOP;
   npc->top->reset = 1;
   init_trace();
@@ -154,16 +186,7 @@ void init(int argc, char *argv[]) {
     npc->cycs += 2;
   }
   npc->top->reset = 0;
-  npc->top->clock = 1;
-  npc->top->eval();
-  demp_wave();
-  npc->top->clock = 0;
-  npc->top->eval();
-  demp_wave();
   npc->cycs = 0;
-#ifdef DIFFTEST
-  init_difftest(diff_ref, img_size, port);
-#endif
 }
 
 bool batch_mode() { return batch_mode_on; }
@@ -175,4 +198,8 @@ void set_record_enable() { record_enable = true; }
 unsigned int record_after_val() { return record_after; }
 bool die_on_end_is_on() { return die_on_end_on; }
 unsigned long long die_on_end_val() { return die_on_end; }
+bool record_enable_when_on_val() { return record_enable_when_on; }
+void check_record_enable_when() {
+  return ;
+}
 #endif

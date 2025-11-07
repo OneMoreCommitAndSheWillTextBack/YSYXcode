@@ -11,18 +11,8 @@ HEADFILE = $(shell find $(INCLUDE_PATH) -name "*.h")
 
 LLVMFLAGS = $(subst -D__STDC_FORMAT_MACROS,,$(shell llvm-config --cxxflags))
 
-# 条件包含NVBoard相关配置
-ifeq ($(NVBOARD_ENABLE),1)
-    NXDC_FILES = constr/$(TOPNAME).nxdc
-    SRC_AUTO_BIND = $(abspath $(BUILDDIR)/auto_bind.cpp)
-
-   # 自动生成引脚绑定文件
-    $(SRC_AUTO_BIND): $(NXDC_FILES)
-		python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@
-    
-    include $(NVBOARD_HOME)/scripts/nvboard.mk
-    CSRC += $(SRC_AUTO_BIND)
-endif
+NXDC_FILES = constr/$(TOPNAME).nxdc
+SRC_AUTO_BIND = $(abspath ./constr/auto_bind.cpp)
 
 # 构建模式选择
 NVBOARD_ENABLE ?= 1
@@ -54,11 +44,9 @@ ifeq ($(NVBOARD_ENABLE),1)
 	LDFLAGS += -lSDL2 -lSDL2_image -lSDL2_ttf
 endif
 
-normal: NVBOARD_ENABLE = 1
-normal: $(BIN)
+NVBOARD_ENABLE = 1
 
-$(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD_ARCHIVE))
-	@rm -rf $(OBJDIR)
+$(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD_ARCHIVE) $(SRC_AUTO_BIND))
 	$(VERILATOR) $(VERILATOR_FLAGS) \
 		$(VSRC) $(CSRC) \
 		$(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD_ARCHIVE)) \
@@ -68,12 +56,18 @@ $(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD
 		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN)) \
 		$(if $(filter 1,$(NVBOARD_ENABLE)),$(patsubst %, --LDFLAGS %, $(LDFLAGS)))
 
+include $(NVBOARD_HOME)/scripts/nvboard.mk
+
+# 自动生成引脚绑定文件
+$(SRC_AUTO_BIND): $(NXDC_FILES)
+	python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@
+
 # 目标别名
 nvboard: NVBOARD_ENABLE = 1
 nvboard: $(BIN)
 
-without_nvboard: NVBOARD_ENABLE = 0
-without_nvboard: $(BIN)
+without-nvboard: NVBOARD_ENABLE = 0
+without-nvboard: $(BIN)
 
 run: $(BIN)
 	$(BIN) $(ARGS)

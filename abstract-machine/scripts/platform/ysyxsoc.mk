@@ -1,6 +1,7 @@
 AM_SRCS := riscv/ysyxsoc/start.S \
            riscv/ysyxsoc/trm.c \
-		   riscv/ysyxsoc/boot.c 
+		   riscv/ysyxsoc/boot.c \
+		   riscv/ysyxsoc/ioe.c 
 
 CFLAGS    += -fdata-sections -ffunction-sections -O2
 LDFLAGS   += -T $(AM_HOME)/scripts/soclinker.ld \
@@ -14,10 +15,12 @@ CFLAGS += -DMAINARGS=\"$(mainargs)\"
 NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
 ARGS = -f$(IMAGE).bin
-# ARGS += -b
+ARGS += -b
 # ARGS += -r 1926000
-ARGS += -i 1000000
+# ARGS += -i 1000000
 # ARGS += -d 1926100
+# ARGS += -e
+# ARGS += "-w\$$$$pc==0x100027b7"
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt

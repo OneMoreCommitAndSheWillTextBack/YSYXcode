@@ -73,6 +73,8 @@ void set_record_enable();
 unsigned int record_after_val();
 bool die_on_end_is_on();
 unsigned long long die_on_end_val();
+bool record_enable_when_on_val();
+void check_record_enable_when();
 #endif
 
 // cpu.cpp

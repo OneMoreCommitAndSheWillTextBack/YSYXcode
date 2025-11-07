@@ -11,6 +11,9 @@
 #include <signal.h>      // 用于 kill(), raise(), SIGSTOP, SIGCONT
 
 #include <sys/wait.h>
+#ifdef __NVBOARD__
+  #include "nvboard.h"
+#endif
 
 Npc *npc = NULL;
 Cpu *cpu = NULL;
@@ -60,8 +63,15 @@ void demp_wave() {
           }
       }      
     }
+  } else if (record_enable_when_on_val()) {
+    if(record_isenable()) {
+      trace->context->timeInc(1);
+      trace->tfp->dump(trace->context->time());
+    } else {
+      check_record_enable_when();
+    }
   } else {
-    if (npc->cycs >= record_after_val()) {
+    if (npc->cycs >= record_after_val() && record_isenable()) {
       trace->context->timeInc(1);
       trace->tfp->dump(trace->context->time());
     }
@@ -73,6 +83,9 @@ static int same_inst_cyc = 0;
 static unsigned int pre_inst = 0;
 static bool finish_load = false;
 static void exe_once() {
+  #ifdef __NVBOARD__
+  nvboard_update();
+  #endif
   npc->top->clock = 1;
   npc->top->eval();
   demp_wave();
@@ -145,6 +158,10 @@ static void execute(unsigned int n) {
     trace_or_diff();
     if (npc->state == END || npc->state == ABORT){
       printf("ended at pc = 0x%08x\n", cpu->con.pc);
+      #ifdef __NVBOARD__
+      nvboard_quit();
+      printf("the nvboard_quit executed\n");
+      #endif
       tfpclose();
       return ;
     } else if(npc->state == STOP) {
@@ -272,9 +289,15 @@ void set_npc_end() {
 }
 
 void set_npc_quit() {
-  // 没有使用 batchmode 就不使用trace功能了
-  if(npc->state != ABORT)
+  if(npc->state == STOP) {
+    tfpclose();
+    printf("quit the nvboard\n");
+    #ifdef __NVBOARD__
+    nvboard_quit();
+    #endif
     npc->state = QUIT;
+  }
+  // 对于 ABORT 和 END 无需做任何事
 }
 
 void set_npc_stop() { npc->state = STOP; }
