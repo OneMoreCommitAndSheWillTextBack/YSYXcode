@@ -1,9 +1,11 @@
 AM_SRCS := riscv/ysyxsoc/start.S \
            riscv/ysyxsoc/trm.c \
 		   riscv/ysyxsoc/boot.c \
-		   riscv/ysyxsoc/ioe.c 
+		   riscv/ysyxsoc/ioe.c \
+		   riscv/ysyxsoc/input.c
 
 CFLAGS    += -fdata-sections -ffunction-sections -O2
+CFLAGS += -I$(AM_HOME)/am/src/riscv/ysyxsoc/include
 LDFLAGS   += -T $(AM_HOME)/scripts/soclinker.ld \
 			 --defsym=_pmem_start=0x0f000000 --defsym=_entry_offset=0x0 
 

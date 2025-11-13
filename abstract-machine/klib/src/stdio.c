@@ -49,6 +49,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   int is_negative = 0; // 标记数字是否为负数
   int i = 0;
   int utype = 0;
+  char xbuf[] = "0123456789abcdef";
 
   while (outn < n - 1) { // 保留一个字符的空间给终止符
     char ch = fmt[fmtn];
@@ -131,6 +132,23 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
         chararg = va_arg(ap, char *);
         while (*chararg != '\0' && outn < n - 1) {
           out[outn++] = *chararg++;
+        }
+        fmtn++;
+        break;
+
+      case 'x':
+        intarg = va_arg(ap, int);
+        if (intarg == 0) {
+          if (outn < n - 1) {
+            out[outn++] = '0';
+          }
+        } else {
+          while (intarg > 0) {
+            if (outn < n - 1) {
+              out[outn++] = xbuf[intarg % 16];
+            }
+            intarg /= 16;
+          }
         }
         fmtn++;
         break;
