@@ -163,6 +163,16 @@ void init(int argc, char *argv[]) {
   npc->top = new VysyxSoCFull;
   npc->cycs = 0;
 
+  #ifdef DIFFTEST
+  init_difftest(diff_ref, img_size, port);
+  #endif
+
+  #ifdef __NVBOARD__
+  nvboard_bind_all_pins(npc->top);
+  nvboard_init();
+  nvboard_set_divisor(16);
+  #endif
+
   npc->state = STOP;
   npc->top->reset = 1;
   init_trace();
@@ -176,22 +186,7 @@ void init(int argc, char *argv[]) {
     npc->cycs += 2;
   }
   npc->top->reset = 0;
-  npc->top->clock = 1;
-  npc->top->eval();
-  demp_wave();
-  npc->top->clock = 0;
-  npc->top->eval();
-  demp_wave();
   npc->cycs = 0;
-
-  #ifdef DIFFTEST
-  init_difftest(diff_ref, img_size, port);
-  #endif
-
-  #ifdef __NVBOARD__
-  nvboard_bind_all_pins(npc->top);
-  nvboard_init();
-  #endif
 }
 
 bool batch_mode() { return batch_mode_on; }

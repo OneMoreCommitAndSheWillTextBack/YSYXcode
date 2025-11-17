@@ -44,8 +44,7 @@ ifeq ($(NVBOARD_ENABLE),1)
 	LDFLAGS += -lSDL2 -lSDL2_image -lSDL2_ttf
 endif
 
-normal: NVBOARD_ENABLE = 1
-normal: $(BIN)
+NVBOARD_ENABLE = 1
 
 $(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD_ARCHIVE) $(SRC_AUTO_BIND))
 	$(VERILATOR) $(VERILATOR_FLAGS) \
@@ -57,12 +56,11 @@ $(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD
 		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN)) \
 		$(if $(filter 1,$(NVBOARD_ENABLE)),$(patsubst %, --LDFLAGS %, $(LDFLAGS)))
 
+include $(NVBOARD_HOME)/scripts/nvboard.mk
+
 # 自动生成引脚绑定文件
 $(SRC_AUTO_BIND): $(NXDC_FILES)
 	python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@
-
-include $(NVBOARD_HOME)/scripts/nvboard.mk
-# CSRC += $(SRC_AUTO_BIND)
 
 # 目标别名
 nvboard: NVBOARD_ENABLE = 1

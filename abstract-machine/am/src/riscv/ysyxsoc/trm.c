@@ -4,11 +4,15 @@
 
 #define UART_BASE 0x10000000
 #define UART_TX   0
+#define UART_RX   0
 #define UART_LCR 3
 #define UART_LSR 5
 #define UART_DLL 0
 #define UART_DLM 1
 #define UART_FCR 2
+
+#define UART_LSB 0
+#define UART_MSB 1
 
 extern char _heap_start;
 extern char _heap_end;
@@ -26,8 +30,10 @@ static const char mainargs[] = MAINARGS;
 
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
-  *(volatile unsigned char *)(UART_BASE + UART_TX) = 0xff;
-  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011 ;
+  unsigned int divisor = 1;
+  *(volatile unsigned char *)(UART_BASE + UART_MSB) = divisor >> 8;
+  *(volatile unsigned char *)(UART_BASE + UART_LSB) = divisor & 0xff;
+  *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b00000011;
 }
 
 void putch(char ch) {
@@ -61,13 +67,6 @@ void display_ysyx(){
   }
   putch('\n');
 }
-
-__attribute__((used))
-void ioe_read(int reg, void *buf){}
-__attribute__((used))
-bool ioe_init(){return true;};
-__attribute__((used))
-void ioe_write(int reg, void *buf){}
 
 __attribute__((section(".stage1")))
 void _trm_init() {

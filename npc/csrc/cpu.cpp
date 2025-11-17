@@ -71,7 +71,7 @@ void demp_wave() {
       check_record_enable_when();
     }
   } else {
-    if (npc->cycs >= record_after_val()) {
+    if (npc->cycs >= record_after_val() && record_isenable()) {
       trace->context->timeInc(1);
       trace->tfp->dump(trace->context->time());
     }
@@ -83,15 +83,15 @@ static int same_inst_cyc = 0;
 static unsigned int pre_inst = 0;
 static bool finish_load = false;
 static void exe_once() {
+  #ifdef __NVBOARD__
+  nvboard_update();
+  #endif
   npc->top->clock = 1;
   npc->top->eval();
   demp_wave();
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
-  #ifdef __NVBOARD__
-  nvboard_update();
-  #endif
   npc->cycs += 2;
 
 

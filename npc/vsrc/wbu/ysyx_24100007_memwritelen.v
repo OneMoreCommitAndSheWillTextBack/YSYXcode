@@ -27,7 +27,7 @@ module ysyx_24100007_memwritelen(
 
     ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
         .out(bus_size),
-        .key({insram|inspi|insdram,1'b0,inuart|inflash}),
+        .key({insram|inspi|insdram,1'b0,inflash}),
         .default_out(`GENERAL),
         .lut({
             3'b100 , `WORD,
@@ -81,7 +81,7 @@ module ysyx_24100007_memwritelen(
         })
     );
 
-    assign wdata_offset = (bus_size == `WORD) ? awaddr[1:0] : 2'b0;
+    assign wdata_offset = (bus_size == `WORD || bus_size == `GENERAL) ? awaddr[1:0] : 2'b0;
     assign awburst = (inuart == 1) ? 2'b00 : 2'b01;
 
 endmodule
