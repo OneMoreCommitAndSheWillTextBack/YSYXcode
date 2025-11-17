@@ -21,7 +21,7 @@ ARGS += -b
 # ARGS += -r 1926000
 # ARGS += -i 1000000
 # ARGS += -d 1926100
-# ARGS += -e
+ARGS += -e
 # ARGS += "-w\$$$$pc==0x100027b7"
 
 image: $(IMAGE).elf
