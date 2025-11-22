@@ -3,8 +3,7 @@
 #include "verilated_vcd_c.h"
 
 #include <cstdint>
-#include <stdint.h>
-#include <stdio.h>
+#include <cstdio>
 
 #ifndef COMMON_H
 #define COMMON_H

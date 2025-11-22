@@ -21,6 +21,8 @@ socspace soc_spaces[] = {
   {"psram", PSBASE, PSBASE + psize, psram},
   {"sdram", SDBASE, SDBASE + dsize, sdram},
 };
+
+
 #define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
 void init_mem() {

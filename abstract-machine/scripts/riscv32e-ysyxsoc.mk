@@ -9,5 +9,3 @@ AM_SRCS += riscv/npc/libgcc/div.S \
            riscv/npc/libgcc/ashldi3.c \
            riscv/npc/libgcc/unused.c
 
-AM_SRCS += riscv/ysyxsoc/cte.c \
-           riscv/nemu/trap.S

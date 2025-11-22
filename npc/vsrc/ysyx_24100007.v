@@ -285,6 +285,13 @@ assign ifu_rvalid = rvalid[0];
 assign rready[0] = ifu_rready;
 assign ifu_rdata = rdata[0];
 
+wire arbiter_awvalid_out, arbiter_wvalid_out, arbiter_arvalid_out;
+wire arbiter_rready_out, arbiter_bready_out;
+wire [31:0] arbiter_araddr_out, arbiter_awaddr_out;
+wire [31:0] arbiter_wdata_out;
+wire [3:0] arbiter_wstrb_out;
+wire [2:0] arbiter_awsize_out, arbiter_arsize_out;
+
 ysyx_24100007_arbiter #(2) arviter0(
   .clk(clock), //input
   .reset(reset),
@@ -311,30 +318,118 @@ ysyx_24100007_arbiter #(2) arviter0(
   .awsize(awsize),
   .arsize(arsize),
 
-  // subordinate interface
-  .awvalid_out(io_master_awvalid), 
-  .wvalid_out(io_master_wvalid),  
-  .arvalid_out(io_master_arvalid), 
-  .rready_out(io_master_rready),
-  .bready_out(io_master_bready),
-  .bvalid_in(io_master_bvalid),
-  .rvalid_in(io_master_rvalid),
-  .awready_in(io_master_wready),  
-  .wready_in(io_master_wready),   
-  .arready_in(io_master_arready),
+  // subordinate interface - 连接到中间信号
+  .awvalid_out(arbiter_awvalid_out), 
+  .wvalid_out(arbiter_wvalid_out),  
+  .arvalid_out(arbiter_arvalid_out), 
+  .rready_out(arbiter_rready_out),
+  .bready_out(arbiter_bready_out),
+  .bvalid_in(ext_bvalid_mux),
+  .rvalid_in(ext_rvalid_mux),
+  .awready_in(ext_awready_mux),  
+  .wready_in(ext_wready_mux),   
+  .arready_in(ext_arready_mux),
 
-  .araddr_out(io_master_araddr),
-  .awaddr_out(io_master_awaddr),
-  .wdata_out(io_master_wdata),
-  .wstrb_out(io_master_wstrb),
-  .rdata_in(io_master_rdata),
-  .bresp_in(io_master_bresp),
-  .awsize_out(io_master_awsize),
-  .arsize_out(io_master_arsize)
+  .araddr_out(arbiter_araddr_out),
+  .awaddr_out(arbiter_awaddr_out),
+  .wdata_out(arbiter_wdata_out),
+  .wstrb_out(arbiter_wstrb_out),
+  .rdata_in(ext_rdata_mux),
+  .bresp_in(ext_bresp_mux),
+  .awsize_out(arbiter_awsize_out),
+  .arsize_out(arbiter_arsize_out)
 );
   assign io_master_arburst = 2'b01;
   assign io_master_arlen = 0;
 
   assign io_master_awburst = 2'b01;
   assign io_master_arlen = 0;
+
+  // ---------------------------------
+  // CLINT (Core Local Interruptor)
+  // ---------------------------------
+  // CLINT地址范围：0x02000000 - 0x0200ffff
+  // 从arbiter的输出地址判断是否选中CLINT
+  wire clint_ar_sel = (arbiter_araddr_out >= 32'h02000000) && (arbiter_araddr_out <= 32'h0200ffff);
+  wire clint_aw_sel = (arbiter_awaddr_out >= 32'h02000000) && (arbiter_awaddr_out <= 32'h0200ffff);
+
+  // CLINT接口信号
+  wire clint_awvalid, clint_awready;
+  wire clint_wvalid, clint_wready;
+  wire clint_arvalid, clint_arready;
+  wire clint_rvalid, clint_rready;
+  wire clint_bvalid, clint_bready;
+  wire [31:0] clint_araddr, clint_awaddr;
+  wire [31:0] clint_wdata, clint_rdata;
+  wire [3:0] clint_wstrb;
+  wire [1:0] clint_bresp;
+  wire [2:0] clint_awsize, clint_arsize;
+
+  // 实例化CLINT模块
+  ysyx_24100007_clint clint0(
+    .clk(clock),
+    .reset(reset),
+    
+    .awvalid(clint_awvalid),
+    .awready(clint_awready),
+    .awaddr(clint_awaddr),
+    .awsize(clint_awsize),
+    
+    .wvalid(clint_wvalid),
+    .wready(clint_wready),
+    .wdata(clint_wdata),
+    .wstrb(clint_wstrb),
+    
+    .arvalid(clint_arvalid),
+    .arready(clint_arready),
+    .araddr(clint_araddr),
+    .arsize(clint_arsize),
+    
+    .rvalid(clint_rvalid),
+    .rready(clint_rready),
+    .rdata(clint_rdata),
+    
+    .bvalid(clint_bvalid),
+    .bready(clint_bready),
+    .bresp(clint_bresp)
+  );
+
+  // CLINT信号连接（从arbiter输出获取，仅在地址匹配时有效）
+  assign clint_awvalid = arbiter_awvalid_out && clint_aw_sel;
+  assign clint_wvalid = arbiter_wvalid_out && clint_aw_sel;
+  assign clint_arvalid = arbiter_arvalid_out && clint_ar_sel;
+  assign clint_rready = arbiter_rready_out && clint_ar_sel;
+  assign clint_bready = arbiter_bready_out && clint_aw_sel;
+  assign clint_awaddr = arbiter_awaddr_out;
+  assign clint_araddr = arbiter_araddr_out;
+  assign clint_wdata = arbiter_wdata_out;
+  assign clint_wstrb = arbiter_wstrb_out;
+  assign clint_awsize = arbiter_awsize_out;
+  assign clint_arsize = arbiter_arsize_out;
+
+  // 地址解码和响应选择：当选中CLINT时，屏蔽io_master的输出，使用CLINT的响应
+  // 否则，使用外部设备的响应
+  // 屏蔽io_master输出（当选中CLINT时）
+  assign io_master_awvalid = arbiter_awvalid_out && ~clint_aw_sel;
+  assign io_master_wvalid = arbiter_wvalid_out && ~clint_aw_sel;
+  assign io_master_arvalid = arbiter_arvalid_out && ~clint_ar_sel;
+  assign io_master_rready = arbiter_rready_out && ~clint_ar_sel;
+  assign io_master_bready = arbiter_bready_out && ~clint_aw_sel;
+  assign io_master_araddr = arbiter_araddr_out;
+  assign io_master_awaddr = arbiter_awaddr_out;
+  assign io_master_wdata = arbiter_wdata_out;
+  assign io_master_wstrb = arbiter_wstrb_out;
+  assign io_master_awsize = arbiter_awsize_out;
+  assign io_master_arsize = arbiter_arsize_out;
+
+  // 选择响应数据：CLINT或外部设备，返回给arbiter
+  wire [31:0] ext_rdata_mux = clint_ar_sel ? clint_rdata : io_master_rdata;
+  wire [1:0] ext_bresp_mux = clint_aw_sel ? clint_bresp : io_master_bresp;
+  wire ext_rvalid_mux = clint_ar_sel ? clint_rvalid : io_master_rvalid;
+  wire ext_bvalid_mux = clint_aw_sel ? clint_bvalid : io_master_bvalid;
+  wire ext_awready_mux = clint_aw_sel ? clint_awready : io_master_awready;
+  wire ext_wready_mux = clint_aw_sel ? clint_wready : io_master_wready;
+  wire ext_arready_mux = clint_ar_sel ? clint_arready : io_master_arready;
+
+
 endmodule

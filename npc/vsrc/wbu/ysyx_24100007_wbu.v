@@ -51,6 +51,31 @@ module ysyx_24100007_wbu(
   } state_t;
   reg [1:0] state;
 
+  // 地址范围匹配信号
+  wire in_clint     = (res >= 32'h02000000) && (res <= 32'h0200ffff);
+  wire in_sram      = (res >= 32'h0f000000) && (res <= 32'h0fffffff);
+  wire in_uart      = (res >= 32'h10000000) && (res <= 32'h10000fff);
+  wire in_spi       = (res >= 32'h10001000) && (res <= 32'h10001fff);
+  wire in_gpio      = (res >= 32'h10002000) && (res <= 32'h1000200f);
+  wire in_ps2       = (res >= 32'h10011000) && (res <= 32'h10011007);
+  wire in_mrom      = (res >= 32'h20000000) && (res <= 32'h20000fff);
+  wire in_vga       = (res >= 32'h21000000) && (res <= 32'h211fffff);
+  wire in_flash     = (res >= 32'h30000000) && (res <= 32'h3fffffff);
+  wire in_chiplink  = (res >= 32'h40000000) && (res <= 32'h7fffffff);
+  wire in_psram     = (res >= 32'h80000000) && (res <= 32'h9fffffff);
+  wire in_sdram     = (res >= 32'ha0000000) && (res <= 32'hbfffffff);
+
+  assign awvalid = memew & (state == WAIT_HAMDSHAKE);
+  assign awaddr = res;
+  assign wvalid = memew & (state == WAIT_HAMDSHAKE);
+  assign wdata = regout2 << wdata_offset * 8;
+  assign bready = memew;
+  assign arvalid = memer & (state == WAIT_HAMDSHAKE);
+  assign rready = memer;
+  assign arsize = (memmask == 3'b001) ? 3'b000 :
+                  (memmask == 3'b010) ? 3'b001 :
+                  3'b010;
+
   wire [31:0] memread;
   wire [1:0] wdata_offset;
   ysyx_24100007_memwritelen strbcontol(
@@ -62,28 +87,13 @@ module ysyx_24100007_wbu(
     .awburst(awburst)
   );
 
-	assign awvalid = memew & (state == WAIT_HAMDSHAKE);
-  assign awaddr = res;
-  assign wvalid = memew & (state == WAIT_HAMDSHAKE);
-  assign wdata = regout2 << wdata_offset * 8;
-  assign bready = memew;
-  assign arvalid = memer & (state == WAIT_HAMDSHAKE);
-  assign rready = memer;
-  assign arsize = (memmask == 3'b001) ? 3'b000 :
-                  (memmask == 3'b010) ? 3'b001 :
-                  3'b010;
-
   wire [1:0] access_size_i = (memmask == 3'b010) ? 2'b01 :
                              (memmask == 3'b100) ? 2'b10 :
                              2'b00;
-  wire aligned_sram;
-  assign aligned_sram = (res >= 32'h0f000000) && (res <= 32'h0fffffff) ||
-                        (res >= 32'h80000000) && (res <= 32'h9fffffff) ||
-                        (res >= 32'ha0000000) && (res <= 32'hbfffffff);
   // when read the sram it would return align 4
 
   ysyx_24100007_memreadlen memreadlen0(
-    .is_unalign(aligned_sram),
+    .is_unalign(in_psram|in_sdram|in_sram),
     .data(rdata),
     .memsextsig(memsextsig),
     .memmask(memmask),
@@ -91,7 +101,7 @@ module ysyx_24100007_wbu(
     .addr_offset(res[1:0])
   );
 
-  assign araddr = (aligned_sram) ? {res[31:2], 2'b00} : res; 
+  assign araddr = (in_psram|in_sdram|in_psram) ? {res[31:2], 2'b00} : res; 
 
   ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b000, res,

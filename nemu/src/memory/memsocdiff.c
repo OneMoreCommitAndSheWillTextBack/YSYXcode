@@ -29,6 +29,8 @@
     {0x10001000, 0x10001fff, "spi"  , NULL},
     {0xa0000000, 0xbfffffff, "sdram", sdram},
     {0x10002000, 0x1000200f, "gpio" , NULL},
+    {0x10011000, 0x10011007, "ps2", NULL},
+    {0x21000000, 0x211fffff, "vga", NULL},
   };
 
   soc_device* fetch_the_soc(paddr_t addr){
