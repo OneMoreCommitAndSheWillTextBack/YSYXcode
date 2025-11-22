@@ -15,7 +15,6 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *fbdraw) {
 }
 
 void __am_gpu_memcpy(AM_GPU_MEMCPY_T *memcpy) {
-  volatile uint32_t *vga_addr = (volatile uint32_t *)VGA_ADDR;
   uint32_t dest = memcpy->dest;
   void *src = memcpy->src;
   for (int i = 0; i < memcpy->size; i++) {

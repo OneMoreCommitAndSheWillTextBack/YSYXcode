@@ -52,7 +52,7 @@ bool fork_interval_on = false;
 unsigned int fork_interval = 0;
 bool record_enable = false;
 
-unsigned long long record_after = 0;
+unsigned long long record_after = -1;
 extern Trace *trace;
 
 char *triple = NULL;
@@ -163,9 +163,7 @@ void init(int argc, char *argv[]) {
   npc->top = new VysyxSoCFull;
   npc->cycs = 0;
 
-  #ifdef DIFFTEST
-  init_difftest(diff_ref, img_size, port);
-  #endif
+
 
   #ifdef __NVBOARD__
   nvboard_bind_all_pins(npc->top);
@@ -185,6 +183,11 @@ void init(int argc, char *argv[]) {
     demp_wave();
     npc->cycs += 2;
   }
+
+  #ifdef DIFFTEST
+  init_difftest(diff_ref, img_size, port);
+  #endif
+
   npc->top->reset = 0;
   npc->cycs = 0;
 }

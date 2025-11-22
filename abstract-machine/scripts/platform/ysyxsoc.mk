@@ -2,7 +2,13 @@ AM_SRCS := riscv/ysyxsoc/start.S \
            riscv/ysyxsoc/trm.c \
 		   riscv/ysyxsoc/boot.c \
 		   riscv/ysyxsoc/ioe.c \
-		   riscv/ysyxsoc/input.c
+		   riscv/ysyxsoc/input.c \
+		   riscv/ysyxsoc/gpu.c \
+		   riscv/ysyxsoc/timer.c \
+		   riscv/ysyxsoc/cte.c \
+           riscv/nemu/trap.S \
+           riscv/ysyxsoc/mpe.c \
+           riscv/ysyxsoc/vme.c
 
 CFLAGS    += -fdata-sections -ffunction-sections -O2
 CFLAGS += -I$(AM_HOME)/am/src/riscv/ysyxsoc/include
@@ -18,10 +24,10 @@ NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
 ARGS = -f$(IMAGE).bin
 ARGS += -b
-# ARGS += -r 1926000
+ARGS += -r 2470534
 # ARGS += -i 1000000
 # ARGS += -d 1926100
-ARGS += -e
+# ARGS += -e
 # ARGS += "-w\$$$$pc==0x100027b7"
 
 image: $(IMAGE).elf

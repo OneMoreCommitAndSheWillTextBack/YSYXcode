@@ -85,6 +85,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
         }
         fmtn++;
         break;
+
       case 'u':
         utype = 1;
       case 'd':
@@ -143,11 +144,17 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
             out[outn++] = '0';
           }
         } else {
+          // 先将十六进制数字从低位到高位存入缓冲区
+          i = 0;
           while (intarg > 0) {
-            if (outn < n - 1) {
-              out[outn++] = xbuf[intarg % 16];
-            }
+            buf[i++] = xbuf[intarg % 16];
             intarg /= 16;
+          }
+          // 然后从高位到低位输出
+          for (i--; i >= 0; i--) {
+            if (outn < n - 1) {
+              out[outn++] = buf[i];
+            }
           }
         }
         fmtn++;

@@ -71,7 +71,7 @@ void demp_wave() {
       check_record_enable_when();
     }
   } else {
-    if (npc->cycs >= record_after_val() && record_isenable()) {
+    if (npc->cycs >= record_after_val() || record_isenable()) {
       trace->context->timeInc(1);
       trace->tfp->dump(trace->context->time());
     }
