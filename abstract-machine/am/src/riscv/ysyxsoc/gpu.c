@@ -1,15 +1,17 @@
 #include "soc-ioe.h"
 #include <stdint.h>
+#include "klib.h"
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *fbdraw) {
    volatile uint32_t *vga_addr = (volatile uint32_t *)VGA_ADDR;
    int x = fbdraw->x;
    int y = fbdraw->y;
+   unsigned int count = 0;
 
    // 先行后列
    for (int i = y; i < y + fbdraw->h && i < 480; i++) {
-    for (int j = x; j < fbdraw->w && j < 640; j++) {
-      vga_addr[j + i * 640] = ((uint32_t *)fbdraw->pixels)[j + i * 640];
+    for (int j = x; j < x + fbdraw->w && j < 640; j++) {
+      vga_addr[j + i * 640] = ((uint32_t *)fbdraw->pixels)[count++];
     }
    }
 }

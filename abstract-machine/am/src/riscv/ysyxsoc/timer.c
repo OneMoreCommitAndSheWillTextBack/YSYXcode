@@ -11,7 +11,7 @@ void __am_timer_uptime(AM_TIMER_UPTIME_T *buf) {
     uint32_t mtime_hig = clint[1];
     
     uint64_t cycs = ((uint64_t)mtime_hig << 32) | mtime_low;
-    buf->us = cycs * 1000000 / 598873;
+    buf->us = cycs;
 }
 
 void __am_timer_rtc(AM_TIMER_RTC_T *rtc) {
