@@ -1,4 +1,6 @@
-import "DPI-C" function void host_get_skip(int addr);
+import "DPI-C" function void host_get_io_op(int addr);
+import "DPI-C" function void host_get_cpu_axi_valid();
+import "DPI-C" function void host_get_cpu_axi_ready();
 
 module ysyx_24100007_wbu(
   input clk,
@@ -117,8 +119,10 @@ module ysyx_24100007_wbu(
   always @(posedge clk) begin
     case(state)
       READY: begin
-        if (memer | memew) 
+        if (memer | memew) begin
           state <= WAIT_HAMDSHAKE;
+          host_get_cpu_axi_valid();
+        end
       end
 
       WAIT_HAMDSHAKE: begin
@@ -128,14 +132,16 @@ module ysyx_24100007_wbu(
 
       WAIT_SLAVE: begin
         if(rvalid | (bvalid & bresp == 2'b00)) begin
-          host_get_skip(awaddr);
+          host_get_io_op(awaddr);
           state <= FINISH;
         end
       end
 
       FINISH: begin
-        if (~valid_from)
+        if (~valid_from) begin
+          host_get_cpu_axi_ready();
           state <= READY;
+        end
       end
     endcase
   end

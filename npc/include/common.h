@@ -20,7 +20,16 @@ enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 typedef struct {
   VysyxSoCFull *top;
   enum npcstate state;
+
+  // statistic data
   unsigned long long cycs;
+  unsigned long long timer;
+  unsigned int icount;
+  unsigned int iocount;
+  unsigned long long iotimer;
+  unsigned int ifucount;
+  unsigned long long ifutimer;
+  unsigned int exucount;
 } Npc;
 
 typedef struct {

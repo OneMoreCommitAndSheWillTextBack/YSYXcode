@@ -92,8 +92,11 @@ static void exe_once() {
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
-  npc->cycs += 2;
+  npc->cycs += 1; // one cyc
+  npc->timer += 2;
 
+  if(cpu->valid == 1) 
+    npc->icount++; // a valid inst
 
   if (cpu->inst == pre_inst) {
     same_inst_cyc++;
@@ -158,9 +161,15 @@ static void execute(unsigned int n) {
     trace_or_diff();
     if (npc->state == END || npc->state == ABORT){
       printf("ended at pc = 0x%08x\n", cpu->con.pc);
+      printf(COLOR_BLUE "statistic: \n" );
+      printf("  total cycle: %llu\n", npc->cycs);
+      printf("  total inst num: %u\n", npc->icount);
+      printf("  ipc: %f\n", ((double)npc->icount / (double)npc->cycs));
+      printf("  ifu count %u, time %llu, occupied %f\n", npc->ifucount, npc->ifutimer, (double)npc->ifutimer / (npc->cycs * 2));
+      printf("  lsu count %u, time %llu, occupied %f\n", npc->iocount, npc->iotimer, (double) npc->iotimer / (npc->cycs * 2));
+      printf("  exu count: %u\n" COLOR_RESET, npc->exucount);
       #ifdef __NVBOARD__
       nvboard_quit();
-      printf("the nvboard_quit executed\n");
       #endif
       tfpclose();
       return ;

@@ -86,7 +86,7 @@ extern "C" void host_get_inst(int inst) {
 
 extern "C" void host_get_valid(int valid) { cpu->valid = valid; }
 
-extern "C" void host_get_skip(uint32_t addr) { 
+extern "C" void host_get_io_op(uint32_t addr) { 
   if(addr >= 0x10000000 && addr < 0x10000fff)
     set_diff_pass();
   if(addr >= 0x10001000 && addr < 0x10001fff){
@@ -95,4 +95,29 @@ extern "C" void host_get_skip(uint32_t addr) {
   if(addr >= 0x10002000 && addr < 0x1000200f){
     set_diff_pass();
   }
+}
+
+extern Npc *npc;
+unsigned long long io_record_time = 0;
+extern "C" void host_get_cpu_axi_valid() {
+  io_record_time = npc->timer;
+  npc->iocount++;
+}
+
+extern "C" void host_get_cpu_axi_ready() {
+  npc->iotimer += npc->timer - io_record_time;
+}
+
+unsigned ifu_record_time = 0;
+extern "C" void host_get_ifu_start() {
+  npc->ifucount ++;
+  ifu_record_time = npc->timer;
+}
+
+extern "C" void host_get_ifu_finish() {
+  npc->ifutimer += npc->timer - ifu_record_time;
+}
+
+extern "C" void host_get_exu_valid() {
+  npc->exucount ++;
 }

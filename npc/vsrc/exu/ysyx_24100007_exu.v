@@ -1,3 +1,5 @@
+import "DPI-C" function void host_get_exu_valid();
+
 module ysyx_24100007_exu(
   input [2:0] func3,
   input btypebranch,
@@ -85,5 +87,9 @@ module ysyx_24100007_exu(
 
   assign valid_to = valid_from;
   assign ready_to = ready_from;
+
+  always @(posedge valid_to) begin
+    host_get_exu_valid();
+  end
 
 endmodule

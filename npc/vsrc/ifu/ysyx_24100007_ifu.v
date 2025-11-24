@@ -1,4 +1,7 @@
 import "DPI-C" function void host_get_valid(int valid);
+import "DPI-C" function void host_get_ifu_start();
+import "DPI-C" function void host_get_ifu_finish();
+
 module ysyx_24100007_ifu(
   input clk,
   input rst,
@@ -49,6 +52,7 @@ module ysyx_24100007_ifu(
         START: begin
           if (ready) begin
             state <= WAIT_HANDSHAKE;
+            host_get_ifu_start();
           end
         end
 
@@ -56,8 +60,11 @@ module ysyx_24100007_ifu(
           if (ready) begin
             state <= WAIT_HANDSHAKE;
             inst_reg <= 0;
+            host_get_ifu_finish();
+            host_get_ifu_start();
           end else begin
             state <= VALID;
+            host_get_ifu_finish();
           end
         end
 
@@ -65,6 +72,7 @@ module ysyx_24100007_ifu(
           if (ready) begin
             state <= WAIT_HANDSHAKE;
             inst_reg <= 0;
+            host_get_ifu_start();
           end
         end
 

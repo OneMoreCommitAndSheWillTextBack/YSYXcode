@@ -162,8 +162,8 @@ void init(int argc, char *argv[]) {
   cpu->con.pc = MBASE - 8;
   npc->top = new VysyxSoCFull;
   npc->cycs = 0;
-
-
+  npc->timer = 0;
+  npc->icount = 0;
 
   #ifdef __NVBOARD__
   nvboard_bind_all_pins(npc->top);
@@ -181,7 +181,7 @@ void init(int argc, char *argv[]) {
     npc->top->clock = 0;
     npc->top->eval();
     demp_wave();
-    npc->cycs += 2;
+    npc->timer += 2;
   }
 
   #ifdef DIFFTEST
@@ -189,7 +189,6 @@ void init(int argc, char *argv[]) {
   #endif
 
   npc->top->reset = 0;
-  npc->cycs = 0;
 }
 
 bool batch_mode() { return batch_mode_on; }
