@@ -1,6 +1,7 @@
+// synopsys translate_off
 import "DPI-C" function void host_get_pc(int pc);
 import "DPI-C" function void host_get_inst(int inst);
-
+// synopsys translate_on
 module ysyx_24100007(
     input clock,
     input reset,
@@ -76,11 +77,12 @@ module ysyx_24100007(
     output [3:0]        io_slave_rid
 );
 
+  // synopsys translate_off
   always @(*) begin
     host_get_pc(pcbridge);
     host_get_inst(inst);
   end
-  //
+  // synopsys translate_on
   
   wire ready_idu_to_ifu;
   wire [31:0] npc, pcbridge;
@@ -260,14 +262,14 @@ wire [1:0]
   rvalid, awready,
   wready, arready;
 
-wire [31:0] araddr [1:0];
-wire [31:0] rdata [1:0];
-wire [31:0] awaddr [1:0];
-wire [31:0] wdata [1:0];
-wire [3:0] wstrb [1:0];
-wire [1:0] bresp [1:0];
-wire [2:0] awsize [1:0];
-wire [2:0] arsize [1:0];
+wire [1:0][31:0] araddr;
+wire [1:0][31:0] rdata;
+wire [1:0][31:0] awaddr;
+wire [1:0][31:0] wdata;
+wire [1:0][3:0] wstrb;
+wire [1:0][1:0] bresp;
+wire [1:0][2:0] awsize;
+wire [1:0][2:0] arsize;
 
 assign awvalid[0] = 0;
 assign awaddr[0] = 0;
@@ -339,11 +341,6 @@ ysyx_24100007_arbiter #(2) arviter0(
   .awsize_out(arbiter_awsize_out),
   .arsize_out(arbiter_arsize_out)
 );
-  assign io_master_arburst = 2'b01;
-  assign io_master_arlen = 0;
-
-  assign io_master_awburst = 2'b01;
-  assign io_master_arlen = 0;
 
   // ---------------------------------
   // CLINT (Core Local Interruptor)
@@ -431,5 +428,23 @@ ysyx_24100007_arbiter #(2) arviter0(
   wire ext_wready_mux = clint_aw_sel ? clint_wready : io_master_wready;
   wire ext_arready_mux = clint_ar_sel ? clint_arready : io_master_arready;
 
+  assign io_master_awlen = 8'd0;
+  assign io_master_arlen = 8'd0;
+  assign io_master_awid = 4'b0;
+  assign io_master_arid = 4'd0;
+  assign io_master_arburst = 2'b01;
+  assign io_master_wlast = 1'b0;
+
+  assign io_slave_awready = 1'b0;
+  assign io_slave_wready  = 1'b0;
+  assign io_slave_bvalid  = 1'b0;
+  assign io_slave_bresp   = 2'b00;
+  assign io_slave_bid     = 4'b0000;
+  assign io_slave_arready = 1'b0;
+  assign io_slave_rvalid  = 1'b0;
+  assign io_slave_rresp   = 2'b00;
+  assign io_slave_rdata   = 32'b0;
+  assign io_slave_rlast   = 1'b0;
+  assign io_slave_rid     = 4'b0000;
 
 endmodule

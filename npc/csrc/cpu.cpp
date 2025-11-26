@@ -115,11 +115,6 @@ static void exe_once() {
     printf(COLOR_BLUE "die on end hit the max cycle, abort\n" COLOR_RESET);
   }
 
-  if(cpu->con.pc > 0x80000000 && finish_load == 0) {
-    finish_load = true;
-    printf(COLOR_BLUE "finish load, start the program\n" COLOR_RESET);
-  }
-
 #ifdef ITRACE
   char *p = cpu->logbuf;
   p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->con.pc);

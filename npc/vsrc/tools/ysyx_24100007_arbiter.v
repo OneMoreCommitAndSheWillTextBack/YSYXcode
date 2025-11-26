@@ -15,14 +15,14 @@ module ysyx_24100007_arbiter #(parameter DEVICE_NUM=2) (
   output [DEVICE_NUM-1:0] arready, 
 
   // master data channel
-  input [31:0] araddr [DEVICE_NUM-1:0],
-  input [31:0] awaddr [DEVICE_NUM-1:0],
-  input [31:0] wdata  [DEVICE_NUM-1:0],
-  input [3:0] wstrb [DEVICE_NUM-1:0],
-  output [31:0] rdata [DEVICE_NUM-1:0],
-  output [1:0] bresp [DEVICE_NUM-1:0],
-  input [2:0] awsize [DEVICE_NUM-1:0],
-  input [2:0] arsize [DEVICE_NUM-1:0],
+  input wire [DEVICE_NUM-1:0][31:0] araddr,
+  input wire [DEVICE_NUM-1:0][31:0] awaddr,
+  input wire [DEVICE_NUM-1:0][31:0] wdata,
+  input wire [DEVICE_NUM-1:0][3:0] wstrb,
+  output wire [DEVICE_NUM-1:0][31:0] rdata,
+  output wire [DEVICE_NUM-1:0][1:0] bresp,
+  input wire [DEVICE_NUM-1:0][2:0] awsize,
+  input wire [DEVICE_NUM-1:0][2:0] arsize,
 
   // subordinate interface
   output awvalid_out, 

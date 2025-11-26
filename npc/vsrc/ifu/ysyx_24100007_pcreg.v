@@ -17,8 +17,10 @@ module ysyx_24100007_pcreg(
       pcout <= init;
     end else
     if (ready_from == 1) begin
+      // synopsys translate_off
       if (npc == pcout) 
         ret(0);
+      // synopsys translate_on
       pcout <= npc;
     end
   end

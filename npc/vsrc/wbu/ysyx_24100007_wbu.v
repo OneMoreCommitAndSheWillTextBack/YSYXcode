@@ -1,7 +1,8 @@
+// synopsys translate_off
 import "DPI-C" function void host_get_io_op(int addr);
 import "DPI-C" function void host_get_cpu_axi_valid();
 import "DPI-C" function void host_get_cpu_axi_ready();
-
+// synopsys translate_on
 module ysyx_24100007_wbu(
   input clk,
   input [31:0] res,
@@ -116,12 +117,41 @@ module ysyx_24100007_wbu(
   assign ready_to = (state == READY & ~(memer | memew)) | state == FINISH;
   assign memvalid = rvalid & memer;
 
+  // ------------------------------------
+  // PERFORMANCE COUNTER LOGIC
+  // ------------------------------------
+  // divide it so it couldnot disrupt the synthetic
+  // synopsys translate_off
+  always @(posedge clk) begin
+      case (state)
+        READY: begin
+          if (memer | memew) begin
+            host_get_cpu_axi_valid();
+          end
+        end
+
+        WAIT_SLAVE: begin
+          if(rvalid | (bvalid & bresp == 2'b00)) begin
+            host_get_io_op(awaddr);
+          end
+        end
+
+        FINISH: begin
+          if (~valid_from) begin
+            host_get_cpu_axi_ready();
+          end
+        end
+
+        default: begin end
+      endcase
+    end
+  // synopsys translate_on
+
   always @(posedge clk) begin
     case(state)
       READY: begin
         if (memer | memew) begin
           state <= WAIT_HAMDSHAKE;
-          host_get_cpu_axi_valid();
         end
       end
 
@@ -132,14 +162,11 @@ module ysyx_24100007_wbu(
 
       WAIT_SLAVE: begin
         if(rvalid | (bvalid & bresp == 2'b00)) begin
-          host_get_io_op(awaddr);
-          state <= FINISH;
         end
       end
 
       FINISH: begin
         if (~valid_from) begin
-          host_get_cpu_axi_ready();
           state <= READY;
         end
       end

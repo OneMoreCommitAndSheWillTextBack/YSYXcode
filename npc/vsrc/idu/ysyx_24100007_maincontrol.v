@@ -1,5 +1,6 @@
+// synopsys translate_off
 import "DPI-C" function void ret(int pc);
-
+// synopsys translate_on
 module ysyx_24100007_maincontrol(
   input [6:0] opcode,
   input [2:0] func3,
@@ -57,9 +58,11 @@ module ysyx_24100007_maincontrol(
 
   assign csrrs = (opcode == 7'b1110011) & (func3 == 3'b010);
   assign csrrw = (opcode == 7'b1110011) & (func3 == 3'b001);
-
+  
+  // synopsys translate_off
   always @(*) begin
     if(ebreaksig)
       ret(0);
   end
+  // synopsys translate_on
 endmodule

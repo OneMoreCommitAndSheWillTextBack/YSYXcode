@@ -82,6 +82,6 @@ module ysyx_24100007_memwritelen(
     );
 
     assign wdata_offset = (bus_size == `WORD || bus_size == `GENERAL) ? awaddr[1:0] : 2'b0;
-    assign awburst = (inuart == 1) ? 2'b00 : 2'b01;
+    assign awburst = inuart ? 2'b00 : 2'b01;
 
 endmodule

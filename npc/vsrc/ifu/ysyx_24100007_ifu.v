@@ -1,7 +1,8 @@
+// synopsys translate_off
 import "DPI-C" function void host_get_valid(int valid);
 import "DPI-C" function void host_get_ifu_start();
 import "DPI-C" function void host_get_ifu_finish();
-
+// synopsys translate_on
 module ysyx_24100007_ifu(
   input clk,
   input rst,
@@ -42,6 +43,45 @@ module ysyx_24100007_ifu(
     .pcout(pcbridge),
     .ready_from(infetch_ready)
   );
+
+  // ------------------------------------
+  // PERFORMANCE COUNTER LOGIC
+  // ------------------------------------
+  // divide it so it couldnot disrupt the synthetic
+  // synopsys translate_off
+  always @(posedge clk) begin
+    host_get_valid({31'b0, infetch_ready});
+  end
+
+  always @(posedge clk) begin
+    if (!rst) begin
+      case (state)
+        START: begin
+          if(ready) begin
+            host_get_ifu_start();
+          end
+        end
+
+        PROCESSION: begin
+          if (ready) begin
+            host_get_ifu_finish();
+            host_get_ifu_start();
+          end else begin
+            host_get_ifu_finish();
+          end
+        end
+
+        VALID: begin
+          if (ready) begin
+            host_get_ifu_start();
+          end
+        end
+
+        default: begin end
+      endcase
+    end
+  end
+  // synopsys translate_on
   
   reg [31:0] inst_reg;
   always @(posedge clk) begin
@@ -52,7 +92,6 @@ module ysyx_24100007_ifu(
         START: begin
           if (ready) begin
             state <= WAIT_HANDSHAKE;
-            host_get_ifu_start();
           end
         end
 
@@ -60,11 +99,8 @@ module ysyx_24100007_ifu(
           if (ready) begin
             state <= WAIT_HANDSHAKE;
             inst_reg <= 0;
-            host_get_ifu_finish();
-            host_get_ifu_start();
           end else begin
             state <= VALID;
-            host_get_ifu_finish();
           end
         end
 
@@ -72,7 +108,6 @@ module ysyx_24100007_ifu(
           if (ready) begin
             state <= WAIT_HANDSHAKE;
             inst_reg <= 0;
-            host_get_ifu_start();
           end
         end
 
@@ -89,8 +124,11 @@ module ysyx_24100007_ifu(
           end
         end
 
-        default:
+        default: begin 
+          // synopsys translate_off
           $error("state error");
+          // synopsys translate_on
+        end
       endcase
     end
   end
@@ -106,9 +144,5 @@ module ysyx_24100007_ifu(
 
   assign infetch_ready = valid & ready;
   assign regprocess = state == PROCESSION;
-
-  always @(posedge clk) begin
-    host_get_valid({31'b0, infetch_ready});
-  end
 
 endmodule
