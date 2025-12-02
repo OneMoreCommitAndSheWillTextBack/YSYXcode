@@ -73,6 +73,7 @@ void init_mem();
 // init.cpp
 void init(int argc, char *argv[]);
 bool batch_mode();
+bool need_dump_perform();
 #ifdef TRACE
 bool fork_interval_is_on();
 int fork_interval_val();
@@ -133,6 +134,9 @@ void set_ref_skip();
 void set_diff_pass();
 void difftest_check_mem(uint32_t addr, uint32_t expect, size_t size);
 #endif
+
+// perform.cpp
+void deal_statistic();
 
 /* 重置所有属性 */
 #define COLOR_RESET       "\033[0m"

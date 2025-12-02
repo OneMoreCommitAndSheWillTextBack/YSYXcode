@@ -78,4 +78,7 @@ clean:
 sim:
 	gtkwave ./wave.vcd
 
+perf:
+	python3 show-perf-table.py ./performance.txt
+
 .PHONY: run clean sim nvboard normal

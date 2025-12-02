@@ -59,6 +59,8 @@ char *triple = NULL;
 bool record_enable_when_on = false;
 #endif
 
+bool perform_dump = false;
+
 unsigned long long die_on_end = 0;
 bool die_on_end_on = false;
 
@@ -82,12 +84,13 @@ void parse_args(int argc, char *argv[]) {
       {"die-on-end", required_argument, NULL, 'd'},
       {"enable-record", no_argument, NULL, 'e'},
       {"enable-record-when", required_argument, NULL, 'w'},
+      {"performance-dump", no_argument, NULL, 'm'},
       {0, 0, NULL, 0},
   };
   int o;
   bool su;
   int val;
-  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:bew:", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:bew:m", table, NULL)) != -1) {
     switch (o) {
     case 'b':
       batch_mode_on = true;
@@ -120,6 +123,9 @@ void parse_args(int argc, char *argv[]) {
       break;
     case 'w':
       printf("not support enable-record-when yet\n");
+      break;
+    case 'm':
+      perform_dump = true;
       break;
     case 'p':
       break;
@@ -192,6 +198,7 @@ void init(int argc, char *argv[]) {
 }
 
 bool batch_mode() { return batch_mode_on; }
+bool need_dump_perform() { return perform_dump; }
 #ifdef TRACE
 bool fork_interval_is_on() { return fork_interval_on; }
 int fork_interval_val() { return fork_interval; }

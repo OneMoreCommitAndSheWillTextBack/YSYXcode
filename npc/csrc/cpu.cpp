@@ -155,14 +155,7 @@ static void execute(unsigned int n) {
     exe_once();
     trace_or_diff();
     if (npc->state == END || npc->state == ABORT){
-      printf("ended at pc = 0x%08x\n", cpu->con.pc);
-      printf(COLOR_BLUE "statistic: \n" );
-      printf("  total cycle: %llu\n", npc->cycs);
-      printf("  total inst num: %u\n", npc->icount);
-      printf("  ipc: %f\n", ((double)npc->icount / (double)npc->cycs));
-      printf("  ifu count %u, time %llu, occupied %f\n", npc->ifucount, npc->ifutimer, (double)npc->ifutimer / (npc->cycs * 2));
-      printf("  lsu count %u, time %llu, occupied %f\n", npc->iocount, npc->iotimer, (double) npc->iotimer / (npc->cycs * 2));
-      printf("  exu count: %u\n" COLOR_RESET, npc->exucount);
+      deal_statistic();
       #ifdef __NVBOARD__
       nvboard_quit();
       #endif
