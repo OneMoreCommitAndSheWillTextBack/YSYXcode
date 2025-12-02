@@ -162,6 +162,7 @@ module ysyx_24100007_wbu(
 
       WAIT_SLAVE: begin
         if(rvalid | (bvalid & bresp == 2'b00)) begin
+          state <= FINISH;
         end
       end
 
