@@ -1,7 +1,10 @@
 ./build/*
 !./csrc/*.cpp
+!./csrc/*.cpp
 !./vsrc/*.h
 !*.v
 !compile_flags.txt
+!*.py
+!performance.txt
 ./wave.vcd
 
