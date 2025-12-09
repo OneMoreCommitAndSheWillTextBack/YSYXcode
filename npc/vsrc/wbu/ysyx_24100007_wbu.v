@@ -1,43 +1,36 @@
-// synopsys translate_off
-import "DPI-C" function void host_get_io_op(int addr);
-import "DPI-C" function void host_get_cpu_axi_valid();
-import "DPI-C" function void host_get_cpu_axi_ready();
-// synopsys translate_on
 module ysyx_24100007_wbu(
   input clk,
+  input rst,
   input [31:0] res,
   input [31:0] regout2,
   input memew,
   input memer,
   input [31:0] imm,
-  input [31:0] pcwritereg,
+  input [31:0] link_addr,
   input [2:0] muxsig,
-  input valid_from,
+  input valid_get,
   input [2:0] memmask,
   input memsextsig,
+  input regew_control,
 
   output [31:0] regwrite,
-  output ready_to,
-  output memvalid,
+  output ready,
+  output regew,
 
   // axi-lite interface
   output awvalid,
   input awready,
   output [31:0] awaddr,
-
   output wvalid,
   input wready,
   output [31:0] wdata,
   output [3:0] wstrb,
-
   input bvalid,
   output bready,
   input [1:0] bresp,
-
   output arvalid,
   input arready,
   output [31:0] araddr,
-
   input rvalid,
   output rready,
   input [31:0] rdata,
@@ -45,44 +38,248 @@ module ysyx_24100007_wbu(
   output [2:0] arsize,
   output [1:0] awburst
 );
+  typedef enum logic [1:0] {
+    WAIT_VALID, BUS_HANDSHAKE, BUS_TRANSACTION, WRITE_BACK
+  } wbu_state_t;
+  wbu_state_t wbu_state;
+
+  wire mem_access = memew | memer;
+  wire write_handshake_done = memew & axi_xaddr_valid & axi_xaddr_ready & 
+                               axi_wdata_valid & axi_wdata_ready;
+  wire read_addr_handshake_done = memer & axi_xaddr_valid & axi_xaddr_ready;
+  always @(posedge clk) begin
+    if(rst) begin
+      wbu_state <= WAIT_VALID;
+    end else begin
+      case(wbu_state)
+        WAIT_VALID: begin
+          if(valid_get) begin
+            if(mem_access) begin
+              wbu_state <= BUS_HANDSHAKE;
+            end else begin
+              wbu_state <= WRITE_BACK;
+            end
+          end 
+        end
+
+        BUS_HANDSHAKE: begin
+          if(write_handshake_done) begin
+            wbu_state <= BUS_TRANSACTION;
+          end else if (read_addr_handshake_done) begin
+            wbu_state <= BUS_TRANSACTION;
+          end
+        end
+
+        BUS_TRANSACTION: begin
+          if(axi_rdata_valid | axi_bresp_valid) begin
+            wbu_state <= WRITE_BACK;
+          end
+        end
+
+        WRITE_BACK: begin
+          wbu_state <= WAIT_VALID;
+        end
+      endcase
+    end
+  end
+
+  assign regew = (wbu_state == WRITE_BACK) & regew_control;
+  assign ready = (wbu_state == WRITE_BACK);
+  reg [31:0] memread_data_q;
+  wire [31:0] memread_data_r;
+
+  always @(posedge clk) begin
+    if(axi_rdata_valid) begin
+      memread_data_q <= memread_data_r;
+    end else if(wbu_state == WRITE_BACK) begin
+      memread_data_q <= 32'b0;
+    end
+  end
+
+  ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
+    3'b000, res,
+    3'b001, memread_data_q,
+    3'b010, imm,
+    3'b100, link_addr
+  });
+
+  // AXI 内存控制器接口信号
+  wire axi_xaddr_valid;   // 地址通道 valid（写地址或读地址）
+  wire axi_xaddr_ready;   // 地址通道 ready
+  wire axi_wdata_valid;   // 写数据通道 valid
+  wire axi_wdata_ready;   // 写数据通道 ready
+  wire axi_rdata_valid;   // 读数据通道 valid
+  wire axi_rdata_ready;   // 读数据通道 ready
+  wire axi_bresp_valid;   // 写响应通道 valid
+  wire axi_bresp_ready;   // 写响应通道 ready
+  
+  assign axi_xaddr_valid = (wbu_state == BUS_HANDSHAKE);
+  assign axi_wdata_valid = (wbu_state == BUS_HANDSHAKE) && memew;
+  assign axi_rdata_ready = (wbu_state == BUS_TRANSACTION) && memer;
+  assign axi_bresp_ready = (wbu_state == BUS_TRANSACTION) && memew;
+
+  axi_mem_controller mem_controller_inst(
+    .clk(clk),
+    .rst(rst),
+    
+    // 内存访问控制信号
+    .mem_en(mem_access & valid_get),
+    .mem_we(memew),
+    .mem_addr(res),
+    .mem_wdata(regout2),
+    .mem_mask(memmask),
+    .mem_sext(memsextsig),
+    
+    // AXI 握手控制信号（用于 WBU 状态机）
+    .axi_xaddr_valid(axi_xaddr_valid),
+    .axi_wdata_valid(axi_wdata_valid),
+    .axi_xaddr_ready(axi_xaddr_ready),
+    .axi_wdata_ready(axi_wdata_ready),
+    .axi_rdata_ready(axi_rdata_ready),
+    .axi_bresp_ready(axi_bresp_ready),
+    .axi_rdata_valid(axi_rdata_valid),
+    .axi_bresp_valid(axi_bresp_valid),
+    
+    // 内存访问结果
+    .mem_rdata(memread_data_r),
+    
+    // AXI-Lite 写地址通道
+    .awvalid(awvalid),
+    .awready(awready),
+    .awaddr(awaddr),
+    .awsize(awsize),
+    .awburst(awburst),
+    
+    // AXI-Lite 写数据通道
+    .wvalid(wvalid),
+    .wready(wready),
+    .wdata(wdata),
+    .wstrb(wstrb),
+    
+    // AXI-Lite 写响应通道
+    .bvalid(bvalid),
+    .bready(bready),
+    .bresp(bresp),
+    
+    // AXI-Lite 读地址通道
+    .arvalid(arvalid),
+    .arready(arready),
+    .araddr(araddr),
+    .arsize(arsize),
+    
+    // AXI-Lite 读数据通道
+    .rvalid(rvalid),
+    .rready(rready),
+    .rdata(rdata)
+  );
+
+endmodule
+
+module axi_mem_controller(
+  input clk,
+  input rst,
+  
+  // 内存访问控制信号
+  input mem_en,              // 内存访问使能 (memer | memew)
+  input mem_we,              // 内存写使能 (memew)
+  input [31:0] mem_addr,     // 内存地址 (res)
+  input [31:0] mem_wdata,    // 写数据 (regout2)
+  input [2:0] mem_mask,      // 内存访问大小 (memmask)
+  input mem_sext,            // 符号扩展标志 (memsextsig)
+  
+  // AXI 握手控制信号（用于 WBU 状态机）
+  input axi_xaddr_valid,     // WBU 请求地址通道握手
+  input axi_wdata_valid,     // WBU 请求写数据通道握手
+  output axi_xaddr_ready,    // 地址通道 ready（控制器准备好接收地址）
+  output axi_wdata_ready,    // 写数据通道 ready（控制器准备好接收数据）
+  
+  input axi_rdata_ready,     // WBU 准备好接收读数据
+  input axi_bresp_ready,     // WBU 准备好接收写响应
+  output axi_rdata_valid,    // 读数据 valid（数据已准备好）
+  output axi_bresp_valid,    // 写响应 valid（响应已准备好）
+
+  output reg [31:0] mem_rdata,  // 读取的数据
+  
+  // AXI-Lite 写地址通道
+  output awvalid,
+  input awready,
+  output [31:0] awaddr,
+  output [2:0] awsize,
+  output [1:0] awburst,
+  
+  // AXI-Lite 写数据通道
+  output wvalid,
+  input wready,
+  output [31:0] wdata,
+  output [3:0] wstrb,
+  
+  // AXI-Lite 写响应通道
+  input bvalid,
+  output bready,
+  input [1:0] bresp,
+  
+  // AXI-Lite 读地址通道
+  output arvalid,
+  input arready,
+  output [31:0] araddr,
+  output [2:0] arsize,
+  
+  // AXI-Lite 读数据通道
+  input rvalid,
+  output rready,
+  input [31:0] rdata
+);
 
   typedef enum logic [1:0]{
     READY,
-    WAIT_HAMDSHAKE,
+    WAIT_HANDSHAKE,
     WAIT_SLAVE,
-    FINISH
-  } state_t;
-  reg [1:0] state;
+    PROCESSION
+  } axi_state_t;
+  axi_state_t state;
 
   // 地址范围匹配信号
-  wire in_clint     = (res >= 32'h02000000) && (res <= 32'h0200ffff);
-  wire in_sram      = (res >= 32'h0f000000) && (res <= 32'h0fffffff);
-  wire in_uart      = (res >= 32'h10000000) && (res <= 32'h10000fff);
-  wire in_spi       = (res >= 32'h10001000) && (res <= 32'h10001fff);
-  wire in_gpio      = (res >= 32'h10002000) && (res <= 32'h1000200f);
-  wire in_ps2       = (res >= 32'h10011000) && (res <= 32'h10011007);
-  wire in_mrom      = (res >= 32'h20000000) && (res <= 32'h20000fff);
-  wire in_vga       = (res >= 32'h21000000) && (res <= 32'h211fffff);
-  wire in_flash     = (res >= 32'h30000000) && (res <= 32'h3fffffff);
-  wire in_chiplink  = (res >= 32'h40000000) && (res <= 32'h7fffffff);
-  wire in_psram     = (res >= 32'h80000000) && (res <= 32'h9fffffff);
-  wire in_sdram     = (res >= 32'ha0000000) && (res <= 32'hbfffffff);
+  wire in_clint     = (mem_addr >= 32'h02000000) && (mem_addr <= 32'h0200ffff);
+  wire in_sram      = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
+  wire in_uart      = (mem_addr >= 32'h10000000) && (mem_addr <= 32'h10000fff);
+  wire in_spi       = (mem_addr >= 32'h10001000) && (mem_addr <= 32'h10001fff);
+  wire in_gpio      = (mem_addr >= 32'h10002000) && (mem_addr <= 32'h1000200f);
+  wire in_ps2       = (mem_addr >= 32'h10011000) && (mem_addr <= 32'h10011007);
+  wire in_mrom      = (mem_addr >= 32'h20000000) && (mem_addr <= 32'h20000fff);
+  wire in_vga       = (mem_addr >= 32'h21000000) && (mem_addr <= 32'h211fffff);
+  wire in_flash     = (mem_addr >= 32'h30000000) && (mem_addr <= 32'h3fffffff);
+  wire in_chiplink  = (mem_addr >= 32'h40000000) && (mem_addr <= 32'h7fffffff);
+  wire in_psram     = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
+  wire in_sdram     = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
 
-  assign awvalid = memew & (state == WAIT_HAMDSHAKE);
-  assign awaddr = res;
-  assign wvalid = memew & (state == WAIT_HAMDSHAKE);
-  assign wdata = regout2 << wdata_offset * 8;
-  assign bready = memew;
-  assign arvalid = memer & (state == WAIT_HAMDSHAKE);
-  assign rready = memer;
-  assign arsize = (memmask == 3'b001) ? 3'b000 :
-                  (memmask == 3'b010) ? 3'b001 :
-                  3'b010;
-
-  wire [31:0] memread;
+  // 内部计算的信号
   wire [1:0] wdata_offset;
-  ysyx_24100007_memwritelen strbcontol(
-    .wirtelen(memmask),
+  wire [1:0] access_size_i = (mem_mask == 3'b010) ? 2'b01 :
+                             (mem_mask == 3'b100) ? 2'b10 :
+                             2'b00;
+  wire [31:0] memread_r;
+
+  // AXI 信号赋值
+  // 写操作：地址和数据通道 这里不管mem_en 因为mem_en 不为高的话无法离开READY状态
+  assign awvalid = mem_we & (state == WAIT_HANDSHAKE);
+  assign awaddr = mem_addr;
+  assign wvalid = mem_we & (state == WAIT_HANDSHAKE);
+  assign wdata = mem_wdata << (wdata_offset * 8);
+  assign bready = mem_we & (state == WAIT_SLAVE);
+  
+  // 读操作：地址通道
+  assign arvalid = ~mem_we & (state == WAIT_HANDSHAKE);
+  assign rready = ~mem_we & mem_en & (state == WAIT_SLAVE);
+  
+  // 地址和数据大小
+  assign arsize = (mem_mask == 3'b001) ? 3'b000 :
+                  (mem_mask == 3'b010) ? 3'b001 :
+                  3'b010;
+  assign araddr = (in_psram|in_sdram|in_sram) ? {mem_addr[31:2], 2'b00} : mem_addr;
+  
+  // 写控制模块
+  ysyx_24100007_memwritelen strbcontrol(
+    .wirtelen(mem_mask),
     .wstrb(wstrb),
     .awsize(awsize),
     .awaddr(awaddr),
@@ -90,54 +287,104 @@ module ysyx_24100007_wbu(
     .awburst(awburst)
   );
 
-  wire [1:0] access_size_i = (memmask == 3'b010) ? 2'b01 :
-                             (memmask == 3'b100) ? 2'b10 :
-                             2'b00;
-  // when read the sram it would return align 4
-
+  // 读数据对齐和符号扩展
   ysyx_24100007_memreadlen memreadlen0(
     .is_unalign(in_psram|in_sdram|in_sram),
     .data(rdata),
-    .memsextsig(memsextsig),
-    .memmask(memmask),
-    .read(memread),
-    .addr_offset(res[1:0])
+    .memsextsig(mem_sext),
+    .memmask(mem_mask),
+    .read(memread_r),
+    .addr_offset(mem_addr[1:0])
   );
 
-  assign araddr = (in_psram|in_sdram|in_psram) ? {res[31:2], 2'b00} : res; 
+  // AXI_CONTROL & WBU 握手机制实现
+  assign axi_xaddr_ready = (state == READY);
+  // 写数据通道 ready：当控制器准备好接收写数据时
+  assign axi_wdata_ready = (state == READY);
+  // 读数据 valid：当读数据有效时
+  assign axi_rdata_valid = (state == PROCESSION) && mem_en && ~mem_we;
+  // 写响应 valid：当写响应有效时
+  assign axi_bresp_valid = (state == PROCESSION) && mem_en && mem_we;
 
-  ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
-    3'b000, res,
-    3'b001, memread,
-    3'b010, imm,
-    3'b100, pcwritereg
-  });
+  wire read_req = axi_xaddr_valid & mem_en;
+  wire write_req = axi_xaddr_valid & axi_wdata_ready & mem_en;
 
-  wire ready = arready & wready & awready;
-  assign ready_to = (state == READY & ~(memer | memew)) | state == FINISH;
-  assign memvalid = rvalid & memer;
+  // 状态机
+  always @(posedge clk) begin
+    if(rst) begin
+      state <= READY;
+      mem_rdata <= 32'b0;
+    end else begin
+      case(state)
+        READY: begin
+          if (read_req | write_req) begin
+            // 这个 WAIT_HANDSHAKE axi传输的握手，而不是memcontrol和wbu的握手
+            // 所以在 memcontrol 和 wbu握手以后才进入axi传输的握手机制里
+            state <= WAIT_HANDSHAKE;
+          end
+        end
+
+        WAIT_HANDSHAKE: begin
+          // 写操作：地址和数据通道都握手完成
+          if(awready && wready) begin
+            state <= WAIT_SLAVE;
+          end
+          // 读操作：地址通道握手完成
+          else if(arready) begin
+            state <= WAIT_SLAVE;
+          end
+        end
+
+        WAIT_SLAVE: begin
+          // 读操作：收到读数据
+          if(rvalid) begin
+            state <= PROCESSION;
+            mem_rdata <= memread_r;
+          end
+          // 写操作：收到写响应
+          else if(bvalid) begin
+            state <= PROCESSION;
+          end
+        end
+
+        PROCESSION: begin
+          // 当 WBU 离开 BUS_TRANSACTION 状态时，对应的 ready 信号会拉低
+          // 读操作时：axi_rdata_ready 表示 WBU 已处理完读数据
+          // 写操作时：axi_bresp_ready 表示 WBU 已处理完写响应
+          if((axi_bresp_ready) || (axi_rdata_ready)) begin
+            state <= READY;
+            mem_rdata <= 32'b0;
+          end
+        end
+      endcase
+    end
+  end
 
   // ------------------------------------
   // PERFORMANCE COUNTER LOGIC
   // ------------------------------------
-  // divide it so it couldnot disrupt the synthetic
   // synopsys translate_off
+  import "DPI-C" function void host_get_io_op(int addr);
+  import "DPI-C" function void host_get_cpu_axi_valid();
+  import "DPI-C" function void host_get_cpu_axi_ready();
+  
   always @(posedge clk) begin
+    if (!rst) begin
       case (state)
         READY: begin
-          if (memer | memew) begin
+          if (read_req | write_req) begin
             host_get_cpu_axi_valid();
           end
         end
 
         WAIT_SLAVE: begin
-          if(rvalid | (bvalid & bresp == 2'b00)) begin
+          if(rvalid | bvalid) begin
             host_get_io_op(awaddr);
           end
         end
 
-        FINISH: begin
-          if (~valid_from) begin
+        PROCESSION: begin
+          if ((axi_bresp_ready) || (axi_rdata_ready)) begin
             host_get_cpu_axi_ready();
           end
         end
@@ -145,32 +392,7 @@ module ysyx_24100007_wbu(
         default: begin end
       endcase
     end
+  end
   // synopsys translate_on
 
-  always @(posedge clk) begin
-    case(state)
-      READY: begin
-        if (memer | memew) begin
-          state <= WAIT_HAMDSHAKE;
-        end
-      end
-
-      WAIT_HAMDSHAKE: begin
-        if(arready | (awready & wready))
-          state <= WAIT_SLAVE;
-      end
-
-      WAIT_SLAVE: begin
-        if(rvalid | (bvalid & bresp == 2'b00)) begin
-          state <= FINISH;
-        end
-      end
-
-      FINISH: begin
-        if (~valid_from) begin
-          state <= READY;
-        end
-      end
-    endcase
-  end
 endmodule

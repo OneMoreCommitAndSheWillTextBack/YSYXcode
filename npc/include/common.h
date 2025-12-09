@@ -1,4 +1,9 @@
+#ifdef __NPC__
+#include "Vnpc.h"
+#else
 #include "VysyxSoCFull.h"
+#endif
+
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
@@ -18,7 +23,11 @@
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 
 typedef struct {
-  VysyxSoCFull *top;
+  #ifdef __NPC__
+    Vnpc *top;
+  #else
+    VysyxSoCFull *top;
+  #endif
   enum npcstate state;
 
   // statistic data

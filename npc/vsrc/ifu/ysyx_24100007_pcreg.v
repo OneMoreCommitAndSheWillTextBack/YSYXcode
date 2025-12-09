@@ -5,8 +5,12 @@ module ysyx_24100007_pcreg(
   input ready_from,
   output reg [31:0] pcout
 );
-  // localparam init = 32'h80000000 - 4;
+
+`ifdef __NPC__
+  localparam init = 32'h80000000;
+`else
   localparam init = 32'h30000000;
+`endif
 
   initial begin 
     pcout = init;

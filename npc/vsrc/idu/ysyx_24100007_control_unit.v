@@ -1,14 +1,15 @@
 // synopsys translate_off
 import "DPI-C" function void ret(int pc);
 // synopsys translate_on
-module ysyx_24100007_maincontrol(
+module ysyx_24100007_control_unit(
   input [6:0] opcode,
   input [2:0] func3,
   input func7,
+
   input ebreaksig,
   input ecallsig,
   input mretsig,
-
+  input [5:0] inst_type,
   output memew,
   output [2:0] muxsig,
   output memer,
@@ -20,21 +21,15 @@ module ysyx_24100007_maincontrol(
   output [1:0] aluop,
   output auipcsig,
   output csrrw,
-  output csrrs
+  output csrrs,
+  output [2:0] memmask,
+  output memsextsig
 );
   wire type_I, type_R, type_U, type_S, type_J, type_B;
-  // here need to judge load and store 
+  assign {type_I, type_B, type_J, type_S, type_R, type_U} = inst_type;
+  
   wire load, store;
   wire regwritepc, regwritemem, luisig;
-  
-  assign type_I = (opcode == 7'b0000011) | (opcode == 7'b1100111) |
-                  (opcode == 7'b0010011) | (opcode == 7'b0000111) |
-                  (opcode == 7'b1110011);
-  assign type_B = (opcode == 7'b1100011);
-  assign type_S = (opcode == 7'b0100011);
-  assign type_R = (opcode == 7'b0110011);
-  assign type_U = (opcode == 7'b0110111) | (opcode == 7'b0010111);
-  assign type_J = (opcode == 7'b1101111);
 
   assign load = (opcode == 7'b0000011);
   assign store = (opcode == 7'b0100011);
@@ -42,7 +37,7 @@ module ysyx_24100007_maincontrol(
   assign btypebranch = type_B;
   assign memew = store;
   assign memer = load;
-  assign regew = (type_I | type_R | type_J | type_U) & ~memer;
+  assign regew = (type_I | type_R | type_J | type_U);
   assign jalsig = type_J;
   assign jalrsig = (opcode == 7'b1100111);
   assign muximm = load | store | type_I | jalrsig;
@@ -58,6 +53,17 @@ module ysyx_24100007_maincontrol(
 
   assign csrrs = (opcode == 7'b1110011) & (func3 == 3'b010);
   assign csrrw = (opcode == 7'b1110011) & (func3 == 3'b001);
+
+  assign memmask = (func3 == 3'b000) ? 3'b001 :
+               (func3 == 3'b001) ? 3'b010 :
+               (func3 == 3'b010) ? 3'b100 :
+               (func3 == 3'b100) ? 3'b001 :
+               (func3 == 3'b101) ? 3'b010 :
+               3'b000;
+
+  assign memsextsig = (func3 == 3'b100) ? 1'b0 :
+                      (func3 == 3'b101) ? 1'b0 :
+                      1'b1;
   
   // synopsys translate_off
   always @(*) begin

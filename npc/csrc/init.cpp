@@ -1,4 +1,9 @@
+#ifdef __NPC__
+#include "Vnpc.h"
+#else
 #include "VysyxSoCFull.h"
+#endif
+
 #include "map.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
@@ -28,6 +33,12 @@ long init_default() {
   return sizeof(img);
 }
 
+#ifdef __NPC__
+  unsigned int load_addr = PSBASE;
+#else
+  unsigned int load_addr = FBASE;
+#endif
+
 long init_build(char *filepath) {
   FILE *fp = fopen(filepath, "r");
   if (fp == NULL) {
@@ -38,7 +49,7 @@ long init_build(char *filepath) {
   long size = ftell(fp);
 
   fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(FBASE), size, 1, fp);
+  int ret = fread(guest_to_host(load_addr), size, 1, fp);
 
   fclose(fp);
   printf("\033[0m\033[1;32mfinish load file: %s\033[0m\n", filepath);
@@ -166,16 +177,20 @@ void init(int argc, char *argv[]) {
   npc = new Npc;
   cpu = new Cpu;
   cpu->con.pc = MBASE - 8;
+  #ifdef __NPC__
+  npc->top = new Vnpc;
+  #else 
   npc->top = new VysyxSoCFull;
+  #endif
   npc->cycs = 0;
   npc->timer = 0;
   npc->icount = 0;
 
-  #ifdef __NVBOARD__
-  nvboard_bind_all_pins(npc->top);
-  nvboard_init();
-  nvboard_set_divisor(16);
-  #endif
+  // #ifdef __NVBOARD__
+  // nvboard_bind_all_pins(npc->top);
+  // nvboard_init();
+  // nvboard_set_divisor(16);
+  // #endif
 
   npc->state = STOP;
   npc->top->reset = 1;
@@ -192,6 +207,12 @@ void init(int argc, char *argv[]) {
 
   #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
+  #endif
+
+  #ifdef __NVBOARD__
+  nvboard_bind_all_pins(npc->top);
+  nvboard_init();
+  nvboard_set_divisor(16);
   #endif
 
   npc->top->reset = 0;

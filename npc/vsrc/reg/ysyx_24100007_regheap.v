@@ -10,12 +10,12 @@ module ysyx_24100007_regheap(
   input csrrw,
   input csrrs,
   input ecallsig,
-  input valid,
   output [31:0] regout1,
   output [31:0] regout2,
   output [31:0] mepc,
   output [31:0] mtvec
 );
+
 
   wire [32*32-1:0] rf_flat;
   wire [32*6-1:0] rf_csr_flat;
@@ -42,7 +42,7 @@ module ysyx_24100007_regheap(
   ysyx_24100007_registers registers0(
     .clk(clk),
     .rst(rst),
-    .ew(ew & valid),
+    .ew(ew),
     .csrrs(csrrs),
     .csrrw(csrrw),
     .ecall(ecallsig),

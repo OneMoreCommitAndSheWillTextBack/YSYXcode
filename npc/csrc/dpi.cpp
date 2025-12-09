@@ -20,8 +20,17 @@ extern "C" void mrom_read(int32_t addr, int32_t *data) {
 extern "C" uint8_t psram_read(uint32_t addr) {
   return paddr_read(PSBASE + addr, 1);
 }
+
 extern "C" void psram_write(uint32_t addr, uint8_t data) {
   paddr_write(PSBASE + addr, 1, data);
+}
+
+extern "C" void npc_pmem_read(uint32_t addr, uint32_t len, uint32_t *data) {
+  *data = paddr_read(addr, len);
+}
+
+extern "C" void npc_pmem_write(uint32_t addr, uint32_t len, uint32_t data) {
+  paddr_write(addr, len, data);
 }
 
 extern "C" void sdram_write(uint8_t bank, uint16_t row, uint16_t col, uint16_t data, uint8_t dqm) {

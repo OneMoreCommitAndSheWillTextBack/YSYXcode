@@ -1,8 +1,8 @@
-./build/*
-!./csrc/*.cpp
-!./csrc/*.cpp
+./build*
 !./vsrc/*.h
 !*.v
+!./csrc/*.cpp
+!./include/*.h
 !compile_flags.txt
 !*.py
 !performance.txt
