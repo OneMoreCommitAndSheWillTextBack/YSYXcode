@@ -1,0 +1,16 @@
+date=2025-12-14
+time=13:55:25
+end_pc=0x30000060
+total_cycle=416243
+total_inst=4783
+ipc=0.0114909
+ifu_count=4783
+ifu_time=72158
+ifu_occupied=0.0866777
+icache_hit_times=3829
+icache_hit_rate=0.800544
+icache_amat=14.4853
+lsu_count=1738
+lsu_time=728180
+lsu_occupied=0.874705
+exu_count=4783

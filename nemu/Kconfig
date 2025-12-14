@@ -66,6 +66,8 @@ config TARGET_SHARE
   bool "Shared object (used as REF for differential testing)"
 config TARGET_AM
   bool "Application on Abstract-Machine (DON'T CHOOSE)"
+config YSYXSOC_EMU
+  bbol "Executable emulator of ysyxsoc"
 endchoice
 
 menu "Build Options"
@@ -161,7 +163,7 @@ config TRACE_END
   default 10000
 
 config ITRACE
-  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER && YSYXSOC_EMU
   bool "Enable instruction tracer"
   default y
 
@@ -169,7 +171,6 @@ config ITRACE_COND
   depends on ITRACE
   string "Only trace instructions when the condition is true"
   default "true"
-
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

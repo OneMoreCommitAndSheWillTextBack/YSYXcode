@@ -1,4 +1,9 @@
+#ifdef __NPC__
+#include "Vnpc.h"
+#else
 #include "VysyxSoCFull.h"
+#endif
+
 #include "map.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
@@ -28,6 +33,12 @@ long init_default() {
   return sizeof(img);
 }
 
+#ifdef __NPC__
+  unsigned int load_addr = PSBASE;
+#else
+  unsigned int load_addr = FBASE;
+#endif
+
 long init_build(char *filepath) {
   FILE *fp = fopen(filepath, "r");
   if (fp == NULL) {
@@ -38,7 +49,7 @@ long init_build(char *filepath) {
   long size = ftell(fp);
 
   fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(FBASE), size, 1, fp);
+  int ret = fread(guest_to_host(load_addr), size, 1, fp);
 
   fclose(fp);
   printf("\033[0m\033[1;32mfinish load file: %s\033[0m\n", filepath);
@@ -58,6 +69,8 @@ extern Trace *trace;
 char *triple = NULL;
 bool record_enable_when_on = false;
 #endif
+
+bool perform_dump = false;
 
 unsigned long long die_on_end = 0;
 bool die_on_end_on = false;
@@ -82,12 +95,13 @@ void parse_args(int argc, char *argv[]) {
       {"die-on-end", required_argument, NULL, 'd'},
       {"enable-record", no_argument, NULL, 'e'},
       {"enable-record-when", required_argument, NULL, 'w'},
+      {"performance-dump", no_argument, NULL, 'm'},
       {0, 0, NULL, 0},
   };
   int o;
   bool su;
   int val;
-  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:bew:", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-d:p:f:i:r:bew:m", table, NULL)) != -1) {
     switch (o) {
     case 'b':
       batch_mode_on = true;
@@ -120,6 +134,9 @@ void parse_args(int argc, char *argv[]) {
       break;
     case 'w':
       printf("not support enable-record-when yet\n");
+      break;
+    case 'm':
+      perform_dump = true;
       break;
     case 'p':
       break;
@@ -160,16 +177,20 @@ void init(int argc, char *argv[]) {
   npc = new Npc;
   cpu = new Cpu;
   cpu->con.pc = MBASE - 8;
+  #ifdef __NPC__
+  npc->top = new Vnpc;
+  #else 
   npc->top = new VysyxSoCFull;
-  npc->cycs = 0;
-
-
-
-  #ifdef __NVBOARD__
-  nvboard_bind_all_pins(npc->top);
-  nvboard_init();
-  nvboard_set_divisor(16);
   #endif
+  npc->cycs = 0;
+  npc->timer = 0;
+  npc->icount = 0;
+
+  // #ifdef __NVBOARD__
+  // nvboard_bind_all_pins(npc->top);
+  // nvboard_init();
+  // nvboard_set_divisor(16);
+  // #endif
 
   npc->state = STOP;
   npc->top->reset = 1;
@@ -181,18 +202,24 @@ void init(int argc, char *argv[]) {
     npc->top->clock = 0;
     npc->top->eval();
     demp_wave();
-    npc->cycs += 2;
+    npc->timer += 2;
   }
 
   #ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
   #endif
 
+  #ifdef __NVBOARD__
+  nvboard_bind_all_pins(npc->top);
+  nvboard_init();
+  nvboard_set_divisor(16);
+  #endif
+
   npc->top->reset = 0;
-  npc->cycs = 0;
 }
 
 bool batch_mode() { return batch_mode_on; }
+bool need_dump_perform() { return perform_dump; }
 #ifdef TRACE
 bool fork_interval_is_on() { return fork_interval_on; }
 int fork_interval_val() { return fork_interval; }

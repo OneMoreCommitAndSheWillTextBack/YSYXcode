@@ -19,6 +19,7 @@ NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
 ARGS = -f$(IMAGE).bin
 ARGS += -b
+ARGS += -e
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
@@ -26,7 +27,7 @@ image: $(IMAGE).elf
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: image
-	$(MAKE) -C $(NPC_HOME) ARGS='$(ARGS)' run
+	$(MAKE) -C $(NPC_HOME) ARGS='$(ARGS)' BUILD_MODE=npc run
 
 sim:
 	$(MAKE) -C $(NPC_HOME) sim

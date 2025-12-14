@@ -1,6 +1,7 @@
 #include "common.h"
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>      // 用于 fork(), close(), dup2()
@@ -21,6 +22,12 @@ Cpu *cpu = NULL;
 Trace *trace = NULL;
 pid_t fork_pid_val = 0;
 #endif
+static bool start_load = false;
+static unsigned long long loadfinish_time = -1;
+
+unsigned long long get_loadfinish_time() {
+  return loadfinish_time;
+}
 
 void tfpclose();
 
@@ -81,7 +88,6 @@ void demp_wave() {
 
 static int same_inst_cyc = 0;
 static unsigned int pre_inst = 0;
-static bool finish_load = false;
 static void exe_once() {
   #ifdef __NVBOARD__
   nvboard_update();
@@ -92,8 +98,21 @@ static void exe_once() {
   npc->top->clock = 0;
   npc->top->eval();
   demp_wave();
-  npc->cycs += 2;
+  npc->cycs += 1; // one cyc
+  npc->timer += 2;
 
+  if(cpu->valid == 1) 
+    npc->icount++; // a valid inst
+
+  if(!start_load && npc->top->externalPins_gpio_out == 0x3AB) {
+    start_load = true;
+  }
+
+  #ifndef __NPC__
+  if(start_load && npc->top->externalPins_gpio_out == 0x0 && loadfinish_time == -1) {
+    loadfinish_time = npc->timer;
+    printf(COLOR_BLUE "npc finish load\n" COLOR_RESET);
+  }
 
   if (cpu->inst == pre_inst) {
     same_inst_cyc++;
@@ -101,6 +120,7 @@ static void exe_once() {
     same_inst_cyc = 0;
     pre_inst = cpu->inst;
   }
+  #endif
 
   if (same_inst_cyc >= MAX_SAME_INST_CYC) {
     npc->state = ABORT;
@@ -110,11 +130,6 @@ static void exe_once() {
   if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
     npc->state = ABORT;
     printf(COLOR_BLUE "die on end hit the max cycle, abort\n" COLOR_RESET);
-  }
-
-  if(cpu->con.pc > 0x80000000 && finish_load == 0) {
-    finish_load = true;
-    printf(COLOR_BLUE "finish load, start the program\n" COLOR_RESET);
   }
 
 #ifdef ITRACE
@@ -157,10 +172,9 @@ static void execute(unsigned int n) {
     exe_once();
     trace_or_diff();
     if (npc->state == END || npc->state == ABORT){
-      printf("ended at pc = 0x%08x\n", cpu->con.pc);
+      deal_statistic();
       #ifdef __NVBOARD__
       nvboard_quit();
-      printf("the nvboard_quit executed\n");
       #endif
       tfpclose();
       return ;

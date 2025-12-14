@@ -17,8 +17,7 @@ module ysyx_24100007_decoder(
   output [4:0] src1,
   output [4:0] src2,
   output [4:0] rd,
-  output [2:0] memmask,
-  output memsextsig
+  output [5:0] inst_type
 );
   
   wire type_I, type_R, type_U, type_S, type_J, type_B;
@@ -31,14 +30,29 @@ module ysyx_24100007_decoder(
   assign src2 = inst[24:20];
   assign rd = inst[11:7];
 
+  // Instruction type classification:
+  // type_I: I-type instructions - immediate arithmetic/logic operations, load instructions,
+  //         jump and link register (JALR), and system instructions (CSR, ECALL, EBREAK)
+  //         Examples: ADDI, ANDI, LW, LB, JALR, CSRRW, CSRRW, ECALL, EBREAK
   assign type_I = (opcode == 7'b0000011) | (opcode == 7'b1100111) |
                   (opcode == 7'b0010011) | (opcode == 7'b0000111) |
                   (opcode == 7'b1110011);
+  // type_B: B-type instructions - conditional branch instructions
+  //         Examples: BEQ, BNE, BLT, BGE, BLTU, BGEU
   assign type_B = (opcode == 7'b1100011);
+  // type_S: S-type instructions - store instructions to memory
+  //         Examples: SW, SH, SB
   assign type_S = (opcode == 7'b0100011);
+  // type_R: R-type instructions - register-to-register arithmetic and logic operations
+  //         Examples: ADD, SUB, AND, OR, XOR, SLL, SRL, SRA, SLT, SLTU
   assign type_R = (opcode == 7'b0110011);
+  // type_U: U-type instructions - upper immediate instructions for loading constants
+  //         Examples: LUI (load upper immediate), AUIPC (add upper immediate to PC)
   assign type_U = (opcode == 7'b0110111) | (opcode == 7'b0010111);
+  // type_J: J-type instructions - unconditional jump instructions
+  //         Examples: JAL (jump and link)
   assign type_J = (opcode == 7'b1101111);
+  assign inst_type = {type_I, type_B, type_J, type_S, type_R, type_U};
 
   assign I_imm={{20{inst[31]}},inst[31:20]}; 
 	assign U_imm={inst[31:12],{12{1'b0}}};
@@ -57,17 +71,6 @@ module ysyx_24100007_decoder(
   assign ecallsig = (inst == 32'b00000000000000000000000001110011);
   assign mretsig = (inst == 32'b00110000001000000000000001110011);
 
-  assign memmask = (func3 == 3'b000) ? 3'b001 :
-               (func3 == 3'b001) ? 3'b010 :
-               (func3 == 3'b010) ? 3'b100 :
-               (func3 == 3'b100) ? 3'b001 :
-               (func3 == 3'b101) ? 3'b010 :
-               3'b000;
-
-  assign memsextsig = (func3 == 3'b100) ? 1'b0 :
-                     (func3 == 3'b101) ? 1'b0 :
-                     (func3 == 3'b101) ? 1'b0 :
-                     1'b1;
 endmodule
 
 

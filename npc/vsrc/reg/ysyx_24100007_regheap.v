@@ -10,21 +10,25 @@ module ysyx_24100007_regheap(
   input csrrw,
   input csrrs,
   input ecallsig,
-  input valid,
   output [31:0] regout1,
   output [31:0] regout2,
   output [31:0] mepc,
   output [31:0] mtvec
 );
 
-  wire [31:0] rf [31:0];
-  wire [31:0] rf_csr [5:0];
+
+  wire [32*32-1:0] rf_flat;
+  wire [32*6-1:0] rf_csr_flat;
   wire [2:0] csr_choose;
   wire [31:0] reg_write_data;
+  wire [31:0] rf_src1_word;
+  wire [31:0] rf_src2_word;
 
   // pay attention that the src1 should not be direct use
+  assign rf_src1_word = rf_flat[src1*32 +: 32];
+  assign rf_src2_word = rf_flat[src2*32 +: 32];
   assign reg_write_data = (!(csrrw | csrrs)) ? data : 
-                          (src1 == 0) ? 0 : rf[src1];
+                          (src1 == 0) ? 0 : rf_src1_word;
 
   ysyx_24100007_MuxKey#(6, 12, 3) muxcsr(csr_choose, csr, {
     12'h300, 3'b000, // mstatus
@@ -38,22 +42,22 @@ module ysyx_24100007_regheap(
   ysyx_24100007_registers registers0(
     .clk(clk),
     .rst(rst),
-    .ew(ew & valid),
+    .ew(ew),
     .csrrs(csrrs),
     .csrrw(csrrw),
     .ecall(ecallsig),
     .addr(addr),
     .csr_choose(csr_choose),
     .data(reg_write_data),
-    .gr(rf),
-    .csr(rf_csr)
+    .gr_flat(rf_flat),
+    .csr_flat(rf_csr_flat)
   );
 
-  assign regout1 = (src1 == 0) ? 0 : rf[src1];
-  assign regout2 = (src2 == 0) ? 0 : rf[src2];
+  assign regout1 = (src1 == 0) ? 0 : rf_src1_word;
+  assign regout2 = (src2 == 0) ? 0 : rf_src2_word;
 
-  assign mepc = rf_csr[2];
-  assign mtvec = rf_csr[1];
+  assign mepc = rf_csr_flat[2*32 +: 32];
+  assign mtvec = rf_csr_flat[1*32 +: 32];
 
 endmodule
 

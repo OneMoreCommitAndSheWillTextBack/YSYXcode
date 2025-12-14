@@ -20,8 +20,17 @@ extern "C" void mrom_read(int32_t addr, int32_t *data) {
 extern "C" uint8_t psram_read(uint32_t addr) {
   return paddr_read(PSBASE + addr, 1);
 }
+
 extern "C" void psram_write(uint32_t addr, uint8_t data) {
   paddr_write(PSBASE + addr, 1, data);
+}
+
+extern "C" void npc_pmem_read(uint32_t addr, uint32_t len, uint32_t *data) {
+  *data = paddr_read(addr, len);
+}
+
+extern "C" void npc_pmem_write(uint32_t addr, uint32_t len, uint32_t data) {
+  paddr_write(addr, len, data);
 }
 
 extern "C" void sdram_write(uint8_t bank, uint16_t row, uint16_t col, uint16_t data, uint8_t dqm) {
@@ -86,13 +95,84 @@ extern "C" void host_get_inst(int inst) {
 
 extern "C" void host_get_valid(int valid) { cpu->valid = valid; }
 
-extern "C" void host_get_skip(uint32_t addr) { 
-  if(addr >= 0x10000000 && addr < 0x10000fff)
+extern "C" void host_get_io_op(uint32_t addr) { 
+  // 外设地址范围定义（MMIO 设备，difftest 时需要跳过检查）
+  // 按地址顺序排列，便于维护和扩展
+  
+  // CLINT: 0x0200_0000 ~ 0x0200_ffff
+  if (addr >= 0x02000000 && addr <= 0x0200ffff) {
     set_diff_pass();
-  if(addr >= 0x10001000 && addr < 0x10001fff){
-    set_diff_pass();
+    return;
   }
-  if(addr >= 0x10002000 && addr < 0x1000200f){
+  
+  // UART16550: 0x1000_0000 ~ 0x1000_0fff
+  if (addr >= 0x10000000 && addr <= 0x10000fff) {
     set_diff_pass();
+    return;
   }
+  
+  // SPI master: 0x1000_1000 ~ 0x1000_1fff
+  if (addr >= 0x10001000 && addr <= 0x10001fff) {
+    set_diff_pass();
+    return;
+  }
+  
+  // GPIO: 0x1000_2000 ~ 0x1000_200f
+  if (addr >= 0x10002000 && addr <= 0x1000200f) {
+    set_diff_pass();
+    return;
+  }
+  
+  // PS2: 0x1001_1000 ~ 0x1001_1007
+  if (addr >= 0x10011000 && addr <= 0x10011007) {
+    set_diff_pass();
+    return;
+  }
+  
+  // VGA: 0x2100_0000 ~ 0x211f_ffff
+  if (addr >= 0x21000000 && addr <= 0x211fffff) {
+    set_diff_pass();
+    return;
+  }
+  
+  // ChipLink MMIO: 0x4000_0000 ~ 0x7fff_ffff
+  if (addr >= 0x40000000 && addr <= 0x7fffffff) {
+    set_diff_pass();
+    return;
+  }
+  
+  // ChipLink MEM: 0xc000_0000 ~ 0xffff_ffff
+  if (addr >= 0xc0000000 && addr <= 0xffffffff) {
+    set_diff_pass();
+    return;
+  }
+}
+
+extern Npc *npc;
+unsigned long long io_record_time = 0;
+extern "C" void host_get_cpu_axi_valid() {
+  io_record_time = npc->timer;
+  npc->iocount++;
+}
+
+extern "C" void host_get_cpu_axi_ready() {
+  npc->iotimer += npc->timer - io_record_time;
+}
+
+unsigned ifu_record_time = 0;
+extern "C" void host_get_ifu_start() {
+  npc->ifucount ++;
+  ifu_record_time = npc->timer;
+}
+
+extern "C" void host_get_ifu_finish() {
+  npc->ifutimer += npc->timer - ifu_record_time;
+}
+
+extern "C" void host_get_exu_valid() {
+  npc->exucount ++;
+}
+
+extern "C" void host_get_icache_hit() {
+  npc->icache_hit_time++;
 }

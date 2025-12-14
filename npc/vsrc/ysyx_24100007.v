@@ -1,6 +1,7 @@
+// synopsys translate_off
 import "DPI-C" function void host_get_pc(int pc);
 import "DPI-C" function void host_get_inst(int inst);
-
+// synopsys translate_on
 module ysyx_24100007(
     input clock,
     input reset,
@@ -76,11 +77,14 @@ module ysyx_24100007(
     output [3:0]        io_slave_rid
 );
 
+  // synopsys translate_off
   always @(*) begin
     host_get_pc(pcbridge);
     host_get_inst(inst);
   end
-  //
+  // synopsys translate_on
+
+  wire inst_cycle_end;
   
   wire ready_idu_to_ifu;
   wire [31:0] npc, pcbridge;
@@ -90,13 +94,12 @@ module ysyx_24100007(
   wire [31:0] ifu_araddr;
   wire ifu_rvalid, ifu_rready;
   wire [31:0] ifu_rdata;
-  wire reg_process;
 
   ysyx_24100007_ifu ifu0(
     .clk(clock),
     .rst(reset),
     .npc(npc),
-    .ready(ready_idu_to_ifu),
+    .ready(inst_cycle_end),
     .pc(pcbridge),
     .inst(inst),
     .valid(ifu_valid),
@@ -106,15 +109,14 @@ module ysyx_24100007(
     .araddr(ifu_araddr),
     .rvalid(ifu_rvalid),
     .rready(ifu_rready),
-    .rdata(ifu_rdata),
-    .regprocess(reg_process)
+    .rdata(ifu_rdata)
   );
 
 
   wire [4:0] src1, src2, rd;
   wire [31:0] imm;
   wire ebreaksig, mretsig, ecallsig;
-  wire regew, memew, memer, muximm;
+  wire memew, memer, muximm;
   wire [2:0] func3, muxsig;
   wire func7;
   wire btypebranch, jalsig, jalrsig, auipcsig;
@@ -123,10 +125,10 @@ module ysyx_24100007(
   wire idu_valid;
   wire [2:0] memmask;
   wire memsextsig;
+  wire regew_control;
   ysyx_24100007_idu idu0(
   .inst(inst),
-  .valid_from(ifu_valid),
-  .ready_from(ready_exu_to_idu),
+  .valid_get(ifu_valid),
   
   .ebreaksig(ebreaksig),
   .ecallsig(ecallsig),
@@ -137,10 +139,10 @@ module ysyx_24100007(
   .src1(src1),
   .src2(src2),
   .rd(rd),
+  .regew_control(regew_control),
   .memew(memew),
   .muxsig(muxsig),
   .memer(memer),
-  .regew(regew),
   .muximm(muximm),
   .btypebranch(btypebranch),
   .jalrsig(jalrsig),
@@ -151,17 +153,15 @@ module ysyx_24100007(
   .csrrs(csrrs),
   .memmask(memmask),
   .memsextsig(memsextsig),
-  .valid_to(idu_valid),
-  .ready_to(ready_idu_to_ifu)
+  .valid_to(idu_valid)
 );
 
   wire [31:0] regwrite, regout1, regout2;
   wire [31:0] mepc, mtvec;
-  wire ready_exu_to_idu;
   ysyx_24100007_regheap regfile(
     .clk(clock),
     .rst(reset),
-    .ew((regew & reg_process) | memvalid),
+    .ew(regew),
     .addr(rd),
     .src1(src1),
     .src2(src2),
@@ -170,7 +170,6 @@ module ysyx_24100007(
     .csrrw(csrrw),
     .csrrs(csrrs),
     .ecallsig(ecallsig),
-    .valid(ifu_valid),
     .regout1(regout1),
     .regout2(regout2),
     .mepc(mepc),
@@ -178,9 +177,11 @@ module ysyx_24100007(
   ); 
   
   wire [31:0] res;
-  wire [31:0] pcwritereg;
+  wire [31:0] link_addr;
   wire exu_valid;
   ysyx_24100007_exu exu0(
+  .clk(clock),
+  .rst(reset),
   .func3(func3),
   .func7(func7),
   .aluop(aluop),
@@ -197,35 +198,34 @@ module ysyx_24100007(
   .mtvec(mtvec),
   .mepc(mepc),
   .pc(pcbridge),
-  .valid_from(idu_valid),
-  .ready_from(ready_wbu_to_exu),
+  .valid_get(idu_valid),
+  .ready(inst_cycle_end),
   
+  .valid_to(exu_valid),
   .res(res),
   .npc(npc),
-  .pcwritereg(pcwritereg),
-  .valid_to(exu_valid),
-  .ready_to(ready_exu_to_idu)
+  .link_addr(link_addr)
 );
-  
-  wire ready_wbu_to_exu;
 
-  wire memvalid;
+  wire regew;
   ysyx_24100007_wbu wbu0(
   .clk(clock),
+  .rst(reset),
   .res(res),
   .regout2(regout2),
   .memew(memew),
   .memer(memer),
   .imm(imm),
-  .pcwritereg(pcwritereg),
+  .link_addr(link_addr),
   .muxsig(muxsig),
-  .valid_from(exu_valid),
+  .valid_get(exu_valid),
   .memsextsig(memsextsig),
   .memmask(memmask),
 
   .regwrite(regwrite),
-  .ready_to(ready_wbu_to_exu),
-  .memvalid(memvalid),
+  .ready(inst_cycle_end),
+  .regew_control(regew_control),
+  .regew(regew),
 
   // axi-lite interface
   .awvalid(awvalid[1]),
@@ -260,14 +260,14 @@ wire [1:0]
   rvalid, awready,
   wready, arready;
 
-wire [31:0] araddr [1:0];
-wire [31:0] rdata [1:0];
-wire [31:0] awaddr [1:0];
-wire [31:0] wdata [1:0];
-wire [3:0] wstrb [1:0];
-wire [1:0] bresp [1:0];
-wire [2:0] awsize [1:0];
-wire [2:0] arsize [1:0];
+wire [1:0][31:0] araddr;
+wire [1:0][31:0] rdata;
+wire [1:0][31:0] awaddr;
+wire [1:0][31:0] wdata;
+wire [1:0][3:0] wstrb;
+wire [1:0][1:0] bresp;
+wire [1:0][2:0] awsize;
+wire [1:0][2:0] arsize;
 
 assign awvalid[0] = 0;
 assign awaddr[0] = 0;
@@ -339,11 +339,6 @@ ysyx_24100007_arbiter #(2) arviter0(
   .awsize_out(arbiter_awsize_out),
   .arsize_out(arbiter_arsize_out)
 );
-  assign io_master_arburst = 2'b01;
-  assign io_master_arlen = 0;
-
-  assign io_master_awburst = 2'b01;
-  assign io_master_arlen = 0;
 
   // ---------------------------------
   // CLINT (Core Local Interruptor)
@@ -431,5 +426,23 @@ ysyx_24100007_arbiter #(2) arviter0(
   wire ext_wready_mux = clint_aw_sel ? clint_wready : io_master_wready;
   wire ext_arready_mux = clint_ar_sel ? clint_arready : io_master_arready;
 
+  assign io_master_awlen = 8'd0;
+  assign io_master_arlen = 8'd0;
+  assign io_master_awid = 4'b0;
+  assign io_master_arid = 4'd0;
+  assign io_master_arburst = 2'b01;
+  assign io_master_wlast = 1'b0;
+
+  assign io_slave_awready = 1'b0;
+  assign io_slave_wready  = 1'b0;
+  assign io_slave_bvalid  = 1'b0;
+  assign io_slave_bresp   = 2'b00;
+  assign io_slave_bid     = 4'b0000;
+  assign io_slave_arready = 1'b0;
+  assign io_slave_rvalid  = 1'b0;
+  assign io_slave_rresp   = 2'b00;
+  assign io_slave_rdata   = 32'b0;
+  assign io_slave_rlast   = 1'b0;
+  assign io_slave_rid     = 4'b0000;
 
 endmodule

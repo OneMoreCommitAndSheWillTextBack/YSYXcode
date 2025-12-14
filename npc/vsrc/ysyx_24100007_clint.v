@@ -76,8 +76,11 @@ module ysyx_24100007_clint (
             end
 
 
-            default:
+            default: begin
+                // synopsys translate_off
                 $error("unkonw state in clint");
+                // synopsys translate_on
+            end
         endcase
     end
 

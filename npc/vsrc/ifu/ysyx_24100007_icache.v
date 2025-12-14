@@ -1,0 +1,84 @@
+module ysyx_24100007_icache #(
+    parameter INDEX_LEN = 3,
+    parameter OFFSET_LEN = 2
+)(  
+    input clk,
+    input rst,
+    input [31:0] addr,
+    input w_valid,
+    input [31:0] w_data,
+    output hit,
+    output [31:0] data_r
+);
+    localparam LINE_NUM = 2 ** INDEX_LEN;
+    localparam TAG_LEN = 32 - INDEX_LEN - OFFSET_LEN;
+
+    wire [OFFSET_LEN-1:0] offset = addr[OFFSET_LEN-1:0];
+    wire [INDEX_LEN-1:0] index = addr[OFFSET_LEN+INDEX_LEN-1:OFFSET_LEN];
+    wire [TAG_LEN-1:0] tag = addr[31:OFFSET_LEN+INDEX_LEN];
+
+
+    wire [LINE_NUM-1:0] line_hit;
+    wire [LINE_NUM-1:0][31:0] line_data_r;
+    wire [LINE_NUM-1:0] line_w_valid;
+    wire [LINE_NUM-1:0][31:0] line_data_w;
+
+    assign line_w_valid[index] = w_valid;
+    assign line_data_w[index] = w_data;
+ 
+    generate
+        genvar i;
+        for(i=0;i<LINE_NUM;i=i+1) begin
+            icahce_line #(
+                .TAG_LEN(TAG_LEN),
+                .INDEX_LEN(INDEX_LEN),
+                .OFFSET_LEN(OFFSET_LEN)
+            ) u_cacheline (
+                .clk(clk),
+                .rst(rst),
+                .tag(tag),
+                .offset(offset),
+                .w_valid(line_w_valid[i]),
+                .data_w(line_data_w[i]),
+                .hit(line_hit[i]),
+                .data_r(line_data_r[i])
+            );
+        end
+    endgenerate
+
+    assign hit = line_hit[index];
+    assign data_r = line_data_r[index];
+endmodule
+
+module icahce_line #( 
+    parameter TAG_LEN = 27,
+    parameter INDEX_LEN = 3,
+    parameter OFFSET_LEN = 2
+)(  
+    input clk,
+    input rst,
+    input [TAG_LEN-1:0] tag,
+    input [OFFSET_LEN-1:0] offset,
+    input w_valid,
+    input [31:0] data_w,
+    output hit,
+    output [31:0] data_r
+);
+    localparam DATABLOCK_SZIE = (2 ** OFFSET_LEN) * 8;
+    localparam LINE_SIZE = DATABLOCK_SZIE + TAG_LEN + 1;
+
+    reg [LINE_SIZE-1:0] cacheline;
+    assign hit = (tag == cacheline[LINE_SIZE-2:LINE_SIZE-TAG_LEN-1]) && cacheline[LINE_SIZE-1];
+    assign data_r = cacheline[DATABLOCK_SZIE-1:0];
+
+    always @(posedge clk) begin
+        if(rst) begin
+            cacheline <= {LINE_SIZE{1'b0}};
+        end else begin
+            if(w_valid) begin
+                cacheline <= {1'b1, tag, data_w};
+            end
+        end
+    end
+    
+endmodule

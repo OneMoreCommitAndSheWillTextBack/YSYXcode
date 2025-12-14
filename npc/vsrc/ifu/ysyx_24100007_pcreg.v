@@ -5,8 +5,12 @@ module ysyx_24100007_pcreg(
   input ready_from,
   output reg [31:0] pcout
 );
-  // localparam init = 32'h80000000 - 4;
+
+`ifdef __NPC__
+  localparam init = 32'h80000000;
+`else
   localparam init = 32'h30000000;
+`endif
 
   initial begin 
     pcout = init;
@@ -17,8 +21,10 @@ module ysyx_24100007_pcreg(
       pcout <= init;
     end else
     if (ready_from == 1) begin
+      // synopsys translate_off
       if (npc == pcout) 
         ret(0);
+      // synopsys translate_on
       pcout <= npc;
     end
   end

@@ -1,4 +1,9 @@
+#ifdef __NPC__
+#include "Vnpc.h"
+#else
 #include "VysyxSoCFull.h"
+#endif
+
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
@@ -18,9 +23,23 @@
 enum npcstate { STOP, RUNNING, END, ABORT, QUIT };
 
 typedef struct {
-  VysyxSoCFull *top;
+  #ifdef __NPC__
+    Vnpc *top;
+  #else
+    VysyxSoCFull *top;
+  #endif
   enum npcstate state;
+
+  // statistic data
   unsigned long long cycs;
+  unsigned long long timer;
+  unsigned int icount;
+  unsigned int iocount;
+  unsigned long long iotimer;
+  unsigned int ifucount;
+  unsigned long long ifutimer;
+  unsigned int exucount;
+  unsigned int icache_hit_time;
 } Npc;
 
 typedef struct {
@@ -64,6 +83,7 @@ void init_mem();
 // init.cpp
 void init(int argc, char *argv[]);
 bool batch_mode();
+bool need_dump_perform();
 #ifdef TRACE
 bool fork_interval_is_on();
 int fork_interval_val();
@@ -88,6 +108,7 @@ void npc_diff_quit();
 void demp_wave();
 void tfpclose();
 void echo_status();
+unsigned long long get_loadfinish_time();
 
 // sdb.cpp
 void sdb_main();
@@ -124,6 +145,9 @@ void set_ref_skip();
 void set_diff_pass();
 void difftest_check_mem(uint32_t addr, uint32_t expect, size_t size);
 #endif
+
+// perform.cpp
+void deal_statistic();
 
 /* 重置所有属性 */
 #define COLOR_RESET       "\033[0m"
