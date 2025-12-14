@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "macro.h"
 #include <device/mmio.h>
 #include <isa.h>
 #include <memory/host.h>
@@ -29,7 +30,7 @@ static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 #endif
 
 static void out_of_bound(paddr_t addr);
-#ifdef CONFIG_TARGET_SHARE
+#if defined(CONFIG_TARGET_SHARE) || defined(CONFIG_YSYXSOC_EMU)
   word_t soc_read(paddr_t addr, int len) {
     soc_device *dev = fetch_the_soc(addr);
     if(dev!= NULL){
@@ -92,7 +93,8 @@ word_t paddr_read(paddr_t addr, int len) {
   if (likely(in_pmem(addr)))
     return pmem_read(addr, len);
   IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));
-  IFDEF(CONFIG_TARGET_SHARE, return soc_read(addr, len);out_of_bound(addr);)
+  IFDEF(CONFIG_TARGET_SHARE, return soc_read(addr, len));
+  IFDEF(CONFIG_YSYXSOC_EMU, return soc_read(addr, len));
   out_of_bound(addr);
   return 0;
 }
@@ -104,5 +106,6 @@ void paddr_write(paddr_t addr, int len, word_t data) {
   }
   IFDEF(CONFIG_DEVICE, mmio_write(addr, len, data); return);
   IFDEF(CONFIG_TARGET_SHARE, soc_write(addr, len, data); return);
+  IFDEF(CONFIG_YSYXSOC_EMU, soc_write(addr, len, data); return);
   out_of_bound(addr);
 }

@@ -1,6 +1,7 @@
 #include "common.h"
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>      // 用于 fork(), close(), dup2()
@@ -21,6 +22,15 @@ Cpu *cpu = NULL;
 Trace *trace = NULL;
 pid_t fork_pid_val = 0;
 #endif
+#ifdef ITRACE
+itrace_cfg_t *itrace_cfg = NULL;
+#endif
+static bool start_load = false;
+static unsigned long long loadfinish_time = -1;
+
+unsigned long long get_loadfinish_time() {
+  return loadfinish_time;
+}
 
 void tfpclose();
 
@@ -81,7 +91,7 @@ void demp_wave() {
 
 static int same_inst_cyc = 0;
 static unsigned int pre_inst = 0;
-static bool finish_load = false;
+static bool itrace_valid = false;
 static void exe_once() {
   #ifdef __NVBOARD__
   nvboard_update();
@@ -98,6 +108,37 @@ static void exe_once() {
   if(cpu->valid == 1) 
     npc->icount++; // a valid inst
 
+  #ifndef __NPC__
+  if(!start_load && npc->top->externalPins_gpio_out == 0x3AB) {
+    start_load = true;
+  }
+
+  if(start_load && npc->top->externalPins_gpio_out == 0x0 && loadfinish_time == -1) {
+    loadfinish_time = npc->timer;
+    printf(COLOR_BLUE "npc finish load\n" COLOR_RESET);
+  }
+  #endif
+
+  if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
+    npc->state = ABORT;
+    printf(COLOR_BLUE "die on end hit the max cycle, abort\n" COLOR_RESET);
+  }
+
+#ifdef ITRACE
+  if(pre_inst == 0 && cpu->inst != 0) {
+    char *p = cpu->logbuf;
+    p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->con.pc);
+    int i;
+    p += snprintf(p, 10, " %08x", cpu->inst);
+    memset(p, ' ', 1);
+    p += 1;
+    void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
+    disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->con.pc,
+                (uint8_t *)(&cpu->inst), 4);
+    itrace_valid = true;
+  }
+#endif
+
   if (cpu->inst == pre_inst) {
     same_inst_cyc++;
   } else {
@@ -109,23 +150,6 @@ static void exe_once() {
     npc->state = ABORT;
     printf(COLOR_RED "same inst cyc hit the max same inst cycle, abort\n" COLOR_RESET);
   }
-
-  if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
-    npc->state = ABORT;
-    printf(COLOR_BLUE "die on end hit the max cycle, abort\n" COLOR_RESET);
-  }
-
-#ifdef ITRACE
-  char *p = cpu->logbuf;
-  p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->con.pc);
-  int i;
-  p += snprintf(p, 10, " %08x", cpu->inst);
-  memset(p, ' ', 1);
-  p += 1;
-  void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-  disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->con.pc,
-              (uint8_t *)(&cpu->inst), 4);
-#endif
 }
 
 static int start_diff = 0;
@@ -135,7 +159,10 @@ void trace_or_diff() {
 #endif
 
 #ifdef ITRACE
-  printf("%s\n", cpu->logbuf);
+if(itrace_valid) {
+  fprintf(itrace_cfg->itrace_out, "%s\n", cpu->logbuf);
+  itrace_valid = false;
+}
 #endif
 #ifdef DIFFTEST
   if (start_diff < 1 && cpu->valid == 1)

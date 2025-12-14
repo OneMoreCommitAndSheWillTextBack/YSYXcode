@@ -39,6 +39,7 @@ typedef struct {
   unsigned int ifucount;
   unsigned long long ifutimer;
   unsigned int exucount;
+  unsigned int icache_hit_time;
 } Npc;
 
 typedef struct {
@@ -60,6 +61,12 @@ typedef struct {
   char logbuf[128];
   int valid;
 } Cpu;
+
+#ifdef ITRACE
+typedef struct {
+  FILE* itrace_out;
+} itrace_cfg_t;
+#endif
 
 #ifdef TRACE
 typedef struct {
@@ -107,6 +114,7 @@ void npc_diff_quit();
 void demp_wave();
 void tfpclose();
 void echo_status();
+unsigned long long get_loadfinish_time();
 
 // sdb.cpp
 void sdb_main();

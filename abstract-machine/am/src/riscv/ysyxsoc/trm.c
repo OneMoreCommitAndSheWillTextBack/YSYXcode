@@ -68,10 +68,15 @@ void display_ysyx(){
   putch('\n');
 }
 
+// i want to detect the state
+#define LOAD_MAGIC_NUMBER 0b1110101011
+
 __attribute__((section(".stage1")))
 void _trm_init() {
+  *(volatile uint16_t *)0x10002000 = LOAD_MAGIC_NUMBER;
   loader_init();
   serial_init();
+  *(volatile uint16_t *)0x10002000 = 0;
   // display_ysyx();
   int ret = main(mainargs);
   halt(ret);

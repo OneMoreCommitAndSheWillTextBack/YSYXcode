@@ -58,6 +58,10 @@ long init_build(char *filepath) {
 
 extern Npc *npc;
 extern Cpu *cpu;
+#ifdef ITRACE
+extern itrace_cfg_t *itrace_cfg;
+#endif
+
 #ifdef TRACE
 bool fork_interval_on = false;
 unsigned int fork_interval = 0;
@@ -80,6 +84,8 @@ char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
                   "riscv32-nemu-interpreter-so";
 int port = 0;
 bool batch_mode_on = false;
+
+char itrace_out_file[] = "/home/ysyx/project/ysyx-workbench/cachesim/itrace-log.txt";
 
 #ifdef __NVBOARD__
 extern void nvboard_bind_all_pins(VysyxSoCFull* top);
@@ -168,6 +174,21 @@ void init(int argc, char *argv[]) {
   }
 #ifdef ITRACE
   init_disasm("riscv32-pc-linux-gnu");
+  itrace_cfg = new (std::nothrow) itrace_cfg_t;
+  if (itrace_cfg == nullptr) {
+    printf(COLOR_RED "[ERROR] Failed to allocate memory for itrace_cfg\n" COLOR_RESET);
+    exit(1);
+  }
+  
+  itrace_cfg->itrace_out = fopen(itrace_out_file, "w");
+  if (itrace_cfg->itrace_out == nullptr) {
+    printf(COLOR_RED "[ERROR] Failed to open itrace output file: %s\n" COLOR_RESET, itrace_out_file);
+    printf(COLOR_YELLOW "[WARNING] Itrace will be disabled due to file open failure\n" COLOR_RESET);
+    delete itrace_cfg;
+    itrace_cfg = nullptr;
+  } else {
+    printf(COLOR_GREEN "[INFO] Itrace output file opened: %s\n" COLOR_RESET, itrace_out_file);
+  }
 #endif
   init_regex();
   init_wp_pool();

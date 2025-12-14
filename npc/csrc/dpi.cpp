@@ -96,13 +96,55 @@ extern "C" void host_get_inst(int inst) {
 extern "C" void host_get_valid(int valid) { cpu->valid = valid; }
 
 extern "C" void host_get_io_op(uint32_t addr) { 
-  if(addr >= 0x10000000 && addr < 0x10000fff)
+  // 外设地址范围定义（MMIO 设备，difftest 时需要跳过检查）
+  // 按地址顺序排列，便于维护和扩展
+  
+  // CLINT: 0x0200_0000 ~ 0x0200_ffff
+  if (addr >= 0x02000000 && addr <= 0x0200ffff) {
     set_diff_pass();
-  if(addr >= 0x10001000 && addr < 0x10001fff){
-    set_diff_pass();
+    return;
   }
-  if(addr >= 0x10002000 && addr < 0x1000200f){
+  
+  // UART16550: 0x1000_0000 ~ 0x1000_0fff
+  if (addr >= 0x10000000 && addr <= 0x10000fff) {
     set_diff_pass();
+    return;
+  }
+  
+  // SPI master: 0x1000_1000 ~ 0x1000_1fff
+  if (addr >= 0x10001000 && addr <= 0x10001fff) {
+    set_diff_pass();
+    return;
+  }
+  
+  // GPIO: 0x1000_2000 ~ 0x1000_200f
+  if (addr >= 0x10002000 && addr <= 0x1000200f) {
+    set_diff_pass();
+    return;
+  }
+  
+  // PS2: 0x1001_1000 ~ 0x1001_1007
+  if (addr >= 0x10011000 && addr <= 0x10011007) {
+    set_diff_pass();
+    return;
+  }
+  
+  // VGA: 0x2100_0000 ~ 0x211f_ffff
+  if (addr >= 0x21000000 && addr <= 0x211fffff) {
+    set_diff_pass();
+    return;
+  }
+  
+  // ChipLink MMIO: 0x4000_0000 ~ 0x7fff_ffff
+  if (addr >= 0x40000000 && addr <= 0x7fffffff) {
+    set_diff_pass();
+    return;
+  }
+  
+  // ChipLink MEM: 0xc000_0000 ~ 0xffff_ffff
+  if (addr >= 0xc0000000 && addr <= 0xffffffff) {
+    set_diff_pass();
+    return;
   }
 }
 
@@ -129,4 +171,8 @@ extern "C" void host_get_ifu_finish() {
 
 extern "C" void host_get_exu_valid() {
   npc->exucount ++;
+}
+
+extern "C" void host_get_icache_hit() {
+  npc->icache_hit_time++;
 }

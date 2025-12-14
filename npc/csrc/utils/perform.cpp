@@ -31,20 +31,24 @@ void dump_performance() {
      double ipc     = (npc->cycs == 0) ? 0.0 : (double)npc->icount / (double)npc->cycs;
      double ifu_occ = (npc->cycs == 0) ? 0.0 : (double)npc->ifutimer / (double)(npc->cycs * 2);
      double lsu_occ = (npc->cycs == 0) ? 0.0 : (double)npc->iotimer / (double)(npc->cycs * 2);
-
-     ofs << "date="          << now_date()            << '\n'
-         << "time="          << now_time()            << '\n'
-         << "end_pc=0x"      << std::hex << cpu->con.pc << std::dec << '\n'
-         << "total_cycle="   << npc->cycs            << '\n'
-         << "total_inst="    << npc->icount          << '\n'
-         << "ipc="           << ipc                  << '\n'
-         << "ifu_count="     << npc->ifucount        << '\n'
-         << "ifu_time="      << npc->ifutimer        << '\n'
-         << "ifu_occupied="  << ifu_occ              << '\n'
-         << "lsu_count="     << npc->iocount         << '\n'
-         << "lsu_time="      << npc->iotimer         << '\n'
-         << "lsu_occupied="  << lsu_occ              << '\n'
-         << "exu_count="     << npc->exucount        << '\n';
+     double icache_hit_rate = npc->icache_hit_time / (double)npc->icount;
+     double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*npc->icache_hit_time) / ((double)npc->ifucount - npc->icache_hit_time);
+     ofs << "date="             << now_date()            << '\n'
+         << "time="             << now_time()            << '\n'
+         << "end_pc=0x"         << std::hex << cpu->con.pc << std::dec << '\n'
+         << "total_cycle="      << npc->cycs            << '\n'
+         << "total_inst="       << npc->icount          << '\n'
+         << "ipc="              << ipc                  << '\n'
+         << "ifu_count="        << npc->ifucount        << '\n'
+         << "ifu_time="         << npc->ifutimer        << '\n'
+         << "ifu_occupied="     << ifu_occ              << '\n'
+         << "icache_hit_times=" << npc->icache_hit_time << '\n'
+         << "icache_hit_rate="  << icache_hit_rate      << '\n'
+         << "icache_amat="      << amat                 << '\n'
+         << "lsu_count="        << npc->iocount         << '\n'
+         << "lsu_time="         << npc->iotimer         << '\n'
+         << "lsu_occupied="     << lsu_occ              << '\n'
+         << "exu_count="        << npc->exucount        << '\n';
 }
 
 void deal_statistic() {
@@ -54,8 +58,15 @@ void deal_statistic() {
     printf("  total inst num: %u\n", npc->icount);
     printf("  ipc: %f\n", ((double)npc->icount / (double)npc->cycs));
     printf("  ifu count %u, time %llu, occupied %f\n", npc->ifucount, npc->ifutimer, (double)npc->ifutimer / (npc->cycs * 2));
+    double icache_hit_rate = npc->icache_hit_time / (double)npc->icount;
+    double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*npc->icache_hit_time) / ((double)npc->ifucount - npc->icache_hit_time);
+
+    printf("  icache hit time: %u\n", npc->icache_hit_time);
+    printf("  icache hit rate: %f\n", icache_hit_rate);
+    printf("  the amat is %f\n", amat);
     printf("  lsu count %u, time %llu, occupied %f\n", npc->iocount, npc->iotimer, (double) npc->iotimer / (npc->cycs * 2));
-    printf("  exu count: %u\n" COLOR_RESET, npc->exucount);
+    printf("  exu count: %u\n", npc->exucount);
+    printf("  load time occupied %f\n" COLOR_RESET, get_loadfinish_time() / (double)npc->timer);
 
     if(need_dump_perform()) {
         dump_performance();

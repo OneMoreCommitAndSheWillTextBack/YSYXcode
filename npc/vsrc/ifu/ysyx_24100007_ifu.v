@@ -1,8 +1,3 @@
-// synopsys translate_off
-import "DPI-C" function void host_get_valid(int valid);
-import "DPI-C" function void host_get_ifu_start();
-import "DPI-C" function void host_get_ifu_finish();
-// synopsys translate_on
 module ysyx_24100007_ifu(
   input clk,
   input rst,
@@ -62,8 +57,16 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // divide it so it couldnot disrupt the synthetic
   // synopsys translate_off
+  import "DPI-C" function void host_get_valid(int valid);
+  import "DPI-C" function void host_get_ifu_start();
+  import "DPI-C" function void host_get_ifu_finish();
+  import "DPI-C" function void host_get_icache_hit();
   always @(posedge clk) begin
-    host_get_valid({31'b0, infetch_req});
+    if(ready) begin
+      host_get_valid(32'd1);
+    end else begin
+      host_get_valid(32'd0);
+    end
   end
 
   always @(posedge clk) begin
@@ -84,6 +87,7 @@ module ysyx_24100007_ifu(
         CHECK_CACHE: begin
           if(hit) begin
             host_get_ifu_finish();
+            host_get_icache_hit();
           end
         end
 
