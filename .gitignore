@@ -9,6 +9,7 @@
 !Makefile
 !README.md
 !.gitignore
+!/cachesim/*
 !init.sh
 /fceux-am
 /nvboard
