@@ -60,23 +60,28 @@ module icahce_line #(
     input [TAG_LEN-1:0] tag,
     input [OFFSET_LEN-1:0] offset,
     input w_valid,
-    input [31:0] data_w,
+    input [DATABLOCK_SIZE-1:0] data_w,
     output hit,
     output [31:0] data_r
 );
-    localparam DATABLOCK_SZIE = (2 ** OFFSET_LEN) * 8;
-    localparam LINE_SIZE = DATABLOCK_SZIE + TAG_LEN + 1;
+    localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
 
-    reg [LINE_SIZE-1:0] cacheline;
-    assign hit = (tag == cacheline[LINE_SIZE-2:LINE_SIZE-TAG_LEN-1]) && cacheline[LINE_SIZE-1];
-    assign data_r = cacheline[DATABLOCK_SZIE-1:0];
+    reg [DATABLOCK_SIZE-1:0] data_block;
+    reg valid_r;
+    reg [TAG_LEN-1:0] tag_r;
+
+    assign data_r = data_block;
 
     always @(posedge clk) begin
         if(rst) begin
-            cacheline <= {LINE_SIZE{1'b0}};
+            valid_r <= 1'b0;
+            tag_r <= {TAG_LEN{1'b0}};
+            data_block <= {DATABLOCK_SIZE{1'b0}};
         end else begin
             if(w_valid) begin
-                cacheline <= {1'b1, tag, data_w};
+                valid_r <= 1'b1;
+                tag_r <= tag;
+                data_block <= data_w;
             end
         end
     end

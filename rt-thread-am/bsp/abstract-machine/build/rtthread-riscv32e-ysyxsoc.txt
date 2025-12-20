@@ -12,56 +12,61 @@ Disassembly of section .boot:
 
 30000010 <_trm_init>:
 30000010:	ff410113          	addi	sp,sp,-12
-30000014:	00112423          	sw	ra,8(sp)
-30000018:	074000ef          	jal	ra,3000008c <loader_init>
-3000001c:	100007b7          	lui	a5,0x10000
-30000020:	f8300713          	li	a4,-125
-30000024:	00e781a3          	sb	a4,3(a5) # 10000003 <_stack_pointer+0xffe003>
-30000028:	000780a3          	sb	zero,1(a5)
-3000002c:	00100713          	li	a4,1
-30000030:	00e78023          	sb	a4,0(a5)
-30000034:	00300713          	li	a4,3
-30000038:	00e781a3          	sb	a4,3(a5)
-3000003c:	70020517          	auipc	a0,0x70020
-30000040:	03450513          	addi	a0,a0,52 # a0020070 <mainargs>
-30000044:	70000097          	auipc	ra,0x70000
-30000048:	57c080e7          	jalr	1404(ra) # a00005c0 <main>
-3000004c:	0000006f          	j	3000004c <_trm_init+0x3c>
+30000014:	00812223          	sw	s0,4(sp)
+30000018:	3ab00793          	li	a5,939
+3000001c:	00112423          	sw	ra,8(sp)
+30000020:	10002437          	lui	s0,0x10002
+30000024:	00f41023          	sh	a5,0(s0) # 10002000 <_stack_pointer+0x1000000>
+30000028:	078000ef          	jal	ra,300000a0 <loader_init>
+3000002c:	100007b7          	lui	a5,0x10000
+30000030:	f8300713          	li	a4,-125
+30000034:	00e781a3          	sb	a4,3(a5) # 10000003 <_stack_pointer+0xffe003>
+30000038:	000780a3          	sb	zero,1(a5)
+3000003c:	00100713          	li	a4,1
+30000040:	00e78023          	sb	a4,0(a5)
+30000044:	00300713          	li	a4,3
+30000048:	00e781a3          	sb	a4,3(a5)
+3000004c:	00041023          	sh	zero,0(s0)
+30000050:	70020517          	auipc	a0,0x70020
+30000054:	02050513          	addi	a0,a0,32 # a0020070 <mainargs>
+30000058:	70000097          	auipc	ra,0x70000
+3000005c:	568080e7          	jalr	1384(ra) # a00005c0 <main>
+30000060:	0000006f          	j	30000060 <_trm_init+0x50>
 
-30000050 <loader_fsbl>:
-30000050:	70000717          	auipc	a4,0x70000
-30000054:	fb070713          	addi	a4,a4,-80 # a0000000 <extra_lode>
-30000058:	70000797          	auipc	a5,0x70000
-3000005c:	18078793          	addi	a5,a5,384 # a00001d8 <pacage_function>
-30000060:	40e78633          	sub	a2,a5,a4
-30000064:	02e78263          	beq	a5,a4,30000088 <loader_fsbl+0x38>
-30000068:	00000797          	auipc	a5,0x0
-3000006c:	06478793          	addi	a5,a5,100 # 300000cc <_sstage2_lma>
-30000070:	00f60633          	add	a2,a2,a5
-30000074:	0007c683          	lbu	a3,0(a5)
-30000078:	00178793          	addi	a5,a5,1
-3000007c:	00170713          	addi	a4,a4,1
-30000080:	fed70fa3          	sb	a3,-1(a4)
-30000084:	fec798e3          	bne	a5,a2,30000074 <loader_fsbl+0x24>
-30000088:	00008067          	ret
+30000064 <loader_fsbl>:
+30000064:	70000717          	auipc	a4,0x70000
+30000068:	f9c70713          	addi	a4,a4,-100 # a0000000 <extra_lode>
+3000006c:	70000797          	auipc	a5,0x70000
+30000070:	16c78793          	addi	a5,a5,364 # a00001d8 <pacage_function>
+30000074:	40e78633          	sub	a2,a5,a4
+30000078:	02e78263          	beq	a5,a4,3000009c <loader_fsbl+0x38>
+3000007c:	00000797          	auipc	a5,0x0
+30000080:	06478793          	addi	a5,a5,100 # 300000e0 <_sstage2_lma>
+30000084:	00f60633          	add	a2,a2,a5
+30000088:	0007c683          	lbu	a3,0(a5)
+3000008c:	00178793          	addi	a5,a5,1
+30000090:	00170713          	addi	a4,a4,1
+30000094:	fed70fa3          	sb	a3,-1(a4)
+30000098:	fec798e3          	bne	a5,a2,30000088 <loader_fsbl+0x24>
+3000009c:	00008067          	ret
 
-3000008c <loader_init>:
-3000008c:	70000717          	auipc	a4,0x70000
-30000090:	f7470713          	addi	a4,a4,-140 # a0000000 <extra_lode>
-30000094:	70000797          	auipc	a5,0x70000
-30000098:	14478793          	addi	a5,a5,324 # a00001d8 <pacage_function>
-3000009c:	40e78633          	sub	a2,a5,a4
-300000a0:	02e78263          	beq	a5,a4,300000c4 <loader_init+0x38>
-300000a4:	00000797          	auipc	a5,0x0
-300000a8:	02878793          	addi	a5,a5,40 # 300000cc <_sstage2_lma>
-300000ac:	00f60633          	add	a2,a2,a5
-300000b0:	0007c683          	lbu	a3,0(a5)
-300000b4:	00178793          	addi	a5,a5,1
-300000b8:	00170713          	addi	a4,a4,1
-300000bc:	fed70fa3          	sb	a3,-1(a4)
-300000c0:	fec798e3          	bne	a5,a2,300000b0 <loader_init+0x24>
-300000c4:	70000317          	auipc	t1,0x70000
-300000c8:	fb830067          	jr	-72(t1) # a000007c <loader_ssbl>
+300000a0 <loader_init>:
+300000a0:	70000717          	auipc	a4,0x70000
+300000a4:	f6070713          	addi	a4,a4,-160 # a0000000 <extra_lode>
+300000a8:	70000797          	auipc	a5,0x70000
+300000ac:	13078793          	addi	a5,a5,304 # a00001d8 <pacage_function>
+300000b0:	40e78633          	sub	a2,a5,a4
+300000b4:	02e78263          	beq	a5,a4,300000d8 <loader_init+0x38>
+300000b8:	00000797          	auipc	a5,0x0
+300000bc:	02878793          	addi	a5,a5,40 # 300000e0 <_sstage2_lma>
+300000c0:	00f60633          	add	a2,a2,a5
+300000c4:	0007c683          	lbu	a3,0(a5)
+300000c8:	00178793          	addi	a5,a5,1
+300000cc:	00170713          	addi	a4,a4,1
+300000d0:	fed70fa3          	sb	a3,-1(a4)
+300000d4:	fec798e3          	bne	a5,a2,300000c4 <loader_init+0x24>
+300000d8:	70000317          	auipc	t1,0x70000
+300000dc:	fa430067          	jr	-92(t1) # a000007c <loader_ssbl>
 
 Disassembly of section .stage2:
 
@@ -76,7 +81,7 @@ a0000018:	02e7f663          	bgeu	a5,a4,a0000044 <extra_lode+0x44>
 a000001c:	40f70633          	sub	a2,a4,a5
 a0000020:	02f70263          	beq	a4,a5,a0000044 <extra_lode+0x44>
 a0000024:	9001b717          	auipc	a4,0x9001b
-a0000028:	57070713          	addi	a4,a4,1392 # 3001b594 <_data_extra_lma>
+a0000028:	58470713          	addi	a4,a4,1412 # 3001b5a8 <_data_extra_lma>
 a000002c:	00c70633          	add	a2,a4,a2
 a0000030:	00074683          	lbu	a3,0(a4)
 a0000034:	00170713          	addi	a4,a4,1
@@ -107,7 +112,7 @@ a000008c:	40e686b3          	sub	a3,a3,a4
 a0000090:	0026d693          	srli	a3,a3,0x2
 a0000094:	02068463          	beqz	a3,a00000bc <loader_ssbl+0x40>
 a0000098:	9001b797          	auipc	a5,0x9001b
-a000009c:	13478793          	addi	a5,a5,308 # 3001b1cc <_sdata_lma>
+a000009c:	14878793          	addi	a5,a5,328 # 3001b1e0 <_sdata_lma>
 a00000a0:	00269693          	slli	a3,a3,0x2
 a00000a4:	00f686b3          	add	a3,a3,a5
 a00000a8:	0007a603          	lw	a2,0(a5)
@@ -118,12 +123,12 @@ a00000b8:	fed798e3          	bne	a5,a3,a00000a8 <loader_ssbl+0x2c>
 a00000bc:	0001b717          	auipc	a4,0x1b
 a00000c0:	58470713          	addi	a4,a4,1412 # a001b640 <__am_apps_data_end>
 a00000c4:	00020697          	auipc	a3,0x20
-a00000c8:	fb068693          	addi	a3,a3,-80 # a0020074 <_erodata_vma>
+a00000c8:	fad68693          	addi	a3,a3,-83 # a0020071 <_erodata_vma>
 a00000cc:	40e686b3          	sub	a3,a3,a4
 a00000d0:	0026d693          	srli	a3,a3,0x2
 a00000d4:	02068463          	beqz	a3,a00000fc <loader_ssbl+0x80>
 a00000d8:	9001b797          	auipc	a5,0x9001b
-a00000dc:	63478793          	addi	a5,a5,1588 # 3001b70c <_srodata_lma>
+a00000dc:	64878793          	addi	a5,a5,1608 # 3001b720 <_srodata_lma>
 a00000e0:	00269693          	slli	a3,a3,0x2
 a00000e4:	00f686b3          	add	a3,a3,a5
 a00000e8:	0007a603          	lw	a2,0(a5)
@@ -148,7 +153,7 @@ a0000130:	fd478793          	addi	a5,a5,-44 # a001b100 <working_directory>
 a0000134:	40e78633          	sub	a2,a5,a4
 a0000138:	02e78263          	beq	a5,a4,a000015c <loader_ssbl+0xe0>
 a000013c:	90000797          	auipc	a5,0x90000
-a0000140:	16878793          	addi	a5,a5,360 # 300002a4 <_stext_lma>
+a0000140:	17c78793          	addi	a5,a5,380 # 300002b8 <_stext_lma>
 a0000144:	00c78633          	add	a2,a5,a2
 a0000148:	0007c683          	lbu	a3,0(a5)
 a000014c:	00178793          	addi	a5,a5,1
@@ -165,7 +170,7 @@ a0000174:	02e7f663          	bgeu	a5,a4,a00001a0 <loader_ssbl+0x124>
 a0000178:	40f70633          	sub	a2,a4,a5
 a000017c:	02f70263          	beq	a4,a5,a00001a0 <loader_ssbl+0x124>
 a0000180:	9001b717          	auipc	a4,0x9001b
-a0000184:	41470713          	addi	a4,a4,1044 # 3001b594 <_data_extra_lma>
+a0000184:	42870713          	addi	a4,a4,1064 # 3001b5a8 <_data_extra_lma>
 a0000188:	00e60633          	add	a2,a2,a4
 a000018c:	00074683          	lbu	a3,0(a4)
 a0000190:	00170713          	addi	a4,a4,1
@@ -3807,7 +3812,7 @@ a0003814:	00c6e6b3          	or	a3,a3,a2
 a0003818:	01871713          	slli	a4,a4,0x18
 a000381c:	00d76733          	or	a4,a4,a3
 a0003820:	416156b7          	lui	a3,0x41615
-a0003824:	25268693          	addi	a3,a3,594 # 41615252 <_bss_extra_lma+0x115f5112>
+a0003824:	25268693          	addi	a3,a3,594 # 41615252 <_bss_extra_lma+0x115f5101>
 a0003828:	f8d71ce3          	bne	a4,a3,a00037c0 <mount_volume+0x540>
 a000382c:	21d4c603          	lbu	a2,541(s1)
 a0003830:	21c4c583          	lbu	a1,540(s1)
@@ -3820,7 +3825,7 @@ a0003848:	00c6e6b3          	or	a3,a3,a2
 a000384c:	01871713          	slli	a4,a4,0x18
 a0003850:	00d76733          	or	a4,a4,a3
 a0003854:	614176b7          	lui	a3,0x61417
-a0003858:	27268693          	addi	a3,a3,626 # 61417272 <_bss_extra_lma+0x313f7132>
+a0003858:	27268693          	addi	a3,a3,626 # 61417272 <_bss_extra_lma+0x313f7121>
 a000385c:	f6d712e3          	bne	a4,a3,a00037c0 <mount_volume+0x540>
 a0003860:	2214c303          	lbu	t1,545(s1)
 a0003864:	2254c503          	lbu	a0,549(s1)
@@ -9308,7 +9313,7 @@ a0008cf8:	02070e63          	beqz	a4,a0008d34 <dfs_romfs_ioctl+0x5c>
 a0008cfc:	525407b7          	lui	a5,0x52540
 a0008d00:	00000513          	li	a0,0
 a0008d04:	00f40e63          	beq	s0,a5,a0008d20 <dfs_romfs_ioctl+0x48>
-a0008d08:	00178793          	addi	a5,a5,1 # 52540001 <_bss_extra_lma+0x2251fec1>
+a0008d08:	00178793          	addi	a5,a5,1 # 52540001 <_bss_extra_lma+0x2251feb0>
 a0008d0c:	ff600513          	li	a0,-10
 a0008d10:	00f41863          	bne	s0,a5,a0008d20 <dfs_romfs_ioctl+0x48>
 a0008d14:	00872783          	lw	a5,8(a4)
@@ -24539,7 +24544,7 @@ a001743c:	04f4a223          	sw	a5,68(s1)
 a0017440:	02e4a423          	sw	a4,40(s1)
 a0017444:	02e4ac23          	sw	a4,56(s1)
 a0017448:	ff040793          	addi	a5,s0,-16
-a001744c:	e4960613          	addi	a2,a2,-439 # 54494e49 <_bss_extra_lma+0x24474d09>
+a001744c:	e4960613          	addi	a2,a2,-439 # 54494e49 <_bss_extra_lma+0x24474cf8>
 a0017450:	00c72623          	sw	a2,12(a4)
 a0017454:	00972023          	sw	s1,0(a4)
 a0017458:	00f72223          	sw	a5,4(a4)
@@ -24718,7 +24723,7 @@ a0017700:	9c450513          	addi	a0,a0,-1596 # a001f0c0 <small_digits.3+0x258>
 a0017704:	825ff0ef          	jal	ra,a0016f28 <rt_assert_handler>
 a0017708:	ec1ff06f          	j	a00175c8 <rt_smem_alloc+0x108>
 a001770c:	454e57b7          	lui	a5,0x454e5
-a0017710:	f4e78793          	addi	a5,a5,-178 # 454e4f4e <_bss_extra_lma+0x154c4e0e>
+a0017710:	f4e78793          	addi	a5,a5,-178 # 454e4f4e <_bss_extra_lma+0x154c4dfd>
 a0017714:	00f4a623          	sw	a5,12(s1)
 a0017718:	e99ff06f          	j	a00175b0 <rt_smem_alloc+0xf0>
 a001771c:	0004a703          	lw	a4,0(s1)

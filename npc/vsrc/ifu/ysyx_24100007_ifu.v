@@ -14,7 +14,16 @@ module ysyx_24100007_ifu(
   output [31:0] araddr,    // Read address
   input rvalid,            // Read data valid
   output rready,           // Read data ready
-  input [31:0] rdata       // Read data
+  input [31:0] rdata,      // Read data
+
+  output [7:0]        arlen,
+  output [2:0]        arsize,
+  output [1:0]        arburst,
+  input  [1:0]        rresp,
+  input               rlast,
+
+  output trans_start,
+  output trans_end
 );
 
   wire [31:0] pcbridge;
@@ -34,8 +43,11 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   localparam INDEX_LEN = 3;
   localparam OFFSET_LEN = 2;
+  localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
+  localparam ARLEN = (2 ** OFFSET_LEN) / 4 - 1;
   wire w_valid, cache_hit;
   wire [31:0] cache_rdata;
+  wire [DATABLOCK_SIZE-1: 0] data_block_r;
   ysyx_24100007_icache #(
     .INDEX_LEN(INDEX_LEN),
     .OFFSET_LEN(OFFSET_LEN)
@@ -45,7 +57,7 @@ module ysyx_24100007_ifu(
 
     .addr(pcbridge),
     .w_valid(w_valid),
-    .w_data(inst_reg),
+    .w_data(data_block_r),
     .hit(cache_hit),
     .data_r(cache_rdata)
   );
@@ -107,7 +119,7 @@ module ysyx_24100007_ifu(
   typedef enum logic [2:0] {
     INIT, // the inst is not valid
     VALID, CHECK_CACHE, BUS_HANDSHAKE,
-    BUS_TRANSACTION, UPDATE_CACHE 
+    BUS_TRANSACTION, UPDATE_CACHE
   } ifu_state_t;
 
   ifu_state_t ifu_state;
@@ -167,7 +179,10 @@ module ysyx_24100007_ifu(
   wire axi_arready, axi_arvalid;
   wire [31:0] axi_rdata;
   wire axi_rdata_valid, axi_rdata_ready;
-  ifu_axicontroller ifu_axicontroller_u(
+  ifu_axicontroller #(
+    .ARLEN(ARLEN),
+    .BUFFER_SIZE(DATABLOCK_SIZE)
+  ) ifu_axicontroller_u (
     .clk(clk),
     .rst(rst),
     .addr(pcbridge),
@@ -178,12 +193,21 @@ module ysyx_24100007_ifu(
     .axi_rdata_valid(axi_rdata_valid),
     .axi_rdata_ready(axi_rdata_ready),
 
+    .trans_start(trans_start),
+    .trans_end(trans_end),
+
     .arvalid(arvalid),
     .arready(arready),
     .araddr(araddr),
     .rvalid(rvalid),
     .rready(rready),
-    .rdata(rdata)
+    .rdata(rdata),
+
+    .arlen(arlen),
+    .arsize(arsize),
+    .arburst(arburst),
+    .rresp(rresp),
+    .rlast(rlast)
   );
   assign axi_rdata_ready = (ifu_state == BUS_TRANSACTION);
   assign axi_arvalid = (ifu_state == BUS_HANDSHAKE);
@@ -214,7 +238,10 @@ module ysyx_24100007_ifu(
   assign valid = (ifu_state == VALID);
 endmodule
 
-module ifu_axicontroller(
+module ifu_axicontroller#(
+  parameter ARLEN,
+  parameter BUFFER_SIZE
+)(
   input clk,
   input rst,
 
@@ -222,9 +249,12 @@ module ifu_axicontroller(
   input axi_arvalid,
   output axi_arready,
   
-  output [31:0] axi_rdata,
+  output [BUFFER_SIZE-1:0] axi_rdata,
   output axi_rdata_valid,
   input axi_rdata_ready,
+
+  output trans_start,
+  output trans_end,
   
   // AXI-Lite interface for external SRAM
   output arvalid,          // Read address valid
@@ -232,8 +262,15 @@ module ifu_axicontroller(
   output [31:0] araddr,    // Read address
   input rvalid,            // Read data valid
   output rready,           // Read data ready
-  input [31:0] rdata       // Read data
+  input [31:0] rdata,      // Read data
+
+  output [7:0]        arlen,
+  output [2:0]        arsize,
+  output [1:0]        arburst,
+  input  [1:0]        rresp,
+  input               rlast
 );
+  localparam BEAT_NUM = ARLEN + 1;
   typedef enum logic[1:0]{
     READY,
     WAIT_HANDSHAKE,
@@ -243,7 +280,8 @@ module ifu_axicontroller(
 
   axi_state_t axi_state;
 
-  reg [31:0] axi_rdata_get;
+  // reg [BUFFER_SIZE-1:0] data_buffer;
+  reg [3:0][31:0] data_buffer;
   always @(posedge clk) begin
     if(rst) begin
       axi_state <= READY;
@@ -252,7 +290,6 @@ module ifu_axicontroller(
         READY: begin
           if (axi_arvalid) begin
             axi_state <= WAIT_HANDSHAKE;
-            axi_rdata_get <= 0;
           end
         end
 
@@ -263,15 +300,13 @@ module ifu_axicontroller(
         end
 
         WAIT_SLAVE: begin
-          if (rvalid) begin
+          if (rlast) begin
             axi_state <= PROCESSION;
-            axi_rdata_get <= rdata;
           end
         end
 
         PROCESSION: begin
           if(axi_rdata_ready) begin
-            axi_rdata_get <= 32'b0;
             axi_state <= READY;
           end
         end
@@ -285,13 +320,90 @@ module ifu_axicontroller(
     end
   end
 
+  localparam [1:0]
+    FIXED = 2'b00,
+    INCR  = 2'b01,
+    WRAP  = 2'b10,
+    RESERVED = 2'b11;
 
-  assign axi_rdata = axi_rdata_get;
+  // 地址和计数跟踪
+  reg [31:0] current_addr;
+  reg [7:0] beat_count;
+  reg [1:0] burst_type;
+
+  wire [31:0] wrap_size = ((ARLEN + 1) << 2);
+  wire [31:0] wrap_boundary = current_addr & ~(wrap_size - 1);
+  wire [31:0] wrap_end = wrap_boundary + wrap_size;
+  wire [31:0] buffer_index_wrap = (current_addr - wrap_boundary) >> 2;
+
+  always @(posedge clk) begin
+    if(rst) begin
+      current_addr <= 32'b0;
+      beat_count <= 8'b0;
+      burst_type <= WRAP;
+    end else begin
+      if(rvalid & rready) begin
+        beat_count <= beat_count + 1;
+        
+        if(burst_type == WRAP) begin
+            if ((current_addr + 4) >= wrap_end) begin
+              current_addr <= wrap_boundary;
+            end else begin
+              current_addr <= current_addr + 4;
+            end 
+        end else if(burst_type == FIXED) begin
+            current_addr <= current_addr;
+        end
+      end
+    end
+  end
+
+  always @(posedge clk) begin
+    if(axi_state == WAIT_SLAVE) begin
+      case(burst_type)
+          INCR: begin
+            case(beat_count)
+              0: data_buffer[0] <= rdata;
+              1: data_buffer[1] <= rdata;
+              2: data_buffer[2] <= rdata;
+              3: data_buffer[3] <= rdata;
+              default: begin
+              end
+            endcase
+          end
+          WRAP: begin
+            case(buffer_index_wrap)
+              0: data_buffer[0] <= rdata;
+              1: data_buffer[1] <= rdata;
+              2: data_buffer[2] <= rdata;
+              3: data_buffer[3] <= rdata;
+              default: begin
+                data_buffer[buffer_index_wrap] <= rdata;
+              end
+            endcase
+          end
+          default: begin
+          end
+      endcase
+    end else if(axi_state == PROCESSION) begin
+      if(axi_rdata_ready) begin
+        data_buffer <= {(128){1'b0}};
+      end
+    end
+  end
+
+  assign trans_start = (axi_state == WAIT_HANDSHAKE);
+  assign trans_end = (axi_state == WAIT_SLAVE) && rlast;
+
+  assign axi_rdata = data_buffer[0];
+
   assign axi_rdata_valid = (axi_state == PROCESSION);
   assign axi_arready = (axi_state == READY);
 
-  assign araddr = addr;
+  assign araddr = (burst_type == INCR) ? wrap_boundary : addr;
   assign arvalid = (axi_state == WAIT_HANDSHAKE);
   assign rready = (axi_state == WAIT_SLAVE);
 
+  assign arlen = ARLEN[7:0];
+  assign arsize = 3'b010;
 endmodule

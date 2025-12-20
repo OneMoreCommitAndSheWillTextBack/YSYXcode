@@ -1,120 +1,258 @@
-module ysyx_24100007_arbiter #(parameter DEVICE_NUM=2) (
+// ---------------------------------------------
+// version created at 2025/12/20 sunmingyang 
+// comment:
+//     now, I'm not satisfied by this version of
+//  design. I prepare to design a pipline control
+//  of the selector, but I think that I would waste
+//  one cycle, after finish this version of arbiter
+//  I want to add a protocol abstract layer of
+//  mem access
+// ---------------------------------------------
+module ysyx_24100007_arbiter #(
+  parameter MASTER_NUM=2,           // master设备数量（IFU, WBU）
+  parameter SLAVE_NUM=2             // slave设备数量（CLINT, 外部AXI等）
+)(
   input wire clk,
-  input wire reset,
+  input wire rst,
 
   // master interface
-  input [DEVICE_NUM-1:0] awvalid, 
-  input [DEVICE_NUM-1:0] wvalid,  
-  input [DEVICE_NUM-1:0] arvalid, 
-  input [DEVICE_NUM-1:0] rready,
-  input [DEVICE_NUM-1:0] bready,
-  output [DEVICE_NUM-1:0] bvalid,
-  output [DEVICE_NUM-1:0] rvalid,
-  output [DEVICE_NUM-1:0] awready, 
-  output [DEVICE_NUM-1:0] wready,  
-  output [DEVICE_NUM-1:0] arready, 
+  input [MASTER_NUM-1:0] awvalid, 
+  input [MASTER_NUM-1:0] wvalid,  
+  input [MASTER_NUM-1:0] arvalid, 
+  input [MASTER_NUM-1:0] rready,
+  input [MASTER_NUM-1:0] bready,
+  output [MASTER_NUM-1:0] bvalid,
+  output [MASTER_NUM-1:0] rvalid,
+  output [MASTER_NUM-1:0] awready, 
+  output [MASTER_NUM-1:0] wready,  
+  output [MASTER_NUM-1:0] arready, 
 
   // master data channel
-  input wire [DEVICE_NUM-1:0][31:0] araddr,
-  input wire [DEVICE_NUM-1:0][31:0] awaddr,
-  input wire [DEVICE_NUM-1:0][31:0] wdata,
-  input wire [DEVICE_NUM-1:0][3:0] wstrb,
-  output wire [DEVICE_NUM-1:0][31:0] rdata,
-  output wire [DEVICE_NUM-1:0][1:0] bresp,
-  input wire [DEVICE_NUM-1:0][2:0] awsize,
-  input wire [DEVICE_NUM-1:0][2:0] arsize,
+  input [MASTER_NUM-1:0][31:0] araddr,
+  input [MASTER_NUM-1:0][31:0] awaddr,
+  input [MASTER_NUM-1:0][31:0] wdata,
+  input [MASTER_NUM-1:0][3:0] wstrb,
+  output [MASTER_NUM-1:0][31:0] rdata,
+  output [MASTER_NUM-1:0][1:0] bresp,
+  input [MASTER_NUM-1:0][2:0] awsize,
+  input [MASTER_NUM-1:0][2:0] arsize,
+  
+  // master burst transfer signals
+  input [MASTER_NUM-1:0][7:0] awlen,
+  input [MASTER_NUM-1:0][7:0] arlen,
+  input [MASTER_NUM-1:0][1:0] awburst,
+  input [MASTER_NUM-1:0][1:0] arburst,
+  input [MASTER_NUM-1:0] wlast,
+  output [MASTER_NUM-1:0] rlast,
 
-  // subordinate interface
-  output awvalid_out, 
-  output wvalid_out,  
-  output arvalid_out, 
-  output rready_out,
-  output bready_out,
-  input bvalid_in,
-  input rvalid_in,
-  input awready_in,  
-  input wready_in,   
-  input arready_in,
+  // slave interface (连接到CLINT和外部AXI等)
+  output [SLAVE_NUM-1:0] awvalid_out, 
+  output [SLAVE_NUM-1:0] wvalid_out,  
+  output [SLAVE_NUM-1:0] arvalid_out, 
+  output [SLAVE_NUM-1:0] rready_out,
+  output [SLAVE_NUM-1:0] bready_out,
+  input [SLAVE_NUM-1:0] bvalid_in,
+  input [SLAVE_NUM-1:0] rvalid_in,
+  input [SLAVE_NUM-1:0] awready_in,  
+  input [SLAVE_NUM-1:0] wready_in,   
+  input [SLAVE_NUM-1:0] arready_in,
 
-  output [31:0] araddr_out,
-  output [31:0] awaddr_out,
-  output [31:0] wdata_out,
-  output [3:0] wstrb_out,
-  input [31:0] rdata_in,
-  input [1:0] bresp_in,
-  output [2:0] awsize_out,
-  output [2:0] arsize_out
+  output [SLAVE_NUM-1:0][31:0] araddr_out,
+  output [SLAVE_NUM-1:0][31:0] awaddr_out,
+  output [SLAVE_NUM-1:0][31:0] wdata_out,
+  output [SLAVE_NUM-1:0][3:0] wstrb_out,
+  input [SLAVE_NUM-1:0][31:0] rdata_in,
+  input [SLAVE_NUM-1:0][1:0] bresp_in,
+  output [SLAVE_NUM-1:0][2:0] awsize_out,
+  output [SLAVE_NUM-1:0][2:0] arsize_out,
+  
+  // slave burst transfer signals
+  output [SLAVE_NUM-1:0][7:0] awlen_out,
+  output [SLAVE_NUM-1:0][7:0] arlen_out,
+  output [SLAVE_NUM-1:0][1:0] awburst_out,
+  output [SLAVE_NUM-1:0][1:0] arburst_out,
+  output [SLAVE_NUM-1:0] wlast_out,
+  input [SLAVE_NUM-1:0] rlast_in,
+
+  // master transaction start/end signals
+  input [MASTER_NUM-1:0] trans_start,
+  input [MASTER_NUM-1:0] trans_end
 );
-reg busy;
-reg [DEVICE_NUM-1:0] giant;
-integer i;
+  typedef enum logic [1:0] {
+    ST_IDLE, SLAVE_SELECT,
+    ST_BUSY
+  } state_t;
+  state_t state;
 
-always @(posedge clk) begin
-  if(busy) begin
-    if(rvalid_in | bvalid_in) begin
-      busy <= 0;
-      giant <= {DEVICE_NUM{1'b0}};
+  wire has_req_start = |trans_start;
+  wire has_req_finish = |(trans_end & master_owner_one_hot);
+  reg [MASTER_NUM-1:0] master_owner_one_hot;
+  reg [SLAVE_NUM-1:0] slave_owner_one_hot;
+  wire [MASTER_NUM-1:0] selected_master;
+
+  genvar i;
+  generate
+    // 0号端口优先级最高
+    assign selected_master[0] = trans_start[0];
+    
+    // 其他端口：只有当更高优先级的端口都没有请求时才有效
+    for (i = 1; i < MASTER_NUM; i = i + 1) begin : gen_priority
+      assign selected_master[i] = trans_start[i] & ~(|trans_start[i-1:0]);
     end
-  end else begin
-    for(i=0;i<DEVICE_NUM;i=i+1) begin
-      if(arvalid[i] | awvalid[i]) begin
-        giant <= (1 << i);
-        busy <= 1;
-      end
+  endgenerate
+  
+  always @(posedge clk) begin
+    if(rst) begin
+      state <= ST_IDLE;
+      master_owner_one_hot <= {MASTER_NUM{1'b0}};
+      slave_owner_one_hot <= {SLAVE_NUM{1'b0}};
+    end else begin
+      case(state) 
+        ST_IDLE: begin
+         if(has_req_start) begin
+          state <= SLAVE_SELECT;
+          master_owner_one_hot <= selected_master;
+         end 
+        end
+
+        SLAVE_SELECT: begin
+          state <= ST_BUSY;
+          slave_owner_one_hot <= selected_slave;
+        end
+
+        ST_BUSY: begin
+          if(has_req_finish) begin
+            state <= ST_IDLE;
+            master_owner_one_hot <= {MASTER_NUM{1'b0}};
+            slave_owner_one_hot <= {SLAVE_NUM{1'b0}};
+          end
+        end
+
+        default: begin
+          // synopsys translate_off
+          $error("ifu axi state machine Invalid state error");
+          // synopsys translate_on
+        end
+      endcase
     end
   end
-end
 
-assign awvalid_out = |(awvalid & giant) & ~reset;
-assign wvalid_out = |(wvalid & giant) & ~reset;
-assign arvalid_out = |(arvalid & giant) & ~reset;
+  // ----------------------------------
+  // MASTER SELECT
+  // ----------------------------------
+  
+  // 中间wire变量：选择出的AXI信号
+  wire selected_awvalid;
+  wire selected_wvalid;
+  wire selected_arvalid;
+  wire selected_rready;
+  wire selected_bready;
+  
+  wire [31:0] selected_awaddr;
+  wire [31:0] selected_araddr;
+  wire [31:0] selected_wdata;
+  wire [3:0] selected_wstrb;
+  wire [2:0] selected_awsize;
+  wire [2:0] selected_arsize;
+  wire [7:0] selected_awlen;
+  wire [7:0] selected_arlen;
+  wire [1:0] selected_awburst;
+  wire [1:0] selected_arburst;
+  wire selected_wlast;
 
-assign rready_out = |(rready & giant) & ~reset;
-assign bready_out = |(bready & giant)& ~reset;
+  wire [31:0] selected_rdata;
+  wire [1:0] selected_bresp;
+  wire selected_rvalid;
+  wire selected_bvalid;
+  wire selected_rlast;
+  wire selected_awready;
+  wire selected_wready;
+  wire selected_arready;
+  
+  assign selected_awvalid = |(master_owner_one_hot & awvalid);
+  assign selected_wvalid  = |(master_owner_one_hot & wvalid);
+  assign selected_arvalid = |(master_owner_one_hot & arvalid);
+  assign selected_rready  = |(master_owner_one_hot & rready);
+  assign selected_bready  = |(master_owner_one_hot & bready);
+  
+  // 数据信号：直接使用位选择（最优化）
+  assign selected_awaddr  = master_owner_one_hot[0] ? awaddr[0] : awaddr[1];
+  assign selected_araddr  = master_owner_one_hot[0] ? araddr[0] : araddr[1];
+  assign selected_wdata   = master_owner_one_hot[0] ? wdata[0] : wdata[1];
+  assign selected_wstrb   = master_owner_one_hot[0] ? wstrb[0] : wstrb[1];
+  assign selected_awsize  = master_owner_one_hot[0] ? awsize[0] : awsize[1];
+  assign selected_arsize  = master_owner_one_hot[0] ? arsize[0] : arsize[1];
+  assign selected_awlen   = master_owner_one_hot[0] ? awlen[0] : awlen[1];
+  assign selected_arlen   = master_owner_one_hot[0] ? arlen[0] : arlen[1];
+  assign selected_awburst = master_owner_one_hot[0] ? awburst[0] : awburst[1];
+  assign selected_arburst = master_owner_one_hot[0] ? arburst[0] : arburst[1];
+  assign selected_wlast   = master_owner_one_hot[0] ? wlast[0] : wlast[1];
 
-assign awready = (giant & {DEVICE_NUM{awready_in}});
-assign wready = (giant & {DEVICE_NUM{wready_in}});
-assign arready = (giant & {DEVICE_NUM{arready_in}});
-
-assign bvalid = (giant & {DEVICE_NUM{bvalid_in}});
-assign rvalid = (giant & {DEVICE_NUM{rvalid_in}});
-
-reg [31:0] awaddr_out_reg;
-reg [31:0] wdata_out_reg;
-reg [31:0] araddr_out_reg;
-reg [3:0] wstrb_out_reg;
-reg [2:0] awsize_out_reg;
-reg [2:0] arsize_out_reg;
-
-integer j;
-always @(*) begin
-    awaddr_out_reg = 32'b0;
-    wdata_out_reg = 32'b0;
-    araddr_out_reg = 32'b0;
-    wstrb_out_reg = 4'b0;
-    awsize_out_reg = 3'b0;
-    arsize_out_reg = 3'b0;
-    for (j = 0; j < DEVICE_NUM; j = j + 1) begin
-        if (giant[j]) begin
-            awaddr_out_reg = awaddr[j];
-            wdata_out_reg = wdata[j];
-            araddr_out_reg = araddr[j];
-            wstrb_out_reg = wstrb[j];
-            awsize_out_reg = awsize[j];
-            arsize_out_reg = arsize[j];
-        end
+  genvar p;
+  generate
+    for (p = 0; p < MASTER_NUM; p = p + 1) begin : gen_master_response
+      assign rdata[p] = master_owner_one_hot[p] ? selected_rdata : 32'b0;
+      assign bresp[p] = master_owner_one_hot[p] ? selected_bresp : 2'b0;
+      assign rvalid[p] = master_owner_one_hot[p] ? selected_rvalid : 1'b0;
+      assign bvalid[p] = master_owner_one_hot[p] ? selected_bvalid : 1'b0;
+      assign rlast[p] = master_owner_one_hot[p] ? selected_rlast : 1'b0;
+      assign awready[p] = master_owner_one_hot[p] ? selected_awready : 1'b0;
+      assign wready[p] = master_owner_one_hot[p] ? selected_wready : 1'b0;
+      assign arready[p] = master_owner_one_hot[p] ? selected_arready : 1'b0;
     end
-end
+  endgenerate
+  
+  // ----------------------------------
+  // SLAVE SELECT (Address Decoder)
+  // ----------------------------------
+  
+  // 根据地址选择对应的slave
+  // slave[0]: 外部AXI (默认，其他地址)
+  // slave[1]: CLINT (0x02000000 - 0x0200ffff)
 
-assign awaddr_out = awaddr_out_reg;
-assign wdata_out = wdata_out_reg;
-assign araddr_out = araddr_out_reg;
-assign wstrb_out = wstrb_out_reg;
-assign awsize_out = awsize_out_reg;
-assign arsize_out = arsize_out_reg;
+  // 地址解码：根据写地址或读地址选择slave
+  wire [31:0] current_addr = (selected_arvalid) ? selected_araddr : selected_awaddr;
+  wire is_clint_addr = (current_addr >= 32'h02000000) && (current_addr <= 32'h0200ffff);
+  wire chose_default = !(is_clint_addr);
+  wire [SLAVE_NUM-1:0] selected_slave = {is_clint_addr, chose_default};
+  
+  // 将选择的master信号路由到对应的slave
+  genvar m;
+  generate
+    for (m = 0; m < SLAVE_NUM; m = m + 1) begin : gen_slave_route
+      // 写地址通道
+      assign awvalid_out[m] = slave_owner_one_hot[m] ? selected_awvalid : 1'b0;
+      assign awaddr_out[m]  = selected_awaddr;
+      assign awsize_out[m]  = selected_awsize;
+      assign awlen_out[m]   = selected_awlen;
+      assign awburst_out[m] = selected_awburst;
+      
+      // 写数据通道
+      assign wvalid_out[m]  = slave_owner_one_hot[m] ? selected_wvalid : 1'b0;
+      assign wdata_out[m]   = selected_wdata;
+      assign wstrb_out[m]   = selected_wstrb;
+      assign wlast_out[m]   = selected_wlast;
+      
+      // 读地址通道
+      assign arvalid_out[m] = slave_owner_one_hot[m] ? selected_arvalid : 1'b0;
+      assign araddr_out[m]  = selected_araddr;
+      assign arsize_out[m]  = selected_arsize;
+      assign arlen_out[m]   = selected_arlen;
+      assign arburst_out[m] = selected_arburst;
+      
+      // 读数据通道和写响应通道
+      assign rready_out[m]  = slave_owner_one_hot[m] ? selected_rready : 1'b0;
+      assign bready_out[m]  = slave_owner_one_hot[m] ? selected_bready : 1'b0;
+    end
+  endgenerate
+  
+  assign selected_rdata   = slave_owner_one_hot[0] ? rdata_in[0] : rdata_in[1];
+  assign selected_bresp   = slave_owner_one_hot[0] ? bresp_in[0] : bresp_in[1];
+  assign selected_rvalid  = slave_owner_one_hot[0] ? rvalid_in[0] : rvalid_in[1];
+  assign selected_bvalid  = slave_owner_one_hot[0] ? bvalid_in[0] : bvalid_in[1];
+  assign selected_rlast   = slave_owner_one_hot[0] ? rlast_in[0] : rlast_in[1];
+  assign selected_awready = slave_owner_one_hot[0] ? awready_in[0] : awready_in[1];
+  assign selected_wready  = slave_owner_one_hot[0] ? wready_in[0] : wready_in[1];
+  assign selected_arready = slave_owner_one_hot[0] ? arready_in[0] : arready_in[1];
 
-assign rdata[0] = rdata_in;
-assign rdata[1] = rdata_in;
-assign bresp[0] = bresp_in & {2{giant[0]}};
-assign bresp[1] = bresp_in & {2{giant[1]}};
 endmodule

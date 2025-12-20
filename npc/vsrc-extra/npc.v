@@ -303,7 +303,8 @@ module axi_memory (
 );
 
   typedef enum logic [2:0] {
-    IDLE, READ, WRITE, READ_VALID, B_VALID
+    IDLE, READ, WRITE, READ_VALID, B_VALID,
+    R_BURST, W_BURST
   } state_t;
 
   state_t state_current;
@@ -476,7 +477,7 @@ module axi_memory (
 
   assign io_rresp = 2'b00;  // OKAY响应
   assign io_rid = 4'b0;
-  assign io_rlast = 1'b1;  // 单拍传输，rlast总是1
+  assign io_rlast = (state_current == READ_VALID) ? 1'b1 : 1'b0;
   assign io_bid = 4'b0;
   assign io_bresp = 2'b00;
 endmodule
