@@ -6,12 +6,13 @@ module ysyx_24100007_icache #(
     input rst,
     input [31:0] addr,
     input w_valid,
-    input [31:0] w_data,
+    input [DATABLOCK_SIZE-1:0] w_data,
     output hit,
     output [31:0] data_r
 );
     localparam LINE_NUM = 2 ** INDEX_LEN;
     localparam TAG_LEN = 32 - INDEX_LEN - OFFSET_LEN;
+    localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
 
     wire [OFFSET_LEN-1:0] offset = addr[OFFSET_LEN-1:0];
     wire [INDEX_LEN-1:0] index = addr[OFFSET_LEN+INDEX_LEN-1:OFFSET_LEN];
@@ -21,7 +22,7 @@ module ysyx_24100007_icache #(
     wire [LINE_NUM-1:0] line_hit;
     wire [LINE_NUM-1:0][31:0] line_data_r;
     wire [LINE_NUM-1:0] line_w_valid;
-    wire [LINE_NUM-1:0][31:0] line_data_w;
+    wire [LINE_NUM-1:0][DATABLOCK_SIZE-1:0] line_data_w;
 
     assign line_w_valid[index] = w_valid;
     assign line_data_w[index] = w_data;
@@ -65,12 +66,15 @@ module icahce_line #(
     output [31:0] data_r
 );
     localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
+    localparam DATABLOCK_NUMB = DATABLOCK_SIZE / 32;
 
-    reg [DATABLOCK_SIZE-1:0] data_block;
+    reg [DATABLOCK_NUMB-1:0][31:0] data_block;
     reg valid_r;
     reg [TAG_LEN-1:0] tag_r;
 
-    assign data_r = data_block;
+    wire [OFFSET_LEN-3:0] word_idx = offset[OFFSET_LEN-1:2];
+    assign data_r = data_block[word_idx];
+    assign hit = (valid_r && (tag == tag_r));
 
     always @(posedge clk) begin
         if(rst) begin

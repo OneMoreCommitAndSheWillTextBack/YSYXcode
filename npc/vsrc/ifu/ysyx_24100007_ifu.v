@@ -42,12 +42,11 @@ module ysyx_24100007_ifu(
   // ICACHE
   // ------------------------------------
   localparam INDEX_LEN = 3;
-  localparam OFFSET_LEN = 2;
+  localparam OFFSET_LEN = 4;
   localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
   localparam ARLEN = (2 ** OFFSET_LEN) / 4 - 1;
   wire w_valid, cache_hit;
   wire [31:0] cache_rdata;
-  wire [DATABLOCK_SIZE-1: 0] data_block_r;
   ysyx_24100007_icache #(
     .INDEX_LEN(INDEX_LEN),
     .OFFSET_LEN(OFFSET_LEN)
@@ -57,7 +56,7 @@ module ysyx_24100007_ifu(
 
     .addr(pcbridge),
     .w_valid(w_valid),
-    .w_data(data_block_r),
+    .w_data(axi_rdata),
     .hit(cache_hit),
     .data_r(cache_rdata)
   );
@@ -120,6 +119,7 @@ module ysyx_24100007_ifu(
     INIT, // the inst is not valid
     VALID, CHECK_CACHE, BUS_HANDSHAKE,
     BUS_TRANSACTION, UPDATE_CACHE
+    
   } ifu_state_t;
 
   ifu_state_t ifu_state;
@@ -161,7 +161,7 @@ module ysyx_24100007_ifu(
         end
 
         UPDATE_CACHE: begin
-          ifu_state <= VALID;
+          ifu_state <= CHECK_CACHE;
         end
 
         default: begin
@@ -177,7 +177,7 @@ module ysyx_24100007_ifu(
   // AXI CONTEOLLER
   // ------------------------------------
   wire axi_arready, axi_arvalid;
-  wire [31:0] axi_rdata;
+  wire [DATABLOCK_SIZE-1:0] axi_rdata;
   wire axi_rdata_valid, axi_rdata_ready;
   ifu_axicontroller #(
     .ARLEN(ARLEN),
@@ -209,7 +209,7 @@ module ysyx_24100007_ifu(
     .rresp(rresp),
     .rlast(rlast)
   );
-  assign axi_rdata_ready = (ifu_state == BUS_TRANSACTION);
+  assign axi_rdata_ready = (ifu_state == UPDATE_CACHE);
   assign axi_arvalid = (ifu_state == BUS_HANDSHAKE);
 
   // ------------------------------------
@@ -217,15 +217,12 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   reg [31:0] inst_reg;
   wire icache_hit = (ifu_state == CHECK_CACHE) && hit;
-  wire bus_transaction_done = (ifu_state == BUS_TRANSACTION) && axi_rdata_valid;
   always @(posedge clk) begin
     if(rst) begin
       inst_reg <= 32'b0;
     end else begin
       if(icache_hit) begin
         inst_reg <= cache_rdata;
-      end else if(bus_transaction_done) begin
-        inst_reg <= axi_rdata;
       end else if(ifu_state == VALID && ready) begin
         inst_reg <= 32'b0;
       end 
@@ -342,6 +339,10 @@ module ifu_axicontroller#(
       beat_count <= 8'b0;
       burst_type <= WRAP;
     end else begin
+      if(arvalid & arready) begin
+        current_addr <= araddr;
+      end
+
       if(rvalid & rready) begin
         beat_count <= beat_count + 1;
         
@@ -395,7 +396,7 @@ module ifu_axicontroller#(
   assign trans_start = (axi_state == WAIT_HANDSHAKE);
   assign trans_end = (axi_state == WAIT_SLAVE) && rlast;
 
-  assign axi_rdata = data_buffer[0];
+  assign axi_rdata = data_buffer;
 
   assign axi_rdata_valid = (axi_state == PROCESSION);
   assign axi_arready = (axi_state == READY);
@@ -406,4 +407,5 @@ module ifu_axicontroller#(
 
   assign arlen = ARLEN[7:0];
   assign arsize = 3'b010;
+  assign arburst = burst_type;
 endmodule
