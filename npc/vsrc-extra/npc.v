@@ -302,9 +302,8 @@ module axi_memory (
     output [3:0]        io_rid
 );
 
-  typedef enum logic [2:0] {
-    IDLE, READ, WRITE, READ_VALID, B_VALID,
-    R_BURST, W_BURST
+  typedef enum logic [1:0] {
+    IDLE, READ, WRITE, B_VALID
   } state_t;
 
   state_t state_current;
@@ -332,7 +331,7 @@ module axi_memory (
       READ: begin
         state_next = READ;
         if(read_done) begin
-          state_next = READ_VALID;
+          state_next = IDLE;
         end
       end
 
@@ -340,13 +339,6 @@ module axi_memory (
         state_next = WRITE;
         if(write_done) begin
           state_next = B_VALID;
-        end
-      end
-
-      READ_VALID: begin
-        state_next = READ_VALID;
-        if(io_rready) begin
-          state_next = IDLE;
         end
       end
 
@@ -365,32 +357,6 @@ module axi_memory (
 
   wire is_read = (state_current == IDLE) && io_arvalid;
   wire is_write = (state_current == IDLE) && (io_awvalid && io_wvalid);
-
-  assign io_rvalid = (state_current == READ_VALID) ? 1'b1 : 1'b0;
-  assign io_bvalid = (state_current == B_VALID) ? 1'b1 : 1'b0;
-
-  // -----------------------------
-  // lock the singal
-  // -----------------------------
-  reg [31:0] addr_i;
-  reg [31:0] data_i;
-  reg [2:0] arsize_i;
-  reg [3:0] wstrb_i;
-  always @(posedge clk) begin
-    if(is_read) begin
-      addr_i <= io_araddr;
-      arsize_i <= io_arsize;
-    end else if(is_write) begin
-      addr_i <= io_awaddr;
-      data_i <= io_wdata;
-      wstrb_i <= io_wstrb;
-    end else begin
-      addr_i <= 32'b0;
-      data_i <= 32'b0;
-      arsize_i <= 3'b0;
-      wstrb_i <= 4'b0;
-    end
-  end
 
   // -----------------------------
   // hand shake reply
@@ -423,8 +389,19 @@ module axi_memory (
   // wire [31:0] addr_align_mask = (arsize_i == 3'd0) ? 32'hFFFFFFFF :  // 1字节：不掩码
   //                               (arsize_i == 3'd1) ? 32'hFFFFFFFE :  // 2字节：清除bit[0]
   //                               32'hFFFFFFFC;                        // 4字节：清除bit[1:0]
+  localparam [1:0]
+    FIXED = 2'b00,
+    INCR  = 2'b01,
+    WRAP  = 2'b10,
+    RESERVED = 2'b11;
+
   wire [31:0] addr_align_mask = 32'hFFFFFFFC;
-  wire [31:0] addr_aligned = addr_i & addr_align_mask;
+  wire [31:0] addr_aligned = current_addr & addr_align_mask;
+  wire [7:0] trans_time = arlen_i + 8'b1;
+
+  wire [31:0] wrap_size = (({24'b0,arlen_i} + 1) << 2);
+  wire [31:0] wrap_boundary = current_addr & ~(wrap_size - 1);
+  wire [31:0] wrap_end = wrap_boundary + wrap_size;
 
   import "DPI-C" function void npc_pmem_read(
     input int addr,
@@ -432,18 +409,89 @@ module axi_memory (
     output int data
   );
 
-  reg read_done;
-  reg [31:0] data_output;  // 修复：改为32位
-  always @(negedge clk) begin
-    if(state_current == READ) begin
-      npc_pmem_read(addr_aligned, 32'd4, data_output);
-      read_done <= 1'b1;
-    end else begin
-      read_done <= 1'b0;
+  reg [1:0] arburst_i;
+  reg [7:0] arlen_i;
+  reg [2:0] arsize_i;
+  always @(posedge clk) begin
+    if(rst) begin
+      arsize_i <= 3'b0;
+      arlen_i <= 8'b0;
+      arburst_i <= 2'b0;
+    end else if(is_read) begin
+      arsize_i <= io_arsize;
+      arlen_i <= io_arlen;
+      arburst_i <= io_arburst;
     end
   end
 
-  assign io_rdata = (state_current == READ_VALID) ? data_output : 32'b0;
+  reg [31:0] current_addr;
+  always @(posedge clk) begin
+    if(rst) begin
+      current_addr <= 32'b0;
+    end else begin
+      case(state_current)
+        IDLE: begin
+          if(is_read) begin
+            current_addr <= io_araddr;
+          end else if(is_write) begin
+            current_addr <= io_awaddr;
+          end
+        end
+
+        READ: begin
+          if(io_rready) begin
+            // update the current addr when read data handshake
+            case(arburst_i) 
+              FIXED: begin end
+              INCR: begin current_addr <= current_addr + 32'd4; end
+              WRAP:begin 
+                if ((current_addr + 4) >= wrap_end) begin
+                  current_addr <= wrap_boundary;
+                end else begin
+                  current_addr <= current_addr + 4;
+                end
+              end
+              RESERVED: begin 
+                $error("the arburst type cannot be reserved");
+              end
+            endcase
+          end
+        end
+
+        default: begin end
+      endcase
+    end
+  end
+
+  reg read_done;
+  reg read_valid;
+  reg [31:0] data_output;
+  reg [7:0] read_burst_counter;
+  // 其实我觉得这里没有必要设置这个valid， 但是反正这个部分也不
+  // 参与综合，就感觉无所谓了
+  always @(posedge clk) begin
+    if(state_current == READ) begin
+      if(io_rready) begin
+        // 握手的时候更新
+        npc_pmem_read(addr_aligned, 32'd4, data_output);
+        if(read_burst_counter == trans_time) begin
+          read_done <= 1'b1;
+          read_valid <= 1'b1;
+        end else if(read_burst_counter < trans_time) begin
+          read_valid <= 1'b1;
+          read_burst_counter <= read_burst_counter + 1;
+        end 
+      end
+    end else begin
+      read_burst_counter <= 8'b0;
+      read_done <= 1'b0;
+      read_valid <= 1'b0;
+    end
+  end
+
+  assign io_rdata = (read_valid) ? data_output : 32'b0;
+  assign io_rvalid = read_valid;
+  assign io_rlast = read_done;
  
   // --------------------------
   // WRITE PART
@@ -454,20 +502,33 @@ module axi_memory (
     input int data
   );
   reg write_done;
+
+  reg [31:0] data_i;
+  reg [3:0] wstrb_i;
+ 
+  always @(posedge clk) begin
+    if(rst) begin
+      data_i <= 32'b0;
+      wstrb_i <= 4'b0;
+    end else if(is_write) begin
+      data_i <= io_wdata;
+      wstrb_i <= io_wstrb;
+    end
+  end
   
   always @(negedge clk) begin
     if(state_current == WRITE) begin
       if(wstrb_i[0]) begin
-        npc_pmem_write(addr_aligned, 32'd1, {24'b0, data_i[7:0]});  // 修复：扩展到32位
+        npc_pmem_write(addr_aligned, 32'd1, {24'b0, data_i[7:0]}); 
       end
       if(wstrb_i[1]) begin
-        npc_pmem_write(addr_aligned + 32'd1, 32'd1, {24'b0, data_i[15:8]});  // 修复
+        npc_pmem_write(addr_aligned + 32'd1, 32'd1, {24'b0, data_i[15:8]});
       end
       if(wstrb_i[2]) begin
-        npc_pmem_write(addr_aligned + 32'd2, 32'd1, {24'b0, data_i[23:16]});  // 修复
+        npc_pmem_write(addr_aligned + 32'd2, 32'd1, {24'b0, data_i[23:16]});
       end
       if(wstrb_i[3]) begin
-        npc_pmem_write(addr_aligned + 32'd3, 32'd1, {24'b0, data_i[31:24]});  // 修复
+        npc_pmem_write(addr_aligned + 32'd3, 32'd1, {24'b0, data_i[31:24]});
       end
       write_done <= 1'b1;
     end else begin
@@ -475,9 +536,10 @@ module axi_memory (
     end
   end
 
-  assign io_rresp = 2'b00;  // OKAY响应
+  assign io_bvalid = (state_current == B_VALID) ? 1'b1 : 1'b0;
+
+  assign io_rresp = 2'b00;
   assign io_rid = 4'b0;
-  assign io_rlast = (state_current == READ_VALID) ? 1'b1 : 1'b0;
   assign io_bid = 4'b0;
   assign io_bresp = 2'b00;
 endmodule

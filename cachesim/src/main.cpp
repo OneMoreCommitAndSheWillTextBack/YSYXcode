@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
     // INDEX_LEN = 3, OFFSET_LEN = 2
     std::string trace_file = "itrace-log.txt";
     uint32_t block_size = 16;      // 2^OFFSET_LEN = 2^2 = 4 字节
-    uint32_t line_num = 2;        // 2^INDEX_LEN = 2^3 = 8 个缓存行
+    uint32_t line_num = 8;        // 2^INDEX_LEN = 2^3 = 8 个缓存行
     
     // 简单的命令行参数解析
     if (argc > 1) trace_file = argv[1];

@@ -31,8 +31,9 @@ void dump_performance() {
      double ipc     = (npc->cycs == 0) ? 0.0 : (double)npc->icount / (double)npc->cycs;
      double ifu_occ = (npc->cycs == 0) ? 0.0 : (double)npc->ifutimer / (double)(npc->cycs * 2);
      double lsu_occ = (npc->cycs == 0) ? 0.0 : (double)npc->iotimer / (double)(npc->cycs * 2);
-     double icache_hit_rate = npc->icache_hit_time / (double)npc->icount;
-     double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*npc->icache_hit_time) / ((double)npc->ifucount - npc->icache_hit_time);
+     unsigned int icache_hit_time = npc->icount - icache_hit_time;
+     double icache_hit_rate = icache_hit_time / (double)npc->icount;
+     double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*icache_hit_time) / ((double)npc->ifucount - icache_hit_time);
      ofs << "date="             << now_date()            << '\n'
          << "time="             << now_time()            << '\n'
          << "end_pc=0x"         << std::hex << cpu->con.pc << std::dec << '\n'
@@ -42,7 +43,7 @@ void dump_performance() {
          << "ifu_count="        << npc->ifucount        << '\n'
          << "ifu_time="         << npc->ifutimer        << '\n'
          << "ifu_occupied="     << ifu_occ              << '\n'
-         << "icache_hit_times=" << npc->icache_hit_time << '\n'
+         << "icache_hit_times=" << icache_hit_time      << '\n'
          << "icache_hit_rate="  << icache_hit_rate      << '\n'
          << "icache_amat="      << amat                 << '\n'
          << "lsu_count="        << npc->iocount         << '\n'
@@ -58,10 +59,12 @@ void deal_statistic() {
     printf("  total inst num: %u\n", npc->icount);
     printf("  ipc: %f\n", ((double)npc->icount / (double)npc->cycs));
     printf("  ifu count %u, time %llu, occupied %f\n", npc->ifucount, npc->ifutimer, (double)npc->ifutimer / (npc->cycs * 2));
-    double icache_hit_rate = npc->icache_hit_time / (double)npc->icount;
-    double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*npc->icache_hit_time) / ((double)npc->ifucount - npc->icache_hit_time);
+    unsigned int icache_hit_time = npc->icount - npc->icache_miss_time;
+    double icache_hit_rate = icache_hit_time / (double)npc->icount;
+    double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*icache_hit_time) / ((double)npc->ifucount - icache_hit_time);
 
-    printf("  icache hit time: %u\n", npc->icache_hit_time);
+    printf("  icache hit time: %u\n", icache_hit_time);
+    printf("  icache miss time: %u\n", npc->icache_miss_time);
     printf("  icache hit rate: %f\n", icache_hit_rate);
     printf("  the amat is %f\n", amat);
     printf("  lsu count %u, time %llu, occupied %f\n", npc->iocount, npc->iotimer, (double) npc->iotimer / (npc->cycs * 2));

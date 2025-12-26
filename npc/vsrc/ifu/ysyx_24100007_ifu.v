@@ -71,7 +71,7 @@ module ysyx_24100007_ifu(
   import "DPI-C" function void host_get_valid(int valid);
   import "DPI-C" function void host_get_ifu_start();
   import "DPI-C" function void host_get_ifu_finish();
-  import "DPI-C" function void host_get_icache_hit();
+  import "DPI-C" function void host_get_icache_miss();
   always @(posedge clk) begin
     if(ready) begin
       host_get_valid(32'd1);
@@ -98,12 +98,11 @@ module ysyx_24100007_ifu(
         CHECK_CACHE: begin
           if(hit) begin
             host_get_ifu_finish();
-            host_get_icache_hit();
           end
         end
 
         UPDATE_CACHE: begin
-          host_get_ifu_finish();
+          host_get_icache_miss();
         end
 
         default: begin end

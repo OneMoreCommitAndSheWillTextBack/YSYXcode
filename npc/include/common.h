@@ -39,7 +39,7 @@ typedef struct {
   unsigned int ifucount;
   unsigned long long ifutimer;
   unsigned int exucount;
-  unsigned int icache_hit_time;
+  unsigned int icache_miss_time;
 } Npc;
 
 typedef struct {
