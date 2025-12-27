@@ -1,5 +1,4 @@
 #include "memory/memsocdiff.h"
-#include <string.h>
 
 #if defined(CONFIG_TARGET_SHARE) || defined(CONFIG_YSYXSOC_EMU)
   // ========== 内存空间定义（需要实际内存存储的设备）==========

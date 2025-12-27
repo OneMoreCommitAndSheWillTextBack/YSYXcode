@@ -39,7 +39,7 @@ typedef struct {
   unsigned int ifucount;
   unsigned long long ifutimer;
   unsigned int exucount;
-  unsigned int icache_hit_time;
+  unsigned int icache_miss_time;
 } Npc;
 
 typedef struct {
@@ -61,6 +61,12 @@ typedef struct {
   char logbuf[128];
   int valid;
 } Cpu;
+
+#ifdef ITRACE
+typedef struct {
+  FILE* itrace_out;
+} itrace_cfg_t;
+#endif
 
 #ifdef TRACE
 typedef struct {

@@ -173,6 +173,6 @@ extern "C" void host_get_exu_valid() {
   npc->exucount ++;
 }
 
-extern "C" void host_get_icache_hit() {
-  npc->icache_hit_time++;
+extern "C" void host_get_icache_miss() {
+  npc->icache_miss_time++;
 }

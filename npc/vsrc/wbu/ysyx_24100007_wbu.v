@@ -17,6 +17,11 @@ module ysyx_24100007_wbu(
   output ready,
   output regew,
 
+  output trans_start,
+  output trans_end,
+
+  output icahce_flush,
+
   // axi-lite interface
   output awvalid,
   input awready,
@@ -103,6 +108,8 @@ module ysyx_24100007_wbu(
     3'b100, link_addr
   });
 
+  assign icahce_flush = memew & (wbu_state == WRITE_BACK);
+
   // AXI 内存控制器接口信号
   wire axi_xaddr_valid;   // 地址通道 valid（写地址或读地址）
   wire axi_xaddr_ready;   // 地址通道 ready
@@ -139,6 +146,9 @@ module ysyx_24100007_wbu(
     .axi_bresp_ready(axi_bresp_ready),
     .axi_rdata_valid(axi_rdata_valid),
     .axi_bresp_valid(axi_bresp_valid),
+
+    .trans_start(trans_start),
+    .trans_end(trans_end),
     
     // 内存访问结果
     .mem_rdata(memread_data_r),
@@ -197,6 +207,9 @@ module axi_mem_controller(
   input axi_bresp_ready,     // WBU 准备好接收写响应
   output axi_rdata_valid,    // 读数据 valid（数据已准备好）
   output axi_bresp_valid,    // 写响应 valid（响应已准备好）
+
+  output trans_start,
+  output trans_end,
 
   output reg [31:0] mem_rdata,  // 读取的数据
   
@@ -336,13 +349,12 @@ module axi_mem_controller(
         end
 
         WAIT_SLAVE: begin
-          // 读操作：收到读数据
           if(rvalid) begin
+            // 读操作：收到读数据
             state <= PROCESSION;
             mem_rdata <= memread_r;
-          end
-          // 写操作：收到写响应
-          else if(bvalid) begin
+          end else if(bvalid) begin
+            // 写操作：收到写响应
             state <= PROCESSION;
           end
         end
@@ -359,6 +371,9 @@ module axi_mem_controller(
       endcase
     end
   end
+
+  assign trans_start = (state == WAIT_HANDSHAKE);
+  assign trans_end = (state == WAIT_SLAVE) && (rvalid | bvalid);
 
   // ------------------------------------
   // PERFORMANCE COUNTER LOGIC

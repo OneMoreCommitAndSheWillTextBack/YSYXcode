@@ -1,6 +1,5 @@
 // synopsys translate_off
-import "DPI-C" function void host_get_pc(int pc);
-import "DPI-C" function void host_get_inst(int inst);
+
 // synopsys translate_on
 module ysyx_24100007(
     input clock,
@@ -77,361 +76,192 @@ module ysyx_24100007(
     output [3:0]        io_slave_rid
 );
 
-  // synopsys translate_off
-  always @(*) begin
-    host_get_pc(pcbridge);
-    host_get_inst(inst);
-  end
-  // synopsys translate_on
+  // Core模块 - 包含CPU核心和AXI接口
+  wire [1:0] core_awvalid, core_wvalid, core_arvalid;
+  wire [1:0] core_rready, core_bready;
+  wire [1:0] core_bvalid, core_rvalid;
+  wire [1:0] core_awready, core_wready, core_arready;
+  wire [1:0][31:0] core_araddr, core_awaddr;
+  wire [1:0][31:0] core_wdata, core_rdata;
+  wire [1:0][3:0] core_wstrb;
+  wire [1:0][1:0] core_bresp;
+  wire [1:0][2:0] core_awsize, core_arsize;
+  wire [1:0][7:0] core_awlen, core_arlen;
+  wire [1:0][1:0] core_awburst, core_arburst;
+  wire [1:0] core_wlast, core_rlast;
+  wire [1:0] core_trans_end, core_trans_start;
+  wire [1:0][1:0] core_rresp;
 
-  wire inst_cycle_end;
-  
-  wire ready_idu_to_ifu;
-  wire [31:0] npc, pcbridge;
-  wire [31:0] inst;
-  wire ifu_valid;
-  wire ifu_arvalid, ifu_arready;
-  wire [31:0] ifu_araddr;
-  wire ifu_rvalid, ifu_rready;
-  wire [31:0] ifu_rdata;
+  ysyx_24100007_core #(.PORT_NUM(2)) core0(
+    .clock(clock),
+    .reset(reset),
+    .io_interrupt(io_interrupt),
 
-  ysyx_24100007_ifu ifu0(
-    .clk(clock),
-    .rst(reset),
-    .npc(npc),
-    .ready(inst_cycle_end),
-    .pc(pcbridge),
-    .inst(inst),
-    .valid(ifu_valid),
-
-    .arvalid(ifu_arvalid),
-    .arready(ifu_arready),
-    .araddr(ifu_araddr),
-    .rvalid(ifu_rvalid),
-    .rready(ifu_rready),
-    .rdata(ifu_rdata)
+    // AXI接口连接到arbiter
+    .awvalid(core_awvalid),
+    .wvalid(core_wvalid),
+    .arvalid(core_arvalid),
+    .rready(core_rready),
+    .bready(core_bready),
+    .bvalid(core_bvalid),
+    .rvalid(core_rvalid),
+    .awready(core_awready),
+    .wready(core_wready),
+    .arready(core_arready),
+    .araddr(core_araddr),
+    .awaddr(core_awaddr),
+    .wdata(core_wdata),
+    .rdata(core_rdata),
+    .wstrb(core_wstrb),
+    .bresp(core_bresp),
+    .awsize(core_awsize),
+    .arsize(core_arsize),
+    .awlen(core_awlen),
+    .arlen(core_arlen),
+    .awburst(core_awburst),
+    .arburst(core_arburst),
+    .wlast(core_wlast),
+    .rlast(core_rlast),
+    .rresp(core_rresp),
+    .trans_start(core_trans_start),
+    .trans_end(core_trans_end)
   );
 
+  assign core_rresp[0] = io_master_rresp;
+  assign core_rresp[1] = io_master_rresp;
 
-  wire [4:0] src1, src2, rd;
-  wire [31:0] imm;
-  wire ebreaksig, mretsig, ecallsig;
-  wire memew, memer, muximm;
-  wire [2:0] func3, muxsig;
-  wire func7;
-  wire btypebranch, jalsig, jalrsig, auipcsig;
-  wire [1:0] aluop;
-  wire csrrw, csrrs;
-  wire idu_valid;
-  wire [2:0] memmask;
-  wire memsextsig;
-  wire regew_control;
-  ysyx_24100007_idu idu0(
-  .inst(inst),
-  .valid_get(ifu_valid),
-  
-  .ebreaksig(ebreaksig),
-  .ecallsig(ecallsig),
-  .mretsig(mretsig),
-  .imm(imm),
-  .func3(func3),
-  .func7(func7),
-  .src1(src1),
-  .src2(src2),
-  .rd(rd),
-  .regew_control(regew_control),
-  .memew(memew),
-  .muxsig(muxsig),
-  .memer(memer),
-  .muximm(muximm),
-  .btypebranch(btypebranch),
-  .jalrsig(jalrsig),
-  .jalsig(jalsig),
-  .aluop(aluop),
-  .auipcsig(auipcsig),
-  .csrrw(csrrw),
-  .csrrs(csrrs),
-  .memmask(memmask),
-  .memsextsig(memsextsig),
-  .valid_to(idu_valid)
-);
+  // Arbiter模块
+  wire [1:0][31:0] arbiter_araddr_out, arbiter_awaddr_out;
+  wire [1:0][31:0] arbiter_wdata_out;
+  wire [1:0][3:0] arbiter_wstrb_out;
+  wire [1:0][2:0] arbiter_awsize_out, arbiter_arsize_out;
+  wire [1:0][7:0] arbiter_awlen_out, arbiter_arlen_out;
+  wire [1:0][1:0] arbiter_awburst_out, arbiter_arburst_out;
+  wire [1:0] arbiter_wlast_out;
+  wire [1:0] arbiter_awvalid_out, arbiter_wvalid_out, arbiter_arvalid_out;
+  wire [1:0] arbiter_rready_out, arbiter_bready_out;
+  wire [1:0] arbiter_bvalid_in, arbiter_rvalid_in;
+  wire [1:0] arbiter_awready_in, arbiter_wready_in, arbiter_arready_in;
+  wire [1:0][31:0] arbiter_rdata_in;
+  wire [1:0][1:0] arbiter_bresp_in;
+  wire [1:0] arbiter_rlast_in;
 
-  wire [31:0] regwrite, regout1, regout2;
-  wire [31:0] mepc, mtvec;
-  ysyx_24100007_regheap regfile(
+  ysyx_24100007_arbiter #(.MASTER_NUM(2), .SLAVE_NUM(2)) arbiter0(
     .clk(clock),
     .rst(reset),
-    .ew(regew),
-    .addr(rd),
-    .src1(src1),
-    .src2(src2),
-    .data(regwrite),
-    .csr(inst[31:20]),
-    .csrrw(csrrw),
-    .csrrs(csrrs),
-    .ecallsig(ecallsig),
-    .regout1(regout1),
-    .regout2(regout2),
-    .mepc(mepc),
-    .mtvec(mtvec)
-  ); 
-  
-  wire [31:0] res;
-  wire [31:0] link_addr;
-  wire exu_valid;
-  ysyx_24100007_exu exu0(
-  .clk(clock),
-  .rst(reset),
-  .func3(func3),
-  .func7(func7),
-  .aluop(aluop),
-  .btypebranch(btypebranch),
-  .jalrsig(jalrsig),
-  .jalsig(jalsig),
-  .imm(imm),
-  .muximm(muximm),
-  .regout1(regout1),
-  .regout2(regout2),
-  .auipcsig(auipcsig),
-  .mretsig(mretsig),
-  .ecallsig(ecallsig),
-  .mtvec(mtvec),
-  .mepc(mepc),
-  .pc(pcbridge),
-  .valid_get(idu_valid),
-  .ready(inst_cycle_end),
-  
-  .valid_to(exu_valid),
-  .res(res),
-  .npc(npc),
-  .link_addr(link_addr)
-);
 
-  wire regew;
-  ysyx_24100007_wbu wbu0(
-  .clk(clock),
-  .rst(reset),
-  .res(res),
-  .regout2(regout2),
-  .memew(memew),
-  .memer(memer),
-  .imm(imm),
-  .link_addr(link_addr),
-  .muxsig(muxsig),
-  .valid_get(exu_valid),
-  .memsextsig(memsextsig),
-  .memmask(memmask),
+    // Master接口 - 来自core
+    .awvalid(core_awvalid),
+    .wvalid(core_wvalid),
+    .arvalid(core_arvalid),
+    .rready(core_rready),
+    .bready(core_bready),
+    .bvalid(core_bvalid),
+    .rvalid(core_rvalid),
+    .awready(core_awready),
+    .wready(core_wready),
+    .arready(core_arready),
+    .araddr(core_araddr),
+    .awaddr(core_awaddr),
+    .wdata(core_wdata),
+    .rdata(core_rdata),
+    .wstrb(core_wstrb),
+    .bresp(core_bresp),
+    .awsize(core_awsize),
+    .arsize(core_arsize),
+    .awlen(core_awlen),
+    .arlen(core_arlen),
+    .awburst(core_awburst),
+    .arburst(core_arburst),
+    .wlast(core_wlast),
+    .rlast(core_rlast),
+    .trans_start(core_trans_start),
+    .trans_end(core_trans_end),
 
-  .regwrite(regwrite),
-  .ready(inst_cycle_end),
-  .regew_control(regew_control),
-  .regew(regew),
-
-  // axi-lite interface
-  .awvalid(awvalid[1]),
-  .awready(awready[1]),
-  .awaddr(awaddr[1]),
-
-  .wvalid(wvalid[1]),
-  .wready(wready[1]),
-  .wdata(wdata[1]),
-  .wstrb(wstrb[1]),
-
-  .bvalid(bvalid[1]),
-  .bready(bready[1]),
-  .bresp(bresp[1]),
-
-  .arvalid(arvalid[1]),
-  .arready(arready[1]),
-  .araddr(araddr[1]),
-
-  .rvalid(rvalid[1]),
-  .rready(rready[1]),
-  .rdata(rdata[1]),
-  .awsize(awsize[1]),
-  .arsize(arsize[1]),
-  .awburst(io_master_awburst)
-);
-
-wire [1:0] 
-  awvalid, wvalid,
-  arvalid, rready,
-  bready, bvalid,
-  rvalid, awready,
-  wready, arready;
-
-wire [1:0][31:0] araddr;
-wire [1:0][31:0] rdata;
-wire [1:0][31:0] awaddr;
-wire [1:0][31:0] wdata;
-wire [1:0][3:0] wstrb;
-wire [1:0][1:0] bresp;
-wire [1:0][2:0] awsize;
-wire [1:0][2:0] arsize;
-
-assign awvalid[0] = 0;
-assign awaddr[0] = 0;
-assign wvalid[0] = 0;
-assign wdata[0] = 0;
-assign wstrb[0] = 0;
-assign bready[0] = 0;
-assign awsize[0] = 0;
-assign arsize[0] = 3'b010;
-
-assign arvalid[0] = ifu_arvalid;
-assign ifu_arready = arready[0];
-assign araddr[0] = ifu_araddr;
-assign ifu_rvalid = rvalid[0];
-assign rready[0] = ifu_rready;
-assign ifu_rdata = rdata[0];
-
-wire arbiter_awvalid_out, arbiter_wvalid_out, arbiter_arvalid_out;
-wire arbiter_rready_out, arbiter_bready_out;
-wire [31:0] arbiter_araddr_out, arbiter_awaddr_out;
-wire [31:0] arbiter_wdata_out;
-wire [3:0] arbiter_wstrb_out;
-wire [2:0] arbiter_awsize_out, arbiter_arsize_out;
-
-ysyx_24100007_arbiter #(2) arviter0(
-  .clk(clock), //input
-  .reset(reset),
-
-  // master interface
-  .awvalid(awvalid),   //input
-  .wvalid(wvalid),     //input
-  .arvalid(arvalid),   //input
-  .rready(rready),     //input
-  .bready(bready),     //input
-  .bvalid(bvalid),     //ouptut
-  .rvalid(rvalid),    //output
-  .awready(awready),  //output
-  .wready(wready),	  //output  
-  .arready(arready),  //output 
-
-  // master data channel
-  .araddr(araddr),
-  .awaddr(awaddr),
-  .wdata(wdata),
-  .rdata(rdata),
-  .wstrb(wstrb),
-  .bresp(bresp),
-  .awsize(awsize),
-  .arsize(arsize),
-
-  // subordinate interface - 连接到中间信号
-  .awvalid_out(arbiter_awvalid_out), 
-  .wvalid_out(arbiter_wvalid_out),  
-  .arvalid_out(arbiter_arvalid_out), 
-  .rready_out(arbiter_rready_out),
-  .bready_out(arbiter_bready_out),
-  .bvalid_in(ext_bvalid_mux),
-  .rvalid_in(ext_rvalid_mux),
-  .awready_in(ext_awready_mux),  
-  .wready_in(ext_wready_mux),   
-  .arready_in(ext_arready_mux),
-
-  .araddr_out(arbiter_araddr_out),
-  .awaddr_out(arbiter_awaddr_out),
-  .wdata_out(arbiter_wdata_out),
-  .wstrb_out(arbiter_wstrb_out),
-  .rdata_in(ext_rdata_mux),
-  .bresp_in(ext_bresp_mux),
-  .awsize_out(arbiter_awsize_out),
-  .arsize_out(arbiter_arsize_out)
-);
+    // Slave接口 - 连接到CLINT和外部AXI
+    .awvalid_out(arbiter_awvalid_out),
+    .wvalid_out(arbiter_wvalid_out),
+    .arvalid_out(arbiter_arvalid_out),
+    .rready_out(arbiter_rready_out),
+    .bready_out(arbiter_bready_out),
+    .bvalid_in(arbiter_bvalid_in),
+    .rvalid_in(arbiter_rvalid_in),
+    .awready_in(arbiter_awready_in),
+    .wready_in(arbiter_wready_in),
+    .arready_in(arbiter_arready_in),
+    .araddr_out(arbiter_araddr_out),
+    .awaddr_out(arbiter_awaddr_out),
+    .wdata_out(arbiter_wdata_out),
+    .wstrb_out(arbiter_wstrb_out),
+    .rdata_in(arbiter_rdata_in),
+    .bresp_in(arbiter_bresp_in),
+    .awsize_out(arbiter_awsize_out),
+    .arsize_out(arbiter_arsize_out),
+    .awlen_out(arbiter_awlen_out),
+    .arlen_out(arbiter_arlen_out),
+    .awburst_out(arbiter_awburst_out),
+    .arburst_out(arbiter_arburst_out),
+    .wlast_out(arbiter_wlast_out),
+    .rlast_in(arbiter_rlast_in)
+  );
 
   // ---------------------------------
   // CLINT (Core Local Interruptor)
   // ---------------------------------
   // CLINT地址范围：0x02000000 - 0x0200ffff
-  // 从arbiter的输出地址判断是否选中CLINT
-  wire clint_ar_sel = (arbiter_araddr_out >= 32'h02000000) && (arbiter_araddr_out <= 32'h0200ffff);
-  wire clint_aw_sel = (arbiter_awaddr_out >= 32'h02000000) && (arbiter_awaddr_out <= 32'h0200ffff);
-
-  // CLINT接口信号
-  wire clint_awvalid, clint_awready;
-  wire clint_wvalid, clint_wready;
-  wire clint_arvalid, clint_arready;
-  wire clint_rvalid, clint_rready;
-  wire clint_bvalid, clint_bready;
-  wire [31:0] clint_araddr, clint_awaddr;
-  wire [31:0] clint_wdata, clint_rdata;
-  wire [3:0] clint_wstrb;
-  wire [1:0] clint_bresp;
-  wire [2:0] clint_awsize, clint_arsize;
-
-  // 实例化CLINT模块
-  ysyx_24100007_clint clint0(
+    ysyx_24100007_clint clint0(
     .clk(clock),
     .reset(reset),
-    
-    .awvalid(clint_awvalid),
-    .awready(clint_awready),
-    .awaddr(clint_awaddr),
-    .awsize(clint_awsize),
-    
-    .wvalid(clint_wvalid),
-    .wready(clint_wready),
-    .wdata(clint_wdata),
-    .wstrb(clint_wstrb),
-    
-    .arvalid(clint_arvalid),
-    .arready(clint_arready),
-    .araddr(clint_araddr),
-    .arsize(clint_arsize),
-    
-    .rvalid(clint_rvalid),
-    .rready(clint_rready),
-    .rdata(clint_rdata),
-    
-    .bvalid(clint_bvalid),
-    .bready(clint_bready),
-    .bresp(clint_bresp)
+    .awvalid(arbiter_awvalid_out[1]),
+    .awready(arbiter_awready_in[1]),
+    .awaddr(arbiter_awaddr_out[1]),
+    .awsize(arbiter_awsize_out[1]),
+    .wvalid(arbiter_wvalid_out[1]),
+    .wready(arbiter_wready_in[1]),
+    .wdata(arbiter_wdata_out[1]),
+    .wstrb(arbiter_wstrb_out[1]),
+    .arvalid(arbiter_arvalid_out[1]),
+    .arready(arbiter_arready_in[1]),
+    .araddr(arbiter_araddr_out[1]),
+    .arsize(arbiter_arsize_out[1]),
+    .rvalid(arbiter_rvalid_in[1]),
+    .rready(arbiter_rready_out[1]),
+    .rdata(arbiter_rdata_in[1]),
+    .bvalid(arbiter_bvalid_in[1]),
+    .bready(arbiter_bready_out[1]),
+    .bresp(arbiter_bresp_in[1])
   );
 
-  // CLINT信号连接（从arbiter输出获取，仅在地址匹配时有效）
-  assign clint_awvalid = arbiter_awvalid_out && clint_aw_sel;
-  assign clint_wvalid = arbiter_wvalid_out && clint_aw_sel;
-  assign clint_arvalid = arbiter_arvalid_out && clint_ar_sel;
-  assign clint_rready = arbiter_rready_out && clint_ar_sel;
-  assign clint_bready = arbiter_bready_out && clint_aw_sel;
-  assign clint_awaddr = arbiter_awaddr_out;
-  assign clint_araddr = arbiter_araddr_out;
-  assign clint_wdata = arbiter_wdata_out;
-  assign clint_wstrb = arbiter_wstrb_out;
-  assign clint_awsize = arbiter_awsize_out;
-  assign clint_arsize = arbiter_arsize_out;
+    // 外部AXI接口直接连接到arbiter slave[0]
+  assign io_master_awvalid = arbiter_awvalid_out[0];
+  assign io_master_wvalid = arbiter_wvalid_out[0];
+  assign io_master_arvalid = arbiter_arvalid_out[0];
+  assign io_master_rready = arbiter_rready_out[0];
+  assign io_master_bready = arbiter_bready_out[0];
+  assign io_master_araddr = arbiter_araddr_out[0];
+  assign io_master_awaddr = arbiter_awaddr_out[0];
+  assign io_master_wdata = arbiter_wdata_out[0];
+  assign io_master_wstrb = arbiter_wstrb_out[0];
+  assign io_master_awsize = arbiter_awsize_out[0];
+  assign io_master_arsize = arbiter_arsize_out[0];
+  assign io_master_awlen = arbiter_awlen_out[0];
+  assign io_master_arlen = arbiter_arlen_out[0];
+  assign io_master_awburst = arbiter_awburst_out[0];
+  assign io_master_arburst = arbiter_arburst_out[0];
+  assign io_master_wlast = arbiter_wlast_out[0];
 
-  // 地址解码和响应选择：当选中CLINT时，屏蔽io_master的输出，使用CLINT的响应
-  // 否则，使用外部设备的响应
-  // 屏蔽io_master输出（当选中CLINT时）
-  assign io_master_awvalid = arbiter_awvalid_out && ~clint_aw_sel;
-  assign io_master_wvalid = arbiter_wvalid_out && ~clint_aw_sel;
-  assign io_master_arvalid = arbiter_arvalid_out && ~clint_ar_sel;
-  assign io_master_rready = arbiter_rready_out && ~clint_ar_sel;
-  assign io_master_bready = arbiter_bready_out && ~clint_aw_sel;
-  assign io_master_araddr = arbiter_araddr_out;
-  assign io_master_awaddr = arbiter_awaddr_out;
-  assign io_master_wdata = arbiter_wdata_out;
-  assign io_master_wstrb = arbiter_wstrb_out;
-  assign io_master_awsize = arbiter_awsize_out;
-  assign io_master_arsize = arbiter_arsize_out;
+  // arbiter slave[0]输入来自外部AXI
+  assign arbiter_bvalid_in[0] = io_master_bvalid;
+  assign arbiter_rvalid_in[0] = io_master_rvalid;
+  assign arbiter_awready_in[0] = io_master_awready;
+  assign arbiter_wready_in[0] = io_master_wready;
+  assign arbiter_arready_in[0] = io_master_arready;
+  assign arbiter_rdata_in[0] = io_master_rdata;
+  assign arbiter_bresp_in[0] = io_master_bresp;
+  assign arbiter_rlast_in[0] = io_master_rlast;
 
-  // 选择响应数据：CLINT或外部设备，返回给arbiter
-  wire [31:0] ext_rdata_mux = clint_ar_sel ? clint_rdata : io_master_rdata;
-  wire [1:0] ext_bresp_mux = clint_aw_sel ? clint_bresp : io_master_bresp;
-  wire ext_rvalid_mux = clint_ar_sel ? clint_rvalid : io_master_rvalid;
-  wire ext_bvalid_mux = clint_aw_sel ? clint_bvalid : io_master_bvalid;
-  wire ext_awready_mux = clint_aw_sel ? clint_awready : io_master_awready;
-  wire ext_wready_mux = clint_aw_sel ? clint_wready : io_master_wready;
-  wire ext_arready_mux = clint_ar_sel ? clint_arready : io_master_arready;
-
-  assign io_master_awlen = 8'd0;
-  assign io_master_arlen = 8'd0;
   assign io_master_awid = 4'b0;
   assign io_master_arid = 4'd0;
-  assign io_master_arburst = 2'b01;
-  assign io_master_wlast = 1'b0;
 
   assign io_slave_awready = 1'b0;
   assign io_slave_wready  = 1'b0;
