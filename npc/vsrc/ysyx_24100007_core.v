@@ -64,6 +64,8 @@ module ysyx_24100007_core #(
     .pc(pcbridge),
     .inst(inst),
     .valid(ifu_valid),
+    .icahce_flush(icahce_flush),
+    .icahce_flush_addr(res),
 
     .trans_start(trans_start[0]),
     .trans_end(trans_end[0]),
@@ -190,6 +192,7 @@ module ysyx_24100007_core #(
 );
 
   wire regew;
+  wire icahce_flush;
   ysyx_24100007_wbu wbu0(
   .clk(clock),
   .rst(reset),
@@ -208,6 +211,7 @@ module ysyx_24100007_core #(
   .ready(inst_cycle_end),
   .regew_control(regew_control),
   .regew(regew),
+  .icahce_flush(icahce_flush),
 
   .trans_start(trans_start[1]),
   .trans_end(trans_end[1]),

@@ -8,6 +8,9 @@ module ysyx_24100007_ifu(
   output [31:0] inst,
   output valid,
 
+  input icahce_flush,
+  input [31:0] icahce_flush_addr,
+
   // AXI-Lite interface for external SRAM
   output arvalid,          // Read address valid
   input arready,           // Read address ready
@@ -58,7 +61,10 @@ module ysyx_24100007_ifu(
     .w_valid(w_valid),
     .w_data(axi_rdata),
     .hit(cache_hit),
-    .data_r(cache_rdata)
+    .data_r(cache_rdata),
+
+    .icahce_flush(icahce_flush),
+    .icahce_flush_addr(icahce_flush_addr)
   );
   wire hit = cache_hit && (ifu_state == CHECK_CACHE);
   assign w_valid = (ifu_state == UPDATE_CACHE);

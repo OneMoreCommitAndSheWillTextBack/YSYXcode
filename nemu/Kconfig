@@ -67,7 +67,7 @@ config TARGET_SHARE
 config TARGET_AM
   bool "Application on Abstract-Machine (DON'T CHOOSE)"
 config YSYXSOC_EMU
-  bbol "Executable emulator of ysyxsoc"
+  bool "Executable emulator of ysyxsoc"
 endchoice
 
 menu "Build Options"

@@ -20,6 +20,8 @@ module ysyx_24100007_wbu(
   output trans_start,
   output trans_end,
 
+  output icahce_flush,
+
   // axi-lite interface
   output awvalid,
   input awready,
@@ -105,6 +107,8 @@ module ysyx_24100007_wbu(
     3'b010, imm,
     3'b100, link_addr
   });
+
+  assign icahce_flush = memew & (wbu_state == WRITE_BACK);
 
   // AXI 内存控制器接口信号
   wire axi_xaddr_valid;   // 地址通道 valid（写地址或读地址）

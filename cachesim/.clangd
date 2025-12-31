@@ -4,3 +4,4 @@ CompileFlags:
     - c++
     - -std=c++17
     - -I/home/ysyx/project/ysyx-workbench/cachesim/include
+    - -I/home/ysyx/project/ysyx-workbench/cachesim/cfglang/include

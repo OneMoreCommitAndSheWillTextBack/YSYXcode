@@ -164,6 +164,7 @@ if(itrace_valid) {
   itrace_valid = false;
 }
 #endif
+
 #ifdef DIFFTEST
   if (start_diff < 1 && cpu->valid == 1)
     start_diff++;

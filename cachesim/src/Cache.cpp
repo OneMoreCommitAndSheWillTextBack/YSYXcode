@@ -13,11 +13,16 @@
 namespace cachesim {
 
 Cache::Cache(const CacheConfig& cfg)
-    : block_size_(cfg.block_size),
-      num_sets_(0),
+    : num_sets_(0),
       num_ways_(0),
       cache_type_(cfg.cache_type) {
-    
+
+    if(cfg.block_size == 0 && cfg.block_offset_bits.has_value()) {
+        block_size_ = 1 << cfg.block_offset_bits.value();
+    } else {
+        block_size_ = cfg.block_size;
+    }
+
     // 先初始化缓存结构
     initialize_cache_structure(cfg);
     
@@ -26,17 +31,27 @@ Cache::Cache(const CacheConfig& cfg)
 }
 
 void Cache::initialize_cache_structure(const CacheConfig& cfg) noexcept {
+    uint32_t line_num;
+    if(cfg.line_num == 0 && cfg.set_index_bits.has_value()) {
+        line_num = 1 << cfg.set_index_bits.value();
+    } else {
+        line_num = cfg.line_num;
+    }
+
     switch (cache_type_) {
         case CacheConfig::CacheTypeEnum::DirectMapped:
-            num_sets_ = cfg.line_num;
+            num_sets_ = line_num;
             num_ways_ = 1;
             break;
         case CacheConfig::CacheTypeEnum::FullyAssociative:
             num_sets_ = 1;
-            num_ways_ = cfg.line_num;
+            num_ways_ = line_num;
             break;
         case CacheConfig::CacheTypeEnum::SetAssociative:
-            num_sets_ = cfg.line_num / cfg.associativity;
+            if(cfg.associativity == 0) {
+                assert(false && "[Error] SetAssociative cfg.associativity cannot be set to 0");
+            }
+            num_sets_ = line_num / cfg.associativity;
             num_ways_ = cfg.associativity;
             break;
     }
@@ -262,6 +277,39 @@ double Cache::get_miss_rate() const noexcept {
         return 0.0;
     }
     return static_cast<double>(miss_count_) / static_cast<double>(total);
+}
+
+double Cache::get_reset_time() const noexcept {
+    return reset_count_;
+}
+
+void Cache::set_way_invalid(Cache::AddressParts &parts) noexcept {
+    if(cache_type_ == CacheConfig::CacheTypeEnum::DirectMapped) {
+        sets_[parts.set_index][0].valid = false;
+    } else if(cache_type_ == CacheConfig::CacheTypeEnum::FullyAssociative) {
+        auto ways = sets_[0];
+        for (auto way : ways) {
+            if(way.tag == parts.tag) {
+                way.valid = false;
+                return ;
+            }
+        }
+    } else {
+        // CacheConfig::CacheTypeEnum::SetAssociative
+        auto ways = sets_[parts.set_index];
+        for(auto way : ways) {
+            if(way.tag == parts.tag) {
+                way.valid = false;
+                return ;
+            }
+        }
+    }
+}
+
+void Cache::reset(uint32_t address) noexcept {
+    auto parts = parse_address(address);
+    set_way_invalid(parts);
+    ++reset_count_;
 }
 
 // Cache.cpp 中实现

@@ -8,7 +8,10 @@ module ysyx_24100007_icache #(
     input w_valid,
     input [DATABLOCK_SIZE-1:0] w_data,
     output hit,
-    output [31:0] data_r
+    output [31:0] data_r,
+    
+    input icahce_flush,
+    input [31:0] icahce_flush_addr
 );
     localparam LINE_NUM = 2 ** INDEX_LEN;
     localparam TAG_LEN = 32 - INDEX_LEN - OFFSET_LEN;
@@ -18,14 +21,19 @@ module ysyx_24100007_icache #(
     wire [INDEX_LEN-1:0] index = addr[OFFSET_LEN+INDEX_LEN-1:OFFSET_LEN];
     wire [TAG_LEN-1:0] tag = addr[31:OFFSET_LEN+INDEX_LEN];
 
+    wire [INDEX_LEN-1:0] flush_index = icahce_flush_addr[OFFSET_LEN+INDEX_LEN-1:OFFSET_LEN];
+    wire [TAG_LEN-1:0] flush_tag = icahce_flush_addr[31:OFFSET_LEN+INDEX_LEN];
 
     wire [LINE_NUM-1:0] line_hit;
     wire [LINE_NUM-1:0][31:0] line_data_r;
     wire [LINE_NUM-1:0] line_w_valid;
+    wire [LINE_NUM-1:0] line_set_invalid;
     wire [LINE_NUM-1:0][DATABLOCK_SIZE-1:0] line_data_w;
 
     assign line_w_valid[index] = w_valid;
     assign line_data_w[index] = w_data;
+
+    assign line_set_invalid[flush_index] = 1'b1;
  
     generate
         genvar i;
@@ -42,6 +50,8 @@ module ysyx_24100007_icache #(
                 .w_valid(line_w_valid[i]),
                 .data_w(line_data_w[i]),
                 .hit(line_hit[i]),
+                .set_invalid(line_set_invalid[i]),
+                .flush_tag(flush_tag),
                 .data_r(line_data_r[i])
             );
         end
@@ -62,6 +72,8 @@ module icahce_line #(
     input [OFFSET_LEN-1:0] offset,
     input w_valid,
     input [DATABLOCK_SIZE-1:0] data_w,
+    input set_invalid,
+    input [TAG_LEN-1:0] flush_tag,
     output hit,
     output [31:0] data_r
 );
@@ -75,6 +87,7 @@ module icahce_line #(
     wire [OFFSET_LEN-3:0] word_idx = offset[OFFSET_LEN-1:2];
     assign data_r = data_block[word_idx];
     assign hit = (valid_r && (tag == tag_r));
+    wire flush = set_invalid & (tag_r == flush_tag);
 
     always @(posedge clk) begin
         if(rst) begin
@@ -86,6 +99,8 @@ module icahce_line #(
                 valid_r <= 1'b1;
                 tag_r <= tag;
                 data_block <= data_w;
+            end else if(flush) begin
+                valid_r <= 1'b0;
             end
         end
     end

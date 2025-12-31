@@ -129,6 +129,19 @@ cachesim/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/build
 .PHONY : cachesim/fast
 
+#=============================================================================
+# Target rules for targets named cfglang
+
+# Build rule for target.
+cfglang: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 cfglang
+.PHONY : cfglang
+
+# fast build rule for target.
+cfglang/fast:
+	$(MAKE) $(MAKESILENT) -f cfglang/CMakeFiles/cfglang.dir/build.make cfglang/CMakeFiles/cfglang.dir/build
+.PHONY : cfglang/fast
+
 src/Cache.o: src/Cache.cpp.o
 .PHONY : src/Cache.o
 
@@ -177,6 +190,30 @@ src/Itraceparser.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Itraceparser.cpp.s
 .PHONY : src/Itraceparser.cpp.s
 
+src/Mtraceparser.o: src/Mtraceparser.cpp.o
+.PHONY : src/Mtraceparser.o
+
+# target to build an object file
+src/Mtraceparser.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Mtraceparser.cpp.o
+.PHONY : src/Mtraceparser.cpp.o
+
+src/Mtraceparser.i: src/Mtraceparser.cpp.i
+.PHONY : src/Mtraceparser.i
+
+# target to preprocess a source file
+src/Mtraceparser.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Mtraceparser.cpp.i
+.PHONY : src/Mtraceparser.cpp.i
+
+src/Mtraceparser.s: src/Mtraceparser.cpp.s
+.PHONY : src/Mtraceparser.s
+
+# target to generate assembly for a file
+src/Mtraceparser.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Mtraceparser.cpp.s
+.PHONY : src/Mtraceparser.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -210,12 +247,16 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... cachesim"
+	@echo "... cfglang"
 	@echo "... src/Cache.o"
 	@echo "... src/Cache.i"
 	@echo "... src/Cache.s"
 	@echo "... src/Itraceparser.o"
 	@echo "... src/Itraceparser.i"
 	@echo "... src/Itraceparser.s"
+	@echo "... src/Mtraceparser.o"
+	@echo "... src/Mtraceparser.i"
+	@echo "... src/Mtraceparser.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

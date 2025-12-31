@@ -25,10 +25,20 @@ socspace soc_spaces[] = {
 
 #define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
+#ifdef MTRACE
+char mtrace_log_file[] = "/home/ysyx/project/ysyx-workbench/cachesim/mtrace_log.txt";
+FILE *mtrace_fd = NULL;
+#endif
+
 void init_mem() {
   for(int i=0;i<SPACE_NUM;i++) {
     printf(COLOR_BLUE "[%s] start: 0x%x -- end: 0x%x\n" COLOR_RESET, soc_spaces[i].name, soc_spaces[i].start, soc_spaces[i].end);
   }
+
+#ifdef MTRACE
+  mtrace_fd = fopen(mtrace_log_file, "w");
+  printf(COLOR_GREEN "[INFO] mtrace log file %s\n" COLOR_RESET, mtrace_log_file);
+#endif
 }
 
 bool in_pmem(uint32_t addr) {
@@ -93,7 +103,7 @@ uint32_t paddr_read(uint32_t addr, uint32_t len) {
     uint32_t ret = pmem_read(guest_to_host(addr), len);
     // printf("\t[paddr_read]space mrom, addr 0x%08x data %u\n", addr, ret);
 #ifdef MTRACE
-    printf("[memory read] %u from 0x%08x\n", ret, addr);
+    fprintf(mtrace_fd, "[memory read] %u from 0x%08x\n", ret, addr);
 #endif
     return ret;
   }
@@ -107,7 +117,7 @@ void paddr_write(uint32_t addr, uint32_t len, uint32_t data) {
     pmem_write(guest_to_host(addr), len, data);
     // printf("\t[paddr_write]space mrom, addr 0x%08x data %u\n", addr, data);
 #ifdef MTRACE
-    printf("[memory write] %u to 0x%08x\n", data, addr);
+    fprintf(mtrace_fd, "[memory write] %u to 0x%08x\n", data, addr);
 #endif
     return;
   }

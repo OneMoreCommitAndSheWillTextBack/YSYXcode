@@ -26,7 +26,9 @@ Area heap = RANGE(&_heap_start, &_heap_end);
 #ifndef MAINARGS
 #define MAINARGS ""
 #endif
+
 static const char mainargs[] = MAINARGS;
+
 
 void serial_init() {
   *(volatile unsigned char *)(UART_BASE + UART_LCR) = 0b10000011;
