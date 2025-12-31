@@ -156,6 +156,16 @@ static int start_diff = 0;
 void trace_or_diff() {
 #ifdef WATCH_POINT
   exe_wp();
+<<<<<<< HEAD
+#endif
+
+#ifdef ITRACE
+if(itrace_valid) {
+  fprintf(itrace_cfg->itrace_out, "%s\n", cpu->logbuf);
+  itrace_valid = false;
+}
+=======
+>>>>>>> dev
 #endif
 
 #ifdef ITRACE
@@ -164,6 +174,7 @@ if(itrace_valid) {
   itrace_valid = false;
 }
 #endif
+
 #ifdef DIFFTEST
   if (start_diff < 1 && cpu->valid == 1)
     start_diff++;

@@ -25,10 +25,12 @@ public:
     Cache& operator=(Cache&&) noexcept = default;
 
     void access(uint32_t address) noexcept;
+    void reset(uint32_t address) noexcept;
     
     [[nodiscard]] uint64_t get_hit_time() const noexcept;
     [[nodiscard]] uint64_t get_miss_time() const noexcept;
     [[nodiscard]] double get_miss_rate() const noexcept;
+    [[nodiscard]] double get_reset_time() const noexcept;
     void print_config() const;
 
 private:
@@ -53,6 +55,7 @@ private:
     // 统计信息
     mutable uint64_t hit_count_ = 0;
     mutable uint64_t miss_count_ = 0;
+    mutable uint64_t reset_count_ = 0;
 
     struct AddressParts {
         uint32_t tag;
@@ -104,6 +107,8 @@ private:
     [[nodiscard]] uint32_t select_way_to_replace(Cache::AddressParts &addr_parts) const noexcept;
 
     void replace_way(Cache::AddressParts &parts) noexcept;
+
+    void set_way_invalid(Cache::AddressParts &parts) noexcept;
 };
 
 }

@@ -19,13 +19,15 @@ extern char _etext_vma;
 extern char _sstage2_vma;
 extern char _estage2_vma;
 
-
 DECLARE_WEAK_SYMBOL(char, __am_apps_bss_start)
 DECLARE_WEAK_SYMBOL(char, __am_apps_bss_end)
 
 DECLARE_WEAK_SYMBOL(char, _sdata_extra_vma)
 DECLARE_WEAK_SYMBOL(char, _edata_extra_vma)
 DECLARE_WEAK_SYMBOL(char, _data_extra_lma)
+
+#define NOP_INST 0x00000013
+#define RET_INST 0x00008067
 
 __attribute__((section(".stage1")))
 void loader_fsbl() {
@@ -52,7 +54,9 @@ void loader_ssbl() {
     COPY_SECTION(_sdata_lma, _sdata_vma, _edata_vma, int);
     COPY_SECTION(_srodata_lma, _srodata_vma, _erodata_vma, int);
     CLEAR_BSS(_sbss_vma, _ebss_vma);
+
     COPY_SECTION(_stext_lma, _stext_vma, _etext_vma, char);
+    asm volatile ("fence.i" ::: "memory");
 
     extra_lode();
 }
