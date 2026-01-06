@@ -24,55 +24,106 @@ static std::string now_time() {
 }
 
 void dump_performance() {
-     // 覆盖写入，文件中只保留最近一次的性能数据，使用 key=value 形式便于脚本解析
-     std::ofstream ofs("/home/ysyx/project/ysyx-workbench/npc/performance.txt",
-                       std::ios::out | std::ios::trunc);
+  // 覆盖写入，文件中只保留最近一次的性能数据，使用 key=value 形式便于脚本解析
+  std::ofstream ofs("/home/ysyx/project/ysyx-workbench/npc/performance.txt",
+                    std::ios::out | std::ios::trunc);
 
-     double ipc     = (npc->cycs == 0) ? 0.0 : (double)npc->icount / (double)npc->cycs;
-     double ifu_occ = (npc->cycs == 0) ? 0.0 : (double)npc->ifutimer / (double)(npc->cycs * 2);
-     double lsu_occ = (npc->cycs == 0) ? 0.0 : (double)npc->iotimer / (double)(npc->cycs * 2);
-     unsigned int icache_hit_time = npc->icount - icache_hit_time;
-     double icache_hit_rate = icache_hit_time / (double)npc->icount;
-     double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*icache_hit_time) / ((double)npc->ifucount - icache_hit_time);
-     ofs << "date="             << now_date()            << '\n'
-         << "time="             << now_time()            << '\n'
-         << "end_pc=0x"         << std::hex << cpu->con.pc << std::dec << '\n'
-         << "total_cycle="      << npc->cycs            << '\n'
-         << "total_inst="       << npc->icount          << '\n'
-         << "ipc="              << ipc                  << '\n'
-         << "ifu_count="        << npc->ifucount        << '\n'
-         << "ifu_time="         << npc->ifutimer        << '\n'
-         << "ifu_occupied="     << ifu_occ              << '\n'
-         << "icache_hit_times=" << icache_hit_time      << '\n'
-         << "icache_hit_rate="  << icache_hit_rate      << '\n'
-         << "icache_amat="      << amat                 << '\n'
-         << "lsu_count="        << npc->iocount         << '\n'
-         << "lsu_time="         << npc->iotimer         << '\n'
-         << "lsu_occupied="     << lsu_occ              << '\n'
-         << "exu_count="        << npc->exucount        << '\n';
+  uint64_t total_inst   = npc->npc_commit_time;
+  uint64_t total_cycle  = npc->cycs;
+  double ipc            = (total_cycle == 0) ? 0.0
+                                             : (double)total_inst / (double)total_cycle;
+
+  // IFU 相关
+  uint64_t ifu_total    = npc->ifu_work_cycle + npc->ifu_non_work_cycle;
+  double ifu_occ        = (ifu_total == 0) ? 0.0
+                                           : (double)npc->ifu_work_cycle / (double)ifu_total;
+  double ifu_giveup_rate= (total_inst == 0) ? 0.0
+                                            : (double)npc->ifu_giveup_bus_counter / (double)total_inst;
+
+  // I-Cache
+  uint64_t ic_hit       = total_inst - npc->icache_miss_time;
+  double ic_hit_rate    = (total_inst == 0) ? 0.0
+                                            : (double)ic_hit / (double)total_inst;
+  double ic_amat        = 1.0 + (1.0 - ic_hit_rate) * (double)npc->ifu_mem_access_timer;
+
+  // IDU / EXU 占用
+  uint64_t idu_total    = npc->idu_work_cycle + npc->idu_non_work_cycle;
+  double idu_occ        = (idu_total == 0) ? 0.0
+                                           : (double)npc->idu_work_cycle / (double)idu_total;
+
+  uint64_t exu_total    = npc->exu_work_cycle + npc->exu_non_work_cycle;
+  double exu_occ        = (exu_total == 0) ? 0.0
+                                           : (double)npc->exu_work_cycle / (double)exu_total;
+
+  // LSU
+  double lsu_occ        = (total_cycle == 0) ? 0.0
+                                             : (double)npc->npc_io_timer / (double)(total_cycle * 2);
+
+  ofs << "date="              << now_date() << '\n'
+      << "time="              << now_time() << '\n'
+      << "end_pc=0x"          << std::hex << cpu->con.pc << std::dec << '\n'
+      << "total_cycle="       << total_cycle               << '\n'
+      << "total_inst="        << total_inst                << '\n'
+      << "ipc="               << ipc                       << '\n'
+      << "ifu_occupy="        << ifu_occ                   << '\n'
+      << "ifu_giveup_cnt="    << npc->ifu_giveup_bus_counter << '\n'
+      << "ifu_giveup_rate="   << ifu_giveup_rate           << '\n'
+      << "icache_hit_rate="   << ic_hit_rate               << '\n'
+      << "icache_amat="       << ic_amat                   << '\n'
+      << "idu_occupy="        << idu_occ                   << '\n'
+      << "exu_occupy="        << exu_occ                   << '\n'
+      << "lsu_occupy="        << lsu_occ                   << '\n'
+      << "predict_miss="      << npc->predict_miss_time    << '\n';
 }
 
 void deal_statistic() {
-    printf("ended at pc = 0x%08x\n", cpu->con.pc);
-    printf(COLOR_BLUE "statistic: \n" );
-    printf("  total cycle: %llu\n", npc->cycs);
-    printf("  total inst num: %u\n", npc->icount);
-    printf("  ipc: %f\n", ((double)npc->icount / (double)npc->cycs));
-    printf("  ifu count %u, time %llu, occupied %f\n", npc->ifucount, npc->ifutimer, (double)npc->ifutimer / (npc->cycs * 2));
-    unsigned int icache_hit_time = npc->icount - npc->icache_miss_time;
-    double icache_hit_rate = icache_hit_time / (double)npc->icount;
-    double amat = 1 + (1 - icache_hit_rate) * (npc->ifutimer - 2*icache_hit_time) / ((double)npc->ifucount - icache_hit_time);
+  printf("ended at pc = 0x%08x\n", cpu->con.pc);
+  printf(COLOR_BLUE "statistic:\n");
 
-    printf("  icache hit time: %u\n", icache_hit_time);
-    printf("  icache miss time: %u\n", npc->icache_miss_time);
-    printf("  icache hit rate: %f\n", icache_hit_rate);
-    printf("  the amat is %f\n", amat);
-    printf("  lsu count %u, time %llu, occupied %f\n", npc->iocount, npc->iotimer, (double) npc->iotimer / (npc->cycs * 2));
-    printf("  exu count: %u\n", npc->exucount);
-    printf("  load time occupied %f\n" COLOR_RESET, get_loadfinish_time() / (double)npc->timer);
+  uint64_t total_inst  = npc->npc_commit_time;
+  uint64_t total_cycle = npc->cycs;
+  double ipc           = (total_cycle == 0) ? 0.0
+                                            : (double)total_inst / (double)total_cycle;
 
-    if(need_dump_perform()) {
-        dump_performance();
-    }
+  // IFU
+  uint64_t ifu_total   = npc->ifu_work_cycle + npc->ifu_non_work_cycle;
+  double ifu_occ       = (ifu_total == 0) ? 0.0
+                                          : (double)npc->ifu_work_cycle / (double)ifu_total;
+  printf("  total cycle: %lu\n", total_cycle);
+  printf("  total inst  : %lu\n",   total_inst);
+  printf("  ipc: %f\n", ipc);
+  printf("  ifu work_cycle: %llu, non_work_cycle: %llu, occupy: %f\n",
+         npc->ifu_work_cycle, npc->ifu_non_work_cycle, ifu_occ);
+  printf("  ifu give-up cnt: %u\n", npc->ifu_giveup_bus_counter);
+
+  // I-Cache
+  uint64_t ic_hit      = total_inst - npc->icache_miss_time;
+  double ic_hit_rate   = (total_inst == 0) ? 0.0
+                                           : (double)ic_hit / (double)total_inst;
+  double ic_amat       = 1.0 + (1.0 - ic_hit_rate) * (double)npc->ifu_mem_access_timer;
+  printf("  icache hit: %lu, miss: %u, hit-rate: %f, AMAT: %f\n",
+         ic_hit, npc->icache_miss_time, ic_hit_rate, ic_amat);
+
+  // IDU / EXU
+  uint64_t idu_total   = npc->idu_work_cycle + npc->idu_non_work_cycle;
+  double idu_occ       = (idu_total == 0) ? 0.0
+                                          : (double)npc->idu_work_cycle / (double)idu_total;
+  uint64_t exu_total   = npc->exu_work_cycle + npc->exu_non_work_cycle;
+  double exu_occ       = (exu_total == 0) ? 0.0
+                                          : (double)npc->exu_work_cycle / (double)exu_total;
+  printf("  idu occupy: %f, exu occupy: %f\n", idu_occ, exu_occ);
+
+  // LSU
+  double lsu_occ       = (total_cycle == 0) ? 0.0
+                                            : (double)npc->npc_io_timer / (double)(total_cycle * 2);
+  printf("  lsu occupy: %f (io_timer: %llu)\n", lsu_occ, npc->npc_io_timer);
+
+  // Branch predictor
+  printf("  predict miss: %u\n", npc->predict_miss_time);
+
+  printf(COLOR_RESET);
+
+  if (need_dump_perform()) {
+    dump_performance();
+  }
 }
-

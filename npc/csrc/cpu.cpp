@@ -105,9 +105,6 @@ static void exe_once() {
   npc->cycs += 1; // one cyc
   npc->timer += 2;
 
-  if(cpu->valid == 1) 
-    npc->icount++; // a valid inst
-
   #ifndef __NPC__
   if(!start_load && npc->top->externalPins_gpio_out == 0x3AB) {
     start_load = true;
@@ -169,6 +166,8 @@ if(itrace_valid) {
   if (start_diff < 1 && cpu->valid == 1)
     start_diff++;
   if (start_diff == 1 && cpu->valid == 1) {
+    memcpy(cpu->commit.gpr, cpu->con.gpr, sizeof(cpu->commit.gpr));
+    cpu->commit.csr = cpu->con.csr;
     diff_step();
   }
 #endif

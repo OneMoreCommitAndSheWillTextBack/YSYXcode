@@ -33,13 +33,23 @@ typedef struct {
   // statistic data
   unsigned long long cycs;
   unsigned long long timer;
-  unsigned int icount;
-  unsigned int iocount;
-  unsigned long long iotimer;
-  unsigned int ifucount;
-  unsigned long long ifutimer;
-  unsigned int exucount;
+
   unsigned int icache_miss_time;
+  unsigned int predict_miss_time;
+  unsigned int npc_commit_time;
+  unsigned long long npc_io_timer;
+  unsigned int npc_io_counter;
+  unsigned long long ifu_work_cycle;
+  unsigned long long ifu_non_work_cycle;
+  unsigned long long ifu_mem_access_timer;
+  unsigned int ifu_giveup_bus_counter;
+  unsigned int ifu_inst_count;
+  unsigned long long idu_work_cycle;
+  unsigned long long idu_non_work_cycle;
+  unsigned long long exu_work_cycle;
+  unsigned long long exu_non_work_cycle;
+  unsigned long long wbu_mem_access_timer;
+  unsigned int wbu_mem_access_counter;
 } Npc;
 
 typedef struct {
@@ -57,7 +67,9 @@ typedef struct {
 
 typedef struct {
   uint32_t inst;
+  uint32_t pc;
   context con;
+  context commit;
   char logbuf[128];
   int valid;
 } Cpu;

@@ -1,5 +1,6 @@
 #include "common.h"
 #include <cstdint>
+#include <filesystem>
 #include <stdlib.h>
 #include <verilated.h>
 
@@ -61,11 +62,6 @@ extern "C" void sdram_read(uint32_t bank, uint32_t row, uint32_t col, uint16_t *
   *data = ret;
 }
 
-extern "C" void host_get_pc(int pc) {
-  cpu->con.pc = (uint32_t)pc;
-  return;
-}
-
 extern "C" void host_get_csr(int csrval, int csrnum) {
   switch (csrnum) {
   case 0:
@@ -82,18 +78,6 @@ extern "C" void host_get_csr(int csrval, int csrnum) {
     break;
   }
 }
-
-extern "C" void host_get_reg(int regval, int regnum) {
-  cpu->con.gpr[regnum] = (uint32_t)(regval);
-  return;
-}
-
-extern "C" void host_get_inst(int inst) {
-  cpu->inst = (uint32_t)inst;
-  return;
-}
-
-extern "C" void host_get_valid(int valid) { cpu->valid = valid; }
 
 extern "C" void host_get_io_op(uint32_t addr) { 
   // 外设地址范围定义（MMIO 设备，difftest 时需要跳过检查）
@@ -149,28 +133,90 @@ extern "C" void host_get_io_op(uint32_t addr) {
 }
 
 extern Npc *npc;
-unsigned long long io_record_time = 0;
-extern "C" void host_get_cpu_axi_valid() {
-  io_record_time = npc->timer;
-  npc->iocount++;
+extern "C" void host_get_reg(int regval, int regnum) {
+  cpu->con.gpr[regnum] = (uint32_t)(regval);
+  return;
 }
 
-extern "C" void host_get_cpu_axi_ready() {
-  npc->iotimer += npc->timer - io_record_time;
+extern "C" void npc_commit_inst(int valid, uint32_t pc, uint32_t inst) {
+  if(valid) {
+    cpu->valid = 1;
+    npc->npc_commit_time++;
+    cpu->inst = inst;
+
+    // 准备好最近一次的inst commit
+    printf("[Debug] commit a inst 0x%08x, get pc %8x\n", inst, pc);
+    cpu->commit.pc = pc;
+  } else {
+    cpu->valid = 0;
+  }
 }
 
-unsigned ifu_record_time = 0;
+extern "C" void npc_get_current_pc(uint32_t cur_pc) {
+  cpu->con.pc = cur_pc;
+}
+
+extern "C" void get_ifu_state(int state) {
+  if(state == 1) {
+    npc->ifu_work_cycle++;
+  } else {
+    npc->ifu_non_work_cycle++;
+  }
+}
+
+extern "C" void get_idu_state(int state) {
+  if(state == 1) {
+    npc->idu_work_cycle++;
+  } else {
+    npc->idu_non_work_cycle++;
+  }
+}
+
+extern "C" void get_exu_state(int state) {
+  if(state == 1) {
+    npc->exu_work_cycle++;
+  } else {
+    npc->exu_non_work_cycle++;
+  }
+}
+
+static unsigned long long ifu_axi_start_time = 0;
 extern "C" void host_get_ifu_start() {
-  npc->ifucount ++;
-  ifu_record_time = npc->timer;
+  ifu_axi_start_time = npc->timer;
+}
+
+extern "C" void host_get_ifu_giveup() {
+  ifu_axi_start_time = 0;
+  npc->ifu_giveup_bus_counter++;
 }
 
 extern "C" void host_get_ifu_finish() {
-  npc->ifutimer += npc->timer - ifu_record_time;
+  unsigned int timer_diff = (npc->timer - ifu_axi_start_time);
+  npc->ifu_mem_access_timer = npc->ifu_mem_access_timer + \
+    timer_diff;
+  npc->npc_io_timer = npc->npc_io_timer + timer_diff;
+  npc->npc_io_counter++;
+  npc->ifu_inst_count++;
 }
 
-extern "C" void host_get_exu_valid() {
-  npc->exucount ++;
+extern "C" void get_predict_miss(int is_jmp) {
+  if(is_jmp) {
+    npc->predict_miss_time ++;
+  }
+}
+
+static unsigned long long wbu_axi_start_time = 0;
+extern "C" void host_get_wbu_start() {
+  wbu_axi_start_time = npc->timer;
+}
+
+extern "C" void host_get_wbu_finish() {
+  unsigned int timer_diff = (npc->timer - wbu_axi_start_time);
+  npc->wbu_mem_access_timer = npc->wbu_mem_access_timer + \
+    timer_diff;
+  npc->npc_io_timer = npc->npc_io_timer + timer_diff;
+  npc->npc_io_counter++;
+  npc->wbu_mem_access_counter++;
 }
 
 extern "C" void host_get_icache_miss() {

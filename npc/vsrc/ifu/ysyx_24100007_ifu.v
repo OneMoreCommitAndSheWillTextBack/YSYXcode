@@ -1,15 +1,17 @@
 module ysyx_24100007_ifu(
   input clk,
   input rst,
-  input [31:0] npc,
-  input ready,
+  input [31:0] exu_npc,
 
   output [31:0] pc,
   output [31:0] inst,
   output valid,
+  input ready,
 
   input icahce_flush,
   input [31:0] icahce_flush_addr,
+
+  input is_jmp,
 
   // AXI-Lite interface for external SRAM
   output arvalid,          // Read address valid
@@ -30,7 +32,9 @@ module ysyx_24100007_ifu(
 );
 
   wire [31:0] pcbridge;
-  wire infetch_req = (ifu_state == VALID) && ready;
+  wire infetch_req = is_jmp | (ready & valid); // update pc
+  wire [31:0] pc_add_4 = pc + 32'd4;
+  wire [31:0] npc = (is_jmp) ? exu_npc : pc_add_4;
 
   // PC register module
   ysyx_24100007_pcreg pcreg0(
@@ -74,45 +78,42 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // divide it so it couldnot disrupt the synthetic
   // synopsys translate_off
-  import "DPI-C" function void host_get_valid(int valid);
+
   import "DPI-C" function void host_get_ifu_start();
   import "DPI-C" function void host_get_ifu_finish();
+  import "DPI-C" function void host_get_ifu_giveup();
   import "DPI-C" function void host_get_icache_miss();
   always @(posedge clk) begin
-    if(ready) begin
-      host_get_valid(32'd1);
-    end else begin
-      host_get_valid(32'd0);
-    end
-  end
-
-  always @(posedge clk) begin
     if (!rst) begin
-      case (ifu_state)
-        INIT: begin
-          if(ready) begin
-            host_get_ifu_start();
+      if (is_jmp) begin
+        host_get_ifu_giveup();   // 立即放弃当前取指流
+      end else begin
+        case (ifu_state)
+          INIT: begin
+            if (ready) begin
+              host_get_ifu_start();
+            end
           end
-        end
 
-        VALID: begin
-          if(ready) begin
-            host_get_ifu_start();
+          VALID: begin
+            if (ready) begin
+              host_get_ifu_start();
+            end
           end
-        end
 
-        CHECK_CACHE: begin
-          if(hit) begin
-            host_get_ifu_finish();
+          CHECK_CACHE: begin
+            if (hit) begin
+              host_get_ifu_finish();
+            end
           end
-        end
 
-        UPDATE_CACHE: begin
-          host_get_icache_miss();
-        end
+          UPDATE_CACHE: begin
+            host_get_icache_miss();
+          end
 
-        default: begin end
-      endcase
+          default: begin end
+        endcase
+      end
     end
   end
   // synopsys translate_on
@@ -123,8 +124,8 @@ module ysyx_24100007_ifu(
   typedef enum logic [2:0] {
     INIT, // the inst is not valid
     VALID, CHECK_CACHE, BUS_HANDSHAKE,
-    BUS_TRANSACTION, UPDATE_CACHE
-    
+    BUS_TRANSACTION, UPDATE_CACHE,
+    BUS_INVALID, UPDATE_PC
   } ifu_state_t;
 
   ifu_state_t ifu_state;
@@ -142,12 +143,16 @@ module ysyx_24100007_ifu(
         VALID: begin
           if(ready) begin
             ifu_state <= CHECK_CACHE;
+          end else if(is_jmp) begin
+            ifu_state <= UPDATE_PC;
           end
         end
 
         CHECK_CACHE: begin
           if(hit) begin
             ifu_state <= VALID;
+          end else if(is_jmp)begin
+            ifu_state <= UPDATE_PC;
           end else begin
             ifu_state <= BUS_HANDSHAKE;
           end
@@ -156,17 +161,35 @@ module ysyx_24100007_ifu(
         BUS_HANDSHAKE: begin
           if(axi_arready) begin
             ifu_state <= BUS_TRANSACTION;
+          end else if(is_jmp) begin
+            ifu_state <= BUS_INVALID;
           end
         end
 
         BUS_TRANSACTION: begin
           if(axi_rdata_valid) begin
             ifu_state <= UPDATE_CACHE;
+          end else if(is_jmp) begin
+            ifu_state <= BUS_INVALID;
           end
         end
 
         UPDATE_CACHE: begin
-          ifu_state <= CHECK_CACHE;
+          if(is_jmp) begin
+            ifu_state <= UPDATE_PC;
+          end else begin
+            ifu_state <= CHECK_CACHE;
+          end
+        end
+
+        BUS_INVALID: begin
+          if(axi_rdata_valid) begin
+            ifu_state <= UPDATE_PC;
+          end
+        end
+
+        UPDATE_PC: begin
+          ifu_state <= UPDATE_CACHE;
         end
 
         default: begin
