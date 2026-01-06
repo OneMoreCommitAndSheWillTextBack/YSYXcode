@@ -16,8 +16,6 @@ module ysyx_24100007_exu(
   input jalsig_in,
   input [31:0] imm_in,
   input muximm_in,
-  input [4:0] src1_addr_in,
-  input [4:0] src2_addr_in,
   input [31:0] pc_in,
   input auipcsig_in,
   input mretsig_in,
@@ -36,10 +34,6 @@ module ysyx_24100007_exu(
   
   input [31:0] regout1_in,
   input [31:0] regout2_in,
-  input [4:0] prev_rd,
-  input prev_regew,
-  input [31:0] transmit_data,
-  input transmit_data_valid,
 
   output [31:0] res,
   output [31:0] npc,
@@ -180,27 +174,6 @@ module ysyx_24100007_exu(
   assign pc_plus_4 = pc + 32'd4;
   assign pc_plus_imm = pc + imm;
 
-  // ------------------------------------
-  //  TRANSMIT
-  // ------------------------------------
-  wire [31:0] src1, src2;
-  wire alu_arg_valid;
-
-  ysyx_24100007_transmit transmit0(
-    .src1_addr_in(src1_addr_in),
-    .src2_addr_in(src2_addr_in),
-    .prev_rd(prev_rd),
-    .prev_regew(prev_regew),
-
-    .regout1_in(regout1),
-    .regout2_in(regout2),
-    .transmit_data(transmit_data),
-    .transmit_data_valid(transmit_data_valid),
-
-    .src1(src1),
-    .src2(src2),
-    .alu_arg_valid(alu_arg_valid)
-  );
   
   wire [4:0] alu_opcode;
   ysyx_24100007_alucontrol alucontrol0(

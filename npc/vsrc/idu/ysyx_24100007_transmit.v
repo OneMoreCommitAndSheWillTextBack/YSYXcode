@@ -1,19 +1,26 @@
 module ysyx_24100007_transmit(
+    input clk,
+    input rst,
+
     input [4:0] src1_addr_in,
     input [4:0] src2_addr_in,
-    input [4:0] prev_rd,
-    input prev_regew,
+    input [4:0] exu_rd,
+    input [4:0] wbu_rd,
+
+    input exu_res_valid,
+    input wbu_res_valid,
+
     input [31:0] regout1_in,
     input [31:0] regout2_in,
-    input [31:0] transmit_data,
-    input transmit_data_valid,
+    input [31:0] exu_transmit_data,
+    input [31:0] wbu_transmit_data,
 
     output [31:0] src1,
     output [31:0] src2,
     output alu_arg_valid
 );  
 
-    wire is_same_src1 = (src1_addr_in == prev_rd);
+    wire src1_need_wbu = 
     wire src1_need = is_same_src1 & prev_regew;
     assign src1 = (src1_need) ? transmit_data : regout1_in;
 

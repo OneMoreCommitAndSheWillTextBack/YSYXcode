@@ -2,6 +2,7 @@ module ysyx_24100007_idu(
   input clk,
   input rst,
   input [31:0] inst_in,
+  input [31:0] pc_in,
 
   output in_ready,
   input in_valid,
@@ -32,7 +33,8 @@ module ysyx_24100007_idu(
   output csrrw,
   output csrrs,
   output [2:0] memmask,
-  output memsextsig
+  output memsextsig,
+  output [31:0] pc_out
 );
 
   typedef enum logic {
@@ -79,6 +81,8 @@ module ysyx_24100007_idu(
 
     .inst_in(inst_in),
     .inst_out(inst),
+    .pc_in(pc_in),
+    .pc_out(pc_out),
 
     .avaliable(avaliable),
 
@@ -155,6 +159,8 @@ module idu_pipline_connect(
 
   input [31:0] inst_in,
   output [31:0] inst_out,
+  input [31:0] pc_in,
+  output [31:0] pc_out,
 
   output avaliable,
 
@@ -177,19 +183,24 @@ module idu_pipline_connect(
   assign avaliable = avaliable_r;
 
   reg [31:0] inst_r;
+  reg [31:0] pc_r;
 
   always @(posedge clk) begin
     if(rst) begin
       inst_r <= 32'b0;
+      pc_r <= 32'b0;
     end else begin
       if(valid) begin
         inst_r <= inst_in;
+        pc_r <= pc_in;
       end else if(flush) begin
         inst_r <= 32'b0;
+        pc_r <= 32'b0;
       end
     end
   end
 
   assign inst_out = inst_r;
+  assign pc_out = pc_r;
 
 endmodule

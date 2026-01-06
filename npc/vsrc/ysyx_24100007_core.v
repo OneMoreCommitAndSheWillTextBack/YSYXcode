@@ -50,7 +50,7 @@ module ysyx_24100007_core #(
   wire exu_to_idu_ready;
   wire wbu_to_exu_ready;
 
-  wire [31:0] npc, pcbridge;
+  wire [31:0] npc, ifu_pc;
   wire [31:0] inst;
 
   ysyx_24100007_ifu ifu0(
@@ -58,7 +58,7 @@ module ysyx_24100007_core #(
     .rst(reset),
     .exu_npc(npc),
     .ready(idu_to_ifu_ready), // IDU to IFU ready
-    .pc(pcbridge),
+    .pc(ifu_pc),
     .inst(inst),
     .valid(ifu_to_idu_valid),
     .icahce_flush(icahce_flush),
@@ -107,6 +107,7 @@ module ysyx_24100007_core #(
   wire [2:0] memmask;
   wire memsextsig;
   wire regew_control;
+  wire [31:0] idu_pc;
   ysyx_24100007_idu idu0(
   .clk(clock),
   .rst(reset),
@@ -116,6 +117,7 @@ module ysyx_24100007_core #(
   .out_valid(idu_to_exu_valid),
   .out_ready(exu_to_idu_ready), // IDU to IFU ready
   .is_jmp(is_jmp),
+  .pc_in(ifu_pc),
 
   .ebreaksig(ebreaksig),
   .ecallsig(ecallsig),
@@ -139,7 +141,8 @@ module ysyx_24100007_core #(
   .csrrw(csrrw),
   .csrrs(csrrs),
   .memmask(memmask),
-  .memsextsig(memsextsig)
+  .memsextsig(memsextsig),
+  .pc_out(idu_pc)
 );
 
   wire [31:0] regwrite, regout1, regout2;
@@ -189,7 +192,7 @@ module ysyx_24100007_core #(
   .muximm_in(muximm),
   .src1_addr_in(src1),
   .src2_addr_in(src2),
-  .pc_in(pcbridge),
+  .pc_in(idu_pc),
   .auipcsig_in(auipcsig),
   .mretsig_in(mretsig),
   .ecallsig_in(ecallsig),
@@ -306,7 +309,7 @@ module ysyx_24100007_core #(
     .is_jmp(is_jmp),
     .wbu_commit(wbu_commit), 
     
-    .pc(pcbridge),
+    .pc(ifu_pc),
     .inst(inst)
   );
 
@@ -363,9 +366,20 @@ module pipline_tracer(
   import "DPI-C" function void npc_commit_inst(int valid, int pc, int inst);
   import "DPI-C" function void get_predict_miss(int is_jmp);
   import "DPI-C" function void npc_get_current_pc(int pc);
+
+  reg commit_sys;
+  reg [31:0] commit_pc_sys;
+  reg [31:0] commit_inst_sys;
+
+  always @(posedge clk) begin
+    commit_sys <= wbu_commit;
+    commit_pc_sys <= wbu_pc;
+    commit_inst_sys <= wbu_inst;
+  end
+
   always @(posedge clk) begin
     npc_get_current_pc(pc);
-    npc_commit_inst({31'b0, wbu_commit}, wbu_pc, wbu_inst);  
     get_predict_miss({31'b0, is_jmp});
+    npc_commit_inst({31'b0, commit_sys}, commit_pc_sys, commit_inst_sys); 
   end
 endmodule

@@ -166,6 +166,8 @@ if(itrace_valid) {
   if (start_diff < 1 && cpu->valid == 1)
     start_diff++;
   if (start_diff == 1 && cpu->valid == 1) {
+    memcpy(cpu->commit.gpr, cpu->con.gpr, sizeof(cpu->commit.gpr));
+    cpu->commit.csr = cpu->con.csr;
     diff_step();
   }
 #endif
