@@ -2,73 +2,206 @@ module ysyx_24100007_exu(
   input clk,
   input rst,
 
-  input [2:0] func3,
-  input btypebranch,
-  input func7,
-  input [1:0] aluop,
-  input jalrsig,
-  input jalsig,
-  input [31:0] imm,
-  input muximm,
-  input [31:0] regout1,
-  input [31:0] regout2,
-  input [31:0] pc,
-  input auipcsig,
-  input mretsig,
-  input ecallsig,
-  input [31:0] mtvec,
-  input [31:0] mepc,
-  input valid_get,
-  input ready,
+  input in_valid,
+  output in_ready,
+  input out_ready,
+  output out_valid,
 
-  output valid_to,
+  // need sig
+  input [2:0] func3_in,
+  input btypebranch_in,
+  input func7_in,
+  input [1:0] aluop_in,
+  input jalrsig_in,
+  input jalsig_in,
+  input [31:0] imm_in,
+  input muximm_in,
+  input [4:0] src1_addr_in,
+  input [4:0] src2_addr_in,
+  input [31:0] pc_in,
+  input auipcsig_in,
+  input mretsig_in,
+  input ecallsig_in,
+  input [31:0] mtvec_in,
+  input [31:0] mepc_in,
+
+  // pass sig
+  input memew_in,               
+  input memer_in,              
+  input [2:0] muxsig_in,        
+  input [2:0] memmask_in,     
+  input memsextsig_in,         
+  input regew_control_in,
+  input [4:0] rd_in, 
+  
+  input [31:0] regout1_in,
+  input [31:0] regout2_in,
+  input [4:0] prev_rd,
+  input prev_regew,
+  input [31:0] transmit_data,
+  input transmit_data_valid,
+
   output [31:0] res,
   output [31:0] npc,
-  output [31:0] link_addr   // PC value to write to register (for JAL/JALR)
+  output [31:0] link_addr,   // PC value to write to register (for JAL/JALR)
+
+  output memew_out,              
+  output memer_out,              
+  output [2:0] muxsig_out,        
+  output [2:0] memmask_out,      
+  output memsextsig_out,         
+  output regew_control_out,   
+  output [4:0] rd_out,    
+
+  output is_jmp // tell ifu flush the pipline
 ); 
 
-  wire [31:0] res_r, npc_r, link_addr_r;
-  reg [31:0] res_q, npc_q, link_addr_q;
   typedef enum logic {
-    UNAVAILABLE, AVAILABLE
+    IDLE, VALID
   } exu_state_t;
-  exu_state_t exu_state;
+  exu_state_t exu_state_r;
 
+  wire avaliable;
   always @(posedge clk) begin
     if(rst) begin
-      exu_state <= UNAVAILABLE;
-    end else if(ready) begin
-      exu_state <= UNAVAILABLE;
-    end if(exu_state == UNAVAILABLE && valid_get) begin
-      exu_state <= AVAILABLE;
+      exu_state_r <= IDLE;
+    end else begin
+      case(exu_state_r)
+        IDLE: begin
+          if(avaliable) begin
+            exu_state_r <= VALID;
+          end 
+        end
+
+        VALID: begin
+          if(out_ready) begin
+            if(in_valid)
+              exu_state_r <= VALID;
+            else 
+              exu_state_r <= IDLE;
+          end
+        end
+      endcase
     end
   end 
 
-  always @(posedge clk) begin
-    if(rst) begin
-      res_q <= 32'b0;
-      npc_q <= 32'b0;
-      link_addr_q <= 32'b0;
-    end else if(ready) begin
-      res_q <= 32'b0;
-      npc_q <= 32'b0;
-      link_addr_q <= 32'b0;
-    end else if(exu_state == AVAILABLE) begin
-      res_q <= res_r;
-      npc_q <= npc_r;
-      link_addr_q <= link_addr_r;
-    end
-  end
-  assign npc = npc_q;
-  assign res = res_q;
-  assign link_addr = link_addr_q;
+  wire accept = ((exu_state_r == IDLE) || (exu_state_r == VALID && out_ready)) && in_valid;
+  wire idu_valid = in_valid & !is_jmp;
+  assign out_valid = (exu_state_r == VALID);
+  assign in_ready = accept;
+  
+  wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp_r);
+  wire flush = (exu_state_r == VALID & out_ready & !idu_valid) | 
+                (exu_state_r == VALID & is_jmp_r);
 
-  assign valid_to = (exu_state == AVAILABLE);
+  // Pipeline connect: 流水线寄存器
+  wire [2:0] func3;
+  wire btypebranch;
+  wire func7;
+  wire [1:0] aluop;
+  wire jalrsig;
+  wire jalsig;
+  wire [31:0] imm;
+  wire muximm;
+  wire [31:0] regout1;
+  wire [31:0] regout2;
+  wire [31:0] pc;
+  wire auipcsig;
+  wire mretsig;
+  wire ecallsig;
+  wire [31:0] mtvec;
+  wire [31:0] mepc;
+  wire [4:0] rd;
+
+  exu_pipline_connect exu_pipeline_u(
+    .clk(clk),
+    .rst(rst),
+
+    // need sig inputs
+    .func3_in(func3_in),
+    .btypebranch_in(btypebranch_in),
+    .func7_in(func7_in),
+    .aluop_in(aluop_in),
+    .jalrsig_in(jalrsig_in),
+    .jalsig_in(jalsig_in),
+    .imm_in(imm_in),
+    .muximm_in(muximm_in),
+    .regout1_in(regout1_in),
+    .regout2_in(regout2_in),
+    .pc_in(pc_in),
+    .auipcsig_in(auipcsig_in),
+    .mretsig_in(mretsig_in),
+    .ecallsig_in(ecallsig_in),
+    .mtvec_in(mtvec_in),
+    .mepc_in(mepc_in),
+
+    // pass sig inputs
+    .memew_in(memew_in),
+    .memer_in(memer_in),
+    .muxsig_in(muxsig_in),
+    .memmask_in(memmask_in),
+    .memsextsig_in(memsextsig_in),
+    .regew_control_in(regew_control_in),
+    .rd_in(rd_in),
+
+    // need sig outputs
+    .func3_out(func3),
+    .btypebranch_out(btypebranch),
+    .func7_out(func7),
+    .aluop_out(aluop),
+    .jalrsig_out(jalrsig),
+    .jalsig_out(jalsig),
+    .imm_out(imm),
+    .muximm_out(muximm),
+    .regout1_out(regout1),
+    .regout2_out(regout2),
+    .pc_out(pc),
+    .auipcsig_out(auipcsig),
+    .mretsig_out(mretsig),
+    .ecallsig_out(ecallsig),
+    .mtvec_out(mtvec),
+    .mepc_out(mepc),
+
+    // pass sig outputs
+    .memew_out(memew_out),
+    .memer_out(memer_out),
+    .muxsig_out(muxsig_out),
+    .memmask_out(memmask_out),
+    .memsextsig_out(memsextsig_out),
+    .regew_control_out(regew_control_out),
+    .rd_out(rd_out),
+
+    .avaliable(avaliable),
+    .pipline_valid(pipline_valid),
+    .flush(flush)
+  );
 
   wire [31:0] pc_plus_4, pc_plus_imm;
   assign pc_plus_4 = pc + 32'd4;
   assign pc_plus_imm = pc + imm;
 
+  // ------------------------------------
+  //  TRANSMIT
+  // ------------------------------------
+  wire [31:0] src1, src2;
+  wire alu_arg_valid;
+
+  ysyx_24100007_transmit transmit0(
+    .src1_addr_in(src1_addr_in),
+    .src2_addr_in(src2_addr_in),
+    .prev_rd(prev_rd),
+    .prev_regew(prev_regew),
+
+    .regout1_in(regout1),
+    .regout2_in(regout2),
+    .transmit_data(transmit_data),
+    .transmit_data_valid(transmit_data_valid),
+
+    .src1(src1),
+    .src2(src2),
+    .alu_arg_valid(alu_arg_valid)
+  );
+  
   wire [4:0] alu_opcode;
   ysyx_24100007_alucontrol alucontrol0(
     .func3(func3),
@@ -80,7 +213,7 @@ module ysyx_24100007_exu(
 
   wire [31:0] alu_arg2;
   ysyx_24100007_MuxKey#(2, 1, 32) chosmuximm(alu_arg2, muximm, {
-      1'b0, regout2,
+      1'b0, src2,
       1'b1, imm
     }
   );
@@ -96,6 +229,11 @@ module ysyx_24100007_exu(
     .carry(carry_flag)
   );
 
+  // ------------------------------------
+  //  BRANCH CONTROL
+  // ------------------------------------
+  wire is_jmp_r;
+  wire [31:0] res_r;
   ysyx_24100007_branchcontrol branchcontrol0(
     .btypebranch(btypebranch),
     .func3(func3),
@@ -113,15 +251,223 @@ module ysyx_24100007_exu(
     .mtvec(mtvec),
     .mepc(mepc),
 
-    .npc(npc_r),
-    .pcwritereg(link_addr_r)
+    .npc(npc),
+    .pcwritereg(link_addr),
+    .is_jmp(is_jmp_r)
   );
+  assign is_jmp = is_jmp_r;
+
+  assign res = res_r;
   
   // synopsys translate_off
-  import "DPI-C" function void host_get_exu_valid();
-  always @(posedge valid_to) begin
-    host_get_exu_valid();
+  import "DPI-C" function void get_exu_state(int state);
+  always @(posedge clk) begin 
+    get_exu_state({31'b0, exu_state_r == VALID});
   end
   // synopsys translate_on
+
+endmodule
+
+module exu_pipline_connect(
+  input clk, 
+  input rst,
+
+  input [2:0] func3_in,
+  input btypebranch_in,
+  input func7_in,
+  input [1:0] aluop_in,
+  input jalrsig_in,
+  input jalsig_in,
+  input [31:0] imm_in,
+  input muximm_in,
+  input [31:0] regout1_in,
+  input [31:0] regout2_in,
+  input [31:0] pc_in,
+  input auipcsig_in,
+  input mretsig_in,
+  input ecallsig_in,
+  input [31:0] mtvec_in,
+  input [31:0] mepc_in,
+
+  input memew_in,               
+  input memer_in,              
+  input [2:0] muxsig_in,        
+  input [2:0] memmask_in,     
+  input memsextsig_in,         
+  input regew_control_in,
+  input [4:0] rd_in,
+
+  output [2:0] func3_out,
+  output btypebranch_out,
+  output func7_out,
+  output [1:0] aluop_out,
+  output jalrsig_out,
+  output jalsig_out,
+  output [31:0] imm_out,
+  output muximm_out,
+  output [31:0] regout1_out,
+  output [31:0] regout2_out,
+  output [31:0] pc_out,
+  output auipcsig_out,
+  output mretsig_out,
+  output ecallsig_out,
+  output [31:0] mtvec_out,
+  output [31:0] mepc_out,
+
+  output memew_out,               
+  output memer_out,              
+  output [2:0] muxsig_out,        
+  output [2:0] memmask_out,     
+  output memsextsig_out,         
+  output regew_control_out,
+  output [4:0] rd_out,
+
+  output avaliable,
+  input pipline_valid,
+  input flush
+);
+  reg avaliable_r;
+  always @(posedge clk) begin
+    if(rst) begin
+      avaliable_r <= 1'b0;
+    end else begin
+      if(pipline_valid) begin
+        avaliable_r <= 1'b1;
+      end else if(flush) begin
+        avaliable_r <= 1'b0;
+      end
+    end
+  end
+
+  assign avaliable = avaliable_r;
+
+  // 寄存器存储所有输入信号
+  reg [2:0] func3_r;
+  reg btypebranch_r;
+  reg func7_r;
+  reg [1:0] aluop_r;
+  reg jalrsig_r;
+  reg jalsig_r;
+  reg [31:0] imm_r;
+  reg muximm_r;
+  reg [31:0] regout1_r;
+  reg [31:0] regout2_r;
+  reg [31:0] pc_r;
+  reg auipcsig_r;
+  reg mretsig_r;
+  reg ecallsig_r;
+  reg [31:0] mtvec_r;
+  reg [31:0] mepc_r;
+
+  reg memew_r;
+  reg memer_r;
+  reg [2:0] muxsig_r;
+  reg [2:0] memmask_r;
+  reg memsextsig_r;
+  reg regew_control_r;
+  reg [4:0] rd_r;
+
+  always @(posedge clk) begin
+    if(rst) begin
+      func3_r <= 3'b0;
+      btypebranch_r <= 1'b0;
+      func7_r <= 1'b0;
+      aluop_r <= 2'b0;
+      jalrsig_r <= 1'b0;
+      jalsig_r <= 1'b0;
+      imm_r <= 32'b0;
+      muximm_r <= 1'b0;
+      regout1_r <= 32'b0;
+      regout2_r <= 32'b0;
+      pc_r <= 32'b0;
+      auipcsig_r <= 1'b0;
+      mretsig_r <= 1'b0;
+      ecallsig_r <= 1'b0;
+      mtvec_r <= 32'b0;
+      mepc_r <= 32'b0;
+      memew_r <= 1'b0;
+      memer_r <= 1'b0;
+      muxsig_r <= 3'b0;
+      memmask_r <= 3'b0;
+      memsextsig_r <= 1'b0;
+      regew_control_r <= 1'b0;
+      rd_r <= 5'b0;
+    end else begin
+      if(pipline_valid) begin
+        func3_r <= func3_in;
+        btypebranch_r <= btypebranch_in;
+        func7_r <= func7_in;
+        aluop_r <= aluop_in;
+        jalrsig_r <= jalrsig_in;
+        jalsig_r <= jalsig_in;
+        imm_r <= imm_in;
+        muximm_r <= muximm_in;
+        regout1_r <= regout1_in;
+        regout2_r <= regout2_in;
+        pc_r <= pc_in;
+        auipcsig_r <= auipcsig_in;
+        mretsig_r <= mretsig_in;
+        ecallsig_r <= ecallsig_in;
+        mtvec_r <= mtvec_in;
+        mepc_r <= mepc_in;
+        memew_r <= memew_in;
+        memer_r <= memer_in;
+        muxsig_r <= muxsig_in;
+        memmask_r <= memmask_in;
+        memsextsig_r <= memsextsig_in;
+        regew_control_r <= regew_control_in;
+        rd_r <= rd_in;
+      end else if(flush) begin
+        func3_r <= 3'b0;
+        btypebranch_r <= 1'b0;
+        func7_r <= 1'b0;
+        aluop_r <= 2'b0;
+        jalrsig_r <= 1'b0;
+        jalsig_r <= 1'b0;
+        imm_r <= 32'b0;
+        muximm_r <= 1'b0;
+        regout1_r <= 32'b0;
+        regout2_r <= 32'b0;
+        pc_r <= 32'b0;
+        auipcsig_r <= 1'b0;
+        mretsig_r <= 1'b0;
+        ecallsig_r <= 1'b0;
+        mtvec_r <= 32'b0;
+        mepc_r <= 32'b0;
+        memew_r <= 1'b0;
+        memer_r <= 1'b0;
+        muxsig_r <= 3'b0;
+        memmask_r <= 3'b0;
+        memsextsig_r <= 1'b0;
+        regew_control_r <= 1'b0;
+        rd_r <= 5'b0;
+      end
+    end
+  end
+
+  // 输出连接到寄存器
+  assign func3_out = func3_r;
+  assign btypebranch_out = btypebranch_r;
+  assign func7_out = func7_r;
+  assign aluop_out = aluop_r;
+  assign jalrsig_out = jalrsig_r;
+  assign jalsig_out = jalsig_r;
+  assign imm_out = imm_r;
+  assign muximm_out = muximm_r;
+  assign regout1_out = regout1_r;
+  assign regout2_out = regout2_r;
+  assign pc_out = pc_r;
+  assign auipcsig_out = auipcsig_r;
+  assign mretsig_out = mretsig_r;
+  assign ecallsig_out = ecallsig_r;
+  assign mtvec_out = mtvec_r;
+  assign mepc_out = mepc_r;
+  assign memew_out = memew_r;
+  assign memer_out = memer_r;
+  assign muxsig_out = muxsig_r;
+  assign memmask_out = memmask_r;
+  assign memsextsig_out = memsextsig_r;
+  assign regew_control_out = regew_control_r;
+  assign rd_out = rd_r;
 
 endmodule

@@ -25,26 +25,20 @@ socspace soc_spaces[] = {
 
 #define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
-<<<<<<< HEAD
-=======
 #ifdef MTRACE
 char mtrace_log_file[] = "/home/ysyx/project/ysyx-workbench/cachesim/mtrace_log.txt";
 FILE *mtrace_fd = NULL;
 #endif
 
->>>>>>> dev
 void init_mem() {
   for(int i=0;i<SPACE_NUM;i++) {
     printf(COLOR_BLUE "[%s] start: 0x%x -- end: 0x%x\n" COLOR_RESET, soc_spaces[i].name, soc_spaces[i].start, soc_spaces[i].end);
   }
-<<<<<<< HEAD
-=======
 
 #ifdef MTRACE
   mtrace_fd = fopen(mtrace_log_file, "w");
   printf(COLOR_GREEN "[INFO] mtrace log file %s\n" COLOR_RESET, mtrace_log_file);
 #endif
->>>>>>> dev
 }
 
 bool in_pmem(uint32_t addr) {

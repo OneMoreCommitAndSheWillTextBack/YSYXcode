@@ -105,9 +105,6 @@ static void exe_once() {
   npc->cycs += 1; // one cyc
   npc->timer += 2;
 
-  if(cpu->valid == 1) 
-    npc->icount++; // a valid inst
-
   #ifndef __NPC__
   if(!start_load && npc->top->externalPins_gpio_out == 0x3AB) {
     start_load = true;
@@ -156,16 +153,6 @@ static int start_diff = 0;
 void trace_or_diff() {
 #ifdef WATCH_POINT
   exe_wp();
-<<<<<<< HEAD
-#endif
-
-#ifdef ITRACE
-if(itrace_valid) {
-  fprintf(itrace_cfg->itrace_out, "%s\n", cpu->logbuf);
-  itrace_valid = false;
-}
-=======
->>>>>>> dev
 #endif
 
 #ifdef ITRACE

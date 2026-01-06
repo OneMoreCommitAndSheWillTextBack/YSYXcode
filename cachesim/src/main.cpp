@@ -86,15 +86,20 @@ int dcache_sim(cfglang::Config<CFGLANG_TYPE(dcache)> *cfg) {
         uint64_t dcache_count = 0;
 
         parser.parse([&cache, &dcache_count](bool is_write, uint32_t addr) {
-            if(is_write) {
-                cache.reset(addr);
-            } else {
-                cache.access(addr);
-            }
-            ++ dcache_count;
+            bool in_sram = (addr >= 0x0f000000) && (addr <= 0x0fffffff);
+            if(!in_sram) {
+                if(is_write) {
+                    cache.reset(addr);
+                } else {
+                    cache.access(addr);
+                }
+                ++ dcache_count;
 
-            if(dcache_count % 10000 == 0) {
-                std::cout << "  Processed " << dcache_count << " dcache access" << std::endl;
+                if(dcache_count % 10000 == 0) {
+                    std::cout << "  Processed " << dcache_count << " dcache access" << std::endl;
+                }
+            } else {
+                printf("sram overlook\n");
             }
         });
         

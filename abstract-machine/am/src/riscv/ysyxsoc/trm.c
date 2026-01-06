@@ -27,7 +27,7 @@ Area heap = RANGE(&_heap_start, &_heap_end);
 #define MAINARGS ""
 #endif
 
-static const char mainargs[] = MAINARGS;
+static const char mainargs[] = "test";
 
 
 void serial_init() {

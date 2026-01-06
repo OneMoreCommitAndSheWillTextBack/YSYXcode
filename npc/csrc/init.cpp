@@ -205,7 +205,6 @@ void init(int argc, char *argv[]) {
   #endif
   npc->cycs = 0;
   npc->timer = 0;
-  npc->icount = 0;
 
   // #ifdef __NVBOARD__
   // nvboard_bind_all_pins(npc->top);

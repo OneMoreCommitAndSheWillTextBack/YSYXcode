@@ -1,26 +1,32 @@
 module ysyx_24100007_wbu(
   input clk,
   input rst,
-  input [31:0] res,
-  input [31:0] regout2,
-  input memew,
-  input memer,
-  input [31:0] imm,
-  input [31:0] link_addr,
-  input [2:0] muxsig,
-  input valid_get,
-  input [2:0] memmask,
-  input memsextsig,
-  input regew_control,
+  input [31:0] res_in,
+  input [31:0] regout2_in,
+  input memew_in,
+  input memer_in,
+  input [31:0] imm_in,
+  input [31:0] link_addr_in,
+  input [2:0] muxsig_in,
+  input [2:0] memmask_in,
+  input memsextsig_in,
+  input regew_control_in,
+  input [4:0] rd_in,
 
-  output [31:0] regwrite,
-  output ready,
-  output regew,
+  output [31:0] regwrite_out,
+  output regew_out,
+  output [4:0] rd_out,
 
   output trans_start,
   output trans_end,
 
   output icahce_flush,
+  
+  // wbu is the last model
+  input in_valid,
+  output in_ready,
+
+  output wbu_commit,
 
   // axi-lite interface
   output awvalid,
@@ -41,8 +47,66 @@ module ysyx_24100007_wbu(
   input [31:0] rdata,
   output [2:0] awsize,
   output [2:0] arsize,
-  output [1:0] awburst
+  output [1:0] awburst,
+
+  output [4:0] wbu_rd,
+  output wbu_regew,
+  output [31:0] transmit_data,
+  output transmit_data_valid
 );
+
+  wire accept = ((wbu_state == WAIT_VALID) || (wbu_state == WRITE_BACK)) && in_valid;
+  assign in_ready = (wbu_state == WAIT_VALID);
+  wire pipline_valid = accept;
+  wire flush = ((wbu_state == WRITE_BACK) & !in_valid);
+
+  // Pipeline connect: 流水线寄存器
+  wire [31:0] res;
+  wire [31:0] regout2;
+  wire memew;
+  wire memer;
+  wire [31:0] imm;
+  wire [31:0] link_addr;
+  wire [2:0] muxsig;
+  wire [2:0] memmask;
+  wire memsextsig;
+  wire regew_control;
+  wire [4:0] rd;
+
+  wbu_pipline_connect wbu_pipeline_u(
+    .clk(clk),
+    .rst(rst),
+
+    .res_in(res_in),
+    .regout2_in(regout2_in),
+    .memew_in(memew_in),
+    .memer_in(memer_in),
+    .imm_in(imm_in),
+    .link_addr_in(link_addr_in),
+    .muxsig_in(muxsig_in),
+    .memmask_in(memmask_in),
+    .memsextsig_in(memsextsig_in),
+    .regew_control_in(regew_control_in),
+    .rd_in(rd_in),
+
+    .res_out(res),
+    .regout2_out(regout2),
+    .memew_out(memew),
+    .memer_out(memer),
+    .imm_out(imm),
+    .link_addr_out(link_addr),
+    .muxsig_out(muxsig),
+    .memmask_out(memmask),
+    .memsextsig_out(memsextsig),
+    .regew_control_out(regew_control),
+    .rd_out(rd),
+
+    .avaliable(avaliable),
+    .pipline_valid(pipline_valid),
+    .flush(flush)
+  );
+
+  // Memory access state machine
   typedef enum logic [1:0] {
     WAIT_VALID, BUS_HANDSHAKE, BUS_TRANSACTION, WRITE_BACK
   } wbu_state_t;
@@ -52,13 +116,14 @@ module ysyx_24100007_wbu(
   wire write_handshake_done = memew & axi_xaddr_valid & axi_xaddr_ready & 
                                axi_wdata_valid & axi_wdata_ready;
   wire read_addr_handshake_done = memer & axi_xaddr_valid & axi_xaddr_ready;
+  wire avaliable;
   always @(posedge clk) begin
     if(rst) begin
       wbu_state <= WAIT_VALID;
     end else begin
       case(wbu_state)
         WAIT_VALID: begin
-          if(valid_get) begin
+          if(avaliable) begin
             if(mem_access) begin
               wbu_state <= BUS_HANDSHAKE;
             end else begin
@@ -88,8 +153,10 @@ module ysyx_24100007_wbu(
     end
   end
 
+  assign wbu_commit = (wbu_state == WRITE_BACK);
+
+  wire regew;
   assign regew = (wbu_state == WRITE_BACK) & regew_control;
-  assign ready = (wbu_state == WRITE_BACK);
   reg [31:0] memread_data_q;
   wire [31:0] memread_data_r;
 
@@ -101,6 +168,7 @@ module ysyx_24100007_wbu(
     end
   end
 
+  wire[31:0] regwrite;
   ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
     3'b000, res,
     3'b001, memread_data_q,
@@ -109,6 +177,16 @@ module ysyx_24100007_wbu(
   });
 
   assign icahce_flush = memew & (wbu_state == WRITE_BACK);
+  
+  assign transmit_data = regwrite;
+  assign wbu_rd = rd;
+  assign wbu_regew = regew_control;
+  assign transmit_data_valid = regew;
+
+  // Output connections
+  assign regwrite_out = regwrite;
+  assign regew_out = regew;
+  assign rd_out = rd;
 
   // AXI 内存控制器接口信号
   wire axi_xaddr_valid;   // 地址通道 valid（写地址或读地址）
@@ -130,7 +208,7 @@ module ysyx_24100007_wbu(
     .rst(rst),
     
     // 内存访问控制信号
-    .mem_en(mem_access & valid_get),
+    .mem_en(mem_access & avaliable),
     .mem_we(memew),
     .mem_addr(res),
     .mem_wdata(regout2),
@@ -182,6 +260,124 @@ module ysyx_24100007_wbu(
     .rready(rready),
     .rdata(rdata)
   );
+
+endmodule
+
+module wbu_pipline_connect(
+  input clk,
+  input rst,
+
+  input [31:0] res_in,
+  input [31:0] regout2_in,
+  input memew_in,
+  input memer_in,
+  input [31:0] imm_in,
+  input [31:0] link_addr_in,
+  input [2:0] muxsig_in,
+  input [2:0] memmask_in,
+  input memsextsig_in,
+  input regew_control_in,
+  input [4:0] rd_in,
+
+  output [31:0] res_out,
+  output [31:0] regout2_out,
+  output memew_out,
+  output memer_out,
+  output [31:0] imm_out,
+  output [31:0] link_addr_out,
+  output [2:0] muxsig_out,
+  output [2:0] memmask_out,
+  output memsextsig_out,
+  output regew_control_out,
+  output [4:0] rd_out,
+
+  output avaliable,
+  input pipline_valid,
+  input flush
+);
+
+  reg avaliable_r;
+  always @(posedge clk) begin
+    if(rst) begin
+      avaliable_r <= 1'b0;
+    end else begin
+      if(pipline_valid) begin
+        avaliable_r <= 1'b1;
+      end else if(flush) begin
+        avaliable_r <= 1'b0;
+      end
+    end
+  end
+
+  assign avaliable = avaliable_r;
+
+  // 寄存器存储所有输入信号
+  reg [31:0] res_r;
+  reg [31:0] regout2_r;
+  reg memew_r;
+  reg memer_r;
+  reg [31:0] imm_r;
+  reg [31:0] link_addr_r;
+  reg [2:0] muxsig_r;
+  reg [2:0] memmask_r;
+  reg memsextsig_r;
+  reg regew_control_r;
+  reg [4:0] rd_r;
+
+  always @(posedge clk) begin
+    if(rst) begin
+      res_r <= 32'b0;
+      regout2_r <= 32'b0;
+      memew_r <= 1'b0;
+      memer_r <= 1'b0;
+      imm_r <= 32'b0;
+      link_addr_r <= 32'b0;
+      muxsig_r <= 3'b0;
+      memmask_r <= 3'b0;
+      memsextsig_r <= 1'b0;
+      regew_control_r <= 1'b0;
+      rd_r <= 5'b0;
+    end else begin
+      if(pipline_valid) begin
+        res_r <= res_in;
+        regout2_r <= regout2_in;
+        memew_r <= memew_in;
+        memer_r <= memer_in;
+        imm_r <= imm_in;
+        link_addr_r <= link_addr_in;
+        muxsig_r <= muxsig_in;
+        memmask_r <= memmask_in;
+        memsextsig_r <= memsextsig_in;
+        regew_control_r <= regew_control_in;
+        rd_r <= rd_in;
+      end else if(flush) begin
+        res_r <= 32'b0;
+        regout2_r <= 32'b0;
+        memew_r <= 1'b0;
+        memer_r <= 1'b0;
+        imm_r <= 32'b0;
+        link_addr_r <= 32'b0;
+        muxsig_r <= 3'b0;
+        memmask_r <= 3'b0;
+        memsextsig_r <= 1'b0;
+        regew_control_r <= 1'b0;
+        rd_r <= 5'b0;
+      end
+    end
+  end
+
+  // 输出连接到寄存器
+  assign res_out = res_r;
+  assign regout2_out = regout2_r;
+  assign memew_out = memew_r;
+  assign memer_out = memer_r;
+  assign imm_out = imm_r;
+  assign link_addr_out = link_addr_r;
+  assign muxsig_out = muxsig_r;
+  assign memmask_out = memmask_r;
+  assign memsextsig_out = memsextsig_r;
+  assign regew_control_out = regew_control_r;
+  assign rd_out = rd_r;
 
 endmodule
 
@@ -375,39 +571,40 @@ module axi_mem_controller(
   assign trans_start = (state == WAIT_HANDSHAKE);
   assign trans_end = (state == WAIT_SLAVE) && (rvalid | bvalid);
 
-  // ------------------------------------
-  // PERFORMANCE COUNTER LOGIC
-  // ------------------------------------
-  // synopsys translate_off
-  import "DPI-C" function void host_get_io_op(int addr);
-  import "DPI-C" function void host_get_cpu_axi_valid();
-  import "DPI-C" function void host_get_cpu_axi_ready();
-  
-  always @(posedge clk) begin
-    if (!rst) begin
-      case (state)
-        READY: begin
-          if (read_req | write_req) begin
-            host_get_cpu_axi_valid();
+    // ------------------------------------
+    // PERFORMANCE COUNTER LOGIC
+    // ------------------------------------
+    // synopsys translate_off
+    import "DPI-C" function void host_get_io_op(int addr);
+    import "DPI-C" function void host_get_wbu_start();
+    import "DPI-C" function void host_get_wbu_finish();
+    
+    always @(posedge clk) begin
+      if (!rst) begin
+        case (state)
+          READY: begin
+            if (read_req | write_req) begin
+              host_get_wbu_start();
+            end
           end
-        end
 
-        WAIT_SLAVE: begin
-          if(rvalid | bvalid) begin
-            host_get_io_op(awaddr);
+          WAIT_SLAVE: begin
+            if(rvalid | bvalid) begin
+              host_get_io_op(awaddr);
+            end
           end
-        end
 
-        PROCESSION: begin
-          if ((axi_bresp_ready) || (axi_rdata_ready)) begin
-            host_get_cpu_axi_ready();
+          PROCESSION: begin
+            if ((axi_bresp_ready) || (axi_rdata_ready)) begin
+              host_get_wbu_finish();
+            end
           end
-        end
 
-        default: begin end
-      endcase
+          default: begin end
+        endcase
+      end
     end
-  end
-  // synopsys translate_on
+    // synopsys translate_on
+
 
 endmodule
