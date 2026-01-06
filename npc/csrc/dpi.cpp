@@ -145,7 +145,7 @@ extern "C" void npc_commit_inst(int valid, uint32_t pc, uint32_t inst) {
     cpu->inst = inst;
 
     // 准备好最近一次的inst commit
-    printf("[Debug] commit a inst, get pc %8x", pc);
+    printf("[Debug] commit a inst, get pc %8x\n", pc);
     cpu->commit.pc = pc;
     memcpy(cpu->commit.gpr, cpu->con.gpr, sizeof(cpu->commit.gpr));
     cpu->commit.csr = cpu->con.csr;
