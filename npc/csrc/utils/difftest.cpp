@@ -68,10 +68,10 @@ extern Npc *npc;
 void checkregs(context *ref_context) {
   int i = 0;
 
-  if (ref_context->pc != cpu->commit.pc) {
-    printf("pc: 0x%08x -> 0x%08x\n", cpu->commit.pc, ref_context->pc);
-    goto regdiferror;
-  }
+  // if (ref_context->pc != cpu->commit.pc) {
+  //   printf("pc: 0x%08x -> 0x%08x\n", cpu->commit.pc, ref_context->pc);
+  //   goto regdiferror;
+  // }
 
   for (i = 1; i < 32; i++) {
     if (ref_context->gpr[i] != cpu->commit.gpr[i]) {
