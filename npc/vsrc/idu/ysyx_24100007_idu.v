@@ -47,7 +47,7 @@ module ysyx_24100007_idu(
     end else begin
       case(idu_state_r) 
         IDLE: begin
-          if(avaliable) begin
+          if(in_valid & in_ready) begin
             idu_state_r <= VALID;
           end
         end

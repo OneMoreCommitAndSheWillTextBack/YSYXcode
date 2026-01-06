@@ -5,15 +5,15 @@
 #include <dlfcn.h>
 
 #define CHECK_CSR(x)                                                           \
-  if (ref_context->csr.x != cpu->con.csr.x) {                                  \
+  if (ref_context->csr.x != cpu->commit.csr.x) {                               \
     printf("difftest failed at csr " #x "\n");                                 \
-    printf(#x "[npc]: 0x%08x -> [nemu]: 0x%08x\n", cpu->con.csr.x,             \
+    printf(#x "[npc]: 0x%08x -> [nemu]: 0x%08x\n", cpu->commit.csr.x,          \
            ref_context->csr.x);                                                \
     goto regdiferror;                                                          \
   }
 
 #define DIS_CSR(x)                                                             \
-  printf(#x "[npc]: 0x%08x -> [nemu]: 0x%08x\n", cpu->con.csr.x,               \
+  printf(#x "[npc]: 0x%08x -> [nemu]: 0x%08x\n", cpu->commit.csr.x,            \
          ref_context->csr.x);
 
 #ifdef DIFFTEST
@@ -68,13 +68,13 @@ extern Npc *npc;
 void checkregs(context *ref_context) {
   int i = 0;
 
-  if (ref_context->pc != cpu->con.pc) {
-    printf("pc: 0x%08x -> 0x%08x\n", cpu->con.pc, ref_context->pc);
+  if (ref_context->pc != cpu->commit.pc) {
+    printf("pc: 0x%08x -> 0x%08x\n", cpu->commit.pc, ref_context->pc);
     goto regdiferror;
   }
 
   for (i = 1; i < 32; i++) {
-    if (ref_context->gpr[i] != cpu->con.gpr[i]) {
+    if (ref_context->gpr[i] != cpu->commit.gpr[i]) {
       goto regdiferror;
     }
   }
@@ -86,12 +86,12 @@ void checkregs(context *ref_context) {
   return;
 
 regdiferror:
-  printf("the difftest failed at pc %08x\n", cpu->con.pc);
+  printf("the difftest failed at pc %08x\n", cpu->commit.pc);
   if (i < 32)
-    printf("reg[%d]: 0x%08x -> 0x%08x\n", i, cpu->con.gpr[i],
+    printf("reg[%d]: 0x%08x -> 0x%08x\n", i, cpu->commit.gpr[i],
            ref_context->gpr[i]);
   for (i = 0; i < 32; i++) {
-    printf("reg[%d] npc:0x%08x nemu:0x%08x\n", i, cpu->con.gpr[i],
+    printf("reg[%d] npc:0x%08x nemu:0x%08x\n", i, cpu->commit.gpr[i],
            ref_context->gpr[i]);
   }
   DIS_CSR(mstatus);
@@ -107,7 +107,7 @@ void diff_step() {
     // reference design
     inst_ref_skip = false;
     inst_skip_nr = 1;
-    ref_difftest_regcpy(&cpu->con, DIFF_TO_REF);
+    ref_difftest_regcpy(&cpu->commit, DIFF_TO_REF);
     return;
   }
 

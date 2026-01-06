@@ -68,7 +68,7 @@ module ysyx_24100007_exu(
     end else begin
       case(exu_state_r)
         IDLE: begin
-          if(avaliable) begin
+          if(in_valid & in_ready) begin
             exu_state_r <= VALID;
           end 
         end

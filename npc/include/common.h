@@ -67,7 +67,9 @@ typedef struct {
 
 typedef struct {
   uint32_t inst;
+  uint32_t pc;
   context con;
+  context commit;
   char logbuf[128];
   int valid;
 } Cpu;

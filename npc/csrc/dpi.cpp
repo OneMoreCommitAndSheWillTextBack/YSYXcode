@@ -79,11 +79,6 @@ extern "C" void host_get_csr(int csrval, int csrnum) {
   }
 }
 
-extern "C" void host_get_reg(int regval, int regnum) {
-  cpu->con.gpr[regnum] = (uint32_t)(regval);
-  return;
-}
-
 extern "C" void host_get_io_op(uint32_t addr) { 
   // 外设地址范围定义（MMIO 设备，difftest 时需要跳过检查）
   // 按地址顺序排列，便于维护和扩展
@@ -138,14 +133,29 @@ extern "C" void host_get_io_op(uint32_t addr) {
 }
 
 extern Npc *npc;
-extern Cpu *cpu;
+extern "C" void host_get_reg(int regval, int regnum) {
+  cpu->con.gpr[regnum] = (uint32_t)(regval);
+  return;
+}
+
 extern "C" void npc_commit_inst(int valid, uint32_t pc, uint32_t inst) {
   if(valid) {
     cpu->valid = 1;
     npc->npc_commit_time++;
     cpu->inst = inst;
-    cpu->con.pc = pc;
+
+    // 准备好最近一次的inst commit
+    printf("[Debug] commit a inst, get pc %8x", pc);
+    cpu->commit.pc = pc;
+    memcpy(cpu->commit.gpr, cpu->con.gpr, sizeof(cpu->commit.gpr));
+    cpu->commit.csr = cpu->con.csr;
+  } else {
+    cpu->valid = 0;
   }
+}
+
+extern "C" void npc_get_current_pc(uint32_t cur_pc) {
+  cpu->con.pc = cur_pc;
 }
 
 extern "C" void get_ifu_state(int state) {

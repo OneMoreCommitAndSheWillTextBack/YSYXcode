@@ -123,7 +123,7 @@ module ysyx_24100007_wbu(
     end else begin
       case(wbu_state)
         WAIT_VALID: begin
-          if(avaliable) begin
+          if(in_valid & in_ready) begin
             if(mem_access) begin
               wbu_state <= BUS_HANDSHAKE;
             end else begin

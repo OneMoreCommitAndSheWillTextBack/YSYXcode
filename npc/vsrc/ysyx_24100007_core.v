@@ -362,7 +362,9 @@ module pipline_tracer(
 
   import "DPI-C" function void npc_commit_inst(int valid, int pc, int inst);
   import "DPI-C" function void get_predict_miss(int is_jmp);
+  import "DPI-C" function void npc_get_current_pc(int pc);
   always @(posedge clk) begin
+    npc_get_current_pc(pc);
     npc_commit_inst({31'b0, wbu_commit}, wbu_pc, wbu_inst);  
     get_predict_miss({31'b0, is_jmp});
   end
