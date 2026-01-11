@@ -32,12 +32,13 @@ module ysyx_24100007_exu(
   input regew_control_in,
   input [4:0] rd_in, 
   
-  input [31:0] regout1_in,
-  input [31:0] regout2_in,
+  input [31:0] src1_in,
+  input [31:0] src2_in,
 
   output [31:0] res,
   output [31:0] npc,
   output [31:0] link_addr,   // PC value to write to register (for JAL/JALR)
+  output [31:0] src2_out,    // src2 output to WBU
 
   output memew_out,              
   output memer_out,              
@@ -47,10 +48,17 @@ module ysyx_24100007_exu(
   output regew_control_out,   
   output [4:0] rd_out,    
 
-  output is_jmp // tell ifu flush the pipline
+  output is_jmp, // tell ifu flush the pipline
+
+  // EXU 向 IDU 转发的旁路信号
+  output [4:0] exu_rd,                // EXU 阶段的 rd（用于旁路）
+  output exu_regew,                   // EXU 阶段的写使能（用于旁路）
+  output [31:0] exu_transmit_data,    // EXU 阶段的计算结果（用于旁路）
+  output exu_transmit_data_valid,     // EXU 阶段的旁路数据有效信号
+  output exu_memer_bypass             // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
 ); 
 
-  typedef enum logic {
+  typedef enum logic{
     IDLE, VALID
   } exu_state_t;
   exu_state_t exu_state_r;
@@ -85,8 +93,7 @@ module ysyx_24100007_exu(
   assign in_ready = accept;
   
   wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp_r);
-  wire flush = (exu_state_r == VALID & out_ready & !idu_valid) | 
-                (exu_state_r == VALID & is_jmp_r);
+  wire flush = (exu_state_r == VALID & out_ready & !idu_valid);
 
   // Pipeline connect: 流水线寄存器
   wire [2:0] func3;
@@ -97,8 +104,8 @@ module ysyx_24100007_exu(
   wire jalsig;
   wire [31:0] imm;
   wire muximm;
-  wire [31:0] regout1;
-  wire [31:0] regout2;
+  wire [31:0] src1;
+  wire [31:0] src2;
   wire [31:0] pc;
   wire auipcsig;
   wire mretsig;
@@ -106,6 +113,7 @@ module ysyx_24100007_exu(
   wire [31:0] mtvec;
   wire [31:0] mepc;
   wire [4:0] rd;
+  wire [2:0] muxsig;
 
   exu_pipline_connect exu_pipeline_u(
     .clk(clk),
@@ -120,8 +128,8 @@ module ysyx_24100007_exu(
     .jalsig_in(jalsig_in),
     .imm_in(imm_in),
     .muximm_in(muximm_in),
-    .regout1_in(regout1_in),
-    .regout2_in(regout2_in),
+    .src1_in(src1_in),
+    .src2_in(src2_in),
     .pc_in(pc_in),
     .auipcsig_in(auipcsig_in),
     .mretsig_in(mretsig_in),
@@ -147,19 +155,19 @@ module ysyx_24100007_exu(
     .jalsig_out(jalsig),
     .imm_out(imm),
     .muximm_out(muximm),
-    .regout1_out(regout1),
-    .regout2_out(regout2),
+    .src1_out(src1),
+    .src2_out(src2),
     .pc_out(pc),
     .auipcsig_out(auipcsig),
     .mretsig_out(mretsig),
     .ecallsig_out(ecallsig),
     .mtvec_out(mtvec),
     .mepc_out(mepc),
+    .muxsig_out(muxsig),
 
     // pass sig outputs
     .memew_out(memew_out),
     .memer_out(memer_out),
-    .muxsig_out(muxsig_out),
     .memmask_out(memmask_out),
     .memsextsig_out(memsextsig_out),
     .regew_control_out(regew_control_out),
@@ -193,7 +201,7 @@ module ysyx_24100007_exu(
   
   wire zero_flag, sign_flag, carry_flag;
   ysyx_24100007_alu alu0(
-    .A(regout1),
+    .A(src1),
     .B(alu_arg2),
     .op(alu_opcode),
     .res(res_r),
@@ -205,6 +213,7 @@ module ysyx_24100007_exu(
   // ------------------------------------
   //  BRANCH CONTROL
   // ------------------------------------
+  wire is_jmp_r_1;
   wire is_jmp_r;
   wire [31:0] res_r;
   ysyx_24100007_branchcontrol branchcontrol0(
@@ -226,11 +235,33 @@ module ysyx_24100007_exu(
 
     .npc(npc),
     .pcwritereg(link_addr),
-    .is_jmp(is_jmp_r)
+    .is_jmp(is_jmp_r_1)
   );
+  reg is_jmp_mask;
+  always @(posedge clk) begin
+    if(in_valid & in_ready) begin
+      is_jmp_mask <= 1'b1;
+    end else begin
+      is_jmp_mask <= 1'b0;
+    end
+  end
+  assign is_jmp_r = is_jmp_r_1 & is_jmp_mask; 
   assign is_jmp = is_jmp_r;
 
   assign res = res_r;
+  assign src2_out = src2;  // 将流水线的src2输出到WBU
+  assign muxsig_out = muxsig;
+
+  // EXU 向 IDU 转发的旁路信号
+  assign exu_rd = rd_out;
+  assign exu_regew = regew_control_out || (memew_out || memew_in);
+  assign exu_transmit_data = (muxsig == 3'b010) ? imm :
+                             (muxsig == 3'b100) ? link_addr :
+                             res;
+ // 旁路数据有效条件：输出有效 && 不是访存指令（访存指令的结果需要从 WBU 获取）
+  assign exu_transmit_data_valid = out_valid && !(memew_out || memer_out);
+  // EXU 是否是 load 指令（用于 IDU 处理 load-use 冲突）
+  assign exu_memer_bypass = memer_out;
   
   // synopsys translate_off
   import "DPI-C" function void get_exu_state(int state);
@@ -253,8 +284,8 @@ module exu_pipline_connect(
   input jalsig_in,
   input [31:0] imm_in,
   input muximm_in,
-  input [31:0] regout1_in,
-  input [31:0] regout2_in,
+  input [31:0] src1_in,
+  input [31:0] src2_in,
   input [31:0] pc_in,
   input auipcsig_in,
   input mretsig_in,
@@ -278,8 +309,8 @@ module exu_pipline_connect(
   output jalsig_out,
   output [31:0] imm_out,
   output muximm_out,
-  output [31:0] regout1_out,
-  output [31:0] regout2_out,
+  output [31:0] src1_out,
+  output [31:0] src2_out,
   output [31:0] pc_out,
   output auipcsig_out,
   output mretsig_out,
@@ -323,8 +354,8 @@ module exu_pipline_connect(
   reg jalsig_r;
   reg [31:0] imm_r;
   reg muximm_r;
-  reg [31:0] regout1_r;
-  reg [31:0] regout2_r;
+  reg [31:0] src1_r;
+  reg [31:0] src2_r;
   reg [31:0] pc_r;
   reg auipcsig_r;
   reg mretsig_r;
@@ -350,8 +381,8 @@ module exu_pipline_connect(
       jalsig_r <= 1'b0;
       imm_r <= 32'b0;
       muximm_r <= 1'b0;
-      regout1_r <= 32'b0;
-      regout2_r <= 32'b0;
+      src1_r <= 32'b0;
+      src2_r <= 32'b0;
       pc_r <= 32'b0;
       auipcsig_r <= 1'b0;
       mretsig_r <= 1'b0;
@@ -375,8 +406,8 @@ module exu_pipline_connect(
         jalsig_r <= jalsig_in;
         imm_r <= imm_in;
         muximm_r <= muximm_in;
-        regout1_r <= regout1_in;
-        regout2_r <= regout2_in;
+        src1_r <= src1_in;
+        src2_r <= src2_in;
         pc_r <= pc_in;
         auipcsig_r <= auipcsig_in;
         mretsig_r <= mretsig_in;
@@ -399,8 +430,8 @@ module exu_pipline_connect(
         jalsig_r <= 1'b0;
         imm_r <= 32'b0;
         muximm_r <= 1'b0;
-        regout1_r <= 32'b0;
-        regout2_r <= 32'b0;
+        src1_r <= 32'b0;
+        src2_r <= 32'b0;
         pc_r <= 32'b0;
         auipcsig_r <= 1'b0;
         mretsig_r <= 1'b0;
@@ -427,8 +458,8 @@ module exu_pipline_connect(
   assign jalsig_out = jalsig_r;
   assign imm_out = imm_r;
   assign muximm_out = muximm_r;
-  assign regout1_out = regout1_r;
-  assign regout2_out = regout2_r;
+  assign src1_out = src1_r;
+  assign src2_out = src2_r;
   assign pc_out = pc_r;
   assign auipcsig_out = auipcsig_r;
   assign mretsig_out = mretsig_r;

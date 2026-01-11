@@ -116,8 +116,6 @@ module ysyx_24100007_ifu(
       end
     end
   end
-  // synopsys translate_on
-
   // ------------------------------------
   // IFU STATE MACHINE
   // ------------------------------------
@@ -141,36 +139,36 @@ module ysyx_24100007_ifu(
         end
 
         VALID: begin
-          if(ready) begin
-            ifu_state <= CHECK_CACHE;
-          end else if(is_jmp) begin
+          if(is_jmp) begin
             ifu_state <= UPDATE_PC;
+          end else if(ready) begin
+            ifu_state <= CHECK_CACHE;
           end
         end
 
         CHECK_CACHE: begin
-          if(hit) begin
-            ifu_state <= VALID;
-          end else if(is_jmp)begin
+          if(is_jmp) begin
             ifu_state <= UPDATE_PC;
+          end else if(hit)begin
+            ifu_state <= VALID;
           end else begin
             ifu_state <= BUS_HANDSHAKE;
           end
         end
 
         BUS_HANDSHAKE: begin
-          if(axi_arready) begin
-            ifu_state <= BUS_TRANSACTION;
-          end else if(is_jmp) begin
+          if(is_jmp) begin
             ifu_state <= BUS_INVALID;
+          end else if(axi_arready) begin
+            ifu_state <= BUS_TRANSACTION;
           end
         end
 
         BUS_TRANSACTION: begin
-          if(axi_rdata_valid) begin
-            ifu_state <= UPDATE_CACHE;
-          end else if(is_jmp) begin
+          if(is_jmp) begin
             ifu_state <= BUS_INVALID;
+          end else if(axi_rdata_valid) begin
+            ifu_state <= UPDATE_CACHE;
           end
         end
 
@@ -183,13 +181,13 @@ module ysyx_24100007_ifu(
         end
 
         BUS_INVALID: begin
-          if(axi_rdata_valid) begin
+          if(axi_rdata_valid &  axi_rdata_ready) begin
             ifu_state <= UPDATE_PC;
           end
         end
 
         UPDATE_PC: begin
-          ifu_state <= UPDATE_CACHE;
+          ifu_state <= CHECK_CACHE;
         end
 
         default: begin
@@ -237,7 +235,7 @@ module ysyx_24100007_ifu(
     .rresp(rresp),
     .rlast(rlast)
   );
-  assign axi_rdata_ready = (ifu_state == UPDATE_CACHE);
+  assign axi_rdata_ready = (ifu_state == UPDATE_CACHE) | (ifu_state == BUS_INVALID);
   assign axi_arvalid = (ifu_state == BUS_HANDSHAKE);
 
   // ------------------------------------

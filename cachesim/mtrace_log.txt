@@ -1,6 +1,0 @@
-[memory read] 1043 from 0x80000000
-[memory read] 37143 from 0x80000004
-[memory read] 4290838803 from 0x80000008
-[memory read] 12583151 from 0x8000000c
-[memory read] 1043 from 0x80000000
-[memory read] 37143 from 0x80000004

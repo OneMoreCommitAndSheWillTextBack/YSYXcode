@@ -10,6 +10,27 @@ module ysyx_24100007_idu(
   input out_ready,
 
   input is_jmp,
+
+  // 寄存器堆读出的数据
+  input [31:0] regout1,
+  input [31:0] regout2,
+
+  // WBU 旁路接口
+  input [4:0] wbu_rd,
+  input wbu_regew,
+  input [31:0] wbu_transmit_data,
+  input wbu_transmit_data_valid,
+
+  // EXU 旁路接口
+  input [4:0] exu_rd,
+  input exu_regew,
+  input [31:0] exu_transmit_data,
+  input exu_transmit_data_valid,
+  input exu_memer_bypass,              // EXU 是否是 load 指令（用于处理 load-use 冲突）
+
+  // 经过旁路选择后的数据
+  output [31:0] src1_data,
+  output [31:0] src2_data,
   
   output ebreaksig,
   output ecallsig,
@@ -17,8 +38,8 @@ module ysyx_24100007_idu(
   output [31:0] imm,
   output [2:0] func3,
   output func7,
-  output [4:0] src1,
-  output [4:0] src2,
+  output [4:0] src1_addr,
+  output [4:0] src2_addr,
   output [4:0] rd,
   output memew,
   output [2:0] muxsig,
@@ -49,7 +70,7 @@ module ysyx_24100007_idu(
     end else begin
       case(idu_state_r) 
         IDLE: begin
-          if(in_valid & in_ready) begin
+          if(in_valid & in_ready & ! is_jmp) begin
             idu_state_r <= VALID;
           end
         end
@@ -57,7 +78,7 @@ module ysyx_24100007_idu(
         VALID: begin
           if(is_jmp) begin
             idu_state_r <= IDLE;
-          end else if(out_ready) begin
+          end else if(out_ready & out_valid) begin
             if(in_valid) 
               idu_state_r <= VALID;
             else
@@ -69,7 +90,7 @@ module ysyx_24100007_idu(
   end
 
   wire accept = ((idu_state_r == IDLE) || (idu_state_r == VALID && out_ready)) && in_valid;
-  assign out_valid = (idu_state_r == VALID);
+  assign out_valid = (idu_state_r == VALID) & src_data_valid;
   assign in_ready = accept; 
 
   wire [31:0] inst;
@@ -105,8 +126,8 @@ module ysyx_24100007_idu(
     .mretsig(mret),
     .ecallsig(ecall),
     .imm(imm),
-    .src1(src1),
-    .src2(src2),
+    .src1(src1_addr),
+    .src2(src2_addr),
     .rd(rd),
     .opcode(opcode),
     .func3(func3bridge),
@@ -144,6 +165,29 @@ module ysyx_24100007_idu(
   assign ebreaksig = ebreak;
   assign func7 = func7bridge;
   assign func3 = func3bridge;
+
+  wire src_data_valid;
+
+  ysyx_24100007_transmit transmit0(
+    .clk(clk),
+    .rst(rst),
+    .src1_addr_in(src1_addr),
+    .src2_addr_in(src2_addr),
+    .exu_rd(exu_rd),
+    .wbu_rd(wbu_rd),
+    .exu_res_valid(exu_transmit_data_valid),
+    .exu_regew(exu_regew),
+    .wbu_res_valid(wbu_transmit_data_valid),
+    .wbu_regew(wbu_regew),
+    .exu_memer_bypass(exu_memer_bypass),  // EXU 是否是 load 指令
+    .regout1_in(regout1),
+    .regout2_in(regout2),
+    .exu_transmit_data(exu_transmit_data),
+    .wbu_transmit_data(wbu_transmit_data),
+    .src1(src1_data),
+    .src2(src2_data),
+    .valid(src_data_valid)
+  );
   
   // synopsys translate_off
   import "DPI-C" function void get_idu_state(int state);

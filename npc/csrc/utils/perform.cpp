@@ -24,9 +24,9 @@ static std::string now_time() {
 }
 
 void dump_performance() {
-  // 覆盖写入，文件中只保留最近一次的性能数据，使用 key=value 形式便于脚本解析
-  std::ofstream ofs("/home/ysyx/project/ysyx-workbench/npc/performance.txt",
-                    std::ios::out | std::ios::trunc);
+     // 覆盖写入，文件中只保留最近一次的性能数据，使用 key=value 形式便于脚本解析
+     std::ofstream ofs("/home/ysyx/project/ysyx-workbench/npc/performance.txt",
+                       std::ios::out | std::ios::trunc);
 
   uint64_t total_inst   = npc->npc_commit_time;
   uint64_t total_cycle  = npc->cycs;
@@ -77,7 +77,7 @@ void dump_performance() {
 }
 
 void deal_statistic() {
-  printf("ended at pc = 0x%08x\n", cpu->con.pc);
+    printf("ended at pc = 0x%08x\n", cpu->con.pc);
   printf(COLOR_BLUE "statistic:\n");
 
   uint64_t total_inst  = npc->npc_commit_time;
@@ -124,6 +124,6 @@ void deal_statistic() {
   printf(COLOR_RESET);
 
   if (need_dump_perform()) {
-    dump_performance();
-  }
+        dump_performance();
+    }
 }

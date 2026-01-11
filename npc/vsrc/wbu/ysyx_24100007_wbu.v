@@ -112,7 +112,7 @@ module ysyx_24100007_wbu(
   } wbu_state_t;
   wbu_state_t wbu_state;
 
-  wire mem_access = memew | memer;
+  wire mem_access = memew_in | memer_in;
   wire write_handshake_done = memew & axi_xaddr_valid & axi_xaddr_ready & 
                                axi_wdata_valid & axi_wdata_ready;
   wire read_addr_handshake_done = memer & axi_xaddr_valid & axi_xaddr_ready;
@@ -147,7 +147,15 @@ module ysyx_24100007_wbu(
         end
 
         WRITE_BACK: begin
-          wbu_state <= WAIT_VALID;
+          if(in_valid & in_ready) begin
+            if(mem_access) begin
+              wbu_state <= BUS_HANDSHAKE;
+            end else begin
+              wbu_state <= WRITE_BACK;
+            end
+          end else begin
+            wbu_state <= WAIT_VALID;
+          end
         end
       endcase
     end
@@ -208,7 +216,7 @@ module ysyx_24100007_wbu(
     .rst(rst),
     
     // 内存访问控制信号
-    .mem_en(mem_access & avaliable),
+    .mem_en((memer | memew) & avaliable),
     .mem_we(memew),
     .mem_addr(res),
     .mem_wdata(regout2),
