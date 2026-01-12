@@ -131,7 +131,7 @@ module ysyx_24100007_bypass_sel(
   // - 如果需要 EXU 转发但数据无效或 EXU 是 load 指令，则无效
   // - 如果需要 WBU 转发但数据无效，则无效
   // - 如果不需要转发（使用寄存器堆），则直接有效
-  wire src_valid_raw = load_use_wait ? 1'b0 :  // 正在等待 load-use 冲突，阻塞
+  wire src_valid_raw = load_use_wait | load_use_hazard_detect ? 1'b0 :  // 正在等待 load-use 冲突，阻塞
                        need_exu_forward && !exu_memer_bypass ? exu_transmit_data_valid :
                        need_wbu_forward ? wbu_transmit_data_valid :
                        1'b1;
@@ -166,7 +166,6 @@ module ysyx_24100007_bypass_sel(
 
   // 有效信号：当前数据有效，或者锁存数据有效且地址匹配
   // 注意：如果正在等待 load-use 冲突，则无效（阻塞）
-  assign src_valid = load_use_wait ? 1'b0 :
-                     src_valid_raw || (src_reg_valid && (src_addr_in == src_addr_reg));
+  assign src_valid = src_valid_raw || (src_reg_valid && (src_addr_in == src_addr_reg));
 
 endmodule
