@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <dlfcn.h>
 
 #define CHECK_CSR(x)                                                           \
@@ -107,7 +108,10 @@ void diff_step() {
     // reference design
     inst_ref_skip = false;
     inst_skip_nr = 1;
-    ref_difftest_regcpy(&cpu->commit, DIFF_TO_REF);
+    context cpu_commit;
+    std::memcpy(&cpu_commit, &cpu->commit, sizeof(cpu_commit));
+    cpu_commit.pc = cpu_commit.pc + 4; // as every inst need tobe skip is load/store
+    ref_difftest_regcpy(&cpu_commit, DIFF_TO_REF);
     return;
   }
 
