@@ -192,6 +192,7 @@ module ysyx_24100007_core #(
   wire exu_memew, exu_memer, exu_memsextsig, exu_regew_control;
   wire [2:0] exu_muxsig, exu_memmask;
   wire [31:0] exu_src2_out;  // src2 from EXU to WBU
+  wire [31:0] exu_imm_out;   // imm from EXU to WBU
 
   // EXU 向 IDU 转发的旁路信号
   wire [4:0] exu_rd_bypass;               // EXU 阶段的 rd（用于旁路）
@@ -238,6 +239,7 @@ module ysyx_24100007_core #(
   .npc(npc),
   .link_addr(link_addr),
   .src2_out(exu_src2_out),           // to WBU
+  .imm_out(exu_imm_out),             // to WBU
   .is_jmp(is_jmp),
 
   .memew_out(exu_memew),             // to WBU
@@ -273,7 +275,7 @@ module ysyx_24100007_core #(
   .regout2_in(exu_src2_out),  // 使用从EXU传递的src2（已通过旁路选择）
   .memew_in(exu_memew),
   .memer_in(exu_memer),
-  .imm_in(imm),
+  .imm_in(exu_imm_out),        // 使用从EXU传递的imm（已通过流水线寄存器）
   .link_addr_in(link_addr),
   
   .muxsig_in(exu_muxsig),

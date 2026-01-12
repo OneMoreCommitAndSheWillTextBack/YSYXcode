@@ -39,6 +39,7 @@ module ysyx_24100007_exu(
   output [31:0] npc,
   output [31:0] link_addr,   // PC value to write to register (for JAL/JALR)
   output [31:0] src2_out,    // src2 output to WBU
+  output [31:0] imm_out,     // imm output to WBU
 
   output memew_out,              
   output memer_out,              
@@ -250,6 +251,7 @@ module ysyx_24100007_exu(
 
   assign res = res_r;
   assign src2_out = src2;  // 将流水线的src2输出到WBU
+  assign imm_out = imm;    // 将流水线的imm输出到WBU
   assign muxsig_out = muxsig;
 
   // EXU 向 IDU 转发的旁路信号
