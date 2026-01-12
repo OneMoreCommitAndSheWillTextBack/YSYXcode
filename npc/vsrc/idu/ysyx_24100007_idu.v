@@ -90,7 +90,7 @@ module ysyx_24100007_idu(
   end
 
   wire accept = ((idu_state_r == IDLE) || (idu_state_r == VALID && out_ready)) && in_valid;
-  assign out_valid = (idu_state_r == VALID) & src_data_valid;
+  assign out_valid = (idu_state_r == VALID) & src_data_valid & !is_jmp;
   assign in_ready = accept; 
 
   wire [31:0] inst;
