@@ -27,7 +27,7 @@ ARGS += -b
 # ARGS += -r 2470534
 # ARGS += -i 1000000
 # ARGS += -d 1926100
-ARGS += -e
+# ARGS += -e
 # ARGS += "-w\$$$$pc==0x100027b7"
 # ARGS += -m
 
