@@ -53,6 +53,7 @@ module ysyx_24100007_idu(
   output auipcsig,
   output csrrw,
   output csrrs,
+  output [11:0] csr_addr,
   output [2:0] memmask,
   output memsextsig,
   output [31:0] pc_out
@@ -165,6 +166,7 @@ module ysyx_24100007_idu(
   assign ebreaksig = ebreak;
   assign func7 = func7bridge;
   assign func3 = func3bridge;
+  assign csr_addr = inst[31:20];  // Extract CSR address from instruction
 
   wire src_data_valid;
 

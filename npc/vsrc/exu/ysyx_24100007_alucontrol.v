@@ -14,17 +14,16 @@ module ysyx_24100007_alucontrol(
   input func7,
   input [1:0] aluop,
   input jalrsig,
+  input is_csr,
   
   output [4:0] aluopcode
 );
-  // addsig is the sb instr
-  wire type_I, type_B, type_R, addsig;
+  wire type_I, type_B, type_R;
   wire [3:0] branchop;
   reg [3:0] IRop;
   assign type_I = (aluop == 2'b01);
   assign type_B = (aluop == 2'b11);
   assign type_R = (aluop == 2'b10);
-  assign addsig = (aluop == 2'b00);
   
   assign branchop=(func3[2] & func3[1])? `SLTU : (func3[2] ^ func3[1])? `SLT : `SUB;
 
@@ -58,8 +57,9 @@ module ysyx_24100007_alucontrol(
     endcase
   end
 
-  assign aluopcode = {(type_I)? 1'b1:1'b0,(type_B==1)?branchop:(type_R|type_I == 1)?IRop:`ADD};
-
+  wire [4:0] aluopcode_I = {(type_I)? 1'b1:1'b0,(type_B==1)?branchop:(type_R|type_I == 1)?IRop:`ADD};
+  wire [4:0] aluopcode_csr = {1'b0, `ADD};
+  assign aluopcode = (is_csr) ? aluopcode_csr : aluopcode_I;
 endmodule
 
 

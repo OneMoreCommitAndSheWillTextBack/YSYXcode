@@ -104,6 +104,7 @@ module ysyx_24100007_core #(
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
   wire csrrw, csrrs;
+  wire [11:0] csr_addr;
   wire [2:0] memmask;
   wire memsextsig;
   wire regew_control;
@@ -158,6 +159,7 @@ module ysyx_24100007_core #(
   .auipcsig(auipcsig),
   .csrrw(csrrw),
   .csrrs(csrrs),
+  .csr_addr(csr_addr),
   .memmask(memmask),
   .memsextsig(memsextsig),
   .pc_out(idu_pc)
@@ -173,9 +175,9 @@ module ysyx_24100007_core #(
     .src1(src1_addr),             // 使用 IDU 输出的源寄存器地址
     .src2(src2_addr),             // 使用 IDU 输出的源寄存器地址
     .data(regwrite),
-    .csr(inst[31:20]),
-    .csrrw(csrrw),
-    .csrrs(csrrs),
+    .csr(wbu_csr_addr_out),       // 使用 WBU 阶段的 CSR 地址
+    .csrrw(wbu_csrrw_out),        // 使用 WBU 阶段的 csrrw 信号
+    .csrrs(wbu_csrrs_out),        // 使用 WBU 阶段的 csrrs 信号
     .ecallsig(ecallsig),
     .regout1(regout1),            // 寄存器堆输出连接到 IDU
     .regout2(regout2),            // 寄存器堆输出连接到 IDU
@@ -193,6 +195,8 @@ module ysyx_24100007_core #(
   wire [2:0] exu_muxsig, exu_memmask;
   wire [31:0] exu_src2_out;  // src2 from EXU to WBU
   wire [31:0] exu_imm_out;   // imm from EXU to WBU
+  wire exu_csrrw_out, exu_csrrs_out;
+  wire [11:0] exu_csr_addr_out;
 
   // EXU 向 IDU 转发的旁路信号
   wire [4:0] exu_rd_bypass;               // EXU 阶段的 rd（用于旁路）
@@ -219,6 +223,7 @@ module ysyx_24100007_core #(
   .muximm_in(muximm),
   .pc_in(idu_pc),
   .auipcsig_in(auipcsig),
+
   .mretsig_in(mretsig),
   .ecallsig_in(ecallsig),
   .mtvec_in(mtvec),
@@ -231,6 +236,10 @@ module ysyx_24100007_core #(
   .memsextsig_in(memsextsig),
   .regew_control_in(regew_control),
   .rd_in(idu_rd),
+  .csrrw_in(csrrw),
+  .csrrs_in(csrrs),
+  .csr_addr_in(csr_addr),
+  .wbu_write_csr(wbu_write_csr),
 
   .src1_in(src1_data),         // 使用 IDU 经过旁路选择后的数据
   .src2_in(src2_data),         // 使用 IDU 经过旁路选择后的数据
@@ -249,6 +258,9 @@ module ysyx_24100007_core #(
   .memsextsig_out(exu_memsextsig),        // to WBU
   .regew_control_out(exu_regew_control),     // to WBU
   .rd_out(exu_rd),
+  .csrrw_out(exu_csrrw_out),            // to WBU
+  .csrrs_out(exu_csrrs_out),            // to WBU
+  .csr_addr_out(exu_csr_addr_out),      // to WBU
 
   // EXU 向 IDU 转发的旁路信号
   .exu_rd(exu_rd_bypass),
@@ -268,6 +280,9 @@ module ysyx_24100007_core #(
   wire wbu_transmit_data_valid;           // WBU 阶段的旁路数据有效信号
   wire [4:0] wbu_reg_rd;
   wire wbu_commit;
+  wire wbu_csrrw_out, wbu_csrrs_out;
+  wire [11:0] wbu_csr_addr_out;
+  wire wbu_write_csr;
   ysyx_24100007_wbu wbu0(
   .clk(clock),
   .rst(reset),
@@ -283,10 +298,17 @@ module ysyx_24100007_core #(
   .memmask_in(exu_memmask),
   .regew_control_in(exu_regew_control),
   .rd_in(exu_rd),
+  .csrrw_in(exu_csrrw_out),
+  .csrrs_in(exu_csrrs_out),
+  .csr_addr_in(exu_csr_addr_out),
 
   .regwrite_out(regwrite),
   .regew_out(regew),
   .rd_out(wbu_reg_rd),
+  .csrrw_out(wbu_csrrw_out),
+  .csrrs_out(wbu_csrrs_out),
+  .csr_addr_out(wbu_csr_addr_out),
+  .wbu_write_csr(wbu_write_csr),
 
   .in_valid(exu_to_wbu_valid),
   .in_ready(wbu_to_exu_ready), // WBU to EXU ready

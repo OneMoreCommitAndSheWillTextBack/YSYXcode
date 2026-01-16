@@ -40,7 +40,7 @@ module ysyx_24100007_control_unit(
   assign regew = (type_I | type_R | type_J | type_U);
   assign jalsig = type_J;
   assign jalrsig = (opcode == 7'b1100111);
-  assign muximm = load | store | type_I | jalrsig;
+  assign muximm = (load | store | type_I | jalrsig) & !(csrrs | csrrw);
   assign regwritemem = load;
   assign regwritepc = jalrsig | jalsig | auipcsig | ecallsig;
   assign auipcsig = (opcode == 7'b0010111);
