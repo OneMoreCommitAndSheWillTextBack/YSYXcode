@@ -15,6 +15,7 @@ module ysyx_24100007_wbu(
   input csrrw_in,
   input csrrs_in,
   input [11:0] csr_addr_in,
+  input ecallsig_in,
 
   output [31:0] regwrite_out,
   output regew_out,
@@ -22,6 +23,7 @@ module ysyx_24100007_wbu(
   output csrrw_out,
   output csrrs_out,
   output [11:0] csr_addr_out,
+  output ecallsig_out,
   output wbu_write_csr,
 
   output trans_start,
@@ -98,6 +100,7 @@ module ysyx_24100007_wbu(
     .csrrw_in(csrrw_in),
     .csrrs_in(csrrs_in),
     .csr_addr_in(csr_addr_in),
+    .ecallsig_in(ecallsig_in),
 
     .res_out(res),
     .regout2_out(regout2),
@@ -113,6 +116,7 @@ module ysyx_24100007_wbu(
     .csrrw_out(csrrw_out),
     .csrrs_out(csrrs_out),
     .csr_addr_out(csr_addr_out),
+    .ecallsig_out(ecallsig_out),
 
     .avaliable(avaliable),
     .pipline_valid(pipline_valid),
@@ -303,6 +307,7 @@ module wbu_pipline_connect(
   input csrrw_in,
   input csrrs_in,
   input [11:0] csr_addr_in,
+  input ecallsig_in,
 
   output [31:0] res_out,
   output [31:0] regout2_out,
@@ -318,6 +323,7 @@ module wbu_pipline_connect(
   output csrrw_out,
   output csrrs_out,
   output [11:0] csr_addr_out,
+  output ecallsig_out,
 
   output avaliable,
   input pipline_valid,
@@ -354,6 +360,7 @@ module wbu_pipline_connect(
   reg csrrw_r;
   reg csrrs_r;
   reg [11:0] csr_addr_r;
+  reg ecallsig_r;
 
   always @(posedge clk) begin
     if(rst) begin
@@ -371,6 +378,7 @@ module wbu_pipline_connect(
       csrrw_r <= 1'b0;
       csrrs_r <= 1'b0;
       csr_addr_r <= 12'b0;
+      ecallsig_r <= 1'b0;
     end else begin
       if(pipline_valid) begin
         res_r <= res_in;
@@ -387,6 +395,7 @@ module wbu_pipline_connect(
         csrrw_r <= csrrw_in;
         csrrs_r <= csrrs_in;
         csr_addr_r <= csr_addr_in;
+        ecallsig_r <= ecallsig_in;
       end else if(flush) begin
         res_r <= 32'b0;
         regout2_r <= 32'b0;
@@ -402,6 +411,7 @@ module wbu_pipline_connect(
         csrrw_r <= 1'b0;
         csrrs_r <= 1'b0;
         csr_addr_r <= 12'b0;
+        ecallsig_r <= 1'b0;
       end
     end
   end
@@ -421,6 +431,7 @@ module wbu_pipline_connect(
   assign csrrw_out = csrrw_r;
   assign csrrs_out = csrrs_r;
   assign csr_addr_out = csr_addr_r;
+  assign ecallsig_out = ecallsig_r;
 
 endmodule
 

@@ -54,7 +54,8 @@ module ysyx_24100007_exu(
   output [4:0] rd_out,
   output csrrw_out,
   output csrrs_out,
-  output [11:0] csr_addr_out,    
+  output [11:0] csr_addr_out,
+  output ecallsig_out,
 
   output is_jmp, // tell ifu flush the pipline
 
