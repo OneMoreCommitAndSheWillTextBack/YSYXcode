@@ -82,6 +82,7 @@ module ysyx_24100007_wbu(
   wire regew_control;
   wire [4:0] rd;
   wire ecallsig;
+  wire csrrs, csrrw;
 
   wbu_pipline_connect wbu_pipeline_u(
     .clk(clk),
@@ -114,8 +115,8 @@ module ysyx_24100007_wbu(
     .memsextsig_out(memsextsig),
     .regew_control_out(regew_control),
     .rd_out(rd),
-    .csrrw_out(csrrw_out),
-    .csrrs_out(csrrs_out),
+    .csrrw_out(csrrw),
+    .csrrs_out(csrrs),
     .csr_addr_out(csr_addr_out),
     .ecallsig_out(ecallsig),
 
@@ -181,6 +182,8 @@ module ysyx_24100007_wbu(
 
   assign wbu_commit = (wbu_state == WRITE_BACK);
   assign ecallsig_out = ecallsig & (wbu_state == WRITE_BACK);
+  assign csrrs_out = csrrs & (wbu_state == WRITE_BACK);
+  assign csrrw_out = csrrw & (wbu_state == WRITE_BACK);
 
   wire regew;
   assign regew = (wbu_state == WRITE_BACK) & regew_control;
