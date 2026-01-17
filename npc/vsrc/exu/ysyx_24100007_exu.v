@@ -199,6 +199,7 @@ module ysyx_24100007_exu(
 
   assign csrrs_out = csrrs;
   assign csrrw_out = csrrw;
+  assign ecallsig_out = ecallsig'
 
   wire [31:0] pc_plus_4, pc_plus_imm;
   assign pc_plus_4 = pc + 32'd4;
