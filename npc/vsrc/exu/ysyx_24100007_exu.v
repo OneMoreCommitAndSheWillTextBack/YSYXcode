@@ -272,7 +272,7 @@ module ysyx_24100007_exu(
   assign is_jmp_r = is_jmp_r_1 & is_jmp_mask & !exu_csr_delay;
   assign is_jmp = is_jmp_r;
 
-  assign res = res_r;
+  assign res = (csrrw || csrrs) ? src1 : res_r;
   assign src2_out = src2;  // 将流水线的src2输出到WBU
   assign imm_out = imm;    // 将流水线的imm输出到WBU
   assign muxsig_out = muxsig;

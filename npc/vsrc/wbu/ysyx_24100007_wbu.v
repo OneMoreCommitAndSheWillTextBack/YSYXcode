@@ -65,7 +65,7 @@ module ysyx_24100007_wbu(
 );
 
   wire accept = ((wbu_state == WAIT_VALID) || (wbu_state == WRITE_BACK)) && in_valid;
-  assign in_ready = (wbu_state == WAIT_VALID);
+  assign in_ready = (wbu_state == WAIT_VALID) ;
   wire pipline_valid = accept;
   wire flush = ((wbu_state == WRITE_BACK) & !in_valid);
 
