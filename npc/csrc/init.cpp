@@ -85,7 +85,7 @@ char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
 int port = 0;
 bool batch_mode_on = false;
 
-char itrace_out_file[] = "/home/ysyx/project/ysyx-workbench/cachesim/itrace-log.txt";
+char itrace_out_file[] = "/home/ysyx/project/ysyx-workbench/simulator/itrace-log.txt";
 
 #ifdef __NVBOARD__
 extern void nvboard_bind_all_pins(VysyxSoCFull* top);
@@ -245,6 +245,7 @@ bool fork_interval_is_on() { return fork_interval_on; }
 int fork_interval_val() { return fork_interval; }
 bool record_isenable() { return record_enable; }
 void set_record_enable() { record_enable = true; }
+void set_record_disenable() { record_enable = false;}
 unsigned int record_after_val() { return record_after; }
 bool die_on_end_is_on() { return die_on_end_on; }
 unsigned long long die_on_end_val() { return die_on_end; }

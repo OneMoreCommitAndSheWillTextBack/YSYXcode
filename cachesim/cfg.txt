@@ -1,9 +1,0 @@
-[dcache]
-offset-len = 4
-index-len = 3
-log = /home/ysyx/project/ysyx-workbench/cachesim/mtrace_log.txt
-
-[icache]
-offset-len = 4
-index-len = 3
-log = /home/ysyx/project/ysyx-workbench/cachesim/itrace-log.txt

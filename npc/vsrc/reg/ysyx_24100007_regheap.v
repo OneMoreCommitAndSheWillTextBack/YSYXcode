@@ -27,8 +27,7 @@ module ysyx_24100007_regheap(
   // pay attention that the src1 should not be direct use
   assign rf_src1_word = rf_flat[src1*32 +: 32];
   assign rf_src2_word = rf_flat[src2*32 +: 32];
-  assign reg_write_data = (!(csrrw | csrrs)) ? data : 
-                          (src1 == 0) ? 0 : rf_src1_word;
+  assign reg_write_data = data;
 
   ysyx_24100007_MuxKey#(6, 12, 3) muxcsr(csr_choose, csr, {
     12'h300, 3'b000, // mstatus

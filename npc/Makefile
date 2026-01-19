@@ -97,7 +97,11 @@ clean:
 	rm -rf ./build/$(CLEAN_MODE)
 
 sim:
-	gtkwave ./wave.vcd
+	@if [ -f ./gtkwave.tcl ]; then \
+		gtkwave ./wave.vcd --tcl_init ./gtkwave.tcl & \
+	else \
+		gtkwave ./wave.vcd & \
+	fi
 
 perf:
 	python3 show-perf-table.py ./performance.txt

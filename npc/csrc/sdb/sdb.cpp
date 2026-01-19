@@ -26,6 +26,7 @@ int cmd_b(const std::string &args);
 int cmd_d(const std::string &args);
 int cmd_add_mem_guard(const std::string &args);
 int cmd_echo_status(const std::string &args);
+int cmd_start_trace(const std::string &args);
 
 struct Command {
   const std::string name;
@@ -46,6 +47,7 @@ const Command cmd_table[] = {
     {"x", "print memory", cmd_x},
     {"m", "add memory guard", cmd_add_mem_guard},
     {"echo_status", "echo npc status", cmd_echo_status},
+    {"trace", "switch the tracer state", cmd_start_trace},
 };
 
 #define NR_CMD sizeof(cmd_table) / sizeof(cmd_table[0])
@@ -198,6 +200,28 @@ int cmd_x(const std::string &args) {
     }
     std::cout << std::dec << std::endl;
   }
+  return 0;
+}
+
+int cmd_start_trace(const std::string &args) {
+  std::vector<std::string> arr;
+  std::stringstream ss(args);
+  std::string item;
+
+  if(!args.empty()) {
+    while(std::getline(ss, item, ' ')) {
+      arr.push_back(item);
+    }
+  }
+
+  if(record_isenable()) {
+    set_record_disenable();
+    std::cout << "trace off" << std::endl;
+  } else {
+    set_record_enable();
+    std::cout << "trace on" << std::endl;
+  }
+
   return 0;
 }
 

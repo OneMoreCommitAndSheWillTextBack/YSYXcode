@@ -62,7 +62,8 @@ module ysyx_24100007_registers(
     end else begin
 
       // 使用互斥的条件，避免多驱动
-      if(csrrw) begin 
+      if(csrrw) begin
+        // $display("csrrw: writing data 0x%08x to csr[%0d], addr=%0d, gr[%0d]", data, csr_choose, addr, addr);
         {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data};
       end else if(csrrs) begin
         {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data|csr[csr_choose]};

@@ -95,7 +95,7 @@ module ysyx_24100007_core #(
   assign wlast[0] = 1'b0;
 
 
-  wire [4:0] src1, src2, idu_rd;
+  wire [4:0] src1_addr, src2_addr, idu_rd;
   wire [31:0] imm;
   wire ebreaksig, mretsig, ecallsig;
   wire memew, memer, muximm;
@@ -104,10 +104,12 @@ module ysyx_24100007_core #(
   wire btypebranch, jalsig, jalrsig, auipcsig;
   wire [1:0] aluop;
   wire csrrw, csrrs;
+  wire [11:0] csr_addr;
   wire [2:0] memmask;
   wire memsextsig;
   wire regew_control;
   wire [31:0] idu_pc;
+  wire [31:0] src1_data, src2_data;
   ysyx_24100007_idu idu0(
   .clk(clock),
   .rst(reset),
@@ -119,14 +121,31 @@ module ysyx_24100007_core #(
   .is_jmp(is_jmp),
   .pc_in(ifu_pc),
 
+  .regout1(regout1),              // 从寄存器堆读出的数据
+  .regout2(regout2),              // 从寄存器堆读出的数据
+
+  .wbu_rd(wbu_rd_bypass),                // WBU 旁路接口
+  .wbu_regew(wbu_regew_bypass),          // WBU 旁路接口
+  .wbu_transmit_data(wbu_transmit_data),      // WBU 旁路接口
+  .wbu_transmit_data_valid(wbu_transmit_data_valid), // WBU 旁路接口
+
+  .exu_rd(exu_rd_bypass),                // EXU 旁路接口
+  .exu_regew(exu_regew_bypass),          // EXU 旁路接口
+  .exu_transmit_data(exu_transmit_data), // EXU 旁路接口
+  .exu_transmit_data_valid(exu_transmit_data_valid), // EXU 旁路接口
+  .exu_memer_bypass(exu_memer_bypass),  // EXU 是否是 load 指令（用于处理 load-use 冲突）
+
+  .src1_data(src1_data),          // 经过旁路选择后的数据
+  .src2_data(src2_data),          // 经过旁路选择后的数据
+
   .ebreaksig(ebreaksig),
   .ecallsig(ecallsig),
   .mretsig(mretsig),
   .imm(imm),
   .func3(func3),
   .func7(func7),
-  .src1(src1),
-  .src2(src2),
+  .src1_addr(src1_addr),
+  .src2_addr(src2_addr),
   .rd(idu_rd),
   .regew_control(regew_control),
   .memew(memew),
@@ -140,6 +159,7 @@ module ysyx_24100007_core #(
   .auipcsig(auipcsig),
   .csrrw(csrrw),
   .csrrs(csrrs),
+  .csr_addr(csr_addr),
   .memmask(memmask),
   .memsextsig(memsextsig),
   .pc_out(idu_pc)
@@ -152,15 +172,15 @@ module ysyx_24100007_core #(
     .rst(reset),
     .ew(regew),
     .addr(wbu_reg_rd),
-    .src1(src1),
-    .src2(src2),
+    .src1(src1_addr),             // 使用 IDU 输出的源寄存器地址
+    .src2(src2_addr),             // 使用 IDU 输出的源寄存器地址
     .data(regwrite),
-    .csr(inst[31:20]),
-    .csrrw(csrrw),
-    .csrrs(csrrs),
-    .ecallsig(ecallsig),
-    .regout1(regout1),
-    .regout2(regout2),
+    .csr(wbu_csr_addr_out),       // 使用 WBU 阶段的 CSR 地址
+    .csrrw(wbu_csrrw_out),        // 使用 WBU 阶段的 csrrw 信号
+    .csrrs(wbu_csrrs_out),        // 使用 WBU 阶段的 csrrs 信号
+    .ecallsig(wbu_ecallsig_out),  // 使用 WBU 阶段的 ecallsig 信号
+    .regout1(regout1),            // 寄存器堆输出连接到 IDU
+    .regout2(regout2),            // 寄存器堆输出连接到 IDU
     .mepc(mepc),
     .mtvec(mtvec)
   ); 
@@ -168,11 +188,23 @@ module ysyx_24100007_core #(
   wire [31:0] res;
   wire [31:0] link_addr;
   wire is_jmp;
-  wire [4:0] exu_rd;
+  wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
   wire exu_memew, exu_memer, exu_memsextsig, exu_regew_control;
   wire [2:0] exu_muxsig, exu_memmask;
+  wire [31:0] exu_src2_out;  // src2 from EXU to WBU
+  wire [31:0] exu_imm_out;   // imm from EXU to WBU
+  wire exu_csrrw_out, exu_csrrs_out;
+  wire [11:0] exu_csr_addr_out;
+  wire exu_ecallsig_out;
+
+  // EXU 向 IDU 转发的旁路信号
+  wire [4:0] exu_rd_bypass;               // EXU 阶段的 rd（用于旁路）
+  wire exu_regew_bypass;                  // EXU 阶段的写使能（用于旁路）
+  wire [31:0] exu_transmit_data;          // EXU 阶段的计算结果（用于旁路）
+  wire exu_transmit_data_valid;           // EXU 阶段的旁路数据有效信号
+  wire exu_memer_bypass;                  // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
   ysyx_24100007_exu exu0(
   .clk(clock),
   .rst(reset),
@@ -190,10 +222,9 @@ module ysyx_24100007_core #(
   .jalsig_in(jalsig),
   .imm_in(imm),
   .muximm_in(muximm),
-  .src1_addr_in(src1),
-  .src2_addr_in(src2),
   .pc_in(idu_pc),
   .auipcsig_in(auipcsig),
+
   .mretsig_in(mretsig),
   .ecallsig_in(ecallsig),
   .mtvec_in(mtvec),
@@ -206,17 +237,19 @@ module ysyx_24100007_core #(
   .memsextsig_in(memsextsig),
   .regew_control_in(regew_control),
   .rd_in(idu_rd),
+  .csrrw_in(csrrw),
+  .csrrs_in(csrrs),
+  .csr_addr_in(csr_addr),
+  .wbu_write_csr(wbu_write_csr),
 
-  .regout1_in(regout1),
-  .regout2_in(regout2),
-  .prev_rd(wbu_rd),          // from WBU stage for hazard detection
-  .prev_regew(wbu_regew),    // from WBU stage for hazard detection
-  .transmit_data(transmit_data),    // from WBU for forwarding
-  .transmit_data_valid(transmit_data_valid), // from WBU for forwarding
+  .src1_in(src1_data),         // 使用 IDU 经过旁路选择后的数据
+  .src2_in(src2_data),         // 使用 IDU 经过旁路选择后的数据
 
   .res(res),
   .npc(npc),
   .link_addr(link_addr),
+  .src2_out(exu_src2_out),           // to WBU
+  .imm_out(exu_imm_out),             // to WBU
   .is_jmp(is_jmp),
 
   .memew_out(exu_memew),             // to WBU
@@ -225,35 +258,62 @@ module ysyx_24100007_core #(
   .memmask_out(exu_memmask),           // to WBU
   .memsextsig_out(exu_memsextsig),        // to WBU
   .regew_control_out(exu_regew_control),     // to WBU
-  .rd_out(exu_rd)
+  .rd_out(exu_rd),
+  .csrrw_out(exu_csrrw_out),            // to WBU
+  .csrrs_out(exu_csrrs_out),            // to WBU
+  .csr_addr_out(exu_csr_addr_out),      // to WBU
+  .ecallsig_out(exu_ecallsig_out),      // to WBU
+
+  // EXU 向 IDU 转发的旁路信号
+  .exu_rd(exu_rd_bypass),
+  .exu_regew(exu_regew_bypass),
+  .exu_transmit_data(exu_transmit_data),
+  .exu_transmit_data_valid(exu_transmit_data_valid),
+  .exu_memer_bypass(exu_memer_bypass)
 );
 
   wire regew;
   wire icahce_flush;
-  wire [4:0] wbu_rd;
-  wire wbu_regew;
-  wire [31:0] transmit_data;
-  wire transmit_data_valid;
+  
+  // WBU 向 IDU 转发的旁路信号
+  wire [4:0] wbu_rd_bypass;               // WBU 阶段的 rd（用于旁路）
+  wire wbu_regew_bypass;                  // WBU 阶段的写使能（用于旁路）
+  wire [31:0] wbu_transmit_data;          // WBU 阶段的写回数据（用于旁路）
+  wire wbu_transmit_data_valid;           // WBU 阶段的旁路数据有效信号
   wire [4:0] wbu_reg_rd;
   wire wbu_commit;
+  wire wbu_csrrw_out, wbu_csrrs_out;
+  wire [11:0] wbu_csr_addr_out;
+  wire wbu_ecallsig_out;
+  wire wbu_write_csr;
   ysyx_24100007_wbu wbu0(
   .clk(clock),
   .rst(reset),
   .res_in(res),
-  .regout2_in(regout2),
+  .regout2_in(exu_src2_out),  // 使用从EXU传递的src2（已通过旁路选择）
   .memew_in(exu_memew),
   .memer_in(exu_memer),
-  .imm_in(imm),
+  .imm_in(exu_imm_out),        // 使用从EXU传递的imm（已通过流水线寄存器）
   .link_addr_in(link_addr),
+  
   .muxsig_in(exu_muxsig),
   .memsextsig_in(exu_memsextsig),
   .memmask_in(exu_memmask),
   .regew_control_in(exu_regew_control),
   .rd_in(exu_rd),
+  .csrrw_in(exu_csrrw_out),
+  .csrrs_in(exu_csrrs_out),
+  .csr_addr_in(exu_csr_addr_out),
+  .ecallsig_in(exu_ecallsig_out),
 
   .regwrite_out(regwrite),
   .regew_out(regew),
   .rd_out(wbu_reg_rd),
+  .csrrw_out(wbu_csrrw_out),
+  .csrrs_out(wbu_csrrs_out),
+  .csr_addr_out(wbu_csr_addr_out),
+  .ecallsig_out(wbu_ecallsig_out),
+  .wbu_write_csr(wbu_write_csr),
 
   .in_valid(exu_to_wbu_valid),
   .in_ready(wbu_to_exu_ready), // WBU to EXU ready
@@ -289,12 +349,14 @@ module ysyx_24100007_core #(
   .arsize(arsize[1]),
   .awburst(awburst[1]),
 
-  .wbu_rd(wbu_rd),      // for hazard detection in EXU
-  .wbu_regew(wbu_regew),   // for hazard detection in EXU
-  .transmit_data(transmit_data),     // for data forwarding to EXU
-  .transmit_data_valid(transmit_data_valid) // for data forwarding to EXU
+  .wbu_rd(wbu_rd_bypass),      // for data forwarding to IDU
+  .wbu_regew(wbu_regew_bypass),   // for data forwarding to IDU
+  .transmit_data(wbu_transmit_data),     // for data forwarding to IDU
+  .transmit_data_valid(wbu_transmit_data_valid) // for data forwarding to IDU
 );
 
+
+// synopsys translate_off
   pipline_tracer tracer0(
     .clk(clock), 
     
@@ -313,6 +375,8 @@ module ysyx_24100007_core #(
     .inst(inst)
   );
 
+// synopsys translate_on
+
 // 暂时不实现突发传输，将没有使用的部分设置为0
 assign awlen[1] = 8'b0;      // 写地址长度（单次传输，len=0）
 assign arlen[1] = 8'b0;      // 读地址长度（单次传输，len=0）
@@ -321,6 +385,7 @@ assign wlast[1] = wvalid[1];
 
 endmodule
 
+// synopsys translate_off
 module pipline_tracer(
   input clk,
 
@@ -382,4 +447,12 @@ module pipline_tracer(
     get_predict_miss({31'b0, is_jmp});
     npc_commit_inst({31'b0, commit_sys}, commit_pc_sys, commit_inst_sys); 
   end
+
+  wire dead_cyc = (wbu_inst == 32'h0000006f);
+  always @(posedge clk) begin
+    if(dead_cyc & wbu_commit) begin
+      ret(0);
+    end
+  end
 endmodule
+// synopsys translate_on

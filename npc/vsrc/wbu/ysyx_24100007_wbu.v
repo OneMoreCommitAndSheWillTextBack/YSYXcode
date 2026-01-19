@@ -12,10 +12,19 @@ module ysyx_24100007_wbu(
   input memsextsig_in,
   input regew_control_in,
   input [4:0] rd_in,
+  input csrrw_in,
+  input csrrs_in,
+  input [11:0] csr_addr_in,
+  input ecallsig_in,
 
   output [31:0] regwrite_out,
   output regew_out,
   output [4:0] rd_out,
+  output csrrw_out,
+  output csrrs_out,
+  output [11:0] csr_addr_out,
+  output ecallsig_out,
+  output wbu_write_csr,
 
   output trans_start,
   output trans_end,
@@ -56,7 +65,7 @@ module ysyx_24100007_wbu(
 );
 
   wire accept = ((wbu_state == WAIT_VALID) || (wbu_state == WRITE_BACK)) && in_valid;
-  assign in_ready = (wbu_state == WAIT_VALID);
+  assign in_ready = (wbu_state == WAIT_VALID) ;
   wire pipline_valid = accept;
   wire flush = ((wbu_state == WRITE_BACK) & !in_valid);
 
@@ -72,6 +81,8 @@ module ysyx_24100007_wbu(
   wire memsextsig;
   wire regew_control;
   wire [4:0] rd;
+  wire ecallsig;
+  wire csrrs, csrrw;
 
   wbu_pipline_connect wbu_pipeline_u(
     .clk(clk),
@@ -88,6 +99,10 @@ module ysyx_24100007_wbu(
     .memsextsig_in(memsextsig_in),
     .regew_control_in(regew_control_in),
     .rd_in(rd_in),
+    .csrrw_in(csrrw_in),
+    .csrrs_in(csrrs_in),
+    .csr_addr_in(csr_addr_in),
+    .ecallsig_in(ecallsig_in),
 
     .res_out(res),
     .regout2_out(regout2),
@@ -100,6 +115,10 @@ module ysyx_24100007_wbu(
     .memsextsig_out(memsextsig),
     .regew_control_out(regew_control),
     .rd_out(rd),
+    .csrrw_out(csrrw),
+    .csrrs_out(csrrs),
+    .csr_addr_out(csr_addr_out),
+    .ecallsig_out(ecallsig),
 
     .avaliable(avaliable),
     .pipline_valid(pipline_valid),
@@ -112,7 +131,7 @@ module ysyx_24100007_wbu(
   } wbu_state_t;
   wbu_state_t wbu_state;
 
-  wire mem_access = memew | memer;
+  wire mem_access = memew_in | memer_in;
   wire write_handshake_done = memew & axi_xaddr_valid & axi_xaddr_ready & 
                                axi_wdata_valid & axi_wdata_ready;
   wire read_addr_handshake_done = memer & axi_xaddr_valid & axi_xaddr_ready;
@@ -147,13 +166,24 @@ module ysyx_24100007_wbu(
         end
 
         WRITE_BACK: begin
-          wbu_state <= WAIT_VALID;
+          if(in_valid & in_ready) begin
+            if(mem_access) begin
+              wbu_state <= BUS_HANDSHAKE;
+            end else begin
+              wbu_state <= WRITE_BACK;
+            end
+          end else begin
+            wbu_state <= WAIT_VALID;
+          end
         end
       endcase
     end
   end
 
   assign wbu_commit = (wbu_state == WRITE_BACK);
+  assign ecallsig_out = ecallsig & (wbu_state == WRITE_BACK);
+  assign csrrs_out = csrrs & (wbu_state == WRITE_BACK);
+  assign csrrw_out = csrrw & (wbu_state == WRITE_BACK);
 
   wire regew;
   assign regew = (wbu_state == WRITE_BACK) & regew_control;
@@ -182,6 +212,7 @@ module ysyx_24100007_wbu(
   assign wbu_rd = rd;
   assign wbu_regew = regew_control;
   assign transmit_data_valid = regew;
+  assign wbu_write_csr = csrrs_out || csrrw_out;
 
   // Output connections
   assign regwrite_out = regwrite;
@@ -208,7 +239,7 @@ module ysyx_24100007_wbu(
     .rst(rst),
     
     // 内存访问控制信号
-    .mem_en(mem_access & avaliable),
+    .mem_en((memer | memew) & avaliable),
     .mem_we(memew),
     .mem_addr(res),
     .mem_wdata(regout2),
@@ -278,6 +309,10 @@ module wbu_pipline_connect(
   input memsextsig_in,
   input regew_control_in,
   input [4:0] rd_in,
+  input csrrw_in,
+  input csrrs_in,
+  input [11:0] csr_addr_in,
+  input ecallsig_in,
 
   output [31:0] res_out,
   output [31:0] regout2_out,
@@ -290,6 +325,10 @@ module wbu_pipline_connect(
   output memsextsig_out,
   output regew_control_out,
   output [4:0] rd_out,
+  output csrrw_out,
+  output csrrs_out,
+  output [11:0] csr_addr_out,
+  output ecallsig_out,
 
   output avaliable,
   input pipline_valid,
@@ -323,6 +362,10 @@ module wbu_pipline_connect(
   reg memsextsig_r;
   reg regew_control_r;
   reg [4:0] rd_r;
+  reg csrrw_r;
+  reg csrrs_r;
+  reg [11:0] csr_addr_r;
+  reg ecallsig_r;
 
   always @(posedge clk) begin
     if(rst) begin
@@ -337,6 +380,10 @@ module wbu_pipline_connect(
       memsextsig_r <= 1'b0;
       regew_control_r <= 1'b0;
       rd_r <= 5'b0;
+      csrrw_r <= 1'b0;
+      csrrs_r <= 1'b0;
+      csr_addr_r <= 12'b0;
+      ecallsig_r <= 1'b0;
     end else begin
       if(pipline_valid) begin
         res_r <= res_in;
@@ -350,6 +397,10 @@ module wbu_pipline_connect(
         memsextsig_r <= memsextsig_in;
         regew_control_r <= regew_control_in;
         rd_r <= rd_in;
+        csrrw_r <= csrrw_in;
+        csrrs_r <= csrrs_in;
+        csr_addr_r <= csr_addr_in;
+        ecallsig_r <= ecallsig_in;
       end else if(flush) begin
         res_r <= 32'b0;
         regout2_r <= 32'b0;
@@ -362,6 +413,10 @@ module wbu_pipline_connect(
         memsextsig_r <= 1'b0;
         regew_control_r <= 1'b0;
         rd_r <= 5'b0;
+        csrrw_r <= 1'b0;
+        csrrs_r <= 1'b0;
+        csr_addr_r <= 12'b0;
+        ecallsig_r <= 1'b0;
       end
     end
   end
@@ -378,6 +433,10 @@ module wbu_pipline_connect(
   assign memsextsig_out = memsextsig_r;
   assign regew_control_out = regew_control_r;
   assign rd_out = rd_r;
+  assign csrrw_out = csrrw_r;
+  assign csrrs_out = csrrs_r;
+  assign csr_addr_out = csr_addr_r;
+  assign ecallsig_out = ecallsig_r;
 
 endmodule
 
