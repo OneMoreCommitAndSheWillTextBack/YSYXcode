@@ -77,7 +77,8 @@ void dump_performance() {
 }
 
 void deal_statistic() {
-    printf("ended at pc = 0x%08x\n", cpu->con.pc);
+    printf("ended at pc = 0x%08x\n", cpu->commit.pc);
+    printf("the last inst is 0x%08x\n", cpu->inst);
   printf(COLOR_BLUE "statistic:\n");
 
   uint64_t total_inst  = npc->npc_commit_time;

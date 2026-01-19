@@ -9,7 +9,6 @@ typedef struct watchpoint {
   int NO;
   struct watchpoint *next;
 
-  /* TODO: Add more members if necessary */
   char *expr;
   int val;
 } WP;
@@ -28,7 +27,6 @@ void init_wp_pool() {
   free_ = wp_pool;
 }
 
-/* TODO: Implement the functionality of watchpoint */
 void new_wp(char *exp) {
   // move a wp from free_ to head
   bool success = true;

@@ -124,7 +124,6 @@ module ysyx_24100007_exu(
   wire ecallsig;
   wire [31:0] mtvec;
   wire [31:0] mepc;
-  wire [4:0] rd;
   wire [2:0] muxsig;
   wire csrrs, csrrw;
 
@@ -279,7 +278,7 @@ module ysyx_24100007_exu(
 
   // EXU 向 IDU 转发的旁路信号
   assign exu_rd = rd_out;
-  assign exu_regew = regew_control_out || (memew_out || memew_in);
+  assign exu_regew = regew_control_out || (memew_out || memer_out);
   assign exu_transmit_data = (muxsig == 3'b010) ? imm :
                              (muxsig == 3'b100) ? link_addr :
                              res;

@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ysyx/project/ysyx-workbench/cachesim
+CMAKE_SOURCE_DIR = /home/ysyx/project/ysyx-workbench/simulator/branchsim
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ysyx/project/ysyx-workbench/cachesim
+CMAKE_BINARY_DIR = /home/ysyx/project/ysyx-workbench/simulator/branchsim
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/ysyx/project/ysyx-workbench/cachesim/CMakeFiles /home/ysyx/project/ysyx-workbench/cachesim//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/ysyx/project/ysyx-workbench/simulator/branchsim/CMakeFiles /home/ysyx/project/ysyx-workbench/simulator/branchsim//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/ysyx/project/ysyx-workbench/cachesim/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/ysyx/project/ysyx-workbench/simulator/branchsim/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -117,61 +117,87 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named cachesim
+# Target rules for targets named branchsim
 
 # Build rule for target.
-cachesim: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 cachesim
-.PHONY : cachesim
+branchsim: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 branchsim
+.PHONY : branchsim
 
 # fast build rule for target.
-cachesim/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/build
-.PHONY : cachesim/fast
+branchsim/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/build
+.PHONY : branchsim/fast
 
 #=============================================================================
-# Target rules for targets named cfglang
+# Target rules for targets named run
 
 # Build rule for target.
-cfglang: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 cfglang
-.PHONY : cfglang
+run: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 run
+.PHONY : run
 
 # fast build rule for target.
-cfglang/fast:
-	$(MAKE) $(MAKESILENT) -f cfglang/CMakeFiles/cfglang.dir/build.make cfglang/CMakeFiles/cfglang.dir/build
-.PHONY : cfglang/fast
+run/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run.dir/build.make CMakeFiles/run.dir/build
+.PHONY : run/fast
 
-src/Cache.o: src/Cache.cpp.o
-.PHONY : src/Cache.o
+#=============================================================================
+# Target rules for targets named run_static_prediction
+
+# Build rule for target.
+run_static_prediction: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 run_static_prediction
+.PHONY : run_static_prediction
+
+# fast build rule for target.
+run_static_prediction/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_static_prediction.dir/build.make CMakeFiles/run_static_prediction.dir/build
+.PHONY : run_static_prediction/fast
+
+#=============================================================================
+# Target rules for targets named run_last_time_prediction
+
+# Build rule for target.
+run_last_time_prediction: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 run_last_time_prediction
+.PHONY : run_last_time_prediction
+
+# fast build rule for target.
+run_last_time_prediction/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_last_time_prediction.dir/build.make CMakeFiles/run_last_time_prediction.dir/build
+.PHONY : run_last_time_prediction/fast
+
+src/BranchPrediction.o: src/BranchPrediction.cpp.o
+.PHONY : src/BranchPrediction.o
 
 # target to build an object file
-src/Cache.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Cache.cpp.o
-.PHONY : src/Cache.cpp.o
+src/BranchPrediction.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/BranchPrediction.cpp.o
+.PHONY : src/BranchPrediction.cpp.o
 
-src/Cache.i: src/Cache.cpp.i
-.PHONY : src/Cache.i
+src/BranchPrediction.i: src/BranchPrediction.cpp.i
+.PHONY : src/BranchPrediction.i
 
 # target to preprocess a source file
-src/Cache.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Cache.cpp.i
-.PHONY : src/Cache.cpp.i
+src/BranchPrediction.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/BranchPrediction.cpp.i
+.PHONY : src/BranchPrediction.cpp.i
 
-src/Cache.s: src/Cache.cpp.s
-.PHONY : src/Cache.s
+src/BranchPrediction.s: src/BranchPrediction.cpp.s
+.PHONY : src/BranchPrediction.s
 
 # target to generate assembly for a file
-src/Cache.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Cache.cpp.s
-.PHONY : src/Cache.cpp.s
+src/BranchPrediction.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/BranchPrediction.cpp.s
+.PHONY : src/BranchPrediction.cpp.s
 
 src/Itraceparser.o: src/Itraceparser.cpp.o
 .PHONY : src/Itraceparser.o
 
 # target to build an object file
 src/Itraceparser.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Itraceparser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/Itraceparser.cpp.o
 .PHONY : src/Itraceparser.cpp.o
 
 src/Itraceparser.i: src/Itraceparser.cpp.i
@@ -179,7 +205,7 @@ src/Itraceparser.i: src/Itraceparser.cpp.i
 
 # target to preprocess a source file
 src/Itraceparser.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Itraceparser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/Itraceparser.cpp.i
 .PHONY : src/Itraceparser.cpp.i
 
 src/Itraceparser.s: src/Itraceparser.cpp.s
@@ -187,39 +213,39 @@ src/Itraceparser.s: src/Itraceparser.cpp.s
 
 # target to generate assembly for a file
 src/Itraceparser.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Itraceparser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/Itraceparser.cpp.s
 .PHONY : src/Itraceparser.cpp.s
 
-src/Mtraceparser.o: src/Mtraceparser.cpp.o
-.PHONY : src/Mtraceparser.o
+src/TernminalUtils.o: src/TernminalUtils.cpp.o
+.PHONY : src/TernminalUtils.o
 
 # target to build an object file
-src/Mtraceparser.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Mtraceparser.cpp.o
-.PHONY : src/Mtraceparser.cpp.o
+src/TernminalUtils.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/TernminalUtils.cpp.o
+.PHONY : src/TernminalUtils.cpp.o
 
-src/Mtraceparser.i: src/Mtraceparser.cpp.i
-.PHONY : src/Mtraceparser.i
+src/TernminalUtils.i: src/TernminalUtils.cpp.i
+.PHONY : src/TernminalUtils.i
 
 # target to preprocess a source file
-src/Mtraceparser.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Mtraceparser.cpp.i
-.PHONY : src/Mtraceparser.cpp.i
+src/TernminalUtils.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/TernminalUtils.cpp.i
+.PHONY : src/TernminalUtils.cpp.i
 
-src/Mtraceparser.s: src/Mtraceparser.cpp.s
-.PHONY : src/Mtraceparser.s
+src/TernminalUtils.s: src/TernminalUtils.cpp.s
+.PHONY : src/TernminalUtils.s
 
 # target to generate assembly for a file
-src/Mtraceparser.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/Mtraceparser.cpp.s
-.PHONY : src/Mtraceparser.cpp.s
+src/TernminalUtils.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/TernminalUtils.cpp.s
+.PHONY : src/TernminalUtils.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
 # target to build an object file
 src/main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/main.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/main.cpp.o
 .PHONY : src/main.cpp.o
 
 src/main.i: src/main.cpp.i
@@ -227,7 +253,7 @@ src/main.i: src/main.cpp.i
 
 # target to preprocess a source file
 src/main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/main.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/main.cpp.i
 .PHONY : src/main.cpp.i
 
 src/main.s: src/main.cpp.s
@@ -235,7 +261,7 @@ src/main.s: src/main.cpp.s
 
 # target to generate assembly for a file
 src/main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cachesim.dir/build.make CMakeFiles/cachesim.dir/src/main.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/branchsim.dir/build.make CMakeFiles/branchsim.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
 # Help Target
@@ -246,17 +272,19 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... cachesim"
-	@echo "... cfglang"
-	@echo "... src/Cache.o"
-	@echo "... src/Cache.i"
-	@echo "... src/Cache.s"
+	@echo "... run"
+	@echo "... run_last_time_prediction"
+	@echo "... run_static_prediction"
+	@echo "... branchsim"
+	@echo "... src/BranchPrediction.o"
+	@echo "... src/BranchPrediction.i"
+	@echo "... src/BranchPrediction.s"
 	@echo "... src/Itraceparser.o"
 	@echo "... src/Itraceparser.i"
 	@echo "... src/Itraceparser.s"
-	@echo "... src/Mtraceparser.o"
-	@echo "... src/Mtraceparser.i"
-	@echo "... src/Mtraceparser.s"
+	@echo "... src/TernminalUtils.o"
+	@echo "... src/TernminalUtils.i"
+	@echo "... src/TernminalUtils.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

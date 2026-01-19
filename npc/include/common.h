@@ -107,6 +107,7 @@ bool fork_interval_is_on();
 int fork_interval_val();
 bool record_isenable();
 void set_record_enable();
+void set_record_disenable();
 unsigned int record_after_val();
 bool die_on_end_is_on();
 unsigned long long die_on_end_val();

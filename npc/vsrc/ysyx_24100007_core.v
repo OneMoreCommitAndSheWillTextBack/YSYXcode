@@ -355,6 +355,8 @@ module ysyx_24100007_core #(
   .transmit_data_valid(wbu_transmit_data_valid) // for data forwarding to IDU
 );
 
+
+// synopsys translate_off
   pipline_tracer tracer0(
     .clk(clock), 
     
@@ -373,6 +375,8 @@ module ysyx_24100007_core #(
     .inst(inst)
   );
 
+// synopsys translate_on
+
 // 暂时不实现突发传输，将没有使用的部分设置为0
 assign awlen[1] = 8'b0;      // 写地址长度（单次传输，len=0）
 assign arlen[1] = 8'b0;      // 读地址长度（单次传输，len=0）
@@ -381,6 +385,7 @@ assign wlast[1] = wvalid[1];
 
 endmodule
 
+// synopsys translate_off
 module pipline_tracer(
   input clk,
 
@@ -450,3 +455,4 @@ module pipline_tracer(
     end
   end
 endmodule
+// synopsys translate_on

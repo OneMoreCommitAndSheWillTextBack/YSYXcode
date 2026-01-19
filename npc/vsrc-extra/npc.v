@@ -140,6 +140,8 @@ module npc (
   wire              io_slave_rlast;
   wire [3:0]        io_slave_rid;
 
+
+
   ysyx_24100007 u_core (
     .clock              (clock),
     .reset              (reset),
@@ -260,9 +262,107 @@ module npc (
     .io_rlast            (io_master_rlast),
     .io_rid              (io_master_rid)
   );
-
 endmodule
 
+// synopsys translate_off
+`ifdef NEVER
+// synopsys translate_on
+// 可综合的 axi_memory 桩模块（用于综合）
+// 综合器可见（synopsys translate_on），仿真器忽略（ifdef NEVER）
+module axi_memory (
+    input clk,
+    input rst,
+    output              io_awready,
+    input               io_awvalid,
+    input  [31:0]       io_awaddr,
+    input  [3:0]        io_awid,
+    input  [7:0]        io_awlen,
+    input  [2:0]        io_awsize,
+    input  [1:0]        io_awburst,
+    output              io_wready,
+    input               io_wvalid,
+    input  [31:0]       io_wdata,
+    input  [3:0]        io_wstrb,
+    input               io_wlast,
+    input               io_bready,
+    output              io_bvalid,
+    output [1:0]        io_bresp,
+    output [3:0]        io_bid,
+    output              io_arready,
+    input               io_arvalid,
+    input  [31:0]       io_araddr,
+    input  [3:0]        io_arid,
+    input  [7:0]        io_arlen,
+    input  [2:0]        io_arsize,
+    input  [1:0]        io_arburst,
+    input               io_rready,
+    output              io_rvalid,
+    output [1:0]        io_rresp,
+    output [31:0]       io_rdata,
+    output              io_rlast,
+    output [3:0]        io_rid
+);
+  // 简单的桩实现：所有ready信号恒为1，valid信号延迟一个时钟周期
+  reg io_awready_reg, io_wready_reg, io_arready_reg;
+  reg io_bvalid_reg, io_rvalid_reg;
+  reg [1:0] io_bresp_reg;
+  reg [3:0] io_bid_reg;
+  reg [1:0] io_rresp_reg;
+  reg [31:0] io_rdata_reg;
+  reg io_rlast_reg;
+  reg [3:0] io_rid_reg;
+
+  always @(posedge clk) begin
+    if (rst) begin
+      io_awready_reg <= 1'b1;
+      io_wready_reg <= 1'b1;
+      io_arready_reg <= 1'b1;
+      io_bvalid_reg <= 1'b0;
+      io_rvalid_reg <= 1'b0;
+      io_bresp_reg <= 2'b0;
+      io_bid_reg <= 4'b0;
+      io_rresp_reg <= 2'b0;
+      io_rdata_reg <= 32'b0;
+      io_rlast_reg <= 1'b0;
+      io_rid_reg <= 4'b0;
+    end else begin
+      // 写地址和数据准备好
+      io_awready_reg <= io_awvalid && io_wvalid ? 1'b1 : 1'b1;
+      io_wready_reg <= io_awvalid && io_wvalid ? 1'b1 : 1'b1;
+      // 读地址准备好
+      io_arready_reg <= io_arvalid ? 1'b1 : 1'b1;
+      // 写响应延迟一个周期
+      if (io_awvalid && io_wvalid) begin
+        io_bvalid_reg <= 1'b1;
+        io_bid_reg <= io_awid;
+      end else if (io_bready) begin
+        io_bvalid_reg <= 1'b0;
+      end
+      // 读数据延迟一个周期
+      if (io_arvalid) begin
+        io_rvalid_reg <= 1'b1;
+        io_rid_reg <= io_arid;
+      end else if (io_rready) begin
+        io_rvalid_reg <= 1'b0;
+      end
+    end
+  end
+
+  assign io_awready = io_awready_reg;
+  assign io_wready = io_wready_reg;
+  assign io_arready = io_arready_reg;
+  assign io_bvalid = io_bvalid_reg;
+  assign io_bresp = io_bresp_reg;
+  assign io_bid = io_bid_reg;
+  assign io_rvalid = io_rvalid_reg;
+  assign io_rresp = io_rresp_reg;
+  assign io_rdata = io_rdata_reg;
+  assign io_rlast = io_rlast_reg;
+  assign io_rid = io_rid_reg;
+endmodule
+// synopsys translate_off
+`else
+// 仿真的 axi_memory 模块（包含 DPI-C，不参与综合）
 module axi_memory (
     input clk,
     input rst,
@@ -543,3 +643,5 @@ module axi_memory (
   assign io_bid = 4'b0;
   assign io_bresp = 2'b00;
 endmodule
+`endif
+// synopsys translate_on

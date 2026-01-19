@@ -116,6 +116,8 @@ module ysyx_24100007_ifu(
       end
     end
   end
+  // synopsys translate_on
+
   // ------------------------------------
   // IFU STATE MACHINE
   // ------------------------------------

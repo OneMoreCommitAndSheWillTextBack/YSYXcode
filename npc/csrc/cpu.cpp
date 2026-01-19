@@ -122,15 +122,15 @@ static void exe_once() {
   }
 
 #ifdef ITRACE
-  if(pre_inst == 0 && cpu->inst != 0) {
+  if(cpu->valid) {
     char *p = cpu->logbuf;
-    p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->con.pc);
+    p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->commit.pc);
     int i;
     p += snprintf(p, 10, " %08x", cpu->inst);
     memset(p, ' ', 1);
     p += 1;
     void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-    disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->con.pc,
+    disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->commit.pc,
                 (uint8_t *)(&cpu->inst), 4);
     itrace_valid = true;
   }
@@ -177,7 +177,7 @@ if(itrace_valid) {
 #endif
 }
 
-static void execute(unsigned int n) {
+static void execute(unsigned int n) {  
   while (n--) {
     exe_once();
     trace_or_diff();

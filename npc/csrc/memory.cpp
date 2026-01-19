@@ -6,9 +6,13 @@
 #include <cstdint>
 #include <iostream>
 
+#ifdef __NPC__
+ const unsigned int psize = 0x20000000;
+#else
+  const unsigned int psize = 0x400000;
+#endif
 const unsigned int msize = 0x800000;
 const unsigned int fsize = 0xfffffff;
-const unsigned int psize = 0x400000;
 const unsigned int dsize = 0x20000000;
 static uint8_t pmem[msize] = {};
 static uint8_t flash[fsize] =  {};
@@ -26,7 +30,7 @@ socspace soc_spaces[] = {
 #define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
 #ifdef MTRACE
-char mtrace_log_file[] = "/home/ysyx/project/ysyx-workbench/cachesim/mtrace_log.txt";
+char mtrace_log_file[] = "/home/ysyx/project/ysyx-workbench/simulator/mtrace_log.txt";
 FILE *mtrace_fd = NULL;
 #endif
 
