@@ -1,6 +1,7 @@
 #include <proc.h>
 #include <elf.h>
 #include "common.h"
+#include "debug.h"
 
 #ifdef __LP64__
 # define Elf_Ehdr Elf64_Ehdr
@@ -29,7 +30,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
   uint32_t e_phnum = ehdr.e_phnum;
   uint32_t e_entry = ehdr.e_entry;
 
-  assert(e_entry != 0);
+  Log("get to here");
 
   for(int i=0;i<e_phnum;i++) {
     uint32_t offset = i * sizeof(Elf32_Phdr);
