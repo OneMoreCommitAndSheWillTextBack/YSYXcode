@@ -1,5 +1,6 @@
 #include <proc.h>
 #include <elf.h>
+#include "common.h"
 
 #ifdef __LP64__
 # define Elf_Ehdr Elf64_Ehdr
@@ -10,8 +11,43 @@
 #endif
 
 static uintptr_t loader(PCB *pcb, const char *filename) {
-  TODO();
-  return 0;
+  Elf32_Ehdr ehdr;
+  size_t size = ramdisk_read(&ehdr, 0, sizeof(Elf32_Ehdr));
+  if(size < sizeof(Elf32_Ehdr)) {
+    panic("loader read szie not equ to size of ehdr");
+  }
+
+  // Check ELF magic number: 0x7f 'E' 'L' 'F'
+  if(ehdr.e_ident[0] != 0x7f || ehdr.e_ident[1] != 'E' || 
+     ehdr.e_ident[2] != 'L' || ehdr.e_ident[3] != 'F' || 
+     ehdr.e_type != ET_EXEC) {
+    panic("the file format isnot elf execuable file");
+  }
+
+  Elf32_Phdr phdr;
+  uint32_t e_phoff = ehdr.e_phoff;
+  uint32_t e_phnum = ehdr.e_phnum;
+  uint32_t e_entry = ehdr.e_entry;
+
+  for(int i=0;i<e_phnum;i++) {
+    uint32_t offset = i * sizeof(Elf32_Phdr);
+    size = ramdisk_read(&phdr, e_phoff + offset, sizeof(Elf32_Phdr));
+    if(size != sizeof(Elf32_Phdr)) {
+      panic("loader read size not equ to size of phdr");
+    }
+
+    if((phdr.p_type | PT_LOAD)) {
+      size_t filesize = phdr.p_filesz;
+      size_t memsize = phdr.p_memsz;
+      uint32_t vaddr = phdr.p_vaddr;
+
+      ramdisk_read((char *)vaddr, phdr.p_offset, filesize);
+      assert(memsize >= filesize);
+      memset((char *)(vaddr + filesize), 0, memsize - filesize);
+    }
+  }
+
+  return e_entry;
 }
 
 void naive_uload(PCB *pcb, const char *filename) {
