@@ -29,7 +29,7 @@
 
 // clang-format on
 #define ECALL                                                                  \
-  s->dnpc = isa_raise_intr(R(17), cpu.pc);                                         \
+  s->dnpc = isa_raise_intr(1, cpu.pc);                                         \
   difftest_skip_ref()
 
 #define MRET                                                                   \
