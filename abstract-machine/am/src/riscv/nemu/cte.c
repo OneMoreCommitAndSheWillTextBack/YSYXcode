@@ -13,7 +13,6 @@ Context *__am_irq_handle(Context *c) {
       // clang-format off
       case -1: 
         ev.event = EVENT_YIELD;
-        yield();
         break;
       case 1: 
         ev.event = EVENT_SYSCALL;
