@@ -44,10 +44,10 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
 
       ramdisk_read((char *)vaddr, phdr.p_offset, filesize);
       assert(memsize >= filesize);
+      Log("Loaded segment: vaddr = 0x%x, p_offset = 0x%x, filesize = %zu, memsize = %zu", vaddr, phdr.p_offset, filesize, memsize);
       memset((char *)(vaddr + filesize), 0, memsize - filesize);
     }
   }
-  Log("get to here");
 
   return e_entry;
 }
