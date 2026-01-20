@@ -12,11 +12,10 @@ Context *__am_irq_handle(Context *c) {
     switch (c->mcause) {
       // clang-format off
       case -1: 
-        printf("get a yield\n");
         ev.event = EVENT_YIELD;
+        yield();
         break;
       case 1: 
-        printf("get a syscall\n");
         ev.event = EVENT_SYSCALL;
          break;
       default: ev.event = EVENT_ERROR; break;
