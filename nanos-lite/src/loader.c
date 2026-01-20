@@ -13,7 +13,7 @@
 
 static uintptr_t loader(PCB *pcb, const char *filename) {
   Elf32_Ehdr ehdr;
-  Log("get to here");
+  Log("get to here\n");
   size_t size = ramdisk_read(&ehdr, 0, sizeof(Elf32_Ehdr));
   if(size < sizeof(Elf32_Ehdr)) {
     panic("loader read szie not equ to size of ehdr");
