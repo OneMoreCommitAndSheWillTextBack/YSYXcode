@@ -74,7 +74,7 @@ void *_sbrk(intptr_t increment) {
   static intptr_t program_break = 0;
   if(program_break == 0) {
     program_break = (intptr_t)&end;
-    return 0;
+    return (void *)(-1);
   } else {
     intptr_t old_program_break = program_break;
     program_break += increment;
