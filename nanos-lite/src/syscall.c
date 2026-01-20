@@ -34,7 +34,7 @@ void do_syscall(Context *c) {
         unsigned int len = a[3];
         int write_counter = 0;
         for(write_counter=0;write_counter<len;write_counter++){
-          putstr(&buf[write_counter]);
+          putch(buf[write_counter]);
         }
         c->GPRx = write_counter;
       } else {
