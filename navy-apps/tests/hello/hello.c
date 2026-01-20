@@ -2,7 +2,8 @@
 #include <stdio.h>
 
 int main() {
-  write(1, "Hello World!\n", 13);
+  int readbyte = write(1, "Hello World!\n", 13);
+  if(readbyte != 13) return -1;
   int i = 2;
   volatile int j = 0;
   while (1) {
