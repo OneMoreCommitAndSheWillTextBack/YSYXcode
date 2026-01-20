@@ -7,7 +7,7 @@ static Context* do_event(Event e, Context* c) {
       Log("yield, event id is 1");
       break;
     case EVENT_SYSCALL:
-      Log("meet a syscall, event id is 2");
+      Log("meet a syscall, event id is 2, syscall id is %d", c->gpr[0]);
       do_syscall(c);
       break;
     default: panic("Unhandled event ID = %d", e.event);
