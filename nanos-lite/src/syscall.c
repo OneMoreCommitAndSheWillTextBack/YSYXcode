@@ -35,7 +35,7 @@ void do_syscall(Context *c) {
         for(write_counter=0;write_counter<len;write_counter++){
           putch(buf[write_counter]);
         }
-        Log("[sys write] %s", buf);
+        Log("[sys write] %s, %d", buf, len);
         c->GPRx = write_counter;
       } else {
         panic("the write syscall not implement except stdin and stderr");
