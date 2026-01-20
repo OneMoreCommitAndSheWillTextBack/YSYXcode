@@ -29,6 +29,8 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
   uint32_t e_phnum = ehdr.e_phnum;
   uint32_t e_entry = ehdr.e_entry;
 
+  assert(e_entry != 0);
+
   for(int i=0;i<e_phnum;i++) {
     uint32_t offset = i * sizeof(Elf32_Phdr);
     size = ramdisk_read(&phdr, e_phoff + offset, sizeof(Elf32_Phdr));
