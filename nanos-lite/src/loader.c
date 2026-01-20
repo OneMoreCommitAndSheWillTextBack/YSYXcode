@@ -30,8 +30,6 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
   uint32_t e_phnum = ehdr.e_phnum;
   uint32_t e_entry = ehdr.e_entry;
 
-  Log("get to here");
-
   for(int i=0;i<e_phnum;i++) {
     uint32_t offset = i * sizeof(Elf32_Phdr);
     size = ramdisk_read(&phdr, e_phoff + offset, sizeof(Elf32_Phdr));
@@ -49,6 +47,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
       memset((char *)(vaddr + filesize), 0, memsize - filesize);
     }
   }
+  Log("get to here");
 
   return e_entry;
 }
