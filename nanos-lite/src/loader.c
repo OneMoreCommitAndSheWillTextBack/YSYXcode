@@ -41,10 +41,12 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
       size_t filesize = phdr.p_filesz;
       size_t memsize = phdr.p_memsz;
       uint32_t vaddr = phdr.p_vaddr;
+      
+      Log("Loading segment: vaddr = 0x%x, p_offset = 0x%x, filesz = 0x%x, memsz = 0x%x", 
+          phdr.p_vaddr, phdr.p_offset, phdr.p_filesz, phdr.p_memsz);
 
       ramdisk_read((char *)vaddr, phdr.p_offset, filesize);
       assert(memsize >= filesize);
-      Log("Loaded segment: vaddr = 0x%x, p_offset = 0x%x, filesize = %zu, memsize = %zu", vaddr, phdr.p_offset, filesize, memsize);
       memset((char *)(vaddr + filesize), 0, memsize - filesize);
     }
   }
