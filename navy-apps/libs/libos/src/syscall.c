@@ -68,7 +68,7 @@ int _open(const char *path, int flags, mode_t mode) {
 int _write(int fd, void *buf, size_t count) {
   char test[] = "1234567\n";
   int len = sizeof(test);
-  _syscall_(SYS_write, (intptr_t)fd, (intptr_t)buf, (intptr_t)count);
+  _syscall_(SYS_write, (intptr_t)fd, (intptr_t)test, (intptr_t)len);
   return 0;
 }
 
