@@ -13,6 +13,7 @@
 
 static uintptr_t loader(PCB *pcb, const char *filename) {
   Elf32_Ehdr ehdr;
+  Log("get to here");
   size_t size = ramdisk_read(&ehdr, 0, sizeof(Elf32_Ehdr));
   if(size < sizeof(Elf32_Ehdr)) {
     panic("loader read szie not equ to size of ehdr");
@@ -29,8 +30,6 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
   uint32_t e_phoff = ehdr.e_phoff;
   uint32_t e_phnum = ehdr.e_phnum;
   uint32_t e_entry = ehdr.e_entry;
-
-  Log("get to here");
 
   for(int i=0;i<e_phnum;i++) {
     uint32_t offset = i * sizeof(Elf32_Phdr);
