@@ -37,7 +37,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
       panic("loader read size not equ to size of phdr");
     }
 
-    if((phdr.p_type | PT_LOAD)) {
+    if(phdr.p_type == PT_LOAD) {
       size_t filesize = phdr.p_filesz;
       size_t memsize = phdr.p_memsz;
       uint32_t paddr = phdr.p_paddr;
