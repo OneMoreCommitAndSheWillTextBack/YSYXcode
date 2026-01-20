@@ -1,7 +1,6 @@
 #include <common.h>
 #include "syscall.h"
 #include "am.h"
-#include "klib-macros.h"
 
 static char* sys_table[20] = {
   [SYS_exit] = "sys_exit",
@@ -33,12 +32,11 @@ void do_syscall(Context *c) {
         char *buf = (char *)a[2];
         unsigned int len = a[3];
         int write_counter = 0;
-        putstr(buf);
-        // for(write_counter=0;write_counter<len;write_counter++){
-        //   putch(buf[write_counter]);
-        // }
+        for(write_counter=0;write_counter<len;write_counter++){
+          putch(buf[write_counter]);
+        }
         Log("[sys write] %s, %d, %d", buf, len, write_counter);
-        c->GPRx = len;
+        c->GPRx = write_counter;
       } else {
         panic("the write syscall not implement except stdin and stderr");
       }
