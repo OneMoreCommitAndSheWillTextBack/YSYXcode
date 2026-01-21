@@ -1,6 +1,7 @@
 #include <common.h>
 #include "syscall.h"
 #include "am.h"
+#include "fs.h"
 
 static char* sys_table[20] = {
   [SYS_exit] = "sys_exit",
@@ -38,9 +39,30 @@ void do_syscall(Context *c) {
         // Log("[sys write] %s, %d, %d", buf, len, write_counter);
         c->GPRx = write_counter;
       } else {
-        panic("the write syscall not implement except stdin and stderr");
+        size_t res = fs_write(a[1], (void *)a[2], a[3]);
+        c->GPRx = res;
       }
       break;
+
+    case SYS_read:
+      if(a[1] == 1 || a[1] == 0 || a[1] == 2) {
+        panic("stdin not implement yet");
+      } else {
+        size_t res = fs_read(a[1], (void *)a[2], a[3]);
+        c->GPRx = res;
+      }
+      break;
+
+    case SYS_lseek:
+      c->GPRx = fs_lseek(a[1], a[2], a[3]);
+      break;
+
+    case SYS_close:
+      c->GPRx = fs_close(a[1]);
+      break;
+
+    case SYS_open:
+      c->GPRx = fs_open((const char*)a[1], a[2], a[3]);
 
     default: panic("Unhandled syscall ID = %d", a[0]);
   }
