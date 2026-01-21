@@ -29,7 +29,7 @@ module ysyx_24100007_alu(
 
   // add part
   reg [31:0] addres;
-  wire addzero, addsig;
+  wire addzero;
   always @(*) begin
     case(op[0] ^ op[1])
       1'b1: {carry_tmp, addres} = {1'b0,A} + {1'b0,B};
@@ -38,7 +38,6 @@ module ysyx_24100007_alu(
     // $display("%x + %x = %x", A, B, addres);
   end
   assign addzero = (addres == 0);
-  assign addsig = (addres[31]);
 
   // shift part
   reg [31:0] shfres;

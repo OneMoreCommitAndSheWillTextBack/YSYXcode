@@ -207,7 +207,7 @@ module ysyx_24100007_ifu(
   wire axi_arready, axi_arvalid;
   wire [DATABLOCK_SIZE-1:0] axi_rdata;
   wire axi_rdata_valid, axi_rdata_ready;
-  ifu_axicontroller #(
+  ysyx_24100007_ifu_axicontroller #(
     .ARLEN(ARLEN),
     .BUFFER_SIZE(DATABLOCK_SIZE)
   ) ifu_axicontroller_u (
@@ -263,7 +263,7 @@ module ysyx_24100007_ifu(
   assign valid = (ifu_state == VALID);
 endmodule
 
-module ifu_axicontroller#(
+module ysyx_24100007_ifu_axicontroller#(
   parameter ARLEN,
   parameter BUFFER_SIZE
 )(
@@ -306,7 +306,7 @@ module ifu_axicontroller#(
   axi_state_t axi_state;
 
   // reg [BUFFER_SIZE-1:0] data_buffer;
-  reg [3:0][31:0] data_buffer;
+  reg [127:0] data_buffer;
   always @(posedge clk) begin
     if(rst) begin
       axi_state <= READY;
@@ -392,22 +392,21 @@ module ifu_axicontroller#(
       case(burst_type)
           INCR: begin
             case(beat_count)
-              0: data_buffer[0] <= rdata;
-              1: data_buffer[1] <= rdata;
-              2: data_buffer[2] <= rdata;
-              3: data_buffer[3] <= rdata;
+              0: data_buffer[31:0] <= rdata;
+              1: data_buffer[63:32] <= rdata;
+              2: data_buffer[95:64] <= rdata;
+              3: data_buffer[127:96] <= rdata;
               default: begin
               end
             endcase
           end
           WRAP: begin
-            case(buffer_index_wrap)
-              0: data_buffer[0] <= rdata;
-              1: data_buffer[1] <= rdata;
-              2: data_buffer[2] <= rdata;
-              3: data_buffer[3] <= rdata;
+            case(buffer_index_wrap[1:0])
+              2'd0: data_buffer[31:0] <= rdata;
+              2'd1: data_buffer[63:32] <= rdata;
+              2'd2: data_buffer[95:64] <= rdata;
+              2'd3: data_buffer[127:96] <= rdata;
               default: begin
-                data_buffer[buffer_index_wrap] <= rdata;
               end
             endcase
           end

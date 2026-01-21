@@ -38,7 +38,7 @@ module ysyx_24100007_icache #(
     generate
         genvar i;
         for(i=0;i<LINE_NUM;i=i+1) begin
-            icahce_line #(
+            ysyx_24100007_icahce_line #(
                 .TAG_LEN(TAG_LEN),
                 .INDEX_LEN(INDEX_LEN),
                 .OFFSET_LEN(OFFSET_LEN)
@@ -61,7 +61,7 @@ module ysyx_24100007_icache #(
     assign data_r = line_data_r[index];
 endmodule
 
-module icahce_line #( 
+module ysyx_24100007_icahce_line #( 
     parameter TAG_LEN = 27,
     parameter INDEX_LEN = 3,
     parameter OFFSET_LEN = 2

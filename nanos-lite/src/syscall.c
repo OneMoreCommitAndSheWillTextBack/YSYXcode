@@ -28,7 +28,7 @@ void do_syscall(Context *c) {
       break;
 
     case SYS_write:
-      if(a[1] == 1 || a[1] == 0) {
+      if(a[1] == 1 || a[1] == 0 || a[1] == 2) {
         char *buf = (char *)a[2];
         unsigned int len = a[3];
         int write_counter = 0;
