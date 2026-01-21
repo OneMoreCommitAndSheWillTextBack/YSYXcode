@@ -103,7 +103,24 @@ size_t fs_read(int fd, void *buf, size_t len) {
 }
 
 size_t fs_write(int fd, const void *buf, size_t len) {
-  // TODO need to implement
+  if(fd_maping[fd].valid == false) {
+    panic("fswrite meet a invalid rd");
+  }
+  int sys_fd = fd_maping[fd].sys_fs;
+
+  size_t disk_offset = file_table[sys_fd].disk_offset;
+  size_t file_size = file_table[sys_fd].size;
+  size_t file_offset = fd_maping[fd].fs_offset;
+
+  size_t empty_len = file_size - file_offset;
+  size_t final_len = (empty_len > len) ? len : empty_len;
+  if(empty_len == 0) {
+    return 0;
+  }
+
+  size_t res = ramdisk_write(buf, disk_offset + file_offset, final_len);
+  fd_maping[fd].fs_offset = file_offset + res;
+  return res;
   return 0;
 }
 
