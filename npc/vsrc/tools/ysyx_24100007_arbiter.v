@@ -28,20 +28,20 @@ module ysyx_24100007_arbiter #(
   output [MASTER_NUM-1:0] arready, 
 
   // master data channel
-  input [MASTER_NUM-1:0][31:0] araddr,
-  input [MASTER_NUM-1:0][31:0] awaddr,
-  input [MASTER_NUM-1:0][31:0] wdata,
-  input [MASTER_NUM-1:0][3:0] wstrb,
-  output [MASTER_NUM-1:0][31:0] rdata,
-  output [MASTER_NUM-1:0][1:0] bresp,
-  input [MASTER_NUM-1:0][2:0] awsize,
-  input [MASTER_NUM-1:0][2:0] arsize,
+  input [MASTER_NUM*32-1:0] araddr,
+  input [MASTER_NUM*32-1:0] awaddr,
+  input [MASTER_NUM*32-1:0] wdata,
+  input [MASTER_NUM*4-1:0] wstrb,
+  output [MASTER_NUM*32-1:0] rdata,
+  output [MASTER_NUM*2-1:0] bresp,
+  input [MASTER_NUM*3-1:0] awsize,
+  input [MASTER_NUM*3-1:0] arsize,
   
   // master burst transfer signals
-  input [MASTER_NUM-1:0][7:0] awlen,
-  input [MASTER_NUM-1:0][7:0] arlen,
-  input [MASTER_NUM-1:0][1:0] awburst,
-  input [MASTER_NUM-1:0][1:0] arburst,
+  input [MASTER_NUM*8-1:0] awlen,
+  input [MASTER_NUM*8-1:0] arlen,
+  input [MASTER_NUM*2-1:0] awburst,
+  input [MASTER_NUM*2-1:0] arburst,
   input [MASTER_NUM-1:0] wlast,
   output [MASTER_NUM-1:0] rlast,
 
@@ -57,20 +57,20 @@ module ysyx_24100007_arbiter #(
   input [SLAVE_NUM-1:0] wready_in,   
   input [SLAVE_NUM-1:0] arready_in,
 
-  output [SLAVE_NUM-1:0][31:0] araddr_out,
-  output [SLAVE_NUM-1:0][31:0] awaddr_out,
-  output [SLAVE_NUM-1:0][31:0] wdata_out,
-  output [SLAVE_NUM-1:0][3:0] wstrb_out,
-  input [SLAVE_NUM-1:0][31:0] rdata_in,
-  input [SLAVE_NUM-1:0][1:0] bresp_in,
-  output [SLAVE_NUM-1:0][2:0] awsize_out,
-  output [SLAVE_NUM-1:0][2:0] arsize_out,
+  output [SLAVE_NUM*32-1:0] araddr_out,
+  output [SLAVE_NUM*32-1:0] awaddr_out,
+  output [SLAVE_NUM*32-1:0] wdata_out,
+  output [SLAVE_NUM*4-1:0] wstrb_out,
+  input  [SLAVE_NUM*32-1:0] rdata_in,
+  input  [SLAVE_NUM*2-1:0] bresp_in,
+  output [SLAVE_NUM*3-1:0] awsize_out,
+  output [SLAVE_NUM*3-1:0] arsize_out,
   
   // slave burst transfer signals
-  output [SLAVE_NUM-1:0][7:0] awlen_out,
-  output [SLAVE_NUM-1:0][7:0] arlen_out,
-  output [SLAVE_NUM-1:0][1:0] awburst_out,
-  output [SLAVE_NUM-1:0][1:0] arburst_out,
+  output [SLAVE_NUM*8-1:0] awlen_out,
+  output [SLAVE_NUM*8-1:0] arlen_out,
+  output [SLAVE_NUM*2-1:0] awburst_out,
+  output [SLAVE_NUM*2-1:0] arburst_out,
   output [SLAVE_NUM-1:0] wlast_out,
   input [SLAVE_NUM-1:0] rlast_in,
 
@@ -175,24 +175,24 @@ module ysyx_24100007_arbiter #(
   assign selected_rready  = |(master_owner_one_hot & rready);
   assign selected_bready  = |(master_owner_one_hot & bready);
   
-  // 数据信号：直接使用位选择（最优化）
-  assign selected_awaddr  = master_owner_one_hot[0] ? awaddr[0] : awaddr[1];
-  assign selected_araddr  = master_owner_one_hot[0] ? araddr[0] : araddr[1];
-  assign selected_wdata   = master_owner_one_hot[0] ? wdata[0] : wdata[1];
-  assign selected_wstrb   = master_owner_one_hot[0] ? wstrb[0] : wstrb[1];
-  assign selected_awsize  = master_owner_one_hot[0] ? awsize[0] : awsize[1];
-  assign selected_arsize  = master_owner_one_hot[0] ? arsize[0] : arsize[1];
-  assign selected_awlen   = master_owner_one_hot[0] ? awlen[0] : awlen[1];
-  assign selected_arlen   = master_owner_one_hot[0] ? arlen[0] : arlen[1];
-  assign selected_awburst = master_owner_one_hot[0] ? awburst[0] : awburst[1];
-  assign selected_arburst = master_owner_one_hot[0] ? arburst[0] : arburst[1];
+  // 数据信号：从扁平总线中取出各 master 的分段（兼容 MASTER_NUM=2）
+  assign selected_awaddr  = master_owner_one_hot[0] ? awaddr[0*32 +: 32] : awaddr[1*32 +: 32];
+  assign selected_araddr  = master_owner_one_hot[0] ? araddr[0*32 +: 32] : araddr[1*32 +: 32];
+  assign selected_wdata   = master_owner_one_hot[0] ? wdata[0*32 +: 32] : wdata[1*32 +: 32];
+  assign selected_wstrb   = master_owner_one_hot[0] ? wstrb[0*4  +: 4 ] : wstrb[1*4  +: 4 ];
+  assign selected_awsize  = master_owner_one_hot[0] ? awsize[0*3 +: 3] : awsize[1*3 +: 3];
+  assign selected_arsize  = master_owner_one_hot[0] ? arsize[0*3 +: 3] : arsize[1*3 +: 3];
+  assign selected_awlen   = master_owner_one_hot[0] ? awlen[0*8  +: 8 ] : awlen[1*8  +: 8 ];
+  assign selected_arlen   = master_owner_one_hot[0] ? arlen[0*8  +: 8 ] : arlen[1*8  +: 8 ];
+  assign selected_awburst = master_owner_one_hot[0] ? awburst[0*2 +: 2] : awburst[1*2 +: 2];
+  assign selected_arburst = master_owner_one_hot[0] ? arburst[0*2 +: 2] : arburst[1*2 +: 2];
   assign selected_wlast   = master_owner_one_hot[0] ? wlast[0] : wlast[1];
 
   genvar p;
   generate
     for (p = 0; p < MASTER_NUM; p = p + 1) begin : gen_master_response
-      assign rdata[p] = master_owner_one_hot[p] ? selected_rdata : 32'b0;
-      assign bresp[p] = master_owner_one_hot[p] ? selected_bresp : 2'b0;
+      assign rdata[p*32 +: 32] = master_owner_one_hot[p] ? selected_rdata : 32'b0;
+      assign bresp[p*2  +: 2 ] = master_owner_one_hot[p] ? selected_bresp : 2'b0;
       assign rvalid[p] = master_owner_one_hot[p] ? selected_rvalid : 1'b0;
       assign bvalid[p] = master_owner_one_hot[p] ? selected_bvalid : 1'b0;
       assign rlast[p] = master_owner_one_hot[p] ? selected_rlast : 1'b0;
@@ -222,23 +222,23 @@ module ysyx_24100007_arbiter #(
     for (m = 0; m < SLAVE_NUM; m = m + 1) begin : gen_slave_route
       // 写地址通道
       assign awvalid_out[m] = slave_owner_one_hot[m] ? selected_awvalid : 1'b0;
-      assign awaddr_out[m]  = selected_awaddr;
-      assign awsize_out[m]  = selected_awsize;
-      assign awlen_out[m]   = selected_awlen;
-      assign awburst_out[m] = selected_awburst;
+      assign awaddr_out[m*32 +: 32]  = selected_awaddr;
+      assign awsize_out[m*3  +: 3 ]  = selected_awsize;
+      assign awlen_out[m*8   +: 8 ]  = selected_awlen;
+      assign awburst_out[m*2 +: 2 ]  = selected_awburst;
       
       // 写数据通道
       assign wvalid_out[m]  = slave_owner_one_hot[m] ? selected_wvalid : 1'b0;
-      assign wdata_out[m]   = selected_wdata;
-      assign wstrb_out[m]   = selected_wstrb;
+      assign wdata_out[m*32 +: 32]   = selected_wdata;
+      assign wstrb_out[m*4  +: 4 ]   = selected_wstrb;
       assign wlast_out[m]   = selected_wlast;
       
       // 读地址通道
       assign arvalid_out[m] = slave_owner_one_hot[m] ? selected_arvalid : 1'b0;
-      assign araddr_out[m]  = selected_araddr;
-      assign arsize_out[m]  = selected_arsize;
-      assign arlen_out[m]   = selected_arlen;
-      assign arburst_out[m] = selected_arburst;
+      assign araddr_out[m*32 +: 32]  = selected_araddr;
+      assign arsize_out[m*3  +: 3 ]  = selected_arsize;
+      assign arlen_out[m*8   +: 8 ]  = selected_arlen;
+      assign arburst_out[m*2 +: 2 ]  = selected_arburst;
       
       // 读数据通道和写响应通道
       assign rready_out[m]  = slave_owner_one_hot[m] ? selected_rready : 1'b0;
@@ -246,8 +246,8 @@ module ysyx_24100007_arbiter #(
     end
   endgenerate
   
-  assign selected_rdata   = slave_owner_one_hot[0] ? rdata_in[0] : rdata_in[1];
-  assign selected_bresp   = slave_owner_one_hot[0] ? bresp_in[0] : bresp_in[1];
+  assign selected_rdata   = slave_owner_one_hot[0] ? rdata_in[0*32 +: 32] : rdata_in[1*32 +: 32];
+  assign selected_bresp   = slave_owner_one_hot[0] ? bresp_in[0*2  +: 2 ] : bresp_in[1*2  +: 2 ];
   assign selected_rvalid  = slave_owner_one_hot[0] ? rvalid_in[0] : rvalid_in[1];
   assign selected_bvalid  = slave_owner_one_hot[0] ? bvalid_in[0] : bvalid_in[1];
   assign selected_rlast   = slave_owner_one_hot[0] ? rlast_in[0] : rlast_in[1];

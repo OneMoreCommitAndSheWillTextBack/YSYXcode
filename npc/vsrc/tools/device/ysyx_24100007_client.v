@@ -1,4 +1,4 @@
-module client(
+module ysyx_24100007_client(
   input clk,
 
   // write address channel
@@ -31,13 +31,14 @@ module client(
   // the mtime has two part
   // mtime[0] is lower 32 bit
   // mtime[1] is upper 32 bit
-  reg [31:0] mtime_reg [1:0];
+  reg [31:0] mtime_reg_h;
+  reg [31:0] mtime_reg_low;
 
   always @(posedge clk) begin
-    mtime_reg[0] <= mtime_reg[0] + 1;
-    if (mtime_reg[0] == 32'hFFFFFFFF) begin
-      mtime_reg[1] <= mtime_reg[1] + 1;
+    if (mtime_reg_low == 32'hFFFFFFFF) begin
+      mtime_reg_h <= mtime_reg_h + 1;
     end
+    mtime_reg_low <= mtime_reg_low + 32'b1;
   end
 
   typedef enum logic {
@@ -64,8 +65,8 @@ module client(
   end
 
   assign rdata = (state == WAITING) ? 0 :
-                 (araddr == 32'ha0000048) ? mtime_reg[0] :
-                 (araddr == 32'ha000004c) ? mtime_reg[1] :
+                 (araddr == 32'ha0000048) ? mtime_reg_low :
+                 (araddr == 32'ha000004c) ? mtime_reg_h :
                  0;
 
   assign arready = (state == WAITING);

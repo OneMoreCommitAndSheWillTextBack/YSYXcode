@@ -18,23 +18,23 @@ module ysyx_24100007_core #(
   input [PORT_NUM-1:0] arready, 
 
   // AXI data channel
-  output [PORT_NUM-1:0][31:0] araddr,
-  output [PORT_NUM-1:0][31:0] awaddr,
-  output [PORT_NUM-1:0][31:0] wdata,
-  output [PORT_NUM-1:0][3:0] wstrb,
-  input [PORT_NUM-1:0][31:0] rdata,
-  input [PORT_NUM-1:0][1:0] bresp,
-  output [PORT_NUM-1:0][2:0] awsize,
-  output [PORT_NUM-1:0][2:0] arsize,
+  output [PORT_NUM*32-1:0] araddr,
+  output [PORT_NUM*32-1:0] awaddr,
+  output [PORT_NUM*32-1:0] wdata,
+  output [PORT_NUM*4-1:0] wstrb,
+  input  [PORT_NUM*32-1:0] rdata,
+  input  [PORT_NUM*2-1:0] bresp,
+  output [PORT_NUM*3-1:0] awsize,
+  output [PORT_NUM*3-1:0] arsize,
   
   // AXI burst transfer signals
-  output [PORT_NUM-1:0][7:0] awlen,
-  output [PORT_NUM-1:0][7:0] arlen,
-  output [PORT_NUM-1:0][1:0] awburst,
-  output [PORT_NUM-1:0][1:0] arburst,
+  output [PORT_NUM*8-1:0] awlen,
+  output [PORT_NUM*8-1:0] arlen,
+  output [PORT_NUM*2-1:0] awburst,
+  output [PORT_NUM*2-1:0] arburst,
   output [PORT_NUM-1:0] wlast,
   input [PORT_NUM-1:0] rlast,
-  input [PORT_NUM-1:0][1:0]  rresp,
+  input [PORT_NUM*2-1:0]  rresp,
   
   // Transaction start/end signals
   output [PORT_NUM-1:0] trans_start,
@@ -70,28 +70,28 @@ module ysyx_24100007_core #(
 
     .arvalid(arvalid[0]),
     .arready(arready[0]),
-    .araddr(araddr[0]),
+    .araddr(araddr[0*32 +: 32]),
     .rvalid(rvalid[0]),
     .rready(rready[0]),
-    .rdata(rdata[0]),
+    .rdata(rdata[0*32 +: 32]),
 
-    .arlen(arlen[0]),
-    .arsize(arsize[0]),
-    .arburst(arburst[0]),
-    .rresp(rresp[0]),
+    .arlen(arlen[0*8 +: 8]),
+    .arsize(arsize[0*3 +: 3]),
+    .arburst(arburst[0*2 +: 2]),
+    .rresp(rresp[0*2 +: 2]),
     .rlast(rlast[0])
   );
 
   // not used channel set to 0
   assign awvalid[0] = 1'b0;
   assign wvalid[0] = 1'b0;
-  assign awaddr[0] = 32'b0;
-  assign wdata[0] = 32'b0;
-  assign wstrb[0] = 4'b0;
+  assign awaddr[0*32 +: 32] = 32'b0;
+  assign wdata[0*32 +: 32] = 32'b0;
+  assign wstrb[0*4  +: 4 ] = 4'b0;
   assign bready[0] = 1'b0;
-  assign awsize[0] = 3'b0;
-  assign awlen[0] = 8'b0;
-  assign awburst[0] = 2'b0;
+  assign awsize[0*3 +: 3] = 3'b0;
+  assign awlen[0*8 +: 8] = 8'b0;
+  assign awburst[0*2 +: 2] = 2'b0;
   assign wlast[0] = 1'b0;
 
 
@@ -327,27 +327,27 @@ module ysyx_24100007_core #(
   // axi-lite interface
   .awvalid(awvalid[1]),
   .awready(awready[1]),
-  .awaddr(awaddr[1]),
+  .awaddr(awaddr[63:32]),
 
   .wvalid(wvalid[1]),
   .wready(wready[1]),
-  .wdata(wdata[1]),
-  .wstrb(wstrb[1]),
+  .wdata(wdata[63:32]),
+  .wstrb(wstrb[7:4]),
 
   .bvalid(bvalid[1]),
   .bready(bready[1]),
-  .bresp(bresp[1]),
+  .bresp(bresp[3:2]),
 
   .arvalid(arvalid[1]),
   .arready(arready[1]),
-  .araddr(araddr[1]),
+  .araddr(araddr[63:32]),
 
   .rvalid(rvalid[1]),
   .rready(rready[1]),
-  .rdata(rdata[1]),
-  .awsize(awsize[1]),
-  .arsize(arsize[1]),
-  .awburst(awburst[1]),
+  .rdata(rdata[63:32]),
+  .awsize(awsize[5:3]),
+  .arsize(arsize[5:3]),
+  .awburst(awburst[3:2]),
 
   .wbu_rd(wbu_rd_bypass),      // for data forwarding to IDU
   .wbu_regew(wbu_regew_bypass),   // for data forwarding to IDU
@@ -357,7 +357,7 @@ module ysyx_24100007_core #(
 
 
 // synopsys translate_off
-  pipline_tracer tracer0(
+  ysyx_24100007_pipline_tracer tracer0(
     .clk(clock), 
     
     .ifu_to_idu_valid(ifu_to_idu_valid),
@@ -378,15 +378,15 @@ module ysyx_24100007_core #(
 // synopsys translate_on
 
 // 暂时不实现突发传输，将没有使用的部分设置为0
-assign awlen[1] = 8'b0;      // 写地址长度（单次传输，len=0）
-assign arlen[1] = 8'b0;      // 读地址长度（单次传输，len=0）
-assign arburst[1] = 2'b0;   // 读burst类型（FIXED，单次传输）
+assign awlen[15:8] = 8'b0;      // 写地址长度（单次传输，len=0）
+assign arlen[15:8] = 8'b0;      // 读地址长度（单次传输，len=0）
+assign arburst[3:2] = 2'b0;   // 读burst类型（FIXED，单次传输）
 assign wlast[1] = wvalid[1];
 
 endmodule
 
 // synopsys translate_off
-module pipline_tracer(
+module ysyx_24100007_pipline_tracer(
   input clk,
 
   input ifu_to_idu_valid,

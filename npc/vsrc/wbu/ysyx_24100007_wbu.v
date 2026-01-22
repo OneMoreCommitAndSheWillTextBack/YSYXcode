@@ -206,8 +206,6 @@ module ysyx_24100007_wbu(
     3'b100, link_addr
   });
 
-  assign icahce_flush = memew & (wbu_state == WRITE_BACK);
-  
   assign transmit_data = regwrite;
   assign wbu_rd = rd;
   assign wbu_regew = regew_control;

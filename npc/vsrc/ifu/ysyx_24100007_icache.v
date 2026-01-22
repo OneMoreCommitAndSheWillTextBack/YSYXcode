@@ -30,15 +30,20 @@ module ysyx_24100007_icache #(
     wire [LINE_NUM-1:0] line_set_invalid;
     wire [LINE_NUM-1:0][DATABLOCK_SIZE-1:0] line_data_w;
 
-    assign line_w_valid[index] = w_valid;
-    assign line_data_w[index] = w_data;
+    genvar i;
+    generate
+      for (i = 0; i < LINE_NUM; i = i + 1) begin : gen_cacheline
+        assign line_w_valid[i] = w_valid && (index == i);
+        assign line_data_w[i] = w_data;
+      end
+    endgenerate
 
     assign line_set_invalid[flush_index] = 1'b1;
  
     generate
         genvar i;
         for(i=0;i<LINE_NUM;i=i+1) begin
-            icahce_line #(
+            ysyx_24100007_icahce_line #(
                 .TAG_LEN(TAG_LEN),
                 .INDEX_LEN(INDEX_LEN),
                 .OFFSET_LEN(OFFSET_LEN)
@@ -61,7 +66,7 @@ module ysyx_24100007_icache #(
     assign data_r = line_data_r[index];
 endmodule
 
-module icahce_line #( 
+module ysyx_24100007_icahce_line #( 
     parameter TAG_LEN = 27,
     parameter INDEX_LEN = 3,
     parameter OFFSET_LEN = 2

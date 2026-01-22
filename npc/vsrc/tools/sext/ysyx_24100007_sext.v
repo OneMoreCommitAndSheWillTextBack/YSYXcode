@@ -1,4 +1,4 @@
-module ysyx_24100007_sext#(INPUT_WIDTH, OUTPUT_WIDTH) (
+module ysyx_24100007_sext#(INPUT_WIDTH = 32, OUTPUT_WIDTH = 32) (
   input  wire signed [INPUT_WIDTH-1  : 0] input_number,
   output wire signed [OUTPUT_WIDTH-1 : 0] output_number
 );
