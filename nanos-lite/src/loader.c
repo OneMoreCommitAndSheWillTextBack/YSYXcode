@@ -34,6 +34,8 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
   uint32_t e_phnum = ehdr.e_phnum;
   uint32_t e_entry = ehdr.e_entry;
 
+  Log("ELF header: e_phoff = 0x%x, e_phnum = %d, e_entry = 0x%x", e_phoff, e_phnum, e_entry);
+
   for(int i=0;i<e_phnum;i++) {
     uint32_t offset = i * sizeof(Elf32_Phdr);
     size = fs_lseek(fd, e_phoff + offset, SEEK_SET);
