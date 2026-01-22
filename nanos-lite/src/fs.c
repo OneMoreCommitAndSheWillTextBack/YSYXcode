@@ -138,7 +138,7 @@ size_t fs_lseek(int fd, size_t offset, int whence) {
       if(offset > file_table[sys_fd].size) {
         return -1;
       }
-      fd_maping[fd].fs_offset = file_table[sys_fd].disk_offset + offset;
+      fd_maping[fd].fs_offset = offset;
       Log("[fs_lseek] set file %s pointer to 0x%x", file_table[sys_fd].name, file_table[sys_fd].disk_offset + offset);
       break;
     case SEEK_CUR: {
