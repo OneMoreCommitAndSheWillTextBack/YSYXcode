@@ -63,6 +63,7 @@ void do_syscall(Context *c) {
 
     case SYS_open:
       c->GPRx = fs_open((const char*)a[1], a[2], a[3]);
+      break;
 
     default: panic("Unhandled syscall ID = %d", a[0]);
   }
