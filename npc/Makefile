@@ -22,7 +22,7 @@ VERILATOR_FLAGS += --timescale "1ns/1ns" --no-timing
 BUILD_MODE ?= ysyxsoc_nvboard
 
 # 检查 BUILD_MODE 合法性
-VALID_BUILD_MODES := npc ysyxsoc ysyxsoc_nvboard
+VALID_BUILD_MODES := npc ysyxsoc ysyxsoc_nvboard release
 ifeq ($(filter $(BUILD_MODE),$(VALID_BUILD_MODES)),)
 	$(error Invalid BUILD_MODE '$(BUILD_MODE)'. \
 	Valid values: npc, ysyxsoc, ysyxsoc_nvboard. \
@@ -47,6 +47,8 @@ ifeq ($(BUILD_MODE),ysyxsoc)
 	VSRC += $(SOCPATH)/build/ysyxSoCFull.v
 endif
 
+
+
 # nvboard 部分
 NXDC_FILES = constr/$(TOPNAME).nxdc
 SRC_AUTO_BIND = $(abspath ./constr/auto_bind.cpp)
@@ -64,6 +66,24 @@ ifeq ($(BUILD_MODE),ysyxsoc_nvboard)
 	BASE_CFLAGS += --CFLAGS -D__NVBOARD__
 	BASE_CFLAGS += $(patsubst %, --CFLAGS "-I%", $(INC_PATH))
 	LDFLAGS += -lSDL2 -lSDL2_image -lSDL2_ttf
+endif
+
+ifeq ($(BUILD_MODE),release)
+  	TOPNAME = ysyx_24100007 
+  	NVBOARD_ENABLE = 0
+
+  	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
+	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/spi/rtl
+	# 使用 release 文件替代 vsrc 下的所有文件
+	
+	VSRC = ./release/ysyx_24100007_sim.v
+	VSRC += $(shell find $(SOCPATH)/perip -name "*.v")
+	VSRC += $(SOCPATH)/build/ysyxSoCFull.v
+
+	# CSRC += $(SRC_AUTO_BIND)
+	# BASE_CFLAGS += --CFLAGS -D__NVBOARD__
+	# BASE_CFLAGS += $(patsubst %, --CFLAGS "-I%", $(INC_PATH))
+	# LDFLAGS += -lSDL2 -lSDL2_image -lSDL2_ttf
 endif
 
 BUILDDIR = ./build/$(BUILD_MODE)
@@ -103,7 +123,10 @@ sim:
 		gtkwave ./wave.vcd & \
 	fi
 
+check:
+	$(VERILATOR) --lint-only --top-module ysyx_24100007 -Wall -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME /home/ysyx/project/ysyx-workbench/npc/release/ysyx_24100007.v 
+
 perf:
 	python3 show-perf-table.py ./performance.txt
 
-.PHONY: run clean sim npc ysyxsocys yxsoc-nvboard
+.PHONY: run clean sim npc ysyxsocys yxsoc-nvboard check release
