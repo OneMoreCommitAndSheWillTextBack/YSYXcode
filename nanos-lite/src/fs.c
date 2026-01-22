@@ -75,7 +75,7 @@ int fs_open(const char *filename, int flags, int mode) {
       fd_maping[u_fd].valid = true;
       fd_maping[u_fd].fs_offset = 0;
       fd_maping[u_fd].sys_fs = i;
-      Log("[fs_open] open file %s, diskoffset %x", filename, file_table[i].disk_offset);
+      Log("[fs_open] open file %s, diskoffset 0x%x", filename, file_table[i].disk_offset);
       return u_fd;
     }
   }
@@ -139,7 +139,7 @@ size_t fs_lseek(int fd, size_t offset, int whence) {
         return -1;
       }
       fd_maping[fd].fs_offset = file_table[sys_fd].disk_offset + offset;
-      Log("[fs_lseek] set file %s pointer to %x", file_table[sys_fd].name, file_table[sys_fd].disk_offset + offset);
+      Log("[fs_lseek] set file %s pointer to 0x%x", file_table[sys_fd].name, file_table[sys_fd].disk_offset + offset);
       break;
     case SEEK_CUR: {
       size_t file_offset = fd_maping[fd].fs_offset;
