@@ -105,11 +105,12 @@ size_t fs_read(int fd, void *buf, size_t len) {
 
   size_t empty_len = file_size - file_offset;
   size_t final_len = (empty_len > len) ? len : empty_len;
+
+  Log("fs_read final_len is %d, empty_len is %d", final_len, empty_len);
+
   if(empty_len == 0) {
     return 0;
   }
-
-  Log("fs_read final_len is %d, empty_len is %d", final_len, empty_len);
 
   size_t res = ramdisk_read(buf, disk_offset + file_offset, final_len);
   fd_maping[fd].fs_offset = file_offset + res;
