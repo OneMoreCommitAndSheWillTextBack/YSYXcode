@@ -3,14 +3,17 @@
 #include <am.h>
 #include <nemu.h>
 #include <stdint.h>
+#include "klib.h"
 
 void __am_timer_init() {}
 
 void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime) {
+  printf("into am timer\n");
   uintptr_t rtcbase = (uintptr_t)RTC_ADDR;
   uint64_t uptimehgh = *((uint32_t *)rtcbase + 1);
   uint64_t uptimelow = *(uint32_t *)(rtcbase);
   uptime->us = (uptimehgh << 32) + uptimelow;
+  printf("left");
 }
 
 void __am_timer_rtc(AM_TIMER_RTC_T *rtc) {
