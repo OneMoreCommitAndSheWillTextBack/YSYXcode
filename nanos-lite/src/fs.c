@@ -74,7 +74,7 @@ int fs_open(const char *filename, int flags, int mode) {
       int u_fd = get_fs_map();
       fd_maping[u_fd].valid = true;
       fd_maping[u_fd].fs_offset = 0;
-      // Log("[fs_open] open file %s, diskoffset 0x%x", filename, file_table[i].disk_offset);
+      Log("[fs_open] open file %s, diskoffset 0x%x", filename, file_table[i].disk_offset);
       return u_fd;
     }
   }
