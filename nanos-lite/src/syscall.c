@@ -35,7 +35,6 @@ void do_syscall(Context *c) {
     }
 
     case SYS_read: {
-      Log("sys_read fd is %d", a[1]);
       size_t res = fs_read(a[1], (void *)a[2], a[3]);
       c->GPRx = res;
       break;
