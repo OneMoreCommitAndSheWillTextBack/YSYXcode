@@ -81,6 +81,14 @@ int fs_open(const char *filename, int flags, int mode) {
   panic("invalid filename %s", filename);
 }
 
+static int fs_call_is_valid(int sys_fd, int is_write) {
+  if(is_write) {
+    return file_table[sys_fd].write != NULL && file_table[sys_fd].write != invalid_write;
+  } else {
+    return file_table[sys_fd].read != NULL && file_table[sys_fd].read != invalid_read;
+  }
+}
+
 size_t fs_read(int fd, void *buf, size_t len) {
   if(fd_maping[fd].valid == false) {
     panic("fsread meet a invalid fd");
@@ -88,7 +96,7 @@ size_t fs_read(int fd, void *buf, size_t len) {
   int sys_fd = fd_maping[fd].sys_fs;
   size_t file_offset = fd_maping[fd].fs_offset;
 
-  if(file_table[sys_fd].read != NULL) {
+  if(fs_call_is_valid(sys_fd, 0)) {
     return file_table[sys_fd].read(buf, file_offset, len);
   }
 
@@ -113,7 +121,7 @@ size_t fs_write(int fd, const void *buf, size_t len) {
   int sys_fd = fd_maping[fd].sys_fs;
   size_t file_offset = fd_maping[fd].fs_offset;
 
-  if(file_table[sys_fd].write != NULL) {
+  if(fs_call_is_valid(sys_fd, 1)) {
     return file_table[sys_fd].write(buf, file_offset, len);
   }
 
