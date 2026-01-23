@@ -106,7 +106,7 @@ size_t fs_read(int fd, void *buf, size_t len) {
   size_t empty_len = file_size - file_offset;
   size_t final_len = (empty_len > len) ? len : empty_len;
 
-  Log("fs_read final_len is %d, empty_len is %d", final_len, empty_len);
+  Log("fs_read final_len is %d, empty_len is %d, sys_fd is %d", final_len, empty_len, sys_fd);
 
   if(empty_len == 0) {
     return 0;
