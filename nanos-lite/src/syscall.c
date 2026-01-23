@@ -28,10 +28,11 @@ void do_syscall(Context *c) {
       c->GPRx = 0;
       break;
 
-    case SYS_write:
+    case SYS_write: {
       size_t res = fs_write(a[1], (void *)a[2], a[3]);
       c->GPRx = res;
       break;
+    }
 
     case SYS_read:
       if(a[1] == 1 || a[1] == 0 || a[1] == 2) {
