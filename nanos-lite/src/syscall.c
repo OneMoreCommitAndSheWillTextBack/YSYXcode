@@ -29,19 +29,8 @@ void do_syscall(Context *c) {
       break;
 
     case SYS_write:
-      if(a[1] == 1 || a[1] == 0 || a[1] == 2) {
-        char *buf = (char *)a[2];
-        unsigned int len = a[3];
-        int write_counter = 0;
-        for(write_counter=0;write_counter<len;write_counter++){
-          putch(buf[write_counter]);
-        }
-        // Log("[sys write] %s, %d, %d", buf, len, write_counter);
-        c->GPRx = write_counter;
-      } else {
-        size_t res = fs_write(a[1], (void *)a[2], a[3]);
-        c->GPRx = res;
-      }
+      size_t res = fs_write(a[1], (void *)a[2], a[3]);
+      c->GPRx = res;
       break;
 
     case SYS_read:

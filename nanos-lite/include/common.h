@@ -19,4 +19,7 @@ size_t ramdisk_write(const void *buf, size_t offset, size_t len);
 // syscall.c
 void do_syscall(Context *c);
 
+//device.c
+size_t serial_write(const void *buf, size_t len, size_t offset);
+
 #endif

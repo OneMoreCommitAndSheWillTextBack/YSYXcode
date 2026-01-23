@@ -30,8 +30,13 @@ module ysyx_24100007_icache #(
     wire [LINE_NUM-1:0] line_set_invalid;
     wire [LINE_NUM-1:0][DATABLOCK_SIZE-1:0] line_data_w;
 
-    assign line_w_valid[index] = w_valid;
-    assign line_data_w[index] = w_data;
+    genvar i;
+    generate
+      for (i = 0; i < LINE_NUM; i = i + 1) begin : gen_cacheline
+        assign line_w_valid[i] = w_valid && (index == i);
+        assign line_data_w[i] = w_data;
+      end
+    endgenerate
 
     assign line_set_invalid[flush_index] = 1'b1;
  
