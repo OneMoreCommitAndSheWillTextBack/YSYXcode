@@ -18,7 +18,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
 
   Elf32_Ehdr ehdr;
   size_t size = fs_read(fd, &ehdr, sizeof(Elf32_Ehdr));
-  if(size < sizeof(Elf32_Ehdr)) {
+  if(size != sizeof(Elf32_Ehdr)) {
     panic("loader read szie not equ to size of ehdr");
   }
 

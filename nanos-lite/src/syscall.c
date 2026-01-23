@@ -34,14 +34,11 @@ void do_syscall(Context *c) {
       break;
     }
 
-    case SYS_read:
-      if(a[1] == 1 || a[1] == 0 || a[1] == 2) {
-        panic("stdin not implement yet");
-      } else {
-        size_t res = fs_read(a[1], (void *)a[2], a[3]);
-        c->GPRx = res;
-      }
+    case SYS_read: {
+      size_t res = fs_read(a[1], (void *)a[2], a[3]);
+      c->GPRx = res;
       break;
+    }
 
     case SYS_lseek:
       c->GPRx = fs_lseek(a[1], a[2], a[3]);
