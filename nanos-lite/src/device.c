@@ -1,3 +1,5 @@
+#include "am.h"
+#include "amdev.h"
 #include <common.h>
 
 #if defined(MULTIPROGRAM) && !defined(TIME_SHARING)
@@ -20,6 +22,22 @@ size_t serial_write(const void *buf, size_t offset, size_t len) {
     putch(((char *)buf)[write_counter]);
   }
   return write_counter;
+}
+
+int get_time(struct timeval *tv, struct timezone *tz) {
+  AM_TIMER_UPTIME_T *time;
+  ioe_read(AM_TIMER_UPTIME, &time);
+  
+  if(tv == NULL || tz == NULL)
+    return -1;
+  
+  tv->tv_sec = time->us / 1000;
+  tv->tv_usec = time->us;
+
+  tz->tz_minuteswest = 0;
+  tz->tz_dsttime = 0;
+
+  return 0;
 }
 
 size_t events_read(void *buf, size_t offset, size_t len) {
