@@ -49,7 +49,7 @@ size_t events_read(void *buf, size_t offset, size_t len) {
   }
 
   char* prefix = (kbd.keydown == true) ? "kd" : "ku";
-  size_t res = snprintf((char *)buf, len, "%s %s", prefix, keyname[kbd.keycode]);
+  size_t res = snprintf((char *)buf, len, "%s %s\n", prefix, keyname[kbd.keycode]);
   // Log("events_read buf: %s", buf);
   return res;
 }
