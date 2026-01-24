@@ -38,6 +38,8 @@ int get_time(struct timeval *tv, struct timezone *tz) {
   tz->tz_minuteswest = 0;
   tz->tz_dsttime = 0;
 
+  Log("get to here");
+
   return 0;
 }
 
