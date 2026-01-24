@@ -7,6 +7,8 @@ int main() {
     long us;
     int counter = 0;
 
+    printf("timeval: %p, timezone: %p", &tv, &tz);
+
     while(!gettimeofday(&tv, &tz)) {
         // 简单的测试循环
         if(tv.tv_usec - us > 500) {
