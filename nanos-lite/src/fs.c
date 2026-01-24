@@ -35,8 +35,9 @@ int fs_close(int fd);
 /* This is the information about all files in disk. */
 static Finfo file_table[] __attribute__((used)) = {
   [FD_STDIN]  = {"stdin", 0, 0, invalid_read, invalid_write},
-  [FD_STDOUT] = {"stdout", 0, 0, invalid_read, invalid_write},
-  [FD_STDERR] = {"stderr", 0, 0, invalid_read, invalid_write},
+  [FD_STDOUT] = {"stdout", 0, 0, invalid_read, serial_write},
+  [FD_STDERR] = {"stderr", 0, 0, invalid_read, serial_write},
+  {"/dev/events", 0, 0, events_read, invalid_write},
 #include "files.h"
 };
 
@@ -82,18 +83,33 @@ int fs_open(const char *filename, int flags, int mode) {
   panic("invalid filename %s", filename);
 }
 
+static int fs_call_is_valid(int sys_fd, int is_write) {
+  if(is_write) {
+    return file_table[sys_fd].write != NULL && file_table[sys_fd].write != invalid_write;
+  } else {
+    return file_table[sys_fd].read != NULL && file_table[sys_fd].read != invalid_read;
+  }
+}
+
 size_t fs_read(int fd, void *buf, size_t len) {
   if(fd_maping[fd].valid == false) {
     panic("fsread meet a invalid fd");
   }
   int sys_fd = fd_maping[fd].sys_fs;
+  size_t file_offset = fd_maping[fd].fs_offset;
+
+  if(fs_call_is_valid(sys_fd, 0)) {
+    return file_table[sys_fd].read(buf, file_offset, len);
+  }
 
   size_t disk_offset = file_table[sys_fd].disk_offset;
   size_t file_size = file_table[sys_fd].size;
-  size_t file_offset = fd_maping[fd].fs_offset;
 
   size_t empty_len = file_size - file_offset;
   size_t final_len = (empty_len > len) ? len : empty_len;
+
+  // Log("fs_read final_len is %d, empty_len is %d, sys_fd is %d", final_len, empty_len, sys_fd);
+
   if(empty_len == 0) {
     return 0;
   }
@@ -108,10 +124,14 @@ size_t fs_write(int fd, const void *buf, size_t len) {
     panic("fswrite meet a invalid rd");
   }
   int sys_fd = fd_maping[fd].sys_fs;
+  size_t file_offset = fd_maping[fd].fs_offset;
+
+  if(fs_call_is_valid(sys_fd, 1)) {
+    return file_table[sys_fd].write(buf, file_offset, len);
+  }
 
   size_t disk_offset = file_table[sys_fd].disk_offset;
   size_t file_size = file_table[sys_fd].size;
-  size_t file_offset = fd_maping[fd].fs_offset;
 
   size_t empty_len = file_size - file_offset;
   size_t final_len = (empty_len > len) ? len : empty_len;
@@ -163,6 +183,10 @@ size_t fs_lseek(int fd, size_t offset, int whence) {
 }
 
 int fs_close(int fd) {
+  if(fd == 0 || fd == 1 || fd == 2) {
+    return 0;
+  }
+
   fd_maping[fd].valid = 0;
   fd_maping[fd].sys_fs = 0;
   fd_maping[fd].fs_offset = 0;
@@ -175,4 +199,7 @@ void init_fs() {
   for(int i=0;i<FDMAPSIZE;i++) {
     fd_maping[i].valid =false;
   }
+  fd_maping[0].valid = true; fd_maping[0].sys_fs = 0;
+  fd_maping[1].valid = true; fd_maping[1].sys_fs = 1;
+  fd_maping[2].valid = true; fd_maping[2].sys_fs = 2;
 }

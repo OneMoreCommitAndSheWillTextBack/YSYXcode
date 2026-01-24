@@ -47,10 +47,8 @@ ifeq ($(BUILD_MODE),ysyxsoc)
 	VSRC += $(SOCPATH)/build/ysyxSoCFull.v
 endif
 
-
-
 # nvboard 部分
-NXDC_FILES = constr/$(TOPNAME).nxdc
+NXDC_FILES = /home/ysyx/project/ysyx-workbench/npc/constr/ysyxSoCFull.nxdc
 SRC_AUTO_BIND = $(abspath ./constr/auto_bind.cpp)
 
 ifeq ($(BUILD_MODE),ysyxsoc_nvboard)
@@ -69,21 +67,19 @@ ifeq ($(BUILD_MODE),ysyxsoc_nvboard)
 endif
 
 ifeq ($(BUILD_MODE),release)
-  	TOPNAME = ysyx_24100007 
-  	NVBOARD_ENABLE = 0
+  	TOPNAME = ysyxSoCFull 
+  	NVBOARD_ENABLE = 1
 
   	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/spi/rtl
-	# 使用 release 文件替代 vsrc 下的所有文件
-	
-	VSRC = ./release/ysyx_24100007_sim.v
+	VSRC = ./release/ysyx_24100007.v
 	VSRC += $(shell find $(SOCPATH)/perip -name "*.v")
 	VSRC += $(SOCPATH)/build/ysyxSoCFull.v
 
-	# CSRC += $(SRC_AUTO_BIND)
-	# BASE_CFLAGS += --CFLAGS -D__NVBOARD__
-	# BASE_CFLAGS += $(patsubst %, --CFLAGS "-I%", $(INC_PATH))
-	# LDFLAGS += -lSDL2 -lSDL2_image -lSDL2_ttf
+	CSRC += $(SRC_AUTO_BIND)
+	BASE_CFLAGS += --CFLAGS -D__NVBOARD__
+	BASE_CFLAGS += $(patsubst %, --CFLAGS "-I%", $(INC_PATH))
+	LDFLAGS += -lSDL2 -lSDL2_image -lSDL2_ttf
 endif
 
 BUILDDIR = ./build/$(BUILD_MODE)

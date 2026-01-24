@@ -3,6 +3,7 @@
 #include <am.h>
 #include <nemu.h>
 #include <stdint.h>
+#include "klib.h"
 
 void __am_timer_init() {}
 
