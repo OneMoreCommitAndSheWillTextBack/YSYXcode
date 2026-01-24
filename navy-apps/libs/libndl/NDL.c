@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sys/time.h"
+#include "sys/stat.h"
 
 static int evtdev = -1;
 static int fbdev = -1;
@@ -19,8 +20,7 @@ uint32_t NDL_GetTicks() {
 }
 
 int NDL_PollEvent(char *buf, int len) {
-  FILE *fp = fopen("/dev/events", 0);
-  printf("get to\n");
+  FILE *fp = open("/dev/events", 0, 0);
   return fread(buf, len, 1, fp);
 }
 
