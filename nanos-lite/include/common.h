@@ -24,5 +24,6 @@ void do_syscall(Context *c);
 //device.c
 size_t serial_write(const void *buf, size_t len, size_t offset);
 int get_time(struct timeval *tv, struct timezone *tz);
+size_t events_read(void *buf, size_t offset, size_t len);
 
 #endif
