@@ -19,6 +19,7 @@ uint32_t NDL_GetTicks() {
 }
 
 int NDL_PollEvent(char *buf, int len) {
+  printf("get to here\n");
   FILE *fp = fopen("/dev/events", 0);
   return fread(buf, len, 1, fp);
 }
