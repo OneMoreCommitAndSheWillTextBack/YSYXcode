@@ -44,6 +44,10 @@ size_t events_read(void *buf, size_t offset, size_t len) {
   AM_INPUT_KEYBRD_T kbd;
   ioe_read(AM_INPUT_KEYBRD, &kbd);
 
+  if(kbd.keycode == AM_KEY_NONE) {
+    return 0;
+  }
+
   char* prefix = (kbd.keydown == true) ? "kd" : "ku";
   size_t res = snprintf((char *)buf, len, "%s %s", prefix, keyname[kbd.keycode]);
   // Log("events_read buf: %s", buf);
