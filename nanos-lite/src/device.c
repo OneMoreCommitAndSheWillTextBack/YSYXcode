@@ -32,7 +32,8 @@ int get_time(struct timeval *tv, struct timezone *tz) {
 
   if(tv == NULL || tz == NULL)
     return -1;
-  
+  Log("get to here");
+    
   tv->tv_sec = time->us / 1000;
   tv->tv_usec = time->us;
 
