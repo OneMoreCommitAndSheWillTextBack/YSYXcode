@@ -28,7 +28,6 @@ int get_time(struct timeval *tv, struct timezone *tz) {
   AM_TIMER_UPTIME_T *time;
   ioe_read(AM_TIMER_UPTIME, &time);
   
-  Log("get space tv: %p, tz: %p", tv, tz);
 
   if(tv == NULL || tz == NULL)
     return -1;
@@ -38,6 +37,8 @@ int get_time(struct timeval *tv, struct timezone *tz) {
 
   tz->tz_minuteswest = 0;
   tz->tz_dsttime = 0;
+
+  Log("get to here");
 
   return 0;
 }
