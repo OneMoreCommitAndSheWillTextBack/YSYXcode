@@ -9,7 +9,7 @@ int main() {
 
     while(!gettimeofday(&tv, &tz)) {
         // 简单的测试循环
-        if(tv.tv_usec - us > 500) {
+        if(tv.tv_usec - us > 500000) {
             printf("Time: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
             us = tv.tv_usec;
             counter++;
