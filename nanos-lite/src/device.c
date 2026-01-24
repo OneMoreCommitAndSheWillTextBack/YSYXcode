@@ -27,7 +27,8 @@ size_t serial_write(const void *buf, size_t offset, size_t len) {
 int get_time(struct timeval *tv, struct timezone *tz) {
   AM_TIMER_UPTIME_T *time;
   ioe_read(AM_TIMER_UPTIME, &time);
-  
+ 
+  Log("tv = %p, tz = %p", tv, tz);
 
   if(tv == NULL || tz == NULL)
     return -1;
