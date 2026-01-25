@@ -56,7 +56,7 @@ size_t events_read(void *buf, size_t offset, size_t len) {
 }
 
 size_t dispinfo_read(void *buf, size_t offset, size_t len) {
-  char buffer[128];
+  char buffer[32];
   AM_GPU_CONFIG_T cfg;
   ioe_read(AM_GPU_CONFIG, &cfg);
   size_t size = snprintf(buffer, sizeof(buffer), "WIDTH : %d\nHEIGHT:%d", cfg.width, cfg.height);
