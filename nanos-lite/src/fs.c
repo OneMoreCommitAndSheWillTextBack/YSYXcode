@@ -38,7 +38,7 @@ static Finfo file_table[] __attribute__((used)) = {
   [FD_STDOUT] = {"stdout", 0, 0, invalid_read, serial_write},
   [FD_STDERR] = {"stderr", 0, 0, invalid_read, serial_write},
   {"/dev/events", 0, 0, events_read, invalid_write},
-  {"/dev/fb",0,0, invalid_read, invalid_write},
+  {"/dev/fb",0,0, invalid_read, fb_write},
   {"/proc/dispinfo", 0, 0, dispinfo_read, invalid_write},
 #include "files.h"
 };
@@ -204,4 +204,8 @@ void init_fs() {
   fd_maping[0].valid = true; fd_maping[0].sys_fs = 0;
   fd_maping[1].valid = true; fd_maping[1].sys_fs = 1;
   fd_maping[2].valid = true; fd_maping[2].sys_fs = 2;
+
+  AM_GPU_CONFIG_T cfg;
+  ioe_read(AM_GPU_CONFIG, &cfg);
+  file_table[4].size = sizeof(uint32_t) * cfg.height * cfg.width;
 }

@@ -1,7 +1,6 @@
 #include "am.h"
 #include "amdev.h"
 #include <common.h>
-#include <stdio.h>
 
 #if defined(MULTIPROGRAM) && !defined(TIME_SHARING)
 # define MULTIPROGRAM_YIELD() yield()
@@ -65,7 +64,20 @@ size_t dispinfo_read(void *buf, size_t offset, size_t len) {
 }
 
 size_t fb_write(const void *buf, size_t offset, size_t len) {
-  return 0;
+  AM_GPU_CONFIG_T cfg;
+  ioe_read(AM_GPU_CONFIG, &cfg);
+
+  AM_GPU_FBDRAW_T draw;
+  draw.h = 1;
+  draw.w = len / sizeof(uint32_t);
+  draw.y = offset / cfg.width;
+  draw.x = offset - draw.y * cfg.width;
+  draw.pixels = (uint32_t *)buf;
+  draw.sync = 1;
+
+  ioe_write(AM_GPU_FBDRAW, &draw);
+
+  return len;
 }
 
 void init_device() {
