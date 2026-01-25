@@ -72,6 +72,7 @@ size_t fb_write(const void *buf, size_t offset, size_t len) {
   draw.w = len / sizeof(uint32_t);
   draw.y = offset / cfg.width;
   draw.x = offset - draw.y * cfg.width;
+  Log("fs_wirte x: %d, y: %d", draw.x, draw.y);
   draw.pixels = (uint32_t *)buf;
   draw.sync = 1;
 
