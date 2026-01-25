@@ -964,6 +964,7 @@ module ysyx_24100007_ifu(
   localparam ARLEN = (2 ** OFFSET_LEN) / 4 - 1;
   wire w_valid, cache_hit;
   wire [31:0] cache_rdata;
+  wire set_invalid;
   ysyx_24100007_icache icache_u (
     .clk(clk),
     .rst(rst),
@@ -971,11 +972,13 @@ module ysyx_24100007_ifu(
     .addr(pcbridge),
     .w_valid(w_valid),
     .w_data(axi_rdata),
+    .set_invalid(set_invalid),
     .hit(cache_hit),
     .data_r(cache_rdata)
   );
   wire hit = cache_hit && (ifu_state == CHECK_CACHE);
   assign w_valid = (ifu_state == UPDATE_CACHE);
+  assign set_invalid = (inst_reg == 32'b00000000000000000001000000001111);
 
   // ------------------------------------
   // PERFORMANCE COUNTER LOGIC
@@ -1350,6 +1353,7 @@ module ysyx_24100007_icache (
     input [31:0] addr,
     input w_valid,
     input [127:0] w_data,
+    input set_invalid,
     output hit,
     output [31:0] data_r
 );
@@ -1385,6 +1389,7 @@ module ysyx_24100007_icache (
         .rst(rst),
         .tag(tag),
         .offset(offset),
+        .set_invalid(set_invalid),
         .w_valid(line_w_valid[0]),
         .data_w(line_data_w[0]),
         .hit(line_hit[0]),
@@ -1399,6 +1404,7 @@ module ysyx_24100007_icache (
         .rst(rst),
         .tag(tag),
         .offset(offset),
+        .set_invalid(set_invalid),
         .w_valid(line_w_valid[1]),
         .data_w(line_data_w[1]),
         .hit(line_hit[1]),
@@ -1413,6 +1419,7 @@ module ysyx_24100007_icache (
         .rst(rst),
         .tag(tag),
         .offset(offset),
+        .set_invalid(set_invalid),
         .w_valid(line_w_valid[2]),
         .data_w(line_data_w[2]),
         .hit(line_hit[2]),
@@ -1427,6 +1434,7 @@ module ysyx_24100007_icache (
         .rst(rst),
         .tag(tag),
         .offset(offset),
+        .set_invalid(set_invalid),
         .w_valid(line_w_valid[3]),
         .data_w(line_data_w[3]),
         .hit(line_hit[3]),
@@ -1445,6 +1453,7 @@ module ysyx_24100007_icahce_line #(
     input rst,
     input [TAG_LEN-1:0] tag,
     input [OFFSET_LEN-1:0] offset,
+    input set_invalid,
     input w_valid,
     input [DATABLOCK_SIZE-1:0] data_w,
     output hit,
@@ -1467,7 +1476,9 @@ module ysyx_24100007_icahce_line #(
             tag_r <= {TAG_LEN{1'b0}};
             data_block <= {DATABLOCK_SIZE{1'b0}};
         end else begin
-            if(w_valid) begin
+            if(set_invalid) begin
+              valid_r <= 1'b0;
+            end else if(w_valid) begin
                 valid_r <= 1'b1;
                 tag_r <= tag;
                 data_block <= data_w;
@@ -1476,6 +1487,7 @@ module ysyx_24100007_icahce_line #(
     end
     
 endmodule
+
 module ysyx_24100007_pcreg(
   input clk,
   input [31:0] npc,

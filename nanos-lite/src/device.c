@@ -1,6 +1,7 @@
 #include "am.h"
 #include "amdev.h"
 #include <common.h>
+#include <stdio.h>
 
 #if defined(MULTIPROGRAM) && !defined(TIME_SHARING)
 # define MULTIPROGRAM_YIELD() yield()
@@ -55,7 +56,12 @@ size_t events_read(void *buf, size_t offset, size_t len) {
 }
 
 size_t dispinfo_read(void *buf, size_t offset, size_t len) {
-  return 0;
+  char buffer[128];
+  AM_GPU_CONFIG_T cfg;
+  ioe_read(AM_GPU_CONFIG, &cfg);
+  size_t size = snprintf(buffer, sizeof(buffer), "WIDTH : %d\nHEIGHT:%d", cfg.width, cfg.height);
+  Log("dispinfo buffer size %d", size);
+  return snprintf(buf, len, "%s", buffer);
 }
 
 size_t fb_write(const void *buf, size_t offset, size_t len) {

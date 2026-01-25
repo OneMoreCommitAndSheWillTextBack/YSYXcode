@@ -59,11 +59,11 @@ case $1 in
     init NJU-ProjectN/nvboard master nvboard false NVBOARD_HOME
     ;;
   npc-chisel)
-    if [ -d npc/playground ]; then
+    if [ -d npc-chisel/playground ]; then
       echo "chisel repo is already initialized, skipping..."
     else
-      rm -rf npc
-      init OSCPU/chisel-playground master npc true NPC_HOME
+      # rm -rf npc
+      init OSCPU/chisel-playground master npc-chisel true NPC_CHISEL_HOME
     fi
     ;;
   npc)
