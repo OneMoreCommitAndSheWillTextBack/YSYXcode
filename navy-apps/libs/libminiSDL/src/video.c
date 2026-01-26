@@ -5,14 +5,91 @@
 #include <stdlib.h>
 
 void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect) {
-  assert(dst && src);
-  assert(dst->format->BitsPerPixel == src->format->BitsPerPixel);
+  int src_rect_x = (srcrect == NULL ? 0 : srcrect->x);
+  int src_rect_y = (srcrect == NULL ? 0 : srcrect->y);
+  int src_rect_w = (srcrect == NULL ? src->w : srcrect->w);
+  int src_rect_h = (srcrect == NULL ? src->h : srcrect->h);
+
+  int dst_rect_x = (dstrect == NULL ? 0 : dstrect->x);
+  int dst_rect_y = (dstrect == NULL ? 0 : dstrect->y);
+
+  if (src->format->BytesPerPixel == 4 && dst->format->BytesPerPixel == 4) {
+    uint32_t *dst_pix = (uint32_t *)dst->pixels;
+    uint32_t *src_pix = (uint32_t *)src->pixels;
+    
+    for(int i = 0; i < src_rect_h; i++) {
+      for(int j = 0; j < src_rect_w; j++) {
+        dst_pix[(dst_rect_y + i) * dst->w + dst_rect_x + j] = 
+          src_pix[(src_rect_y + i) * src->w + src_rect_x + j];
+      }
+    }
+  } else if (src->format->BytesPerPixel == 1 && dst->format->BytesPerPixel == 1) {
+    uint8_t *dst_pix = dst->pixels;
+    uint8_t *src_pix = src->pixels;
+    
+    for(int i = 0; i < src_rect_h; i++) {
+      for(int j = 0; j < src_rect_w; j++) {
+        dst_pix[(dst_rect_y + i) * dst->w + dst_rect_x + j] = 
+          src_pix[(src_rect_y + i) * src->w + src_rect_x + j];
+      }
+    }
+  } else {
+    printf("invalid BytesPerPixel\n");
+    assert(0);
+  }
 }
 
 void SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color) {
 }
 
 void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
+    if(s->format->BytesPerPixel == 1) {
+      // 确定更新区域
+      int update_x = (x < 0 ? 0 : x);
+      int update_y = (y < 0 ? 0 : y);
+      int update_w = (w <= 0 || update_x + w > s->w ? s->w - update_x : w);
+      int update_h = (h <= 0 || update_y + h > s->h ? s->h - update_y : h);
+      
+      // 分配32位像素缓冲区
+      uint32_t *pixels_32 = malloc(sizeof(uint32_t) * update_w * update_h);
+      assert(pixels_32);
+      
+      // 获取8位像素数据和调色板
+      uint8_t *pixels_8 = s->pixels;
+      SDL_Palette *palette = s->format->palette;
+      
+      // 创建32位像素格式（使用默认格式）
+      SDL_PixelFormat fmt_32;
+      fmt_32.Rmask = DEFAULT_RMASK;
+      fmt_32.Gmask = DEFAULT_GMASK;
+      fmt_32.Bmask = DEFAULT_BMASK;
+      fmt_32.Amask = DEFAULT_AMASK;
+      fmt_32.Rshift = 16;  // 0x00ff0000 右移16位
+      fmt_32.Gshift = 8;   // 0x0000ff00 右移8位
+      fmt_32.Bshift = 0;   // 0x000000ff 右移0位
+      fmt_32.Ashift = 24;  // 0xff000000 右移24位
+      
+      // 转换8位像素到32位
+      for(int i = 0; i < update_h; i++) {
+        for(int j = 0; j < update_w; j++) {
+          // 获取8位像素索引
+          uint8_t index = pixels_8[(update_y + i) * s->w + update_x + j];
+          // 从调色板获取颜色
+          SDL_Color color = palette->colors[index];
+          // 转换为32位RGBA
+          pixels_32[i * update_w + j] = SDL_MapRGBA(&fmt_32, color.r, color.g, color.b, color.a);
+        }
+      }
+    
+      NDL_DrawRect(pixels_32, update_x, update_y, update_w, update_h);  
+    
+      free(pixels_32);
+  } else if(s->format->BytesPerPixel == 4) {
+    NDL_DrawRect(s->pixels, x, y, w, h); 
+  } else {
+    printf("invalid s->format->BytesPerPixel");
+    assert(0);
+  }
 }
 
 // APIs below are already implemented.
