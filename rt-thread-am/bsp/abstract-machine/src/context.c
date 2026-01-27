@@ -8,6 +8,7 @@ static rt_ubase_t global_to, global_from;
 
 static Context* ev_handler(Event e, Context *c) {
   // printf("get event ID = %d\n", e.event);
+  assert(0);
   switch (e.event) {
     case EVENT_YIELD:
       if(global_from){
