@@ -1,0 +1,33 @@
+/home/ysyx/project/ysyx-workbench/rt-thread-am/bsp/abstract-machine/build/riscv32-nemu//home/ysyx/project/ysyx-workbench/rt-thread-am/components/finsh/msh.o: \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/finsh/msh.c \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/include/rtthread.h \
+ rtconfig.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/bsp/abstract-machine/include/extra.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/include/rtdebug.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/include/rtdef.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/include/rtservice.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/include/rtm.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/finsh/finsh.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/finsh/msh.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/finsh/shell.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/finsh/finsh.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/dfs/dfs_v1/include/dfs_file.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/dfs/dfs_v1/include/dfs.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/libc/compilers/common/include/dirent.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/libc/compilers/common/include/sys/statfs.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/rtdevice.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/ringbuffer.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/completion.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/dataqueue.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/workqueue.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/waitqueue.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/pipe.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/poll.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/ipc/ringblk_buf.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/drivers/rtc.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/drivers/serial.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/drivers/cputime.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/drivers/include/drivers/cputimer.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/dfs/dfs_v1/include/dfs_fs.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/libc/compilers/common/include/unistd.h \
+ /home/ysyx/project/ysyx-workbench/rt-thread-am/components/libc/compilers/common/include/sys/unistd.h
