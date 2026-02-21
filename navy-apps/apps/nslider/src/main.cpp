@@ -96,6 +96,7 @@ int main() {
         break;
       case SDLK_J:
       case SDLK_DOWN:
+      assert(0);
         next(rep);
         rep = 0;
         g = 0;
