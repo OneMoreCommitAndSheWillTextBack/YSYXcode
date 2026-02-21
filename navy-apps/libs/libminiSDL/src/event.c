@@ -16,6 +16,7 @@ int sdl_strcmp(const char *str1, const char *str2) {
   while (str1[i] != '\0' && str2[i] != '\0') {
     if (str1[i] != str2[i])
       return 0;
+    i++;
   }
 
   return str1[i] == str2[i];
@@ -27,7 +28,6 @@ int SDL_WaitEvent(SDL_Event *event) {
   while ((res = NDL_PollEvent(buf, 16)) == 0) {
     // busy wait until an event occurs
   }
-  assert(0);
   char *keystate = buf;
   char *keyn = buf + 3;
   buf[2] = '\0';
