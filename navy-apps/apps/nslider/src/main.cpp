@@ -30,7 +30,6 @@ void render() {
   printf("finsh load bmp file");
   assert(slide);
   SDL_UpdateRect(slide, 0, 0, 0, 0);
-  assert(0);
 }
 
 void prev(int rep) {

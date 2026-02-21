@@ -64,6 +64,9 @@ void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h) {
   int frame_buffer_x = canvas_x + x;
   int frame_buffer_y = canvas_y + y;
 
+  if(h == 0) h = max_height;
+  if(w == 0) w = max_width;
+
   int fd_fb = open("/dev/fb", 0, 0);
   for(int i = 0; i < h; i++) {
     lseek(fd_fb, sizeof(uint32_t) * ((frame_buffer_y + i) * max_width + frame_buffer_x), SEEK_SET);
