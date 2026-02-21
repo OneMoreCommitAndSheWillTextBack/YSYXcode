@@ -26,11 +26,11 @@ void render() {
   printf("finish free SDL_Surface");
   char fname[256];
   sprintf(fname, path, cur);
-  assert(0);
   slide = SDL_LoadBMP(fname);
   printf("finsh load bmp file");
   assert(slide);
   SDL_UpdateRect(slide, 0, 0, 0, 0);
+  assert(0);
 }
 
 void prev(int rep) {
