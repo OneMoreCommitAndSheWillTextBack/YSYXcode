@@ -7,7 +7,7 @@
 int main() {
   NDL_Init(0);
   int w, h;
-  void *bmp = BMP_Load("/share/pictures/projectn.bmp", &w, &h);
+  void *bmp = BMP_Load("/share/slides/slides-1.bmp", &w, &h);
   assert(bmp);
   NDL_OpenCanvas(&w, &h);
   printf("get the canvas size width %d, height %d\n", w, h);

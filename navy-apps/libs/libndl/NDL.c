@@ -7,6 +7,8 @@
 #include "sys/time.h"
 #include "sys/stat.h"
 
+#include "assert.h"
+
 static int evtdev = -1;
 static int fbdev = -1;
 static int screen_w = 0, screen_h = 0;
@@ -44,6 +46,9 @@ void NDL_OpenCanvas(int *w, int *h) {
   sscanf(buf, "WIDTH : %d\nHEIGHT:%d", &max_width, &max_height);
   if(*w == 0) *w = max_width;
   if(*h == 0) *h = max_height;
+
+  assert(*w <= max_width);
+  assert(*h <= max_height);
 
   canvas_width = *w;
   canvas_height = *h;
