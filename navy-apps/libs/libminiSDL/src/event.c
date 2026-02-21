@@ -43,7 +43,7 @@ int SDL_WaitEvent(SDL_Event *event) {
   for(int i = 0; i < sizeof(keyname) / sizeof(keyname[0]); i++) {
     if(sdl_strcmp(keyname[i], keyn)) {
       event->key.keysym.sym = i;
-      assert(i == SDLK_J);
+      break;
     }
   }
 
