@@ -9,7 +9,40 @@ static const char *keyname[] = {"NONE", _KEYS(keyname)};
 
 int SDL_PushEvent(SDL_Event *ev) { return 0; }
 
-int SDL_PollEvent(SDL_Event *ev) { return 0; }
+int SDL_PollEvent(SDL_Event *ev) { 
+  char buf[16];
+  int res = NDL_PollEvent(buf, 16);
+
+  if(res == 0) return 0;
+
+  char *keystate = buf;
+  char *keyn = buf + 3;
+  buf[2] = '\0';
+
+  for(int i = 3; i < 16; i++) {
+    if(buf[i] == '\n') {
+      buf[i] = '\0';
+      break;
+    }
+  }
+
+  if (sdl_strcmp(keystate, "kd")) {
+    ev->key.type = SDL_KEYDOWN;
+  } else if (sdl_strcmp(keystate, "ku")) {
+    ev->key.type = SDL_KEYUP;
+  } else {
+    assert(0);
+  }
+
+  for(int i = 0; i < sizeof(keyname) / sizeof(keyname[0]); i++) {
+    if(sdl_strcmp(keyname[i], keyn)) {
+      ev->key.keysym.sym = i;
+      break;
+    }
+  }
+
+  return 1; 
+}
 
 int sdl_strcmp(const char *str1, const char *str2) {
   int i = 0;
