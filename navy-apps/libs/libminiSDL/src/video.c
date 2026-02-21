@@ -85,6 +85,7 @@ void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
     
       free(pixels_32);
   } else if(s->format->BytesPerPixel == 4) {
+    write(1, "into ndl function");
     NDL_DrawRect(s->pixels, x, y, w, h); 
   } else {
     printf("invalid s->format->BytesPerPixel");
