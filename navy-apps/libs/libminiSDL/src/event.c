@@ -40,10 +40,9 @@ int SDL_WaitEvent(SDL_Event *event) {
     assert(0);
   }
 
-  assert(sizeof(keyname) / sizeof(keyname[0]) != 0);
+  write(1, buf + 3);
 
   for(int i = 0; i < sizeof(keyname) / sizeof(keyname[0]); i++) {
-    assert(0);
     if(sdl_strcmp(keyname[i], keyn)) {
       event->key.keysym.sym = i;
       break;
