@@ -44,6 +44,7 @@ void SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color) {
 
 void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
     if(s->format->BytesPerPixel == 1) {
+      assert(0);
       // 确定更新区域
       int update_x = (x < 0 ? 0 : x);
       int update_y = (y < 0 ? 0 : y);
