@@ -23,8 +23,8 @@ void render() {
   if (slide) {
     SDL_FreeSurface(slide);
   }
-  assert(0);
   printf("finish free SDL_Surface");
+  assert(0);
   char fname[256];
   sprintf(fname, path, cur);
   slide = SDL_LoadBMP(fname);
