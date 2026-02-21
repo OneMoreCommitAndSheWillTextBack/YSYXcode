@@ -27,6 +27,7 @@ int SDL_WaitEvent(SDL_Event *event) {
   while ((res = NDL_PollEvent(buf, 16)) == 0) {
     // busy wait until an event occurs
   }
+  assert(0);
   char *keystate = buf;
   char *keyn = buf + 3;
   buf[2] = '\0';
