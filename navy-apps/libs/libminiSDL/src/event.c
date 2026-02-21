@@ -31,7 +31,13 @@ int SDL_WaitEvent(SDL_Event *event) {
   char *keystate = buf;
   char *keyn = buf + 3;
   buf[2] = '\0';
-  buf[4] = '\0';
+
+  for(int i = 3; i < 16; i++) {
+    if(buf[i] == '\n') {
+      buf[i] = '\0';
+      break;
+    }
+  }
 
   if (sdl_strcmp(keystate, "kd")) {
     event->key.type = SDL_KEYDOWN;
@@ -41,11 +47,10 @@ int SDL_WaitEvent(SDL_Event *event) {
     assert(0);
   }
 
-  write(1, buf + 3);
-
   for(int i = 0; i < sizeof(keyname) / sizeof(keyname[0]); i++) {
     if(sdl_strcmp(keyname[i], keyn)) {
       event->key.keysym.sym = i;
+      assert(0);
       break;
     }
   }
