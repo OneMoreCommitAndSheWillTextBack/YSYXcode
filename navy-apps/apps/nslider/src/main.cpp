@@ -24,9 +24,9 @@ void render() {
     SDL_FreeSurface(slide);
   }
   printf("finish free SDL_Surface");
-  assert(0);
   char fname[256];
   sprintf(fname, path, cur);
+  assert(0);
   slide = SDL_LoadBMP(fname);
   printf("finsh load bmp file");
   assert(slide);
