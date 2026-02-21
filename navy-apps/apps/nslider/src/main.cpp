@@ -20,10 +20,10 @@ static SDL_Surface *slide = NULL;
 static int cur = 0;
 
 void render() {
-  assert(0);
   if (slide) {
     SDL_FreeSurface(slide);
   }
+  assert(0);
   printf("finish free SDL_Surface");
   char fname[256];
   sprintf(fname, path, cur);
