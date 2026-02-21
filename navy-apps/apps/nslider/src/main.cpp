@@ -23,11 +23,10 @@ void render() {
   if (slide) {
     SDL_FreeSurface(slide);
   }
-  printf("finish free SDL_Surface");
   char fname[256];
   sprintf(fname, path, cur);
   slide = SDL_LoadBMP(fname);
-  printf("finsh load bmp file");
+  assert(cur != 1);
   assert(slide);
   SDL_UpdateRect(slide, 0, 0, 0, 0);
 }
@@ -96,7 +95,6 @@ int main() {
         break;
       case SDLK_J:
       case SDLK_DOWN:
-      assert(0);
         next(rep);
         rep = 0;
         g = 0;
