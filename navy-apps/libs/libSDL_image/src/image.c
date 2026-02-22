@@ -25,7 +25,10 @@ SDL_Surface *IMG_Load(const char *filename) {
   fread(buf, size, 1, fd);
 
   SDL_Surface *res = STBIMG_LoadFromMemory(buf, size);
-  free(buf);
+  if(res == NULL) {
+    assert(false && "STBIMG_LoadFromMemory failed");
+  }
+  free(buf); 
   fclose(fd);
 
   return res;
