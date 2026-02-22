@@ -22,7 +22,8 @@ SDL_Surface *IMG_Load(const char *filename) {
   unsigned int size = ftell(fd);
 
   uint32_t *buf = malloc(size);
-  fread(buf, size, 1, fd);
+  uin32t_t readn = fread(buf, size, 1, fd);
+  assert(readn == size && buf != NULL);
 
   SDL_Surface *res = STBIMG_LoadFromMemory(buf, size);
   if(res == NULL) {
