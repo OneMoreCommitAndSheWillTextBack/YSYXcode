@@ -23,7 +23,7 @@ void init_proc() {
 
   Log("Initializing processes...");
 
-  naive_uload(NULL, "/bin/bird");
+  naive_uload(NULL, "/bin/hello");
 }
 
 Context *schedule(Context *prev) { return NULL; }
