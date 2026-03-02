@@ -315,6 +315,7 @@ inline uint32_t color_distance(uint8_t r0, uint8_t r1, uint8_t g0, uint8_t g1,
 int closest_color_idx(SDL_Palette *pa, uint8_t r, uint8_t g, uint8_t b) {
   uint32_t min_distance = -1;
   int min_idx = -1;
+  assert(pa != NULL);
   for (int i = 0; i < pa->ncolors; i++) {
     SDL_Color *color = pa->colors + i;
     uint32_t diff = color_distance(color->r, r, color->g, g, color->b, b);
