@@ -332,7 +332,9 @@ int closest_color_idx(SDL_Palette *pa, uint8_t r, uint8_t g, uint8_t b) {
 uint32_t SDL_MapRGBA(SDL_PixelFormat *fmt, uint8_t r, uint8_t g, uint8_t b,
                      uint8_t a) {
   int bytes_per_pixel = fmt->BytesPerPixel;
-  assert(bytes_per_pixel != 0);
+  int bits_per_pixel = fmt->BitsPerPixel;
+  assert(bits_per_pixel != 0 || bytes_per_pixel != 0);
+
   if (bytes_per_pixel == 1) {
     assert(fmt->palette);
     return closest_color_idx(fmt->palette, r, g, b);
