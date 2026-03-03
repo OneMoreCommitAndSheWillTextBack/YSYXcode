@@ -163,6 +163,8 @@ SDL_Surface *SDL_CreateRGBSurface(uint32_t flags, int width, int height,
   s->format->BitsPerPixel = depth;
   s->format->BytesPerPixel = depth / 8;
 
+  printf("[Debug] create surface, BitPerPixel is %d\n", depth);
+
   s->w = width;
   s->h = height;
   s->pitch = width * depth / 8;
@@ -335,7 +337,6 @@ uint32_t SDL_MapRGBA(SDL_PixelFormat *fmt, uint8_t r, uint8_t g, uint8_t b,
   int bits_per_pixel = fmt->BitsPerPixel;
   assert(bits_per_pixel != 0 || bytes_per_pixel != 0);
 
-  printf("the bits of pexel is %d\n", bits_per_pixel);
   
   if (bytes_per_pixel == 1) {
     assert(fmt->palette);
