@@ -334,6 +334,8 @@ uint32_t SDL_MapRGBA(SDL_PixelFormat *fmt, uint8_t r, uint8_t g, uint8_t b,
   int bytes_per_pixel = fmt->BytesPerPixel;
   int bits_per_pixel = fmt->BitsPerPixel;
   assert(bits_per_pixel != 0 || bytes_per_pixel != 0);
+  
+  assert(bits_per_pixel == 8 || bits_per_pixel == 16 || bits_per_pixel == 24 || bits_per_pixel == 32);
 
   if (bytes_per_pixel == 1) {
     assert(fmt->palette);
