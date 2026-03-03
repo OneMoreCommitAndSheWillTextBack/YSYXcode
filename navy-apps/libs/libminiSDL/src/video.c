@@ -65,38 +65,18 @@ void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
     int update_y = (y < 0 ? 0 : y);
     int update_w = (w <= 0 || update_x + w > s->w ? s->w - update_x : w);
     int update_h = (h <= 0 || update_y + h > s->h ? s->h - update_y : h);
+    uint8_t *pixels_8 = s->pixels;
 
     // 分配32位像素缓冲区
     uint32_t *pixels_32 = malloc(sizeof(uint32_t) * update_w * update_h);
     assert(pixels_32);
 
-    // 获取8位像素数据和调色板
-    uint8_t *pixels_8 = s->pixels;
-    SDL_Palette *palette = s->format->palette;
-
-    // 创建32位像素格式（使用默认格式）
-    SDL_PixelFormat fmt_32;
-    fmt_32.Rmask = DEFAULT_RMASK;
-    fmt_32.Gmask = DEFAULT_GMASK;
-    fmt_32.Bmask = DEFAULT_BMASK;
-    fmt_32.Amask = DEFAULT_AMASK;
-    fmt_32.Rshift = 16; // 0x00ff0000 右移16位
-    fmt_32.Gshift = 8;  // 0x0000ff00 右移8位
-    fmt_32.Bshift = 0;  // 0x000000ff 右移0位
-    fmt_32.Ashift = 24; // 0xff000000 右移24位
-    fmt_32.BitsPerPixel = 8;
-    fmt_32.BytesPerPixel = 1;
-    
     // 转换8位像素到32位
     for (int i = 0; i < update_h; i++) {
       for (int j = 0; j < update_w; j++) {
-        // 获取8位像素索引
         uint8_t index = pixels_8[(update_y + i) * s->w + update_x + j];
-        // 从调色板获取颜色
-        SDL_Color color = palette->colors[index];
-        // 转换为32位RGBA
-        pixels_32[i * update_w + j] =
-            SDL_MapRGBA(&fmt_32, color.r, color.g, color.b, color.a);
+        SDL_Color color = s->format->palette->colors[index];
+        pixels_32[i * update_w + j] = (color.r << 16) | (color.g << 8) | color.b;
       }
     }
 
@@ -317,7 +297,6 @@ inline uint32_t color_distance(uint8_t r0, uint8_t r1, uint8_t g0, uint8_t g1,
 int closest_color_idx(SDL_Palette *pa, uint8_t r, uint8_t g, uint8_t b) {
   uint32_t min_distance = -1;
   int min_idx = -1;
-  printf("[Debug] the address of pal is %p\n", pa);
   for (int i = 0; i < pa->ncolors; i++) {
     SDL_Color *color = pa->colors + i;
     uint32_t diff = color_distance(color->r, r, color->g, g, color->b, b);
