@@ -84,7 +84,9 @@ void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
     fmt_32.Gshift = 8;  // 0x0000ff00 右移8位
     fmt_32.Bshift = 0;  // 0x000000ff 右移0位
     fmt_32.Ashift = 24; // 0xff000000 右移24位
-
+    fmt_32.BitsPerPixel = 8;
+    fmt_32.BytesPerPixel = 1;
+    
     // 转换8位像素到32位
     for (int i = 0; i < update_h; i++) {
       for (int j = 0; j < update_w; j++) {
@@ -162,8 +164,6 @@ SDL_Surface *SDL_CreateRGBSurface(uint32_t flags, int width, int height,
 
   s->format->BitsPerPixel = depth;
   s->format->BytesPerPixel = depth / 8;
-
-  printf("[Debug] create surface, BitPerPixel is %d\n", depth);
 
   s->w = width;
   s->h = height;
