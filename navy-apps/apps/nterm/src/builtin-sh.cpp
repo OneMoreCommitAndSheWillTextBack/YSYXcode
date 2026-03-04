@@ -69,7 +69,7 @@ static int check_and_set_envp(const char *cmd) {
   size_t value_len = strlen(eq + 1);
   if (value_len >= sizeof(value)) value_len = sizeof(value) - 1;
   memcpy(value, eq + 1, value_len);
-  value[value_len] = '\0';
+  value[value_len - 1] = '\0';
 
   setenv(name, value, 1);
   return 1;
