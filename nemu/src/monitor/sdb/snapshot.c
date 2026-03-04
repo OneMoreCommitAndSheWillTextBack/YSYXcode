@@ -73,7 +73,7 @@ int snap_store(const char *filename) {
 
 int snap_load(const char *filename) {
     char *final_name = get_fin_filename(filename);
-    if(filename == NULL) {
+    if(final_name == NULL) {
         printf("[Error] snap load cannot get the final name\n");
         return 1;
     }
