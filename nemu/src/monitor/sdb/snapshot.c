@@ -15,7 +15,7 @@ const char* default_file_name = "nemu-snapshot";
 static char *get_fin_filename(const char *filename) {
     if (filename == NULL || *filename == '\0') {
         char *buf = malloc(strlen(default_file_name) + 4);
-        return buf ? sprintf(buf, "./%s", default_file_name), buf : NULL;
+        return buf ? (sprintf(buf, "./%s", default_file_name), buf) : NULL;
     }
 
     struct stat st;
