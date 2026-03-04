@@ -23,8 +23,8 @@ void do_syscall(Context *c) {
 
   switch (a[0]) {
     case SYS_exit:
-      // halt(c->GPR2);
-      naive_uload(NULL, "/bin/menu");
+      halt(c->GPR2);
+      // naive_uload(NULL, "/bin/menu");
 
     case SYS_yield: 
       c->GPRx = 0;
