@@ -1,7 +1,9 @@
-Chisel Project Template
-=======================
+NPC Chisel 重构
+==============
 
-Another version of the [Chisel template](https://github.com/ucb-bar/chisel-template) supporting mill.
+本仓库计划使用 [Chisel](https://www.chisel-lang.org/) 重构 NPC，目前尚处于准备阶段，尚未开始开发。
+
+基于 [Chisel template](https://github.com/ucb-bar/chisel-template)，使用 mill 作为构建工具。
 mill is another Scala/Java build tool without obscure DSL like SBT. It is much faster than SBT.
 
 Contents at a glance:
