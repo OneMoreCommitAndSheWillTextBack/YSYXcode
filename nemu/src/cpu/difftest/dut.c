@@ -140,7 +140,6 @@ static void difftest_step_(vaddr_t pc, vaddr_t npc) {
 static bool difftest_attached = true;
 void difftest_step(vaddr_t pc, vaddr_t npc) {
   if(difftest_attached) {
-    printf("run difftest\n");
     difftest_step_(pc, npc);
   }
 }

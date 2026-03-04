@@ -134,14 +134,22 @@ static int cmd_d(char *args) {
   return 0;
 }
 
-static int cmd_attach() {
+static int cmd_attach(char *args) {
   isa_difftest_attach();
   return 0;
 }
 
-static int cmd_detach() {
+static int cmd_detach(char *args) {
   isa_difftest_detach();
   return 0;
+}
+
+static int cmd_save(char *args) {
+  return snap_store(args);  
+}
+
+static int cmd_load(char *args) {
+  return snap_load(args);
 }
 
 static int test_p(char *args) {
@@ -174,6 +182,7 @@ static int test_p(char *args) {
   return 0;
 }
 
+__attribute__((unused))
 static int cmd_invalid(char *args) {
   assert(false && "call cmd_invalid");
 }
@@ -199,8 +208,8 @@ static struct {
     {"d", "delete a watchpoint", cmd_d},
    {"attach", "attach the difftest", cmd_attach},
    {"detach", "detach the difftest", cmd_detach},
-   {"save", "save the snapshot", cmd_invalid},
-   {"load", "load the snapshot", cmd_invalid},
+   {"save", "save the snapshot", cmd_save},
+   {"load", "load the snapshot", cmd_load},
   };
 
 #define NR_CMD ARRLEN(cmd_table)
