@@ -134,6 +134,16 @@ static int cmd_d(char *args) {
   return 0;
 }
 
+static int cmd_attach() {
+  isa_difftest_attach();
+  return 0;
+}
+
+static int cmd_detach() {
+  isa_difftest_detach();
+  return 0;
+}
+
 static int test_p(char *args) {
   char *line = NULL;
   size_t len = 0;
@@ -164,6 +174,10 @@ static int test_p(char *args) {
   return 0;
 }
 
+static int cmd_invalid(char *args) {
+  assert(false && "call cmd_invalid");
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -182,7 +196,12 @@ static struct {
     {"p", "evaluate the expr", cmd_p},
     {"test", "test the function of p", test_p},
     {"b", "create a watchpoint", cmd_b},
-    {"d", "delete a watchpoint", cmd_d}};
+    {"d", "delete a watchpoint", cmd_d},
+   {"attach", "attach the difftest", cmd_attach},
+   {"detach", "detach the difftest", cmd_detach},
+   {"save", "save the snapshot", cmd_invalid},
+   {"load", "load the snapshot", cmd_invalid},
+  };
 
 #define NR_CMD ARRLEN(cmd_table)
 
@@ -254,7 +273,16 @@ void sdb_mainloop() {
   }
 }
 
+#include "signal.h"
+
+void interrupt() {
+  set_state_stop();
+}
+
 void init_sdb() {
+  /* Register interrupt function */
+  signal(SIGINT, interrupt);
+
   /* Compile the regular expressions. */
   init_regex();
 
