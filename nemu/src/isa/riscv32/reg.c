@@ -21,9 +21,25 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
                       "a6", "a7", "s2",  "s3",  "s4", "s5", "s6", "s7",
                       "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
-void isa_reg_display() {
-  for (int i = 0; i < 32; i++) {
-    printf("%4s:0x%9x %d\n", regs[i], cpu.gpr[i], cpu.gpr[i]);
+void isa_reg_display(CPU_state *ref) {
+  // 表头
+  if (ref == NULL) {
+    printf("  %-4s %-10s %-12s\n", "reg", "hex", "dec");
+    printf("  ---------------------------------\n");
+    for (int i = 0; i < 32; i++) {
+      uint32_t val = cpu.gpr[i];
+      printf("  %-4s 0x%08x %-12d\n", regs[i], val, (int32_t)val);
+    }
+    printf("  %-4s 0x%08x\n", "pc", cpu.pc);
+  } else {
+    printf("  %-4s %-10s %-10s %-12s\n", "reg", "DUT", "REF", "diff");
+    printf("  ---------------------------------------------\n");
+    for (int i = 0; i < 32; i++) {
+      uint32_t d = cpu.gpr[i];
+      uint32_t r = ref->gpr[i];
+      printf("  %-4s 0x%08x 0x%08x %-12d\n", regs[i], d, r, (int32_t)d - (int32_t)r);
+    }
+    printf("  %-4s 0x%08x 0x%08x\n", "pc", cpu.pc, ref->pc);
   }
 }
 

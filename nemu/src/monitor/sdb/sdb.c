@@ -78,7 +78,7 @@ static int cmd_si(char *args) {
 
 static int cmd_info(char *args) {
   if (strcmp("r", args) == 0)
-    isa_reg_display();
+    isa_reg_display(NULL);
   else if (strcmp("w", args) == 0)
     info_wp();
   else
