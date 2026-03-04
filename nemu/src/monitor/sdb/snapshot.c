@@ -52,14 +52,14 @@ int snap_store(const char *filename) {
     }
 
     if (fwrite(&cpu, sizeof(CPU_state), 1, fd) != 1) {
-        fprintf(stderr, "[Error] snapshot: failed to write CPU state\n");
+        printf("[Error] snapshot: failed to write CPU state\n");
         fclose(fd);
         free(final_name);
         return 1;
     }
 
     if (fwrite(guest_to_host(RESET_VECTOR), 1, CONFIG_MSIZE, fd) != CONFIG_MSIZE) {
-        fprintf(stderr, "[Error] snapshot: failed to write memory\n");
+        printf("[Error] snapshot: failed to write memory\n");
         fclose(fd);
         free(final_name);
         return 1;
@@ -86,7 +86,7 @@ int snap_load(const char *filename) {
 
     /* 1. 读入 CPU 状态 */
     if (fread(&cpu, sizeof(CPU_state), 1, fd) != 1) {
-        fprintf(stderr, "[Error] snap_load: failed to read CPU state\n");
+        printf("[Error] snap_load: failed to read CPU state\n");
         fclose(fd);
         free(final_name);
         return 1;
@@ -94,7 +94,7 @@ int snap_load(const char *filename) {
 
     /* 2. 读入内存 */
     if (fread(guest_to_host(CONFIG_MBASE), 1, CONFIG_MSIZE, fd) != CONFIG_MSIZE) {
-        fprintf(stderr, "[Error] snap_load: failed to read memory\n");
+        printf("[Error] snap_load: failed to read memory\n");
         fclose(fd);
         free(final_name);
         return 1;
