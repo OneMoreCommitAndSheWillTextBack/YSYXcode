@@ -44,6 +44,7 @@ int snap_store(const char *filename) {
         printf("[Error] snap store cannot get the final name\n");
         return 1;
     }
+    printf("Snapshot file name: %s\n", final_name);
 
     FILE *fd = fopen(final_name, "wb");
     if(fd == NULL) {
