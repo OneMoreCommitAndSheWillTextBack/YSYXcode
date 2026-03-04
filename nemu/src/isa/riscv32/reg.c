@@ -32,7 +32,7 @@ void isa_reg_display(CPU_state *ref) {
     // 只打印本机寄存器
     printf("%s  %-5s %-12s %-12s%s\n", C_HDR, "reg", "hex", "dec", C_RESET);
     printf("  %s%-5s %-12s %-12s%s\n",
-           C_HDR, "-----", "------------", "------------", C_RESET);
+           C_HDR, "=====", "============", "============", C_RESET);
     for (int i = 0; i < 32; i++) {
       uint32_t val = cpu.gpr[i];
       printf("  %s%-5s%s %s0x%08x%s   %s%-12d%s\n",
@@ -48,7 +48,7 @@ void isa_reg_display(CPU_state *ref) {
     printf("%s  %-5s %-12s %-12s %-8s%s\n",
            C_HDR, "reg", "DUT", "REF", "diff", C_RESET);
     printf("  %s%-5s %-12s %-12s %-8s%s\n",
-           C_HDR, "-----", "------------", "------------", "--------", C_RESET);
+           C_HDR, "=====", "============", "============", "========", C_RESET);
     for (int i = 0; i < 32; i++) {
       uint32_t d = cpu.gpr[i];
       uint32_t r = ref->gpr[i];

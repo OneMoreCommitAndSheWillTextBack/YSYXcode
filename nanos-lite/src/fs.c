@@ -70,6 +70,17 @@ int fs_str_cmp(const char *str1, const char *str2) {
   return str1[counter] == str2[counter];
 }
 
+int fs_exist(const char *filename) {
+  int file_table_size = sizeof(file_table) / sizeof(file_table[0]);
+  for (int i = 3; i < file_table_size; i++) {
+    if (fs_str_cmp(filename, file_table[i].name)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 int fs_open(const char *filename, int flags, int mode) {
   int file_table_size = sizeof(file_table) / sizeof(file_table[0]);
   for (int i = 3; i < file_table_size; i++) {

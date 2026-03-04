@@ -77,3 +77,12 @@ void naive_uload(PCB *pcb, const char *filename) {
   Log("Jump to entry = %d", entry);
   ((void (*)())entry)();
 }
+
+int syscall_execve(const char *filename) {
+  if(fs_exist(filename)) {
+    naive_uload(NULL, filename);
+    panic("should not reach here");
+  } 
+
+  return -1;
+}
