@@ -149,7 +149,10 @@ static int cmd_save(char *args) {
 }
 
 static int cmd_load(char *args) {
-  return snap_load(args);
+  int res = snap_load(args);
+  isa_difftest_detach();
+  isa_difftest_attach();
+  return res;
 }
 
 static int test_p(char *args) {
