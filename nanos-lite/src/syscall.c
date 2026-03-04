@@ -59,7 +59,7 @@ void do_syscall(Context *c) {
       break;
 
     case SYS_execve:
-      c->GPRx = syscall_execve((const char *)a[0]);
+      c->GPRx = syscall_execve((const char *)a[1]);
       break;
 
     default: panic("Unhandled syscall ID = %d", a[0]);
