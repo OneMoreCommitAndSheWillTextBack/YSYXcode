@@ -4,6 +4,9 @@
 #include <SDL.h>
 #include "assert.h"
 
+#include "stdlib.h"
+#include "string.h"
+
 char handle_key(SDL_Event *ev);
 
 static void sh_printf(const char *format, ...) {
@@ -51,16 +54,39 @@ static int sh_tokenize(const char *cmd, char argv[][ARGLEN]) {
   return cur_argv_idx;
 }
 
+static int check_and_set_envp(const char *cmd) {
+  const char *eq = strchr(cmd, '=');
+  if (eq == NULL) return 0;
+
+  size_t name_len = eq - cmd;
+  if (name_len == 0) return 0;  /* invalid: no name before '=' */
+
+  char name[64], value[256];
+  if (name_len >= sizeof(name)) return 0;
+  memcpy(name, cmd, name_len);
+  name[name_len] = '\0';
+
+  size_t value_len = strlen(eq + 1);
+  if (value_len >= sizeof(value)) value_len = sizeof(value) - 1;
+  memcpy(value, eq + 1, value_len);
+  value[value_len] = '\0';
+
+  setenv(name, value, 1);
+  return 1;
+}
+
 static void sh_handle_cmd(const char *cmd) {
   char buf[ARGMAX][ARGLEN];
   char *argv[ARGMAX + 1];
-  int n = sh_tokenize(cmd, buf);
+
+  if(!check_and_set_envp(cmd)) {
+    int n = sh_tokenize(cmd, buf);
+    for (int i = 0; i < n; i++) argv[i] = buf[i];
+    argv[n] = NULL;
   
-  for (int i = 0; i < n; i++) argv[i] = buf[i];
-  argv[n] = NULL;
-  
-  if (execve(argv[0], argv, NULL) == -1) {
-    sh_printf("invalid cmd %s\n", cmd);
+    if (execvp(argv[0], argv) == -1) {
+      sh_printf("invalid cmd %s\n", cmd);
+    }
   }
 }
 
