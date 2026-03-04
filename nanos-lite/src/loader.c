@@ -79,11 +79,12 @@ void naive_uload(PCB *pcb, const char *filename) {
 }
 
 int syscall_execve(const char *filename) {
+  Log("syscall execve: %s", filename);
+
   if(fs_exist(filename)) {
     naive_uload(NULL, filename);
     panic("should not reach here");
   } 
 
-  Log("get to here");
   return -1;
 }
