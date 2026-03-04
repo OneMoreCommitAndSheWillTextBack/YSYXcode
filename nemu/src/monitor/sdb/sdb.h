@@ -26,4 +26,7 @@ void free_wp(int wp_num);
 
 int check_wp_hit();
 
+int snap_load(const char *filename);
+int snap_store(const char *filename);
+
 #endif

@@ -1,7 +1,9 @@
 #include <NDL.h>
 
 int SDL_Init(uint32_t flags) {
-  return NDL_Init(flags);
+  int res = NDL_Init(flags);
+  init_ticks();
+  return res;
 }
 
 void SDL_Quit() {

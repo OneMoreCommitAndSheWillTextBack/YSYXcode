@@ -78,7 +78,7 @@ static int cmd_si(char *args) {
 
 static int cmd_info(char *args) {
   if (strcmp("r", args) == 0)
-    isa_reg_display();
+    isa_reg_display(NULL);
   else if (strcmp("w", args) == 0)
     info_wp();
   else
@@ -134,6 +134,27 @@ static int cmd_d(char *args) {
   return 0;
 }
 
+static int cmd_attach(char *args) {
+  isa_difftest_attach();
+  return 0;
+}
+
+static int cmd_detach(char *args) {
+  isa_difftest_detach();
+  return 0;
+}
+
+static int cmd_save(char *args) {
+  return snap_store(args);  
+}
+
+static int cmd_load(char *args) {
+  int res = snap_load(args);
+  isa_difftest_detach();
+  isa_difftest_attach();
+  return res;
+}
+
 static int test_p(char *args) {
   char *line = NULL;
   size_t len = 0;
@@ -164,6 +185,11 @@ static int test_p(char *args) {
   return 0;
 }
 
+__attribute__((unused))
+static int cmd_invalid(char *args) {
+  assert(false && "call cmd_invalid");
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -182,7 +208,12 @@ static struct {
     {"p", "evaluate the expr", cmd_p},
     {"test", "test the function of p", test_p},
     {"b", "create a watchpoint", cmd_b},
-    {"d", "delete a watchpoint", cmd_d}};
+    {"d", "delete a watchpoint", cmd_d},
+   {"attach", "attach the difftest", cmd_attach},
+   {"detach", "detach the difftest", cmd_detach},
+   {"save", "save the snapshot", cmd_save},
+   {"load", "load the snapshot", cmd_load},
+  };
 
 #define NR_CMD ARRLEN(cmd_table)
 
@@ -254,7 +285,16 @@ void sdb_mainloop() {
   }
 }
 
+#include "signal.h"
+
+void interrupt() {
+  set_state_stop();
+}
+
 void init_sdb() {
+  /* Register interrupt function */
+  signal(SIGINT, interrupt);
+
   /* Compile the regular expressions. */
   init_regex();
 

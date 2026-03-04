@@ -1,5 +1,6 @@
 #include <common.h>
 #include "syscall.h"
+#include "proc.h"
 #include "am.h"
 #include "fs.h"
 
@@ -23,6 +24,7 @@ void do_syscall(Context *c) {
   switch (a[0]) {
     case SYS_exit:
       halt(c->GPR2);
+      // naive_uload(NULL, "/bin/menu");
 
     case SYS_yield: 
       c->GPRx = 0;
@@ -54,6 +56,10 @@ void do_syscall(Context *c) {
 
     case SYS_gettimeofday:
       c->GPRx = get_time((struct timeval *)a[1], (struct timezone *)a[2]);
+      break;
+
+    case SYS_execve:
+      c->GPRx = syscall_execve((const char *)a[1]);
       break;
 
     default: panic("Unhandled syscall ID = %d", a[0]);

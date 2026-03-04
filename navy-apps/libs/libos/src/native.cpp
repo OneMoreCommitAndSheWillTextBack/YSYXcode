@@ -2,20 +2,20 @@
 #define _GNU_SOURCE
 #endif
 
-#include <unistd.h>
-#include <dlfcn.h>
+#include <SDL2/SDL.h>
 #include <assert.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <SDL2/SDL.h>
-#include <sys/mman.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-//#define MODE_800x600
+// #define MODE_800x600
 
 #define FPS 60
 #ifdef MODE_800x600
@@ -30,7 +30,8 @@ static FILE *(*glibc_fopen)(const char *path, const char *mode) = NULL;
 static int (*glibc_open)(const char *path, int flags, ...) = NULL;
 static ssize_t (*glibc_read)(int fd, void *buf, size_t count) = NULL;
 static ssize_t (*glibc_write)(int fd, const void *buf, size_t count) = NULL;
-static int (*glibc_execve)(const char *filename, char *const argv[], char *const envp[]) = NULL;
+static int (*glibc_execve)(const char *filename, char *const argv[],
+                           char *const envp[]) = NULL;
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -47,6 +48,8 @@ static char fsimg_path[512] = "";
 static inline void get_fsimg_path(char *newpath, const char *path) {
   sprintf(newpath, "%s%s", fsimg_path, path);
 }
+
+// clang-format off
 
 #define _KEYS(_) \
   _(ESCAPE) _(F1) _(F2) _(F3) _(F4) _(F5) _(F6) _(F7) _(F8) _(F9) _(F10) _(F11) _(F12) \
