@@ -84,5 +84,6 @@ int syscall_execve(const char *filename) {
     panic("should not reach here");
   } 
 
+  Log("get to here");
   return -1;
 }
