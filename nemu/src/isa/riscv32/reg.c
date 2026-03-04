@@ -30,35 +30,36 @@ void isa_reg_display(CPU_state *ref) {
 
   if (ref == NULL) {
     // 只打印本机寄存器
-    printf("%s%-4s %-12s %-12s%s\n", C_HDR, "reg", "hex", "dec", C_RESET);
-    printf("  ----------------------------------------\n");
+    printf("%s  %-5s %-12s %-12s%s\n", C_HDR, "reg", "hex", "dec", C_RESET);
+    printf("  %s%-5s %-12s %-12s%s\n", C_HDR, "-----", "------------", "------------", C_RESET);
     for (int i = 0; i < 32; i++) {
       uint32_t val = cpu.gpr[i];
-      printf("  %s%-4s%s %s0x%08x%s %s%-12d%s\n",
+      printf("  %s%-5s%s %s0x%08x%s %s%-12d%s\n",
              C_NAME, regs[i], C_RESET,
              C_VAL,  val,      C_RESET,
              C_VAL,  (int32_t)val, C_RESET);
     }
-    printf("  %s%-4s%s %s0x%08x%s\n",
+    printf("  %s%-5s%s %s0x%08x%s\n",
            C_NAME, "pc", C_RESET,
            C_VAL,  cpu.pc, C_RESET);
   } else {
     // 对比 DUT 和 REF 寄存器
-    printf("%s%-4s %-12s %-12s %-8s%s\n",
+    printf("%s  %-5s %-12s %-12s %-8s%s\n",
            C_HDR, "reg", "DUT", "REF", "diff", C_RESET);
-    printf("  -----------------------------------------------------\n");
+    printf("  %s%-5s %-12s %-12s %-8s%s\n",
+           C_HDR, "-----", "------------", "------------", "--------", C_RESET);
     for (int i = 0; i < 32; i++) {
       uint32_t d = cpu.gpr[i];
       uint32_t r = ref->gpr[i];
       const char *c = (d == r) ? C_VAL : C_DIFF;
-      printf("  %s%-4s%s %s0x%08x%s %s0x%08x%s %s%-8d%s\n",
+      printf("  %s%-5s%s %s0x%08x%s %s0x%08x%s %s%-8d%s\n",
              C_NAME, regs[i], C_RESET,
              c,      d,       C_RESET,
              c,      r,       C_RESET,
              c,      (int32_t)d - (int32_t)r, C_RESET);
     }
     const char *cpc = (cpu.pc == ref->pc) ? C_VAL : C_DIFF;
-    printf("  %s%-4s%s %s0x%08x%s %s0x%08x%s\n",
+    printf("  %s%-5s%s %s0x%08x%s %s0x%08x%s\n",
            C_NAME, "pc", C_RESET,
            cpc,     cpu.pc, C_RESET,
            cpc,     ref->pc, C_RESET);
