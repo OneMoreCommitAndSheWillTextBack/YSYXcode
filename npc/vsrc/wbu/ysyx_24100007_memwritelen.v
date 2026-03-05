@@ -70,16 +70,10 @@ module ysyx_24100007_memwritelen(
                         (mux == 5'b10000) ? 4'b1111 :
                         4'b0000;
 
-    ysyx_24100007_MuxKey #(4, 2, 4) wstrb_mux(
-        .out(wstrb),
-        .key(bus_size),
-        .lut({
-            `GENERAL, wstrb_general,
-            `BYTE, wstrb_byte,
-            `HALFWORD, wstrb_halfword,
-            `WORD, wstrb_word
-        })
-    );
+    assign wstrb = (bus_size == `GENERAL) ? wstrb_general :
+                   (bus_size == `BYTE) ? wstrb_byte :
+                   (bus_size == `HALFWORD) ? wstrb_halfword :
+                   wstrb_word;
 
     assign wdata_offset = (bus_size == `WORD || bus_size == `GENERAL) ? awaddr[1:0] : 2'b0;
     assign awburst = inuart ? 2'b00 : 2'b01;

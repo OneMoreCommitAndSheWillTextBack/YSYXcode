@@ -294,27 +294,29 @@ module ysyx_24100007_regheap(
   output [31:0] mtvec
 );
 
-
-  wire [32*32-1:0] rf_flat;
+  wire [32*15-1:0] rf_flat;
   wire [32*6-1:0] rf_csr_flat;
   wire [2:0] csr_choose;
   wire [31:0] reg_write_data;
   wire [31:0] rf_src1_word;
   wire [31:0] rf_src2_word;
 
-  // pay attention that the src1 should not be direct use
-  assign rf_src1_word = rf_flat[src1*32 +: 32];
-  assign rf_src2_word = rf_flat[src2*32 +: 32];
+  assign rf_src1_word = (src1 == 0) ? 32'b0 : rf_flat[({5'b0, src1[3:0]} - 9'd1) * 32 +: 32];
+  assign rf_src2_word = (src2 == 0) ? 32'b0 : rf_flat[({5'b0, src2[3:0]} - 9'd1) * 32 +: 32];
   assign reg_write_data = data;
 
-  ysyx_24100007_MuxKey#(6, 12, 3) muxcsr(csr_choose, csr, {
-    12'h300, 3'b000, // mstatus
-    12'h305, 3'b001, // mtvec
-    12'h341, 3'b010, // mepc
-    12'h342, 3'b011, // mcause
-    12'hf11, 3'b100, // mvendorid
-    12'hf12, 3'b101  // marchid
-});
+  reg [2:0] csr_choose;
+  always @(*) begin
+    case (csr)
+      12'h300: csr_choose = 3'b000;  // mstatus
+      12'h305: csr_choose = 3'b001;  // mtvec
+      12'h341: csr_choose = 3'b010;  // mepc
+      12'h342: csr_choose = 3'b011;  // mcause
+      12'hf11: csr_choose = 3'b100;  // mvendorid
+      12'hf12: csr_choose = 3'b101;  // marchid
+      default: csr_choose = 3'b000;  // 或保持与 MuxKey 行为一致
+    endcase
+  end
 
   ysyx_24100007_registers registers0(
     .clk(clk),
@@ -352,17 +354,18 @@ module ysyx_24100007_registers(
   input [2:0]csr_choose,
   input [4:0] addr,
   input [31:0] data,
-  output [32*32-1:0] gr_flat,
+  output [32*15-1:0] gr_flat,
   output [32*6-1:0] csr_flat
 );
   
-  reg [31:0] gr [31:0];
+  reg [31:0] gr [15:1];
   reg [31:0] csr [5:0];
+
+  wire [3:0] reg_addr = addr[3:0];
 
   // write op
   always @(posedge clk) begin 
     if(rst) begin
-      // 手动展开循环，避免综合工具误判
       gr[1] <= 0;
       gr[2] <= 0;
       gr[3] <= 0;
@@ -378,22 +381,6 @@ module ysyx_24100007_registers(
       gr[13] <= 0;
       gr[14] <= 0;
       gr[15] <= 0;
-      gr[16] <= 0;
-      gr[17] <= 0;
-      gr[18] <= 0;
-      gr[19] <= 0;
-      gr[20] <= 0;
-      gr[21] <= 0;
-      gr[22] <= 0;
-      gr[23] <= 0;
-      gr[24] <= 0;
-      gr[25] <= 0;
-      gr[26] <= 0;
-      gr[27] <= 0;
-      gr[28] <= 0;
-      gr[29] <= 0;
-      gr[30] <= 0;
-      gr[31] <= 0;
 
       csr[0] <= 0;
       csr[1] <= 0;
@@ -406,12 +393,11 @@ module ysyx_24100007_registers(
       // 使用互斥的条件，避免多驱动
       if(csrrw) begin
         // $display("csrrw: writing data 0x%08x to csr[%0d], addr=%0d, gr[%0d]", data, csr_choose, addr, addr);
-        {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data};
+        {gr[reg_addr], csr[csr_choose]} <= {csr[csr_choose], data};
       end else if(csrrs) begin
-        {gr[addr], csr[csr_choose]} <= {csr[csr_choose], data|csr[csr_choose]};
-      end else if(ew) begin
-        gr[addr] <= data;
-        // $display("reg[%d] write a 0x%08x", addr, data);
+        {gr[reg_addr], csr[csr_choose]} <= {csr[csr_choose], data|csr[csr_choose]};
+      end else if(ew && reg_addr != 4'b0) begin
+        gr[reg_addr] <= data;
       end
 
       if(ecall) begin
@@ -425,7 +411,7 @@ module ysyx_24100007_registers(
   always @(*) begin
     integer i;
     host_get_reg(0, 0);
-    for(i=1;i<32;i=i+1) begin
+    for(i=1;i<16;i=i+1) begin
       host_get_reg(gr[i], i);
     end
 
@@ -437,8 +423,8 @@ module ysyx_24100007_registers(
 
   genvar gi;
   generate
-    for (gi = 0; gi < 32; gi = gi + 1) begin: PACK_GR
-      assign gr_flat[gi*32 +: 32] = gr[gi];
+    for (gi = 1; gi < 16; gi = gi + 1) begin: PACK_GR
+      assign gr_flat[(gi-1)*32 +: 32] = gr[gi];
     end
   endgenerate
 
@@ -463,7 +449,7 @@ endmodule
 // ---------------------------------------------
 module ysyx_24100007_arbiter #(
   parameter MASTER_NUM=2,           // master设备数量（IFU, WBU）
-  parameter SLAVE_NUM=2             // slave设备数量（CLINT, 外部AXI等）
+  parameter SLAVE_NUM=1             // slave设备数量（CLINT, 外部AXI等）
 )(
   input wire clk,
   input wire rst,
@@ -1357,28 +1343,21 @@ module ysyx_24100007_icache (
     output hit,
     output [31:0] data_r
 );
-    localparam LINE_NUM = 4;
-    localparam TAG_LEN = 32 - 2 - 4;
+    localparam LINE_NUM = 1;
+    localparam INDEX_LEN = 0;
+    localparam TAG_LEN = 32 - INDEX_LEN - 4;
     localparam OFFSET_LEN = 4;
-    localparam INDEX_LEN = 2;
 
     wire [OFFSET_LEN-1:0] offset = addr[OFFSET_LEN-1:0];
-    wire [INDEX_LEN-1:0] index = addr[OFFSET_LEN+INDEX_LEN-1:OFFSET_LEN];
     wire [TAG_LEN-1:0] tag = addr[31:OFFSET_LEN+INDEX_LEN];
 
-    wire [LINE_NUM-1:0] line_hit;
-    wire [31:0] line_data_r [LINE_NUM-1:0];
-    wire [LINE_NUM-1:0] line_w_valid;
-    wire [LINE_NUM-1:0] line_set_invalid;
-    wire [127:0] line_data_w [LINE_NUM-1:0];
+    wire line_hit;
+    wire [31:0] line_data_r;
+    wire line_w_valid;
+    wire [127:0] line_data_w;
 
-    genvar i;
-    generate
-      for (i = 0; i < LINE_NUM; i = i + 1) begin : gen_cacheline
-        assign line_w_valid[i] = w_valid && (index == i);
-        assign line_data_w[i] = w_data;
-      end
-    endgenerate
+    assign line_w_valid = w_valid;
+    assign line_data_w = w_data;
 
     // Manually expanded cache lines (4 instances)
     ysyx_24100007_icahce_line #(
@@ -1390,59 +1369,14 @@ module ysyx_24100007_icache (
         .tag(tag),
         .offset(offset),
         .set_invalid(set_invalid),
-        .w_valid(line_w_valid[0]),
-        .data_w(line_data_w[0]),
-        .hit(line_hit[0]),
-        .data_r(line_data_r[0])
+        .w_valid(line_w_valid),
+        .data_w(line_data_w),
+        .hit(line_hit),
+        .data_r(line_data_r)
     );
 
-    ysyx_24100007_icahce_line #(
-        .TAG_LEN(TAG_LEN),
-        .OFFSET_LEN(OFFSET_LEN)
-    ) u_cacheline_1 (
-        .clk(clk),
-        .rst(rst),
-        .tag(tag),
-        .offset(offset),
-        .set_invalid(set_invalid),
-        .w_valid(line_w_valid[1]),
-        .data_w(line_data_w[1]),
-        .hit(line_hit[1]),
-        .data_r(line_data_r[1])
-    );
-
-    ysyx_24100007_icahce_line #(
-        .TAG_LEN(TAG_LEN),
-        .OFFSET_LEN(OFFSET_LEN)
-    ) u_cacheline_2 (
-        .clk(clk),
-        .rst(rst),
-        .tag(tag),
-        .offset(offset),
-        .set_invalid(set_invalid),
-        .w_valid(line_w_valid[2]),
-        .data_w(line_data_w[2]),
-        .hit(line_hit[2]),
-        .data_r(line_data_r[2])
-    );
-
-    ysyx_24100007_icahce_line #(
-        .TAG_LEN(TAG_LEN),
-        .OFFSET_LEN(OFFSET_LEN)
-    ) u_cacheline_3 (
-        .clk(clk),
-        .rst(rst),
-        .tag(tag),
-        .offset(offset),
-        .set_invalid(set_invalid),
-        .w_valid(line_w_valid[3]),
-        .data_w(line_data_w[3]),
-        .hit(line_hit[3]),
-        .data_r(line_data_r[3])
-    );
-
-    assign hit = line_hit[index];
-    assign data_r = line_data_r[index];
+    assign hit = line_hit;
+    assign data_r = line_data_r;
 endmodule
 
 module ysyx_24100007_icahce_line #( 
@@ -1621,8 +1555,6 @@ module ysyx_24100007_core #(
   wire [1:0] aluop;
   wire csrrw, csrrs;
   wire [11:0] csr_addr;
-  wire [2:0] memmask;
-  wire memsextsig;
   wire regew_control;
   wire [31:0] idu_pc;
   wire [31:0] src1_data, src2_data;
@@ -1676,8 +1608,6 @@ module ysyx_24100007_core #(
   .csrrw(csrrw),
   .csrrs(csrrs),
   .csr_addr(csr_addr),
-  .memmask(memmask),
-  .memsextsig(memsextsig),
   .pc_out(idu_pc)
 );
 
@@ -1707,8 +1637,8 @@ module ysyx_24100007_core #(
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
-  wire exu_memew, exu_memer, exu_memsextsig, exu_regew_control;
-  wire [2:0] exu_muxsig, exu_memmask;
+  wire exu_memew, exu_memer, exu_regew_control;
+  wire [2:0] exu_muxsig, exu_func3;
   wire [31:0] exu_src2_out;  // src2 from EXU to WBU
   wire [31:0] exu_imm_out;   // imm from EXU to WBU
   wire exu_csrrw_out, exu_csrrs_out;
@@ -1749,8 +1679,6 @@ module ysyx_24100007_core #(
   .memew_in(memew),
   .memer_in(memer),
   .muxsig_in(muxsig),
-  .memmask_in(memmask),
-  .memsextsig_in(memsextsig),
   .regew_control_in(regew_control),
   .rd_in(idu_rd),
   .csrrw_in(csrrw),
@@ -1771,8 +1699,7 @@ module ysyx_24100007_core #(
   .memew_out(exu_memew),             // to WBU
   .memer_out(exu_memer),             // to WBU
   .muxsig_out(exu_muxsig),            // to WBU
-  .memmask_out(exu_memmask),           // to WBU
-  .memsextsig_out(exu_memsextsig),        // to WBU
+  .func3_out(exu_func3),             // to WBU (derive memmask/memsext in WBU)
   .regew_control_out(exu_regew_control),     // to WBU
   .rd_out(exu_rd),
   .csrrw_out(exu_csrrw_out),            // to WBU
@@ -1812,8 +1739,7 @@ module ysyx_24100007_core #(
   .link_addr_in(link_addr),
   
   .muxsig_in(exu_muxsig),
-  .memsextsig_in(exu_memsextsig),
-  .memmask_in(exu_memmask),
+  .func3_in(exu_func3),
   .regew_control_in(exu_regew_control),
   .rd_in(exu_rd),
   .csrrw_in(exu_csrrw_out),
@@ -1969,7 +1895,9 @@ module ysyx_24100007_pipline_tracer(
     end
   end
 endmodule
-// synopsys translate_on// synopsys translate_off
+// synopsys translate_on
+
+// synopsys translate_off
 import "DPI-C" function void ret(int pc);
 // synopsys translate_on
 module ysyx_24100007_control_unit(
@@ -1992,9 +1920,7 @@ module ysyx_24100007_control_unit(
   output [1:0] aluop,
   output auipcsig,
   output csrrw,
-  output csrrs,
-  output [2:0] memmask,
-  output memsextsig
+  output csrrs
 );
   wire type_I, type_R, type_U, type_S, type_J, type_B;
   assign {type_I, type_B, type_J, type_S, type_R, type_U} = inst_type;
@@ -2024,17 +1950,6 @@ module ysyx_24100007_control_unit(
 
   assign csrrs = (opcode == 7'b1110011) & (func3 == 3'b010);
   assign csrrw = (opcode == 7'b1110011) & (func3 == 3'b001);
-
-  assign memmask = (func3 == 3'b000) ? 3'b001 :
-               (func3 == 3'b001) ? 3'b010 :
-               (func3 == 3'b010) ? 3'b100 :
-               (func3 == 3'b100) ? 3'b001 :
-               (func3 == 3'b101) ? 3'b010 :
-               3'b000;
-
-  assign memsextsig = (func3 == 3'b100) ? 1'b0 :
-                      (func3 == 3'b101) ? 1'b0 :
-                      1'b1;
   
   // synopsys translate_off
   always @(*) begin
@@ -2217,6 +2132,7 @@ module ysyx_24100007_bypass_sel(
     src_valid_raw || (src_reg_valid && (src_addr_in == src_addr_reg));
 
 endmodule
+
 module ysyx_24100007_idu(
   input clk,
   input rst,
@@ -2273,8 +2189,6 @@ module ysyx_24100007_idu(
   output csrrw,
   output csrrs,
   output [11:0] csr_addr,
-  output [2:0] memmask,
-  output memsextsig,
   output [31:0] pc_out
 );
 
@@ -2375,9 +2289,7 @@ module ysyx_24100007_idu(
     .aluop(aluop),
     .auipcsig(auipcsig),
     .csrrs(csrrs),
-    .csrrw(csrrw),
-    .memmask(memmask),     
-    .memsextsig(memsextsig)
+    .csrrw(csrrw)
   );
 
   assign ecallsig = ecall;
@@ -2660,10 +2572,6 @@ module ysyx_24100007_alucontrol(
   assign aluopcode = (is_csr) ? aluopcode_csr : aluopcode_I;
 endmodule
 
-
-
-        
-
 module ysyx_24100007_exu(
   input clk,
   input rst,
@@ -2693,8 +2601,6 @@ module ysyx_24100007_exu(
   input memew_in,               
   input memer_in,              
   input [2:0] muxsig_in,        
-  input [2:0] memmask_in,     
-  input memsextsig_in,         
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -2714,8 +2620,7 @@ module ysyx_24100007_exu(
   output memew_out,              
   output memer_out,              
   output [2:0] muxsig_out,        
-  output [2:0] memmask_out,      
-  output memsextsig_out,         
+  output [2:0] func3_out,        // for WBU to derive memmask/memsext
   output regew_control_out,   
   output [4:0] rd_out,
   output csrrw_out,
@@ -2819,8 +2724,6 @@ module ysyx_24100007_exu(
     .memew_in(memew_in),
     .memer_in(memer_in),
     .muxsig_in(muxsig_in),
-    .memmask_in(memmask_in),
-    .memsextsig_in(memsextsig_in),
     .regew_control_in(regew_control_in),
     .rd_in(rd_in),
     .csrrw_in(csrrw_in),
@@ -2849,8 +2752,6 @@ module ysyx_24100007_exu(
     // pass sig outputs
     .memew_out(memew_out),
     .memer_out(memer_out),
-    .memmask_out(memmask_out),
-    .memsextsig_out(memsextsig_out),
     .regew_control_out(regew_control_out),
     .rd_out(rd_out),
     .csrrw_out(csrrw),
@@ -2865,6 +2766,7 @@ module ysyx_24100007_exu(
   assign csrrs_out = csrrs;
   assign csrrw_out = csrrw;
   assign ecallsig_out = ecallsig;
+  assign func3_out = func3;  // 传递给 WBU 用于推导 memmask/memsextsig
 
   wire [31:0] pc_plus_4, pc_plus_imm;
   assign pc_plus_4 = pc + 32'd4;
@@ -2882,11 +2784,7 @@ module ysyx_24100007_exu(
   );
 
   wire [31:0] alu_arg2;
-  ysyx_24100007_MuxKey#(2, 1, 32) chosmuximm(alu_arg2, muximm, {
-      1'b0, src2,
-      1'b1, imm
-    }
-  );
+  assign alu_arg2 = muximm ? imm : src2;
   
   wire zero_flag, sign_flag, carry_flag;
   ysyx_24100007_alu alu0(
@@ -2989,8 +2887,6 @@ module ysyx_24100007_exu_pipline_connect(
   input memew_in,               
   input memer_in,              
   input [2:0] muxsig_in,        
-  input [2:0] memmask_in,     
-  input memsextsig_in,         
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -3017,8 +2913,6 @@ module ysyx_24100007_exu_pipline_connect(
   output memew_out,               
   output memer_out,              
   output [2:0] muxsig_out,        
-  output [2:0] memmask_out,     
-  output memsextsig_out,         
   output regew_control_out,
   output [4:0] rd_out,
   output csrrw_out,
@@ -3065,8 +2959,6 @@ module ysyx_24100007_exu_pipline_connect(
   reg memew_r;
   reg memer_r;
   reg [2:0] muxsig_r;
-  reg [2:0] memmask_r;
-  reg memsextsig_r;
   reg regew_control_r;
   reg [4:0] rd_r;
   reg csrrw_r;
@@ -3094,8 +2986,6 @@ module ysyx_24100007_exu_pipline_connect(
       memew_r <= 1'b0;
       memer_r <= 1'b0;
       muxsig_r <= 3'b0;
-      memmask_r <= 3'b0;
-      memsextsig_r <= 1'b0;
       regew_control_r <= 1'b0;
       rd_r <= 5'b0;
       csrrw_r <= 1'b0;
@@ -3122,8 +3012,6 @@ module ysyx_24100007_exu_pipline_connect(
         memew_r <= memew_in;
         memer_r <= memer_in;
         muxsig_r <= muxsig_in;
-        memmask_r <= memmask_in;
-        memsextsig_r <= memsextsig_in;
         regew_control_r <= regew_control_in;
         rd_r <= rd_in;
         csrrw_r <= csrrw_in;
@@ -3149,8 +3037,6 @@ module ysyx_24100007_exu_pipline_connect(
         memew_r <= 1'b0;
         memer_r <= 1'b0;
         muxsig_r <= 3'b0;
-        memmask_r <= 3'b0;
-        memsextsig_r <= 1'b0;
         regew_control_r <= 1'b0;
         rd_r <= 5'b0;
         csrrw_r <= 1'b0;
@@ -3180,8 +3066,6 @@ module ysyx_24100007_exu_pipline_connect(
   assign memew_out = memew_r;
   assign memer_out = memer_r;
   assign muxsig_out = muxsig_r;
-  assign memmask_out = memmask_r;
-  assign memsextsig_out = memsextsig_r;
   assign regew_control_out = regew_control_r;
   assign rd_out = rd_r;
   assign csrrw_out = csrrw_r;
@@ -3189,6 +3073,7 @@ module ysyx_24100007_exu_pipline_connect(
   assign csr_addr_out = csr_addr_r;
 
 endmodule
+
 module ysyx_24100007_alu(
   input [31:0] A,
   input [31:0] B,
@@ -3198,71 +3083,47 @@ module ysyx_24100007_alu(
   output signal,
   output carry
 );
-  wire addsig, logsig, shfsig, sltsig;
-  reg carry_tmp;
+  // logic part: AND/OR/XOR/NOR (type_I redundant - bitwise AND identical for I/R)
+  wire [31:0] logres = (op[1:0] == 2'b00) ? (A & B) :
+                      (op[1:0] == 2'b01) ? (A | B) :
+                      (op[1:0] == 2'b10) ? (A ^ B) :
+                      ~(A | B);
 
-  assign addsig = !(op[3]|op[2]);
-  assign logsig = (op[3] == 0) & (op[2] == 1);
-  assign shfsig = (op[3]&op[2]);
-  assign sltsig = (op[3] == 1) & (op[2] == 0);
- 
-  wire type_I = op[4];
-  // logic part
-  reg [31:0] logres;
-  always @(*) begin
-    case(op[1:0])
-      2'b00: logres = (type_I) ? A & $signed(B) : A & B;
-      2'b01: logres = A | B;
-      2'b10: logres = A ^ B;
-      2'b11: logres = ~(A | B);
-    endcase
-  end
-
-  // add part
-  reg [31:0] addres;
-  wire addzero;
-  always @(*) begin
-    case(op[0] ^ op[1])
-      1'b1: {carry_tmp, addres} = {1'b0,A} + {1'b0,B};
-      1'b0: {carry_tmp, addres} = {1'b0,A} + {1'b0,(~B)} + 1;
-    endcase
-    // $display("%x + %x = %x", A, B, addres);
-  end
-  assign addzero = (addres == 0);
+  // add part: op[0]^op[1]=1 -> add, 0 -> sub
+  wire [32:0] add_result = (op[0]^op[1]) ? ({1'b0,A} + {1'b0,B}) : ({1'b0,A} + {1'b0,(~B)} + 1);
+  wire carry_tmp = add_result[32];
+  wire [31:0] addres = add_result[31:0];
+  wire addzero = (addres == 0);
 
   // shift part
   reg [31:0] shfres;
   always @(*) begin
     case(op[1:0])
-      2'b00: shfres = (type_I) ? A << B[4:0] : A << B[4:0];
-      2'b01: shfres = (type_I) ? A >> B[4:0] : A >> B[4:0];
-      2'b10: shfres = (type_I) ? ($signed(A)) >>> B[4:0] : 
-                                 ($signed(A)) >>> B[4:0];
+      2'b00: shfres = A << B[4:0];
+      2'b01: shfres = A >> B[4:0];           
+      2'b10: shfres = ($signed(A)) >>> B[4:0]; 
       default: shfres = 32'b0;
     endcase
   end
 
-  // stl part
-  reg [31:0] sltres;
-  wire signed [31:0] A_s = A;
-  wire signed [31:0] B_s = B;
+  // slt part
+  wire slt_cmp = op[0] ? ($signed(A) < $signed(B)) : (A < B);
+  wire [31:0] sltres = {31'b0, slt_cmp};
+
   always @(*) begin
-    case(op[0]) 
-      1'b0: sltres = (A<B) ? 32'b1 : 32'b0;
-      1'b1: sltres = (A_s<B_s) ? 32'b1 : 32'b0;
+    case(op[3:2])
+      2'b00: res = addres;
+      2'b01: res = logres;
+      2'b10: res = sltres;
+      2'b11: res = shfres;
     endcase
   end
-
-  assign res = addsig ? addres :
-               logsig ? logres :
-               shfsig ? shfres :
-               sltsig ? sltres :
-               32'b0;
   assign zero = (res == 0);
   assign signal = res[31];
   assign carry = carry_tmp;
 
 endmodule
+
 module ysyx_24100007_memreadlen(
   input is_unalign,
   input [31:0] data,      // 从内存中读取的完整32位数据
@@ -3298,17 +3159,17 @@ module ysyx_24100007_memreadlen(
   ysyx_24100007_sext#(8, 32) sext0(byte_data, read_sb);
   ysyx_24100007_sext#(16, 32) sext1(halfword_data, read_sh);
 
-  assign read_s = (memmask == 3'b001) ? read_sb :  // lb
-                  (memmask == 3'b010) ? read_sh :  // lh
-                  data;                            // lw
+  assign read_s = (memmask == 3'b001) ? read_sb :
+                  (memmask == 3'b010) ? read_sh :
+                  data;
 
-  assign read_u = (memmask == 3'b001) ? {{24{1'b0}}, byte_data} :  // lbu
-                  (memmask == 3'b010) ? {{16{1'b0}}, halfword_data} :  // lhu
-                  data;  // lw
+  assign read_u = (memmask == 3'b001) ? {{24{1'b0}}, byte_data} :
+                  (memmask == 3'b010) ? {{16{1'b0}}, halfword_data} :
+                  data;
 
-  // 根据符号扩展信号选择最终的输出
-  assign read = (memsextsig == 1) ? read_s : read_u;
+  assign read = memsextsig ? read_s : read_u;
 endmodule
+
 `define ysyx_24100007_GENERAL 2'b00 // for the device that support Supports arbitrary byte access
 `define ysyx_24100007_BYTE 2'b01
 `define ysyx_24100007_HALFWORD 2'b10
@@ -3322,7 +3183,7 @@ module ysyx_24100007_memwritelen(
     output [1:0] wdata_offset,
     output [1:0] awburst
 );
-    localparam device_num = 3;
+    localparam device_num = 2;
     wire inuart = (awaddr >= 32'h10000000) && (awaddr <= 32'h10000fff);
     wire insram = (awaddr >= 32'h0f000000) && (awaddr <= 32'h0fffffff);
     wire inflash = (awaddr >= 32'h30000000) && (awaddr <= 32'h3fffffff);
@@ -3338,25 +3199,18 @@ module ysyx_24100007_memwritelen(
 
     ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
         .out(bus_size),
-        .key({insram|inspi|insdram|inpsram,1'b0,inflash}),
+        .key({insram|inspi|insdram|inpsram,inflash}),
         .default_out(`ysyx_24100007_GENERAL),
         .lut({
-            3'b100 , `ysyx_24100007_WORD,
-            3'b010 , `ysyx_24100007_HALFWORD,
-            3'b001 , `ysyx_24100007_BYTE
+            2'b10 , `ysyx_24100007_WORD,
+            2'b01 , `ysyx_24100007_BYTE
         })
     );
 
-    ysyx_24100007_MuxKeyWithDefault #(3, 2, 3) len_mux(
-        .out(awsize),
-        .key(bus_size),
-        .default_out(awsize_general),
-        .lut({
-            `ysyx_24100007_BYTE, 3'b000,
-            `ysyx_24100007_HALFWORD, 3'b001,
-            `ysyx_24100007_WORD, 3'b010
-        })
-    );
+    assign awsize = (bus_size == `ysyx_24100007_BYTE) ? 3'b000 :
+                    (bus_size == `ysyx_24100007_HALFWORD) ? 3'b001 :
+                    (bus_size == `ysyx_24100007_WORD) ? 3'b010 :
+                    awsize_general;
 
     // wstrb
     wire [3:0] wstrb_general;
@@ -3368,7 +3222,6 @@ module ysyx_24100007_memwritelen(
     wire [3:0] wstrb_byte;
     assign wstrb_byte = 4'b0001;
 
-    // halfword 写掩码：根据地址 bit1 选择低/高 16bit
     wire [3:0] wstrb_halfword = awaddr[1] ? 4'b1100 : 4'b0011;
 
     wire [3:0] wstrb_word;
@@ -3397,6 +3250,7 @@ module ysyx_24100007_memwritelen(
     assign awburst = inuart ? 2'b00 : 2'b01;
 
 endmodule
+
 module ysyx_24100007_wbu(
   input clk,
   input rst,
@@ -3407,8 +3261,7 @@ module ysyx_24100007_wbu(
   input [31:0] imm_in,
   input [31:0] link_addr_in,
   input [2:0] muxsig_in,
-  input [2:0] memmask_in,
-  input memsextsig_in,
+  input [2:0] func3_in,
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -3474,9 +3327,18 @@ module ysyx_24100007_wbu(
   wire [31:0] imm;
   wire [31:0] link_addr;
   wire [2:0] muxsig;
-  wire [2:0] memmask;
-  wire memsextsig;
+  wire [2:0] func3;
   wire regew_control;
+  // Derive memmask and memsextsig from func3 (load/store encoding)
+  wire [2:0] memmask = (func3 == 3'b000) ? 3'b001 :
+               (func3 == 3'b001) ? 3'b010 :
+               (func3 == 3'b010) ? 3'b100 :
+               (func3 == 3'b100) ? 3'b001 :
+               (func3 == 3'b101) ? 3'b010 :
+               3'b000;
+  wire memsextsig = (func3 == 3'b100) ? 1'b0 :
+                    (func3 == 3'b101) ? 1'b0 :
+                    1'b1;
   wire [4:0] rd;
   wire ecallsig;
   wire csrrs, csrrw;
@@ -3492,8 +3354,7 @@ module ysyx_24100007_wbu(
     .imm_in(imm_in),
     .link_addr_in(link_addr_in),
     .muxsig_in(muxsig_in),
-    .memmask_in(memmask_in),
-    .memsextsig_in(memsextsig_in),
+    .func3_in(func3_in),
     .regew_control_in(regew_control_in),
     .rd_in(rd_in),
     .csrrw_in(csrrw_in),
@@ -3508,8 +3369,7 @@ module ysyx_24100007_wbu(
     .imm_out(imm),
     .link_addr_out(link_addr),
     .muxsig_out(muxsig),
-    .memmask_out(memmask),
-    .memsextsig_out(memsextsig),
+    .func3_out(func3),
     .regew_control_out(regew_control),
     .rd_out(rd),
     .csrrw_out(csrrw),
@@ -3595,13 +3455,16 @@ module ysyx_24100007_wbu(
     end
   end
 
-  wire[31:0] regwrite;
-  ysyx_24100007_MuxKeyWithDefault#(4, 3, 32) muxpc(regwrite, muxsig, 0, {
-    3'b000, res,
-    3'b001, memread_data_q,
-    3'b010, imm,
-    3'b100, link_addr
-  });
+  reg [31:0] regwrite;
+  always @(*) begin
+    case(muxsig)
+      3'b000: regwrite = res;
+      3'b001: regwrite = memread_data_q;
+      3'b010: regwrite = imm;
+      3'b100: regwrite = link_addr;
+      default: regwrite = 32'b0;
+    endcase
+  end
 
   assign transmit_data = regwrite;
   assign wbu_rd = rd;
@@ -3700,8 +3563,7 @@ module ysyx_24100007_wbu_pipline_connect(
   input [31:0] imm_in,
   input [31:0] link_addr_in,
   input [2:0] muxsig_in,
-  input [2:0] memmask_in,
-  input memsextsig_in,
+  input [2:0] func3_in,
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -3716,8 +3578,7 @@ module ysyx_24100007_wbu_pipline_connect(
   output [31:0] imm_out,
   output [31:0] link_addr_out,
   output [2:0] muxsig_out,
-  output [2:0] memmask_out,
-  output memsextsig_out,
+  output [2:0] func3_out,
   output regew_control_out,
   output [4:0] rd_out,
   output csrrw_out,
@@ -3753,8 +3614,7 @@ module ysyx_24100007_wbu_pipline_connect(
   reg [31:0] imm_r;
   reg [31:0] link_addr_r;
   reg [2:0] muxsig_r;
-  reg [2:0] memmask_r;
-  reg memsextsig_r;
+  reg [2:0] func3_r;
   reg regew_control_r;
   reg [4:0] rd_r;
   reg csrrw_r;
@@ -3771,8 +3631,7 @@ module ysyx_24100007_wbu_pipline_connect(
       imm_r <= 32'b0;
       link_addr_r <= 32'b0;
       muxsig_r <= 3'b0;
-      memmask_r <= 3'b0;
-      memsextsig_r <= 1'b0;
+      func3_r <= 3'b0;
       regew_control_r <= 1'b0;
       rd_r <= 5'b0;
       csrrw_r <= 1'b0;
@@ -3788,8 +3647,7 @@ module ysyx_24100007_wbu_pipline_connect(
         imm_r <= imm_in;
         link_addr_r <= link_addr_in;
         muxsig_r <= muxsig_in;
-        memmask_r <= memmask_in;
-        memsextsig_r <= memsextsig_in;
+        func3_r <= func3_in;
         regew_control_r <= regew_control_in;
         rd_r <= rd_in;
         csrrw_r <= csrrw_in;
@@ -3804,8 +3662,7 @@ module ysyx_24100007_wbu_pipline_connect(
         imm_r <= 32'b0;
         link_addr_r <= 32'b0;
         muxsig_r <= 3'b0;
-        memmask_r <= 3'b0;
-        memsextsig_r <= 1'b0;
+        func3_r <= 3'b0;
         regew_control_r <= 1'b0;
         rd_r <= 5'b0;
         csrrw_r <= 1'b0;
@@ -3824,8 +3681,7 @@ module ysyx_24100007_wbu_pipline_connect(
   assign imm_out = imm_r;
   assign link_addr_out = link_addr_r;
   assign muxsig_out = muxsig_r;
-  assign memmask_out = memmask_r;
-  assign memsextsig_out = memsextsig_r;
+  assign func3_out = func3_r;
   assign regew_control_out = regew_control_r;
   assign rd_out = rd_r;
   assign csrrw_out = csrrw_r;
@@ -3901,19 +3757,10 @@ module ysyx_24100007_axi_mem_controller(
   } axi_state_t;
   axi_state_t state;
 
-  // 地址范围匹配信号
-  wire in_clint     = (mem_addr >= 32'h02000000) && (mem_addr <= 32'h0200ffff);
-  wire in_sram      = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
-  wire in_uart      = (mem_addr >= 32'h10000000) && (mem_addr <= 32'h10000fff);
-  wire in_spi       = (mem_addr >= 32'h10001000) && (mem_addr <= 32'h10001fff);
-  wire in_gpio      = (mem_addr >= 32'h10002000) && (mem_addr <= 32'h1000200f);
-  wire in_ps2       = (mem_addr >= 32'h10011000) && (mem_addr <= 32'h10011007);
-  wire in_mrom      = (mem_addr >= 32'h20000000) && (mem_addr <= 32'h20000fff);
-  wire in_vga       = (mem_addr >= 32'h21000000) && (mem_addr <= 32'h211fffff);
-  wire in_flash     = (mem_addr >= 32'h30000000) && (mem_addr <= 32'h3fffffff);
-  wire in_chiplink  = (mem_addr >= 32'h40000000) && (mem_addr <= 32'h7fffffff);
-  wire in_psram     = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
-  wire in_sdram     = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
+  // 地址范围匹配信号（araddr 对齐、memreadlen 用）
+  wire in_sram  = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
+  wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
+  wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
 
   // 内部计算的信号
   wire [1:0] wdata_offset;
@@ -3924,7 +3771,7 @@ module ysyx_24100007_axi_mem_controller(
   assign awvalid = mem_we & (state == WAIT_HANDSHAKE);
   assign awaddr = mem_addr;
   assign wvalid = mem_we & (state == WAIT_HANDSHAKE);
-  assign wdata = mem_wdata << (wdata_offset * 8);
+  assign wdata = mem_wdata << ({3'b0, wdata_offset} << 3);
   assign bready = mem_we & (state == WAIT_SLAVE);
   
   // 读操作：地址通道
@@ -3932,7 +3779,7 @@ module ysyx_24100007_axi_mem_controller(
   assign rready = ~mem_we & mem_en & (state == WAIT_SLAVE);
   
   // 地址和数据大小
-  assign arsize = (mem_mask == 3'b001) ? 3'b000 :
+  assign arsize = (mem_mask == 3'b001) ? 3'b000 : 
                   (mem_mask == 3'b010) ? 3'b001 :
                   3'b010;
   assign araddr = (in_psram|in_sdram|in_sram) ? {mem_addr[31:2], 2'b00} : mem_addr;
@@ -4056,6 +3903,5 @@ module ysyx_24100007_axi_mem_controller(
       end
     end
     // synopsys translate_on
-
 
 endmodule
