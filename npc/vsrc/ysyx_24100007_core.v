@@ -34,11 +34,7 @@ module ysyx_24100007_core #(
   output [PORT_NUM*2-1:0] arburst,
   output [PORT_NUM-1:0] wlast,
   input [PORT_NUM-1:0] rlast,
-  input [PORT_NUM*2-1:0]  rresp,
-  
-  // Transaction start/end signals
-  output [PORT_NUM-1:0] trans_start,
-  output [PORT_NUM-1:0] trans_end
+  input [PORT_NUM*2-1:0]  rresp
 );
 
   // Pipeline handshake signals
@@ -53,6 +49,13 @@ module ysyx_24100007_core #(
   wire [31:0] npc, ifu_pc;
   wire [31:0] inst;
 
+  wire ifu_read_req;
+  wire ifu_req_acp;
+  wire ifu_req_finish;
+  wire ifu_req_ready;
+  wire [31:0] ifu_addr;
+  wire [127:0] lsu_data_read;
+
   ysyx_24100007_ifu ifu0(
     .clk(clock),
     .rst(reset),
@@ -63,35 +66,13 @@ module ysyx_24100007_core #(
     .valid(ifu_to_idu_valid),
     .is_jmp(is_jmp),
 
-    .trans_start(trans_start[0]),
-    .trans_end(trans_end[0]),
-
-    .arvalid(arvalid[0]),
-    .arready(arready[0]),
-    .araddr(araddr[0*32 +: 32]),
-    .rvalid(rvalid[0]),
-    .rready(rready[0]),
-    .rdata(rdata[0*32 +: 32]),
-
-    .arlen(arlen[0*8 +: 8]),
-    .arsize(arsize[0*3 +: 3]),
-    .arburst(arburst[0*2 +: 2]),
-    .rresp(rresp[0*2 +: 2]),
-    .rlast(rlast[0])
+    .ifu_read_req (ifu_read_req),
+    .ifu_req_acp  (ifu_req_acp),
+    .ifu_req_finish(ifu_req_finish),
+    .ifu_req_ready(ifu_req_ready),
+    .ifu_addr     (ifu_addr),
+    .ifu_line_data(lsu_data_read)
   );
-
-  // not used channel set to 0
-  assign awvalid[0] = 1'b0;
-  assign wvalid[0] = 1'b0;
-  assign awaddr[0*32 +: 32] = 32'b0;
-  assign wdata[0*32 +: 32] = 32'b0;
-  assign wstrb[0*4  +: 4 ] = 4'b0;
-  assign bready[0] = 1'b0;
-  assign awsize[0*3 +: 3] = 3'b0;
-  assign awlen[0*8 +: 8] = 8'b0;
-  assign awburst[0*2 +: 2] = 2'b0;
-  assign wlast[0] = 1'b0;
-
 
   wire [4:0] src1_addr, src2_addr, idu_rd;
   wire [31:0] imm;
@@ -280,6 +261,13 @@ module ysyx_24100007_core #(
   wire [11:0] wbu_csr_addr_out;
   wire wbu_ecallsig_out;
   wire wbu_write_csr;
+
+  wire wbu_read_req, wbu_write_req;
+  wire wbu_req_acp, wbu_req_finish, wbu_req_ready;
+  wire lsu_mem_we;
+  wire [31:0] lsu_mem_addr, lsu_mem_wdata;
+  wire [2:0] lsu_mem_mask;
+  wire lsu_mem_sext;
   ysyx_24100007_wbu wbu0(
   .clk(clock),
   .rst(reset),
@@ -313,38 +301,79 @@ module ysyx_24100007_core #(
 
   .wbu_commit(wbu_commit),
 
-  .trans_start(trans_start[1]),
-  .trans_end(trans_end[1]),
+  .wbu_read_req (wbu_read_req),
+  .wbu_write_req(wbu_write_req),
+  .wbu_req_acp  (wbu_req_acp),
+  .wbu_req_finish(wbu_req_finish),
+  .wbu_req_ready(wbu_req_ready),
+  .wbu_data_read(lsu_data_read[31:0]),
 
-  // axi-lite interface
-  .awvalid(awvalid[1]),
-  .awready(awready[1]),
-  .awaddr(awaddr[63:32]),
-
-  .wvalid(wvalid[1]),
-  .wready(wready[1]),
-  .wdata(wdata[63:32]),
-  .wstrb(wstrb[7:4]),
-
-  .bvalid(bvalid[1]),
-  .bready(bready[1]),
-  .bresp(bresp[3:2]),
-
-  .arvalid(arvalid[1]),
-  .arready(arready[1]),
-  .araddr(araddr[63:32]),
-
-  .rvalid(rvalid[1]),
-  .rready(rready[1]),
-  .rdata(rdata[63:32]),
-  .awsize(awsize[5:3]),
-  .arsize(arsize[5:3]),
-  .awburst(awburst[3:2]),
+  .lsu_mem_we   (lsu_mem_we),
+  .lsu_mem_addr (lsu_mem_addr),
+  .lsu_mem_wdata(lsu_mem_wdata),
+  .lsu_mem_mask (lsu_mem_mask),
+  .lsu_mem_sext (lsu_mem_sext),
 
   .wbu_rd(wbu_rd_bypass),      // for data forwarding to IDU
   .wbu_regew(wbu_regew_bypass),   // for data forwarding to IDU
   .transmit_data(wbu_transmit_data),     // for data forwarding to IDU
   .transmit_data_valid(wbu_transmit_data_valid) // for data forwarding to IDU
+);
+
+ysyx_24100007_lsu lsu0 (
+  .clk   (clock),
+  .rst   (reset),
+
+  .ifu_read_req (ifu_read_req),
+  .ifu_req_acp  (ifu_req_acp),
+  .ifu_addr_in  (ifu_addr),
+
+  .wbu_read_req (wbu_read_req),
+  .wbu_write_req(wbu_write_req),
+  .wbu_req_acp  (wbu_req_acp),
+
+  .ifu_req_ready (ifu_req_ready),
+  .ifu_req_finish(ifu_req_finish),
+  .wbu_req_ready (wbu_req_ready),
+  .wbu_req_finish(wbu_req_finish),
+
+  .mem_we_in    (lsu_mem_we),
+  .mem_addr_in  (lsu_mem_addr),
+  .mem_wdata_in (lsu_mem_wdata),
+  .mem_mask_in  (lsu_mem_mask),
+  .mem_sext_in  (lsu_mem_sext),
+
+  .data_read (lsu_data_read),
+
+  // AXI master 接到 core port[1]
+  .arvalid (arvalid),
+  .arready (arready),
+  .araddr  (araddr),
+  .arlen   (arlen),
+  .arsize  (arsize),
+  .arburst (arburst),
+
+  .awvalid (awvalid),
+  .awready (awready),
+  .awaddr  (awaddr),
+  .awlen   (awlen),
+  .awsize  (awsize),
+  .awburst (awburst),
+
+  .wvalid (wvalid),
+  .wready (wready),
+  .wdata  (wdata),
+  .wstrb  (wstrb),
+  .wlast  (wlast),
+
+  .rvalid (rvalid),
+  .rready (rready),
+  .rdata  (rdata),
+  .rlast  (rlast),
+
+  .bvalid (bvalid),
+  .bready (bready),
+  .bresp  (bresp)
 );
 
 
@@ -368,12 +397,6 @@ module ysyx_24100007_core #(
   );
 
 // synopsys translate_on
-
-// 暂时不实现突发传输，将没有使用的部分设置为0
-assign awlen[15:8] = 8'b0;      // 写地址长度（单次传输，len=0）
-assign arlen[15:8] = 8'b0;      // 读地址长度（单次传输，len=0）
-assign arburst[3:2] = 2'b0;   // 读burst类型（FIXED，单次传输）
-assign wlast[1] = wvalid[1];
 
 endmodule
 

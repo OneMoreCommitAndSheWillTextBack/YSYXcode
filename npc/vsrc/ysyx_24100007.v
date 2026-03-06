@@ -76,23 +76,33 @@ module ysyx_24100007(
     output [3:0]        io_slave_rid
 );
 
-  // Core模块 - 包含CPU核心和AXI接口
-  wire [1:0] core_awvalid, core_wvalid, core_arvalid;
-  wire [1:0] core_rready, core_bready;
-  wire [1:0] core_bvalid, core_rvalid;
-  wire [1:0] core_awready, core_wready, core_arready;
-  wire [63:0] core_araddr, core_awaddr;
-  wire [63:0] core_wdata, core_rdata;
-  wire [7:0] core_wstrb;
-  wire [3:0] core_bresp;
-  wire [5:0] core_awsize, core_arsize;
-  wire [15:0] core_awlen, core_arlen;
-  wire [3:0] core_awburst, core_arburst;
-  wire [1:0] core_wlast, core_rlast;
-  wire [1:0] core_trans_end, core_trans_start;
-  wire [3:0] core_rresp;
+  wire core_awvalid;
+  wire core_wvalid;
+  wire core_arvalid;
+  wire core_rready;
+  wire core_bready;
+  wire core_bvalid;
+  wire core_rvalid;
+  wire core_awready;
+  wire core_wready;
+  wire core_arready;
+  wire [31:0] core_araddr;
+  wire [31:0] core_awaddr;
+  wire [31:0] core_wdata;
+  wire [31:0] core_rdata;
+  wire [3:0] core_wstrb;
+  wire [1:0] core_bresp;
+  wire [2:0] core_awsize;
+  wire [2:0] core_arsize;
+  wire [7:0] core_awlen;
+  wire [7:0] core_arlen;
+  wire [1:0] core_awburst;
+  wire [1:0] core_arburst;
+  wire core_wlast;
+  wire core_rlast;
+  wire [1:0] core_rresp;
 
-  ysyx_24100007_core #(.PORT_NUM(2)) core0(
+  ysyx_24100007_core #(.PORT_NUM(1)) core0(
     .clock(clock),
     .reset(reset),
     .io_interrupt(io_interrupt),
@@ -122,13 +132,10 @@ module ysyx_24100007(
     .arburst(core_arburst),
     .wlast(core_wlast),
     .rlast(core_rlast),
-    .rresp(core_rresp),
-    .trans_start(core_trans_start),
-    .trans_end(core_trans_end)
+    .rresp(core_rresp)
   );
 
-  assign core_rresp[1:0] = io_master_rresp;
-  assign core_rresp[3:2] = io_master_rresp;
+  assign core_rresp = io_master_rresp;
 
   // Arbiter模块
   wire [63:0] arbiter_araddr_out, arbiter_awaddr_out;
@@ -146,7 +153,7 @@ module ysyx_24100007(
   wire [3:0] arbiter_bresp_in;
   wire [1:0] arbiter_rlast_in;
 
-  ysyx_24100007_arbiter #(.MASTER_NUM(2), .SLAVE_NUM(2)) arbiter0(
+  ysyx_24100007_arbiter #(.SLAVE_NUM(2)) arbiter0(
     .clk(clock),
     .rst(reset),
 
@@ -175,8 +182,6 @@ module ysyx_24100007(
     .arburst(core_arburst),
     .wlast(core_wlast),
     .rlast(core_rlast),
-    .trans_start(core_trans_start),
-    .trans_end(core_trans_end),
 
     // Slave接口 - 连接到CLINT和外部AXI
     .awvalid_out(arbiter_awvalid_out),

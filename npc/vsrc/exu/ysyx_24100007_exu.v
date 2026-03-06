@@ -209,13 +209,15 @@ module ysyx_24100007_exu(
     .aluopcode(alu_opcode)
   );
 
-  wire [31:0] alu_arg2;
-  ysyx_24100007_MuxKey#(2, 1, 32) chosmuximm(alu_arg2, muximm, {
-      1'b0, src2,
-      1'b1, imm
-    }
-  );
-  
+  reg [31:0] alu_arg2;
+  always @(*) begin
+    case (muximm)
+      1'b0: alu_arg2 = src2;
+      1'b1: alu_arg2 = imm;
+      default: alu_arg2 = src2;
+    endcase
+  end
+
   wire zero_flag, sign_flag, carry_flag;
   ysyx_24100007_alu alu0(
     .A(src1),

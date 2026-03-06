@@ -10,22 +10,13 @@ module ysyx_24100007_ifu(
 
   input is_jmp,
 
-  // AXI-Lite interface for external SRAM
-  output arvalid,          // Read address valid
-  input arready,           // Read address ready
-  output [31:0] araddr,    // Read address
-  input rvalid,            // Read data valid
-  output rready,           // Read data ready
-  input [31:0] rdata,      // Read data
-
-  output [7:0]        arlen,
-  output [2:0]        arsize,
-  output [1:0]        arburst,
-  input  [1:0]        rresp,
-  input               rlast,
-
-  output trans_start,
-  output trans_end
+  // LSU handshake
+  output        ifu_read_req,
+  input         ifu_req_acp,
+  input         ifu_req_finish,
+  output        ifu_req_ready,
+  output [31:0] ifu_addr,
+  input  [127:0] ifu_line_data
 );
 
   wire [31:0] pcbridge;
@@ -57,7 +48,7 @@ module ysyx_24100007_ifu(
 
     .addr(pcbridge),
     .w_valid(w_valid),
-    .w_data(axi_rdata),
+    .w_data(ifu_line_data),
     .set_invalid(set_invalid),
     .hit(cache_hit),
     .data_r(cache_rdata)
@@ -153,8 +144,12 @@ module ysyx_24100007_ifu(
 
         BUS_HANDSHAKE: begin
           if(is_jmp) begin
-            ifu_state <= BUS_INVALID;
-          end else if(axi_arready) begin
+            if(ifu_req_acp) begin
+              ifu_state <= BUS_INVALID;
+            end else begin
+              ifu_state <= UPDATE_PC;
+            end
+          end else if(ifu_req_acp) begin
             ifu_state <= BUS_TRANSACTION;
           end
         end
@@ -162,7 +157,7 @@ module ysyx_24100007_ifu(
         BUS_TRANSACTION: begin
           if(is_jmp) begin
             ifu_state <= BUS_INVALID;
-          end else if(axi_rdata_valid) begin
+          end else if(ifu_req_finish) begin
             ifu_state <= UPDATE_CACHE;
           end
         end
@@ -176,7 +171,7 @@ module ysyx_24100007_ifu(
         end
 
         BUS_INVALID: begin
-          if(axi_rdata_valid &  axi_rdata_ready) begin
+          if(ifu_req_ready &  ifu_req_finish) begin
             ifu_state <= UPDATE_PC;
           end
         end
@@ -194,44 +189,9 @@ module ysyx_24100007_ifu(
     end
   end
 
-  // ------------------------------------
-  // AXI CONTEOLLER
-  // ------------------------------------
-  wire axi_arready, axi_arvalid;
-  wire [DATABLOCK_SIZE-1:0] axi_rdata;
-  wire axi_rdata_valid, axi_rdata_ready;
-  ysyx_24100007_ifu_axicontroller #(
-    .ARLEN(ARLEN),
-    .BUFFER_SIZE(DATABLOCK_SIZE)
-  ) ifu_axicontroller_u (
-    .clk(clk),
-    .rst(rst),
-    .addr(pcbridge),
-
-    .axi_arvalid(axi_arvalid),
-    .axi_arready(axi_arready),
-    .axi_rdata(axi_rdata),
-    .axi_rdata_valid(axi_rdata_valid),
-    .axi_rdata_ready(axi_rdata_ready),
-
-    .trans_start(trans_start),
-    .trans_end(trans_end),
-
-    .arvalid(arvalid),
-    .arready(arready),
-    .araddr(araddr),
-    .rvalid(rvalid),
-    .rready(rready),
-    .rdata(rdata),
-
-    .arlen(arlen),
-    .arsize(arsize),
-    .arburst(arburst),
-    .rresp(rresp),
-    .rlast(rlast)
-  );
-  assign axi_rdata_ready = (ifu_state == UPDATE_CACHE) | (ifu_state == BUS_INVALID);
-  assign axi_arvalid = (ifu_state == BUS_HANDSHAKE);
+  assign ifu_addr     = pcbridge;
+  assign ifu_read_req = (ifu_state == BUS_HANDSHAKE);
+  assign ifu_req_ready = (ifu_state == UPDATE_CACHE) | (ifu_state == BUS_INVALID);
 
   // ------------------------------------
   // INST UPDATE LOGIC
@@ -256,176 +216,3 @@ module ysyx_24100007_ifu(
   assign valid = (ifu_state == VALID);
 endmodule
 
-module ysyx_24100007_ifu_axicontroller#(
-  parameter ARLEN,
-  parameter BUFFER_SIZE
-)(
-  input clk,
-  input rst,
-
-  input [31:0] addr,
-  input axi_arvalid,
-  output axi_arready,
-  
-  output [BUFFER_SIZE-1:0] axi_rdata,
-  output axi_rdata_valid,
-  input axi_rdata_ready,
-
-  output trans_start,
-  output trans_end,
-  
-  // AXI-Lite interface for external SRAM
-  output arvalid,          // Read address valid
-  input arready,           // Read address ready
-  output [31:0] araddr,    // Read address
-  input rvalid,            // Read data valid
-  output rready,           // Read data ready
-  input [31:0] rdata,      // Read data
-
-  output [7:0]        arlen,
-  output [2:0]        arsize,
-  output [1:0]        arburst,
-  input  [1:0]        rresp,
-  input               rlast
-);
-  localparam BEAT_NUM = ARLEN + 1;
-  typedef enum logic[1:0]{
-    READY,
-    WAIT_HANDSHAKE,
-    WAIT_SLAVE,
-    PROCESSION
-  } axi_state_t;
-
-  axi_state_t axi_state;
-
-  // reg [BUFFER_SIZE-1:0] data_buffer;
-  reg [127:0] data_buffer;
-  always @(posedge clk) begin
-    if(rst) begin
-      axi_state <= READY;
-    end else begin
-      case (axi_state)
-        READY: begin
-          if (axi_arvalid) begin
-            axi_state <= WAIT_HANDSHAKE;
-          end
-        end
-
-        WAIT_HANDSHAKE: begin
-          if (arready) begin
-            axi_state <= WAIT_SLAVE;
-          end
-        end
-
-        WAIT_SLAVE: begin
-          if (rlast) begin
-            axi_state <= PROCESSION;
-          end
-        end
-
-        PROCESSION: begin
-          if(axi_rdata_ready) begin
-            axi_state <= READY;
-          end
-        end
-
-        default: begin 
-          // synopsys translate_off
-          $error("ifu axi state machine Invalid state error");
-          // synopsys translate_on
-        end
-      endcase
-    end
-  end
-
-  localparam [1:0]
-    FIXED = 2'b00,
-    INCR  = 2'b01,
-    WRAP  = 2'b10,
-    RESERVED = 2'b11;
-
-  // 地址和计数跟踪
-  reg [31:0] current_addr;
-  reg [7:0] beat_count;
-  reg [1:0] burst_type;
-
-  wire [31:0] wrap_size = ((ARLEN + 1) << 2);
-  wire [31:0] wrap_boundary = current_addr & ~(wrap_size - 1);
-  wire [31:0] wrap_end = wrap_boundary + wrap_size;
-  wire [31:0] buffer_index_wrap = (current_addr - wrap_boundary) >> 2;
-
-  always @(posedge clk) begin
-    if(rst) begin
-      current_addr <= 32'b0;
-      beat_count <= 8'b0;
-      burst_type <= WRAP;
-    end else begin
-      if(arvalid & arready) begin
-        current_addr <= araddr;
-      end
-
-      if(rvalid & rready) begin
-        beat_count <= beat_count + 1;
-        
-        if(burst_type == WRAP) begin
-            if ((current_addr + 4) >= wrap_end) begin
-              current_addr <= wrap_boundary;
-            end else begin
-              current_addr <= current_addr + 4;
-            end 
-        end else if(burst_type == FIXED) begin
-            current_addr <= current_addr;
-        end
-      end
-    end
-  end
-
-  always @(posedge clk) begin
-    if(axi_state == WAIT_SLAVE) begin
-      case(burst_type)
-          INCR: begin
-            case(beat_count)
-              0: data_buffer[31:0] <= rdata;
-              1: data_buffer[63:32] <= rdata;
-              2: data_buffer[95:64] <= rdata;
-              3: data_buffer[127:96] <= rdata;
-              default: begin
-              end
-            endcase
-          end
-          WRAP: begin
-            case(buffer_index_wrap[1:0])
-              2'd0: data_buffer[31:0] <= rdata;
-              2'd1: data_buffer[63:32] <= rdata;
-              2'd2: data_buffer[95:64] <= rdata;
-              2'd3: data_buffer[127:96] <= rdata;
-              default: begin
-              end
-            endcase
-          end
-          default: begin
-          end
-      endcase
-    end else if(axi_state == PROCESSION) begin
-      if(axi_rdata_ready) begin
-        data_buffer <= {(128){1'b0}};
-      end
-    end
-  end
-
-  assign trans_start = (axi_state == WAIT_HANDSHAKE);
-  assign trans_end = (axi_state == WAIT_SLAVE) && rlast;
-
-  assign axi_rdata = data_buffer;
-
-  assign axi_rdata_valid = (axi_state == PROCESSION);
-  assign axi_arready = (axi_state == READY);
-
-  assign araddr = (burst_type == INCR) ? wrap_boundary : addr;
-  assign arvalid = (axi_state == WAIT_HANDSHAKE);
-  assign rready = (axi_state == WAIT_SLAVE);
-
-  assign arlen = ARLEN[7:0];
-  assign arsize = 3'b010;
-  assign arburst = burst_type;
-endmodule

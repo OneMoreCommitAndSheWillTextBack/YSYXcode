@@ -7,7 +7,7 @@ module ysyx_24100007_memwritelen(
     input [31:0] awaddr,
     input [2:0] wirtelen,
     output [3:0] wstrb,
-    output [2:0] awsize,
+    output reg [2:0] awsize,
     output [1:0] wdata_offset,
     output [1:0] awburst
 );
@@ -19,33 +19,29 @@ module ysyx_24100007_memwritelen(
     wire inpsram = (awaddr >= 32'h80000000) && (awaddr <= 32'h9fffffff);
     wire insdram = (awaddr >= 32'ha0000000) && (awaddr <= 32'hbfffffff);
 
-    wire [1:0] bus_size;
-    wire [2:0] awsize_general = (wirtelen == 3'b001) ? 3'b000 :     
+    reg [1:0] bus_size;
+    wire [2:0] awsize_general = (wirtelen == 3'b001) ? 3'b000 :
                                 (wirtelen == 3'b010) ? 3'b001 :
                                 (wirtelen == 3'b100) ? 3'b010 :
                                 3'b000;
 
-    ysyx_24100007_MuxKeyWithDefault #(device_num, device_num, 2) type_mux(
-        .out(bus_size),
-        .key({insram|inspi|insdram|inpsram,1'b0,inflash}),
-        .default_out(`GENERAL),
-        .lut({
-            3'b100 , `WORD,
-            3'b010 , `HALFWORD,
-            3'b001 , `BYTE
-        })
-    );
+    always @(*) begin
+        case ({insram|inspi|insdram|inpsram, 1'b0, inflash})
+            3'b100:  bus_size = `WORD;
+            3'b010:  bus_size = `HALFWORD;
+            3'b001:  bus_size = `BYTE;
+            default: bus_size = `GENERAL;
+        endcase
+    end
 
-    ysyx_24100007_MuxKeyWithDefault #(3, 2, 3) len_mux(
-        .out(awsize),
-        .key(bus_size),
-        .default_out(awsize_general),
-        .lut({
-            `BYTE, 3'b000,
-            `HALFWORD, 3'b001,
-            `WORD, 3'b010
-        })
-    );
+    always @(*) begin
+        case (bus_size)
+            `BYTE:     awsize = 3'b000;
+            `HALFWORD: awsize = 3'b001;
+            `WORD:     awsize = 3'b010;
+            default:   awsize = awsize_general;
+        endcase
+    end
 
     // wstrb
     wire [3:0] wstrb_general;

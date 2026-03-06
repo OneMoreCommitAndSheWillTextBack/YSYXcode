@@ -1407,8 +1407,6 @@ module ysyx_24100007_icahce_line #(
     always @(posedge clk) begin
         if(rst) begin
             valid_r <= 1'b0;
-            tag_r <= {TAG_LEN{1'b0}};
-            data_block <= {DATABLOCK_SIZE{1'b0}};
         end else begin
             if(set_invalid) begin
               valid_r <= 1'b0;

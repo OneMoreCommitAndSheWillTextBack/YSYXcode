@@ -231,18 +231,11 @@ module idu_pipline_connect(
   reg [31:0] inst_r;
   reg [31:0] pc_r;
 
+  // 只在 valid 时更新，去掉 flush 清零，依靠 avaliable 指示有效性以节省面积
   always @(posedge clk) begin
-    if(rst) begin
-      inst_r <= 32'b0;
-      pc_r <= 32'b0;
-    end else begin
-      if(valid) begin
-        inst_r <= inst_in;
-        pc_r <= pc_in;
-      end else if(flush) begin
-        inst_r <= 32'b0;
-        pc_r <= 32'b0;
-      end
+    if(valid) begin
+      inst_r <= inst_in;
+      pc_r <= pc_in;
     end
   end
 
