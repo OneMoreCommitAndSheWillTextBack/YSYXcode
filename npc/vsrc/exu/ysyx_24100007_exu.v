@@ -450,30 +450,13 @@ module exu_pipline_connect(
         csrrs_r <= csrrs_in;
         csr_addr_r <= csr_addr_in;
       end else if(flush) begin
-        func3_r <= 3'b0;
-        btypebranch_r <= 1'b0;
-        func7_r <= 1'b0;
-        aluop_r <= 2'b0;
-        jalrsig_r <= 1'b0;
-        jalsig_r <= 1'b0;
-        imm_r <= 32'b0;
-        muximm_r <= 1'b0;
-        src1_r <= 32'b0;
-        src2_r <= 32'b0;
-        pc_r <= 32'b0;
-        auipcsig_r <= 1'b0;
-        mretsig_r <= 1'b0;
-        ecallsig_r <= 1'b0;
-        mtvec_r <= 32'b0;
-        mepc_r <= 32'b0;
+        regew_control_r <= 1'b0;   
         memew_r <= 1'b0;
-        memer_r <= 1'b0;
-        muxsig_r <= 3'b0;
-        regew_control_r <= 1'b0;
-        rd_r <= 5'b0;
+        memer_r <= 1'b0;          
+        rd_r <= 5'b0;             
         csrrw_r <= 1'b0;
         csrrs_r <= 1'b0;
-        csr_addr_r <= 12'b0;
+        ecallsig_r <= 1'b0; 
       end
     end
   end
