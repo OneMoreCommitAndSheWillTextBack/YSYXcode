@@ -61,8 +61,6 @@ module ysyx_24100007_core #(
     .pc(ifu_pc),
     .inst(inst),
     .valid(ifu_to_idu_valid),
-    .icahce_flush(icahce_flush),
-    .icahce_flush_addr(res),
     .is_jmp(is_jmp),
 
     .trans_start(trans_start[0]),
@@ -191,8 +189,8 @@ module ysyx_24100007_core #(
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
-  wire exu_memew, exu_memer, exu_memsextsig, exu_regew_control;
-  wire [2:0] exu_muxsig, exu_memmask;
+  wire exu_memew, exu_memer, exu_regew_control;
+  wire [2:0] exu_muxsig, exu_func3;
   wire [31:0] exu_src2_out;  // src2 from EXU to WBU
   wire [31:0] exu_imm_out;   // imm from EXU to WBU
   wire exu_csrrw_out, exu_csrrs_out;
@@ -233,8 +231,6 @@ module ysyx_24100007_core #(
   .memew_in(memew),
   .memer_in(memer),
   .muxsig_in(muxsig),
-  .memmask_in(memmask),
-  .memsextsig_in(memsextsig),
   .regew_control_in(regew_control),
   .rd_in(idu_rd),
   .csrrw_in(csrrw),
@@ -255,8 +251,7 @@ module ysyx_24100007_core #(
   .memew_out(exu_memew),             // to WBU
   .memer_out(exu_memer),             // to WBU
   .muxsig_out(exu_muxsig),            // to WBU
-  .memmask_out(exu_memmask),           // to WBU
-  .memsextsig_out(exu_memsextsig),        // to WBU
+  .func3_out(exu_func3),             // to WBU
   .regew_control_out(exu_regew_control),     // to WBU
   .rd_out(exu_rd),
   .csrrw_out(exu_csrrw_out),            // to WBU
@@ -273,8 +268,7 @@ module ysyx_24100007_core #(
 );
 
   wire regew;
-  wire icahce_flush;
-  
+
   // WBU 向 IDU 转发的旁路信号
   wire [4:0] wbu_rd_bypass;               // WBU 阶段的 rd（用于旁路）
   wire wbu_regew_bypass;                  // WBU 阶段的写使能（用于旁路）
@@ -297,8 +291,7 @@ module ysyx_24100007_core #(
   .link_addr_in(link_addr),
   
   .muxsig_in(exu_muxsig),
-  .memsextsig_in(exu_memsextsig),
-  .memmask_in(exu_memmask),
+  .func3_in(exu_func3),
   .regew_control_in(exu_regew_control),
   .rd_in(exu_rd),
   .csrrw_in(exu_csrrw_out),
@@ -318,7 +311,6 @@ module ysyx_24100007_core #(
   .in_valid(exu_to_wbu_valid),
   .in_ready(wbu_to_exu_ready), // WBU to EXU ready
 
-  .icahce_flush(icahce_flush),
   .wbu_commit(wbu_commit),
 
   .trans_start(trans_start[1]),

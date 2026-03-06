@@ -10,7 +10,7 @@
 // ---------------------------------------------
 module ysyx_24100007_arbiter #(
   parameter MASTER_NUM=2,           // master设备数量（IFU, WBU）
-  parameter SLAVE_NUM=2             // slave设备数量（CLINT, 外部AXI等）
+  parameter SLAVE_NUM=1             // slave设备数量（CLINT, 外部AXI等）
 )(
   input wire clk,
   input wire rst,

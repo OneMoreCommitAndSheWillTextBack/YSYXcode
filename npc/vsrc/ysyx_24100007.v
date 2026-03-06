@@ -81,16 +81,16 @@ module ysyx_24100007(
   wire [1:0] core_rready, core_bready;
   wire [1:0] core_bvalid, core_rvalid;
   wire [1:0] core_awready, core_wready, core_arready;
-  wire [1:0][31:0] core_araddr, core_awaddr;
-  wire [1:0][31:0] core_wdata, core_rdata;
-  wire [1:0][3:0] core_wstrb;
-  wire [1:0][1:0] core_bresp;
-  wire [1:0][2:0] core_awsize, core_arsize;
-  wire [1:0][7:0] core_awlen, core_arlen;
-  wire [1:0][1:0] core_awburst, core_arburst;
+  wire [63:0] core_araddr, core_awaddr;
+  wire [63:0] core_wdata, core_rdata;
+  wire [7:0] core_wstrb;
+  wire [3:0] core_bresp;
+  wire [5:0] core_awsize, core_arsize;
+  wire [15:0] core_awlen, core_arlen;
+  wire [3:0] core_awburst, core_arburst;
   wire [1:0] core_wlast, core_rlast;
   wire [1:0] core_trans_end, core_trans_start;
-  wire [1:0][1:0] core_rresp;
+  wire [3:0] core_rresp;
 
   ysyx_24100007_core #(.PORT_NUM(2)) core0(
     .clock(clock),
@@ -127,23 +127,23 @@ module ysyx_24100007(
     .trans_end(core_trans_end)
   );
 
-  assign core_rresp[0] = io_master_rresp;
-  assign core_rresp[1] = io_master_rresp;
+  assign core_rresp[1:0] = io_master_rresp;
+  assign core_rresp[3:2] = io_master_rresp;
 
   // Arbiter模块
-  wire [1:0][31:0] arbiter_araddr_out, arbiter_awaddr_out;
-  wire [1:0][31:0] arbiter_wdata_out;
-  wire [1:0][3:0] arbiter_wstrb_out;
-  wire [1:0][2:0] arbiter_awsize_out, arbiter_arsize_out;
-  wire [1:0][7:0] arbiter_awlen_out, arbiter_arlen_out;
-  wire [1:0][1:0] arbiter_awburst_out, arbiter_arburst_out;
+  wire [63:0] arbiter_araddr_out, arbiter_awaddr_out;
+  wire [63:0] arbiter_wdata_out;
+  wire [7:0] arbiter_wstrb_out;
+  wire [5:0] arbiter_awsize_out, arbiter_arsize_out;
+  wire [15:0] arbiter_awlen_out, arbiter_arlen_out;
+  wire [3:0] arbiter_awburst_out, arbiter_arburst_out;
   wire [1:0] arbiter_wlast_out;
   wire [1:0] arbiter_awvalid_out, arbiter_wvalid_out, arbiter_arvalid_out;
   wire [1:0] arbiter_rready_out, arbiter_bready_out;
   wire [1:0] arbiter_bvalid_in, arbiter_rvalid_in;
   wire [1:0] arbiter_awready_in, arbiter_wready_in, arbiter_arready_in;
-  wire [1:0][31:0] arbiter_rdata_in;
-  wire [1:0][1:0] arbiter_bresp_in;
+  wire [63:0] arbiter_rdata_in;
+  wire [3:0] arbiter_bresp_in;
   wire [1:0] arbiter_rlast_in;
 
   ysyx_24100007_arbiter #(.MASTER_NUM(2), .SLAVE_NUM(2)) arbiter0(
@@ -214,22 +214,22 @@ module ysyx_24100007(
     .reset(reset),
     .awvalid(arbiter_awvalid_out[1]),
     .awready(arbiter_awready_in[1]),
-    .awaddr(arbiter_awaddr_out[1]),
-    .awsize(arbiter_awsize_out[1]),
+    .awaddr(arbiter_awaddr_out[63:32]),
+    .awsize(arbiter_awsize_out[5:3]),
     .wvalid(arbiter_wvalid_out[1]),
     .wready(arbiter_wready_in[1]),
-    .wdata(arbiter_wdata_out[1]),
-    .wstrb(arbiter_wstrb_out[1]),
+    .wdata(arbiter_wdata_out[63:32]),
+    .wstrb(arbiter_wstrb_out[7:4]),
     .arvalid(arbiter_arvalid_out[1]),
     .arready(arbiter_arready_in[1]),
-    .araddr(arbiter_araddr_out[1]),
-    .arsize(arbiter_arsize_out[1]),
+    .araddr(arbiter_araddr_out[63:32]),
+    .arsize(arbiter_arsize_out[5:3]),
     .rvalid(arbiter_rvalid_in[1]),
     .rready(arbiter_rready_out[1]),
-    .rdata(arbiter_rdata_in[1]),
+    .rdata(arbiter_rdata_in[63:32]),
     .bvalid(arbiter_bvalid_in[1]),
     .bready(arbiter_bready_out[1]),
-    .bresp(arbiter_bresp_in[1])
+    .bresp(arbiter_bresp_in[3:2])
   );
 
     // 外部AXI接口直接连接到arbiter slave[0]
@@ -238,16 +238,16 @@ module ysyx_24100007(
   assign io_master_arvalid = arbiter_arvalid_out[0];
   assign io_master_rready = arbiter_rready_out[0];
   assign io_master_bready = arbiter_bready_out[0];
-  assign io_master_araddr = arbiter_araddr_out[0];
-  assign io_master_awaddr = arbiter_awaddr_out[0];
-  assign io_master_wdata = arbiter_wdata_out[0];
-  assign io_master_wstrb = arbiter_wstrb_out[0];
-  assign io_master_awsize = arbiter_awsize_out[0];
-  assign io_master_arsize = arbiter_arsize_out[0];
-  assign io_master_awlen = arbiter_awlen_out[0];
-  assign io_master_arlen = arbiter_arlen_out[0];
-  assign io_master_awburst = arbiter_awburst_out[0];
-  assign io_master_arburst = arbiter_arburst_out[0];
+  assign io_master_araddr = arbiter_araddr_out[31:0];
+  assign io_master_awaddr = arbiter_awaddr_out[31:0];
+  assign io_master_wdata = arbiter_wdata_out[31:0];
+  assign io_master_wstrb = arbiter_wstrb_out[3:0];
+  assign io_master_awsize = arbiter_awsize_out[2:0];
+  assign io_master_arsize = arbiter_arsize_out[2:0];
+  assign io_master_awlen = arbiter_awlen_out[7:0];
+  assign io_master_arlen = arbiter_arlen_out[7:0];
+  assign io_master_awburst = arbiter_awburst_out[1:0];
+  assign io_master_arburst = arbiter_arburst_out[1:0];
   assign io_master_wlast = arbiter_wlast_out[0];
 
   // arbiter slave[0]输入来自外部AXI
@@ -256,9 +256,11 @@ module ysyx_24100007(
   assign arbiter_awready_in[0] = io_master_awready;
   assign arbiter_wready_in[0] = io_master_wready;
   assign arbiter_arready_in[0] = io_master_arready;
-  assign arbiter_rdata_in[0] = io_master_rdata;
-  assign arbiter_bresp_in[0] = io_master_bresp;
+  assign arbiter_rdata_in[31:0] = io_master_rdata;
+  assign arbiter_bresp_in[1:0] = io_master_bresp;
   assign arbiter_rlast_in[0] = io_master_rlast;
+
+  assign arbiter_rlast_in[1] = arbiter_rvalid_in[1];
 
   assign io_master_awid = 4'b0;
   assign io_master_arid = 4'd0;

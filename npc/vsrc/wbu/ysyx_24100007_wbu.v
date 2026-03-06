@@ -8,8 +8,7 @@ module ysyx_24100007_wbu(
   input [31:0] imm_in,
   input [31:0] link_addr_in,
   input [2:0] muxsig_in,
-  input [2:0] memmask_in,
-  input memsextsig_in,
+  input [2:0] func3_in,
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -29,8 +28,6 @@ module ysyx_24100007_wbu(
   output trans_start,
   output trans_end,
 
-  output icahce_flush,
-  
   // wbu is the last model
   input in_valid,
   output in_ready,
@@ -77,9 +74,18 @@ module ysyx_24100007_wbu(
   wire [31:0] imm;
   wire [31:0] link_addr;
   wire [2:0] muxsig;
-  wire [2:0] memmask;
-  wire memsextsig;
+  wire [2:0] func3;
   wire regew_control;
+  // Derive memmask and memsextsig from func3 (load/store encoding)
+  wire [2:0] memmask = (func3 == 3'b000) ? 3'b001 :
+               (func3 == 3'b001) ? 3'b010 :
+               (func3 == 3'b010) ? 3'b100 :
+               (func3 == 3'b100) ? 3'b001 :
+               (func3 == 3'b101) ? 3'b010 :
+               3'b000;
+  wire memsextsig = (func3 == 3'b100) ? 1'b0 :
+                    (func3 == 3'b101) ? 1'b0 :
+                    1'b1;
   wire [4:0] rd;
   wire ecallsig;
   wire csrrs, csrrw;
@@ -95,8 +101,7 @@ module ysyx_24100007_wbu(
     .imm_in(imm_in),
     .link_addr_in(link_addr_in),
     .muxsig_in(muxsig_in),
-    .memmask_in(memmask_in),
-    .memsextsig_in(memsextsig_in),
+    .func3_in(func3_in),
     .regew_control_in(regew_control_in),
     .rd_in(rd_in),
     .csrrw_in(csrrw_in),
@@ -111,8 +116,7 @@ module ysyx_24100007_wbu(
     .imm_out(imm),
     .link_addr_out(link_addr),
     .muxsig_out(muxsig),
-    .memmask_out(memmask),
-    .memsextsig_out(memsextsig),
+    .func3_out(func3),
     .regew_control_out(regew_control),
     .rd_out(rd),
     .csrrw_out(csrrw),
@@ -303,8 +307,7 @@ module wbu_pipline_connect(
   input [31:0] imm_in,
   input [31:0] link_addr_in,
   input [2:0] muxsig_in,
-  input [2:0] memmask_in,
-  input memsextsig_in,
+  input [2:0] func3_in,
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -319,8 +322,7 @@ module wbu_pipline_connect(
   output [31:0] imm_out,
   output [31:0] link_addr_out,
   output [2:0] muxsig_out,
-  output [2:0] memmask_out,
-  output memsextsig_out,
+  output [2:0] func3_out,
   output regew_control_out,
   output [4:0] rd_out,
   output csrrw_out,
@@ -356,8 +358,7 @@ module wbu_pipline_connect(
   reg [31:0] imm_r;
   reg [31:0] link_addr_r;
   reg [2:0] muxsig_r;
-  reg [2:0] memmask_r;
-  reg memsextsig_r;
+  reg [2:0] func3_r;
   reg regew_control_r;
   reg [4:0] rd_r;
   reg csrrw_r;
@@ -374,8 +375,7 @@ module wbu_pipline_connect(
       imm_r <= 32'b0;
       link_addr_r <= 32'b0;
       muxsig_r <= 3'b0;
-      memmask_r <= 3'b0;
-      memsextsig_r <= 1'b0;
+      func3_r <= 3'b0;
       regew_control_r <= 1'b0;
       rd_r <= 5'b0;
       csrrw_r <= 1'b0;
@@ -391,8 +391,7 @@ module wbu_pipline_connect(
         imm_r <= imm_in;
         link_addr_r <= link_addr_in;
         muxsig_r <= muxsig_in;
-        memmask_r <= memmask_in;
-        memsextsig_r <= memsextsig_in;
+        func3_r <= func3_in;
         regew_control_r <= regew_control_in;
         rd_r <= rd_in;
         csrrw_r <= csrrw_in;
@@ -407,8 +406,7 @@ module wbu_pipline_connect(
         imm_r <= 32'b0;
         link_addr_r <= 32'b0;
         muxsig_r <= 3'b0;
-        memmask_r <= 3'b0;
-        memsextsig_r <= 1'b0;
+        func3_r <= 3'b0;
         regew_control_r <= 1'b0;
         rd_r <= 5'b0;
         csrrw_r <= 1'b0;
@@ -427,8 +425,7 @@ module wbu_pipline_connect(
   assign imm_out = imm_r;
   assign link_addr_out = link_addr_r;
   assign muxsig_out = muxsig_r;
-  assign memmask_out = memmask_r;
-  assign memsextsig_out = memsextsig_r;
+  assign func3_out = func3_r;
   assign regew_control_out = regew_control_r;
   assign rd_out = rd_r;
   assign csrrw_out = csrrw_r;

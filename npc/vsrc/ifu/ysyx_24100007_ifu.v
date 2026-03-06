@@ -8,9 +8,6 @@ module ysyx_24100007_ifu(
   output valid,
   input ready,
 
-  input icahce_flush,
-  input [31:0] icahce_flush_addr,
-
   input is_jmp,
 
   // AXI-Lite interface for external SRAM
@@ -48,30 +45,26 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // ICACHE
   // ------------------------------------
-  localparam INDEX_LEN = 3;
   localparam OFFSET_LEN = 4;
   localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
   localparam ARLEN = (2 ** OFFSET_LEN) / 4 - 1;
   wire w_valid, cache_hit;
   wire [31:0] cache_rdata;
-  ysyx_24100007_icache #(
-    .INDEX_LEN(INDEX_LEN),
-    .OFFSET_LEN(OFFSET_LEN)
-  ) icache_u (
+  wire set_invalid;
+  ysyx_24100007_icache icache_u (
     .clk(clk),
     .rst(rst),
 
     .addr(pcbridge),
     .w_valid(w_valid),
     .w_data(axi_rdata),
+    .set_invalid(set_invalid),
     .hit(cache_hit),
-    .data_r(cache_rdata),
-
-    .icahce_flush(icahce_flush),
-    .icahce_flush_addr(icahce_flush_addr)
+    .data_r(cache_rdata)
   );
   wire hit = cache_hit && (ifu_state == CHECK_CACHE);
   assign w_valid = (ifu_state == UPDATE_CACHE);
+  assign set_invalid = (inst_reg == 32'b00000000000000000001000000001111);
 
   // ------------------------------------
   // PERFORMANCE COUNTER LOGIC

@@ -132,4 +132,9 @@ module ysyx_24100007_clint (
     assign arready = (state_current_q == ST_ACCEPT);
     assign rvalid = (state_current_q == ST_VALID);
     assign rdata = rdata_out_q;
+
+    assign awready = 0;
+    assign wready = 0;
+    assign bvalid = 0;
+    assign bresp = 2'b00;
 endmodule
