@@ -18,3 +18,4 @@
 /.nvim
 /.hdl_checker
 /.git
+/rt-thread-am/bsp/abstract-machine/build/

@@ -23,7 +23,9 @@ socspace soc_spaces[] = {
   {"mrom" , MBASE , MBASE + msize, pmem },
   {"flash", FBASE , FBASE + fsize, flash },
   {"psram", PSBASE, PSBASE + psize, psram},
+  #ifndef __NPC__ 
   {"sdram", SDBASE, SDBASE + dsize, sdram},
+  #endif
 };
 
 

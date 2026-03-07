@@ -1,8 +1,3 @@
-// `include "inst.v"
-// `include "symdef.v"
-
-// the main decoder should finish everything about type
-// include imm and divide the inst
 
 module ysyx_24100007_decoder(
   input [31:0] inst,

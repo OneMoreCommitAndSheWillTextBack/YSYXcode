@@ -27,8 +27,6 @@ module ysyx_24100007_exu(
   input memew_in,               
   input memer_in,              
   input [2:0] muxsig_in,        
-  input [2:0] memmask_in,     
-  input memsextsig_in,         
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -48,8 +46,7 @@ module ysyx_24100007_exu(
   output memew_out,              
   output memer_out,              
   output [2:0] muxsig_out,        
-  output [2:0] memmask_out,      
-  output memsextsig_out,         
+  output [2:0] func3_out,        
   output regew_control_out,   
   output [4:0] rd_out,
   output csrrw_out,
@@ -153,8 +150,6 @@ module ysyx_24100007_exu(
     .memew_in(memew_in),
     .memer_in(memer_in),
     .muxsig_in(muxsig_in),
-    .memmask_in(memmask_in),
-    .memsextsig_in(memsextsig_in),
     .regew_control_in(regew_control_in),
     .rd_in(rd_in),
     .csrrw_in(csrrw_in),
@@ -183,8 +178,6 @@ module ysyx_24100007_exu(
     // pass sig outputs
     .memew_out(memew_out),
     .memer_out(memer_out),
-    .memmask_out(memmask_out),
-    .memsextsig_out(memsextsig_out),
     .regew_control_out(regew_control_out),
     .rd_out(rd_out),
     .csrrw_out(csrrw),
@@ -199,6 +192,7 @@ module ysyx_24100007_exu(
   assign csrrs_out = csrrs;
   assign csrrw_out = csrrw;
   assign ecallsig_out = ecallsig;
+  assign func3_out = func3;
 
   wire [31:0] pc_plus_4, pc_plus_imm;
   assign pc_plus_4 = pc + 32'd4;
@@ -215,13 +209,15 @@ module ysyx_24100007_exu(
     .aluopcode(alu_opcode)
   );
 
-  wire [31:0] alu_arg2;
-  ysyx_24100007_MuxKey#(2, 1, 32) chosmuximm(alu_arg2, muximm, {
-      1'b0, src2,
-      1'b1, imm
-    }
-  );
-  
+  reg [31:0] alu_arg2;
+  always @(*) begin
+    case (muximm)
+      1'b0: alu_arg2 = src2;
+      1'b1: alu_arg2 = imm;
+      default: alu_arg2 = src2;
+    endcase
+  end
+
   wire zero_flag, sign_flag, carry_flag;
   ysyx_24100007_alu alu0(
     .A(src1),
@@ -323,8 +319,6 @@ module exu_pipline_connect(
   input memew_in,               
   input memer_in,              
   input [2:0] muxsig_in,        
-  input [2:0] memmask_in,     
-  input memsextsig_in,         
   input regew_control_in,
   input [4:0] rd_in,
   input csrrw_in,
@@ -351,8 +345,6 @@ module exu_pipline_connect(
   output memew_out,               
   output memer_out,              
   output [2:0] muxsig_out,        
-  output [2:0] memmask_out,     
-  output memsextsig_out,         
   output regew_control_out,
   output [4:0] rd_out,
   output csrrw_out,
@@ -399,8 +391,6 @@ module exu_pipline_connect(
   reg memew_r;
   reg memer_r;
   reg [2:0] muxsig_r;
-  reg [2:0] memmask_r;
-  reg memsextsig_r;
   reg regew_control_r;
   reg [4:0] rd_r;
   reg csrrw_r;
@@ -428,8 +418,6 @@ module exu_pipline_connect(
       memew_r <= 1'b0;
       memer_r <= 1'b0;
       muxsig_r <= 3'b0;
-      memmask_r <= 3'b0;
-      memsextsig_r <= 1'b0;
       regew_control_r <= 1'b0;
       rd_r <= 5'b0;
       csrrw_r <= 1'b0;
@@ -456,40 +444,19 @@ module exu_pipline_connect(
         memew_r <= memew_in;
         memer_r <= memer_in;
         muxsig_r <= muxsig_in;
-        memmask_r <= memmask_in;
-        memsextsig_r <= memsextsig_in;
         regew_control_r <= regew_control_in;
         rd_r <= rd_in;
         csrrw_r <= csrrw_in;
         csrrs_r <= csrrs_in;
         csr_addr_r <= csr_addr_in;
       end else if(flush) begin
-        func3_r <= 3'b0;
-        btypebranch_r <= 1'b0;
-        func7_r <= 1'b0;
-        aluop_r <= 2'b0;
-        jalrsig_r <= 1'b0;
-        jalsig_r <= 1'b0;
-        imm_r <= 32'b0;
-        muximm_r <= 1'b0;
-        src1_r <= 32'b0;
-        src2_r <= 32'b0;
-        pc_r <= 32'b0;
-        auipcsig_r <= 1'b0;
-        mretsig_r <= 1'b0;
-        ecallsig_r <= 1'b0;
-        mtvec_r <= 32'b0;
-        mepc_r <= 32'b0;
+        regew_control_r <= 1'b0;   
         memew_r <= 1'b0;
-        memer_r <= 1'b0;
-        muxsig_r <= 3'b0;
-        memmask_r <= 3'b0;
-        memsextsig_r <= 1'b0;
-        regew_control_r <= 1'b0;
-        rd_r <= 5'b0;
+        memer_r <= 1'b0;          
+        rd_r <= 5'b0;             
         csrrw_r <= 1'b0;
         csrrs_r <= 1'b0;
-        csr_addr_r <= 12'b0;
+        ecallsig_r <= 1'b0; 
       end
     end
   end
@@ -514,8 +481,6 @@ module exu_pipline_connect(
   assign memew_out = memew_r;
   assign memer_out = memer_r;
   assign muxsig_out = muxsig_r;
-  assign memmask_out = memmask_r;
-  assign memsextsig_out = memsextsig_r;
   assign regew_control_out = regew_control_r;
   assign rd_out = rd_r;
   assign csrrw_out = csrrw_r;

@@ -16,7 +16,7 @@ module ysyx_24100007_pcreg(
     pcout = init;
   end
   
-  always @(posedge clk or posedge rst) begin
+  always @(posedge clk) begin
     if(rst) begin
       pcout <= init;
     end else

@@ -477,7 +477,7 @@ module axi_memory (
       if(io_rready) begin
         // 握手的时候更新
         npc_pmem_read(addr_aligned, 32'd4, data_output);
-        if(read_burst_counter == trans_time) begin
+        if(read_burst_counter == trans_time - 1'b1) begin
           read_done <= 1'b1;
           read_valid <= 1'b1;
         end else if(read_burst_counter < trans_time) begin
