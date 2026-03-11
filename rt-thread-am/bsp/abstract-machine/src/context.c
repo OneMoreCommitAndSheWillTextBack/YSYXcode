@@ -10,11 +10,13 @@ static Context* ev_handler(Event e, Context *c) {
   // printf("get event ID = %d\n", e.event);
   switch (e.event) {
     case EVENT_YIELD:
+    case EVENT_SYSCALL:
       if(global_from){
         *(Context**)global_from = c;
       }
       c = *(Context **)global_to;
       break;
+    break;
 		case 5:
 			break;
     default: printf("Unhandled event ID = %d\n", e.event); assert(0);
