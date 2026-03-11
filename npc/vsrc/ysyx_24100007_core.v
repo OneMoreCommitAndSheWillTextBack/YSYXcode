@@ -465,9 +465,9 @@ module ysyx_24100007_pipline_tracer(
     get_predict_miss({31'b0, is_jmp});
     npc_commit_inst({31'b0, commit_sys}, commit_pc_sys, commit_inst_sys); 
     `else
-    if (commit_sys) begin
-      $display("[Trace] Time: %0t | PC: 0x%h | Inst: 0x%h", $time, commit_pc_sys, commit_inst_sys);
-    end
+    // if (commit_sys) begin
+    //   $display("[Trace] Time: %0t | PC: 0x%h | Inst: 0x%h", $time, commit_pc_sys, commit_inst_sys);
+    // end
     `endif
   end
 
