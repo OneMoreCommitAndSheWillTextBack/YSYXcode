@@ -1,6 +1,3 @@
-// synopsys translate_off
-
-// synopsys translate_on
 module ysyx_24100007(
     input clock,
     input reset,

@@ -1,8 +1,3 @@
-/**
- * 统一 LSU (Load Store Unit)
- * 整合 IFU 取指与 WBU load/store 的 AXI 访问
- * 通过 ifucfg / wbucfg 产生 AXI 参数，单一状态机驱动 AXI
- */
 module ysyx_24100007_lsu (
     input clk,
     input rst,
@@ -300,6 +295,7 @@ module ysyx_24100007_lsu (
   // PERFORMANCE COUNTER LOGIC
   // ------------------------------------
   // synopsys translate_off
+  `ifdef VERILATOR
   import "DPI-C" function void host_get_io_op(int addr);
   import "DPI-C" function void host_get_wbu_start();
   import "DPI-C" function void host_get_wbu_finish();
@@ -329,6 +325,7 @@ module ysyx_24100007_lsu (
       endcase
     end
   end
+  `endif
   // synopsys translate_on
 
 endmodule

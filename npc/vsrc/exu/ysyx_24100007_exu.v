@@ -287,10 +287,12 @@ module ysyx_24100007_exu(
   wire exu_csr_delay = wbu_write_csr & exu_need_mepc_mtvec;
   
   // synopsys translate_off
+  `ifdef VERILATOR
   import "DPI-C" function void get_exu_state(int state);
   always @(posedge clk) begin 
     get_exu_state({31'b0, exu_state_r == VALID});
   end
+  `endif
   // synopsys translate_on
 
 endmodule

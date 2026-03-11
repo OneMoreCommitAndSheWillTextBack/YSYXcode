@@ -443,9 +443,11 @@ module ysyx_24100007_pipline_tracer(
     end 
   end 
 
+  `ifndef __ICARUS__
   import "DPI-C" function void npc_commit_inst(int valid, int pc, int inst);
   import "DPI-C" function void get_predict_miss(int is_jmp);
   import "DPI-C" function void npc_get_current_pc(int pc);
+  `endif
 
   reg commit_sys;
   reg [31:0] commit_pc_sys;
@@ -458,16 +460,29 @@ module ysyx_24100007_pipline_tracer(
   end
 
   always @(posedge clk) begin
+    `ifndef __ICARUS__
     npc_get_current_pc(pc);
     get_predict_miss({31'b0, is_jmp});
     npc_commit_inst({31'b0, commit_sys}, commit_pc_sys, commit_inst_sys); 
+    `else
+    // if (commit_sys) begin
+    //   $display("[Trace] Time: %0t | PC: 0x%h | Inst: 0x%h", $time, commit_pc_sys, commit_inst_sys);
+    // end
+    `endif
   end
 
   wire dead_cyc = (wbu_inst == 32'h0000006f);
   always @(posedge clk) begin
+    `ifndef __ICARUS__
     if(dead_cyc & wbu_commit) begin
       ret(0);
     end
+    `else
+    if(dead_cyc & wbu_commit) begin
+      $display("HIT GOOD TRAP");
+      $finish;
+    end
+    `endif
   end
 endmodule
 // synopsys translate_on

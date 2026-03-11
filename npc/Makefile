@@ -41,6 +41,7 @@ ifeq ($(BUILD_MODE),ysyxsoc)
   	TOPNAME = ysyxSoCFull
   	NVBOARD_ENABLE = 0
 
+	VERILATOR_FLAGS += -D__YSYXSOC__
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/spi/rtl
 	VSRC += $(shell find $(SOCPATH)/perip -name "*.v")
@@ -55,6 +56,7 @@ ifeq ($(BUILD_MODE),ysyxsoc_nvboard)
   	TOPNAME = ysyxSoCFull
   	NVBOARD_ENABLE = 1
 
+	VERILATOR_FLAGS += -D__YSYXSOC__
   	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/spi/rtl
 	VSRC += $(shell find $(SOCPATH)/perip -name "*.v")
@@ -70,9 +72,10 @@ ifeq ($(BUILD_MODE),release)
   	TOPNAME = ysyxSoCFull 
   	NVBOARD_ENABLE = 1
 
+	VERILATOR_FLAGS += -D__YSYXSOC__
   	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/spi/rtl
-	VSRC = ./release/ysyx_24100007.v
+	VSRC = ./build/ysyx_24100007.v
 	VSRC += $(shell find $(SOCPATH)/perip -name "*.v")
 	VSRC += $(SOCPATH)/build/ysyxSoCFull.v
 
@@ -118,6 +121,69 @@ sim:
 	else \
 		gtkwave ./wave.vcd & \
 	fi
+
+VERILOG_OUT = $(abspath ./build/ysyx_24100007.v)
+VERILOG_ORDER = \
+	vsrc/ysyx_24100007.v \
+	vsrc/exu/ysyx_24100007_alucontrol.v \
+	vsrc/exu/ysyx_24100007_alu.v \
+	vsrc/exu/ysyx_24100007_brachcontrol.v \
+	vsrc/exu/ysyx_24100007_exu.v \
+	vsrc/idu/ysyx_24100007_control_unit.v \
+	vsrc/idu/ysyx_24100007_decoder.v \
+	vsrc/idu/ysyx_24100007_idu.v \
+	vsrc/idu/ysyx_24100007_transmit.v \
+	vsrc/ifu/ysyx_24100007_icache.v \
+	vsrc/ifu/ysyx_24100007_ifu.v \
+	vsrc/ifu/ysyx_24100007_pcreg.v \
+	vsrc/lsu/ysyx_24100007_ifucfg.v \
+	vsrc/lsu/ysyx_24100007_lsu.v \
+	vsrc/lsu/ysyx_24100007_memreadlen.v \
+	vsrc/lsu/ysyx_24100007_memwritelen.v \
+	vsrc/lsu/ysyx_24100007_wbucfg.v \
+	vsrc/reg/ysyx_24100007_regheap.v \
+	vsrc/reg/ysyx_24100007_registers.v \
+	vsrc/tools/sext/ysyx_24100007_sext.v \
+	vsrc/tools/ysyx_24100007_arbiter.v \
+	vsrc/tools/ysyx_24100007_clint.v \
+	vsrc/wbu/ysyx_24100007_wbu.v \
+	vsrc/ysyx_24100007_core.v
+verilog:
+	@mkdir -p build
+	@echo + Merging vsrc/*.v into $(VERILOG_OUT)
+	@( for f in $(VERILOG_ORDER); do cat "$$f"; echo; done ) > $(VERILOG_OUT)
+
+ivg:
+	@if [ -n "$(IVG)" ]; then \
+		ln -sf $(IVG) /home/ysyx/project/ysyx-workbench/npc/bin.ivg; \
+	fi
+	iverilog -D__NPC__ -o /home/ysyx/project/ysyx-workbench/npc/build/npc_ivg -g2012 \
+		/home/ysyx/project/ysyx-workbench/npc/build/ysyx_24100007.v \
+		/home/ysyx/project/ysyx-workbench/npc/vsrc-extra/ivg_top.v \
+		/home/ysyx/project/ysyx-workbench/npc/vsrc-extra/npc.v 
+	vvp /home/ysyx/project/ysyx-workbench/npc/build/npc_ivg
+
+BIN_IVG = /home/ysyx/project/ysyx-workbench/npc/bin.ivg
+
+$(BIN_IVG): $(IMG)
+	@if [ -z "$(IMG)" ]; then echo "Error: IMG=xxx.bin required"; exit 1; fi
+	@echo Converting $(IMG) to readmemh format
+	@(echo "@0"; xxd -p -c 0 $(IMG) | sed 's/\(..\)/\1 /g') > $(BIN_IVG)
+
+sim-iverilog: $(IMG) $(BIN_IVG)
+	iverilog -D__NPC__ -o $(abspath ./build/npc_ivg) -g2012 \
+		$(VERILOG_OUT) \
+		./vsrc-extra/ivg_top.v \
+		./vsrc-extra/npc.v
+	vvp ./build/npc_ivg
+
+sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST)
+	iverilog -o $(abspath ./build/npc_ivg) -g2012 \
+		-I $(CELLS) \
+		$(NETLIST) \
+		./vsrc-extra/ivg_top.v \
+		./vsrc-extra/npc.v
+	vvp ./build/npc_ivg
 
 check:
 	$(VERILATOR) --lint-only --top-module ysyx_24100007 -Wall -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME /home/ysyx/project/ysyx-workbench/npc/release/ysyx_24100007.v 

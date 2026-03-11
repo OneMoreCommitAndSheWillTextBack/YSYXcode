@@ -2,6 +2,8 @@
 
 void device_init() {
   map_init();
-  // serial_init();
-  // rtc_init();
+  #ifdef __NPC__
+  serial_init();
+  rtc_init();
+  #endif
 }

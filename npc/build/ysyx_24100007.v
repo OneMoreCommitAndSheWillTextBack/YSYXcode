@@ -760,14 +760,14 @@ module ysyx_24100007_exu(
   wire exu_need_mepc_mtvec = ecallsig || mretsig;
   wire exu_csr_delay = wbu_write_csr & exu_need_mepc_mtvec;
   
-`ifdef VERILATOR
   // synopsys translate_off
+  `ifdef VERILATOR
   import "DPI-C" function void get_exu_state(int state);
   always @(posedge clk) begin 
     get_exu_state({31'b0, exu_state_r == VALID});
   end
+  `endif
   // synopsys translate_on
-`endif
 
 endmodule
 
@@ -970,7 +970,6 @@ endmodule
 import "DPI-C" function void ret(int pc);
 // synopsys translate_on
 `endif
-
 module ysyx_24100007_control_unit(
   input [6:0] opcode,
   input [2:0] func3,
@@ -1034,22 +1033,26 @@ module ysyx_24100007_control_unit(
   assign memsextsig = (func3 == 3'b100) ? 1'b0 :
                       (func3 == 3'b101) ? 1'b0 :
                       1'b1;
-  `ifdef VERILATOR
+  
   // synopsys translate_off
+  `ifdef VERILATOR
   always @(*) begin
     if(ebreaksig)
       ret(0);
   end
-  // synopsys translate_on
   `endif
-
+  
   // `ifdef __ICARUS__
   // always @(*) begin
   //   if(ebreak)
-  //     $finish
+  //     $finish;
   // end
   // `endif
+  // synopsys translate_on
 endmodule
+
+
+
 
 module ysyx_24100007_decoder(
   input [31:0] inst,
@@ -1119,6 +1122,7 @@ module ysyx_24100007_decoder(
   assign mretsig = (inst == 32'b00110000001000000000000001110011);
 
 endmodule
+
 
 
 module ysyx_24100007_idu(
@@ -1313,15 +1317,15 @@ module ysyx_24100007_idu(
     .src2(src2_data),
     .valid(src_data_valid)
   );
-
- `ifdef VERILATOR 
+  
   // synopsys translate_off
+  `ifdef VERILATOR
   import "DPI-C" function void get_idu_state(int state);
   always @(posedge clk) begin 
     get_idu_state({31'b0, idu_state_r == VALID});
   end
-  // synopsys translate_on
   `endif
+  // synopsys translate_on
 endmodule
 
 module idu_pipline_connect(
@@ -1618,13 +1622,12 @@ module ysyx_24100007_ifu(
   assign w_valid = (ifu_state == UPDATE_CACHE);
   assign set_invalid = (inst_reg == 32'b00000000000000000001000000001111);
 
-`ifdef VERILATOR
   // ------------------------------------
   // PERFORMANCE COUNTER LOGIC
   // ------------------------------------
   // divide it so it couldnot disrupt the synthetic
   // synopsys translate_off
-
+  `ifdef VERILATOR
   import "DPI-C" function void host_get_ifu_start();
   import "DPI-C" function void host_get_ifu_finish();
   import "DPI-C" function void host_get_ifu_giveup();
@@ -1662,8 +1665,8 @@ module ysyx_24100007_ifu(
       end
     end
   end
+  `endif
   // synopsys translate_on
-`endif
 
   // ------------------------------------
   // IFU STATE MACHINE
@@ -1779,6 +1782,7 @@ module ysyx_24100007_ifu(
   assign valid = (ifu_state == VALID);
 endmodule
 
+
 module ysyx_24100007_pcreg(
   input clk,
   input [31:0] npc,
@@ -1795,12 +1799,14 @@ module ysyx_24100007_pcreg(
   localparam init = 32'h80000000;   // 或 0x30000000，依默认需求
 `endif
 
+// synopsys translate_off
   initial begin
     pcout = init;
     `ifdef __ICARUS__
       $display("[Init] Start PC: 0x%h", pcout);
     `endif 
   end
+// synopsys translate_on
   
   always @(posedge clk) begin
     if(rst) begin
@@ -1813,6 +1819,13 @@ module ysyx_24100007_pcreg(
 
 endmodule
 
+/**
+ * IFU AXI 配置模块
+ * 将取指请求转换为 AXI 读通道参数
+ * - 4-beat burst (16B cache line)
+ * - 32-bit 传输宽度
+ * - WRAP 突发类型（cache line 对齐）
+ */
 module ysyx_24100007_ifucfg (
     input  [31:0] addr,
 
@@ -1831,7 +1844,6 @@ module ysyx_24100007_ifucfg (
   assign arburst = WRAP;           // WRAP 用于 cache line 取指
 
 endmodule
-
 
 module ysyx_24100007_lsu (
     input clk,
@@ -2126,11 +2138,11 @@ module ysyx_24100007_lsu (
 
   assign data_read = data_buffer;
 
-`ifdef VERILATOR
   // ------------------------------------
   // PERFORMANCE COUNTER LOGIC
   // ------------------------------------
   // synopsys translate_off
+  `ifdef VERILATOR
   import "DPI-C" function void host_get_io_op(int addr);
   import "DPI-C" function void host_get_wbu_start();
   import "DPI-C" function void host_get_wbu_finish();
@@ -2160,8 +2172,8 @@ module ysyx_24100007_lsu (
       endcase
     end
   end
+  `endif
   // synopsys translate_on
-`endif
 
 endmodule
 
@@ -2290,6 +2302,14 @@ module ysyx_24100007_memwritelen(
 
 endmodule
 
+/**
+ * WBU AXI 配置模块
+ * 将 load/store 请求转换为 AXI 通道参数
+ * - 单 beat 传输
+ * - arsize/awsize 由 mem_mask 决定
+ * - awburst 由地址范围决定（UART 用 FIXED，其它用 INCR）
+ * - 复用 memwritelen 逻辑处理 wstrb、awsize、wdata 对齐
+ */
 module ysyx_24100007_wbucfg (
     input        mem_we,
     input [31:0] mem_addr,
@@ -2344,6 +2364,7 @@ module ysyx_24100007_wbucfg (
   assign wdata = mem_wdata << ({3'b0, wdata_offset} << 3);
 
 endmodule
+
 module ysyx_24100007_regheap(
   input clk,
   input rst,
@@ -2413,8 +2434,7 @@ import "DPI-C" function void host_get_reg(int regval, int regnum);
 import "DPI-C" function void host_get_csr(int csrval, int csrnum);
 // synopsys translate_on
 `endif
-
-module ysyx_24100007_registers (
+module ysyx_24100007_registers(
   input clk,
   input rst,
   input ew,
@@ -2477,8 +2497,8 @@ module ysyx_24100007_registers (
     end
   end
 
-`ifdef VERILATOR
   // synopsys translate_off
+  `ifdef VERILATOR
   always @(*) begin
     integer i;
     host_get_reg(0, 0);
@@ -2490,8 +2510,8 @@ module ysyx_24100007_registers (
       host_get_csr(csr[i], i);
     end
   end
+  `endif
   // synopsys translate_on
-`endif
 
   genvar gi;
   generate
@@ -2517,7 +2537,7 @@ module ysyx_24100007_sext #(parameter INPUT_WIDTH = 32, parameter OUTPUT_WIDTH =
 endmodule
 
 // ---------------------------------------------
-// version created at 2026/3/6 sunmingyang
+// version created at 2025/12/20 sunmingyang
 // 单 master 版本：仅做地址解码与 slave 路由，无 master 仲裁
 // ---------------------------------------------
 module ysyx_24100007_arbiter #(
@@ -2780,6 +2800,7 @@ module ysyx_24100007_clint (
     reg [31:0] addr_q;
     reg addr_capture_en_r;
 
+    // 地址捕获逻辑（组合逻辑）
     always @(*) begin
         addr_capture_en_r = 1'b0;
         rdata_out_r = 32'b0;
@@ -3191,6 +3212,7 @@ module wbu_pipline_connect(
 
 endmodule
 
+
 module ysyx_24100007_core #(
   parameter PORT_NUM=2  // 连接到arbiter的端口数量（IFU和WBU）
 )(
@@ -3569,6 +3591,7 @@ ysyx_24100007_lsu lsu0 (
   .bresp  (bresp)
 );
 
+
 // synopsys translate_off
   ysyx_24100007_pipline_tracer tracer0(
     .clk(clock), 
@@ -3589,6 +3612,7 @@ ysyx_24100007_lsu lsu0 (
   );
 
 // synopsys translate_on
+
 endmodule
 
 // synopsys translate_off
@@ -3677,5 +3701,4 @@ module ysyx_24100007_pipline_tracer(
   end
 endmodule
 // synopsys translate_on
-
 

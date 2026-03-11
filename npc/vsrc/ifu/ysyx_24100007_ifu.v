@@ -62,7 +62,7 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // divide it so it couldnot disrupt the synthetic
   // synopsys translate_off
-
+  `ifdef VERILATOR
   import "DPI-C" function void host_get_ifu_start();
   import "DPI-C" function void host_get_ifu_finish();
   import "DPI-C" function void host_get_ifu_giveup();
@@ -100,6 +100,7 @@ module ysyx_24100007_ifu(
       end
     end
   end
+  `endif
   // synopsys translate_on
 
   // ------------------------------------

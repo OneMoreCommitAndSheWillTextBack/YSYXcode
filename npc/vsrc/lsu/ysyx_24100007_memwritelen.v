@@ -1,7 +1,7 @@
-`define GENERAL 2'b00 // for the device that support Supports arbitrary byte access
-`define BYTE 2'b01
-`define HALFWORD 2'b10
-`define WORD 2'b11
+`define ysyx_24100007_GENERAL 2'b00 // for the device that support Supports arbitrary byte access
+`define ysyx_24100007_BYTE 2'b01
+`define ysyx_24100007_HALFWORD 2'b10
+`define ysyx_24100007_WORD 2'b11
 
 module ysyx_24100007_memwritelen(
     input [31:0] awaddr,
@@ -27,18 +27,18 @@ module ysyx_24100007_memwritelen(
 
     always @(*) begin
         case ({insram|inspi|insdram|inpsram, 1'b0, inflash})
-            3'b100:  bus_size = `WORD;
-            3'b010:  bus_size = `HALFWORD;
-            3'b001:  bus_size = `BYTE;
-            default: bus_size = `GENERAL;
+            3'b100:  bus_size = `ysyx_24100007_WORD;
+            3'b010:  bus_size = `ysyx_24100007_HALFWORD;
+            3'b001:  bus_size = `ysyx_24100007_BYTE;
+            default: bus_size = `ysyx_24100007_GENERAL;
         endcase
     end
 
     always @(*) begin
         case (bus_size)
-            `BYTE:     awsize = 3'b000;
-            `HALFWORD: awsize = 3'b001;
-            `WORD:     awsize = 3'b010;
+            `ysyx_24100007_BYTE:     awsize = 3'b000;
+            `ysyx_24100007_HALFWORD: awsize = 3'b001;
+            `ysyx_24100007_WORD:     awsize = 3'b010;
             default:   awsize = awsize_general;
         endcase
     end
@@ -66,12 +66,12 @@ module ysyx_24100007_memwritelen(
                         (mux == 5'b10000) ? 4'b1111 :
                         4'b0000;
 
-    assign wstrb = (bus_size == `GENERAL) ? wstrb_general :
-                   (bus_size == `BYTE) ? wstrb_byte :
-                   (bus_size == `HALFWORD) ? wstrb_halfword :
+    assign wstrb = (bus_size == `ysyx_24100007_GENERAL) ? wstrb_general :
+                   (bus_size == `ysyx_24100007_BYTE) ? wstrb_byte :
+                   (bus_size == `ysyx_24100007_HALFWORD) ? wstrb_halfword :
                    wstrb_word;
 
-    assign wdata_offset = (bus_size == `WORD || bus_size == `GENERAL) ? awaddr[1:0] : 2'b0;
+    assign wdata_offset = (bus_size == `ysyx_24100007_WORD || bus_size == `ysyx_24100007_GENERAL) ? awaddr[1:0] : 2'b0;
     assign awburst = inuart ? 2'b00 : 2'b01;
 
 endmodule
