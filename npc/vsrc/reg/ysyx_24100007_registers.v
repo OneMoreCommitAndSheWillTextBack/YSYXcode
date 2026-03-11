@@ -1,7 +1,9 @@
+`ifdef VERILATOR
 // synopsys translate_off
 import "DPI-C" function void host_get_reg(int regval, int regnum);
 import "DPI-C" function void host_get_csr(int csrval, int csrnum);
 // synopsys translate_on
+`endif
 module ysyx_24100007_registers(
   input clk,
   input rst,
@@ -66,6 +68,7 @@ module ysyx_24100007_registers(
   end
 
   // synopsys translate_off
+  `ifdef VERILATOR
   always @(*) begin
     integer i;
     host_get_reg(0, 0);
@@ -77,6 +80,7 @@ module ysyx_24100007_registers(
       host_get_csr(csr[i], i);
     end
   end
+  `endif
   // synopsys translate_on
 
   genvar gi;

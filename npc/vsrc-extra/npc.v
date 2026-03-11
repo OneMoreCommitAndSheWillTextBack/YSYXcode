@@ -264,7 +264,344 @@ module npc (
   );
 endmodule
 
+`ifdef __ICARUS__
+module axi_memory (
+    input clk,
+    input rst,
 
+    output              io_awready,
+    input               io_awvalid,
+    input  [31:0]       io_awaddr,
+    input  [3:0]        io_awid,
+    input  [7:0]        io_awlen,
+    input  [2:0]        io_awsize,
+    input  [1:0]        io_awburst,
+
+    output              io_wready,
+    input               io_wvalid,
+    input  [31:0]       io_wdata,
+    input  [3:0]        io_wstrb,
+    input               io_wlast,
+
+    input               io_bready,
+    output              io_bvalid,
+    output [1:0]        io_bresp,
+    output [3:0]        io_bid,
+
+    output              io_arready,
+    input               io_arvalid,
+    input  [31:0]       io_araddr,
+    input  [3:0]        io_arid,
+    input  [7:0]        io_arlen,
+    input  [2:0]        io_arsize,
+    input  [1:0]        io_arburst,
+
+    input               io_rready,
+    output              io_rvalid,
+    output [1:0]        io_rresp,
+    output [31:0]       io_rdata,
+    output              io_rlast,
+    output [3:0]        io_rid
+);
+
+  typedef enum logic [1:0] {
+    IDLE, READ, WRITE, B_VALID
+  } state_t;
+
+  state_t state_current;
+  state_t state_next;
+
+  always @(posedge clk) begin
+    if(rst) begin
+      state_current <= IDLE;
+    end else begin
+      state_current <= state_next;
+    end 
+  end
+
+  always @(*) begin
+    state_next = IDLE;
+    case(state_current) 
+      IDLE: begin
+        if(io_awvalid && io_wvalid) begin
+          state_next = WRITE;
+        end else if (io_arvalid) begin
+          state_next = READ;
+        end
+      end
+
+      READ: begin
+        state_next = READ;
+        if(read_done) begin
+          state_next = IDLE;
+        end
+      end
+
+      WRITE: begin
+        state_next = WRITE;
+        if(write_done) begin
+          state_next = B_VALID;
+        end
+      end
+
+      B_VALID: begin
+        state_next = B_VALID;
+        if(io_bready) begin
+          state_next = IDLE;
+        end
+      end
+
+      default: begin
+        $display("[axi_memory] ERROR: invalid state"); $stop;
+      end
+    endcase
+  end
+
+  wire is_read = (state_current == IDLE) && io_arvalid;
+  wire is_write = (state_current == IDLE) && (io_awvalid && io_wvalid);
+
+  // -----------------------------
+  // hand shake reply
+  // -----------------------------
+  reg io_arready_o_q, io_awready_o_q, io_wready_o_q;
+  always @(posedge clk) begin
+    if(rst) begin
+      io_arready_o_q <= 1'b0;
+      io_awready_o_q <= 1'b0;
+      io_wready_o_q <= 1'b0;
+    end else if(is_write) begin
+      io_awready_o_q <= 1'b1;
+      io_wready_o_q <= 1'b1;
+      io_arready_o_q <= 1'b0;
+    end else if(is_read) begin
+      io_arready_o_q <= 1'b1;
+      io_awready_o_q <= 1'b0;
+      io_wready_o_q <= 1'b0;
+    end else begin
+      io_arready_o_q <= 1'b0;
+      io_awready_o_q <= 1'b0;
+      io_wready_o_q <= 1'b0;
+    end
+  end
+
+  assign io_arready = io_arready_o_q;
+  assign io_awready = io_awready_o_q;
+  assign io_wready = io_wready_o_q;
+
+  // --------------------------
+  // READ PART
+  // --------------------------
+  // AXI协议：根据size对齐地址
+  // size=0 (1字节): 不需要对齐
+  // size=1 (2字节): 地址[0]必须为0
+  // size=2 (4字节): 地址[1:0]必须为0
+  // wire [31:0] addr_align_mask = (arsize_i == 3'd0) ? 32'hFFFFFFFF :  // 1字节：不掩码
+  //                               (arsize_i == 3'd1) ? 32'hFFFFFFFE :  // 2字节：清除bit[0]
+  //                               32'hFFFFFFFC;                        // 4字节：清除bit[1:0]
+  localparam [1:0]
+    FIXED = 2'b00,
+    INCR  = 2'b01,
+    WRAP  = 2'b10,
+    RESERVED = 2'b11;
+
+  wire [31:0] addr_align_mask = 32'hFFFFFFFC;
+  wire [31:0] addr_aligned = current_addr & addr_align_mask;
+  wire [7:0] trans_time = arlen_i + 8'b1;
+
+  wire [31:0] wrap_size = (({24'b0,arlen_i} + 1) << 2);
+  wire [31:0] wrap_boundary = current_addr & ~(wrap_size - 1);
+  wire [31:0] wrap_end = wrap_boundary + wrap_size;
+
+
+  reg [1:0] arburst_i;
+  reg [7:0] arlen_i;
+  reg [2:0] arsize_i;
+  always @(posedge clk) begin
+    if(rst) begin
+      arsize_i <= 3'b0;
+      arlen_i <= 8'b0;
+      arburst_i <= 2'b0;
+    end else if(is_read) begin
+      arsize_i <= io_arsize;
+      arlen_i <= io_arlen;
+      arburst_i <= io_arburst;
+    end
+  end
+
+  reg [31:0] current_addr;
+  always @(posedge clk) begin
+    if(rst) begin
+      current_addr <= 32'b0;
+    end else begin
+      case(state_current)
+        IDLE: begin
+          if(is_read) begin
+            current_addr <= io_araddr;
+          end else if(is_write) begin
+            current_addr <= io_awaddr;
+          end
+        end
+
+        READ: begin
+          if(io_rready) begin
+            // update the current addr when read data handshake
+            case(arburst_i) 
+              FIXED: begin end
+              INCR: begin current_addr <= current_addr + 32'd4; end
+              WRAP:begin 
+                if ((current_addr + 4) >= wrap_end) begin
+                  current_addr <= wrap_boundary;
+                end else begin
+                  current_addr <= current_addr + 4;
+                end
+              end
+              RESERVED: begin
+                $display("[axi_memory] ERROR: arburst RESERVED not supported");
+                $stop;
+              end
+            endcase
+          end
+        end
+
+        default: begin end
+      endcase
+    end
+  end
+
+  reg read_done;
+  reg read_valid;
+  reg [31:0] data_output;
+  reg [7:0] read_burst_counter;
+
+  // 读数据：pmem / UART 等按地址选择
+  wire [31:0] mem_read_data = pmem_read_data_mux;
+
+  always @(posedge clk) begin
+    if(state_current == READ) begin
+      if(io_rready) begin
+        data_output <= mem_read_data;
+        if(read_burst_counter == trans_time - 1'b1) begin
+          read_done <= 1'b1;
+          read_valid <= 1'b1;
+        end else if(read_burst_counter < trans_time) begin
+          read_valid <= 1'b1;
+          read_burst_counter <= read_burst_counter + 1;
+        end
+      end
+    end else begin
+      read_burst_counter <= 8'b0;
+      read_done <= 1'b0;
+      read_valid <= 1'b0;
+    end
+  end
+
+  assign io_rdata = (read_valid) ? data_output : 32'b0;
+  assign io_rvalid = read_valid;
+  assign io_rlast = read_done;
+ 
+  // --------------------------
+  // 内存映射 (可扩展)
+  // --------------------------
+  localparam PMEM_BASE   = 32'h80000000;
+  localparam PMEM_SIZE   = 32'h20000000;   // 512MB
+  localparam PMEM_END    = PMEM_BASE + PMEM_SIZE;
+
+  localparam SERIAL_BASE = 32'ha00003f8;
+  localparam SERIAL_SIZE = 32'd8;          // 8 bytes
+  localparam SERIAL_END  = SERIAL_BASE + SERIAL_SIZE;
+
+  wire in_pmem  = (addr_aligned >= PMEM_BASE) && (addr_aligned < PMEM_END);
+  wire in_uart  = (addr_aligned >= SERIAL_BASE) && (addr_aligned < SERIAL_END);
+  wire [28:0] pmem_offset = addr_aligned[28:0];
+
+  reg [7:0] pmem [536870911:0];
+  initial begin
+    $readmemh("/home/ysyx/project/ysyx-workbench/npc/bin.ivg", pmem);
+  end
+
+  reg write_done;
+
+  reg [31:0] data_i;
+  reg [3:0] wstrb_i;
+ 
+  always @(posedge clk) begin
+    if(rst) begin
+      data_i <= 32'b0;
+      wstrb_i <= 4'b0;
+    end else if(is_write) begin
+      data_i <= io_wdata;
+      wstrb_i <= io_wstrb;
+    end
+  end
+
+  // --------------------------
+  // READ: pmem / UART 多路选择
+  // --------------------------
+  wire [7:0] pmem_b0 = pmem[pmem_offset];
+  wire [7:0] pmem_b1 = pmem[pmem_offset + 32'd1];
+  wire [7:0] pmem_b2 = pmem[pmem_offset + 32'd2];
+  wire [7:0] pmem_b3 = pmem[pmem_offset + 32'd3];
+
+  // 如果读到未初始化的内存(即含有 x)，将其转换为 0 避免 x 传播
+  wire [31:0] pmem_read_data = in_pmem ? {
+    (^pmem_b3 === 1'bx) ? 8'h0 : pmem_b3,
+    (^pmem_b2 === 1'bx) ? 8'h0 : pmem_b2,
+    (^pmem_b1 === 1'bx) ? 8'h0 : pmem_b1,
+    (^pmem_b0 === 1'bx) ? 8'h0 : pmem_b0
+  } : 32'h0;
+  wire [31:0] uart_read_data = 32'h0;  // UART 仅支持写，读返回 0
+
+  wire [31:0] pmem_read_data_mux = in_uart ? uart_read_data : pmem_read_data;
+
+  // --------------------------
+  // WRITE: pmem
+  // --------------------------
+  always @(posedge clk) begin
+    if(state_current == WRITE && in_pmem) begin
+      if(wstrb_i[0]) pmem[pmem_offset + 32'd0] <= data_i[7:0];
+      if(wstrb_i[1]) pmem[pmem_offset + 32'd1] <= data_i[15:8];
+      if(wstrb_i[2]) pmem[pmem_offset + 32'd2] <= data_i[23:16];
+      if(wstrb_i[3]) pmem[pmem_offset + 32'd3] <= data_i[31:24];
+    end
+  end
+
+  // --------------------------
+  // WRITE: UART (0xa00003f8 数据寄存器，仅 offset 0)
+  // --------------------------
+  // 用来避免一个字符打印两次
+  reg uart_write_done;
+  always @(posedge clk) begin
+    if (rst) begin
+      uart_write_done <= 1'b0;
+    end else if (state_current == WRITE && in_uart && (addr_aligned == SERIAL_BASE) && wstrb_i[0]) begin
+      if (!uart_write_done) begin
+        $write("%c", data_i[7:0]);
+        $fflush;
+        uart_write_done <= 1'b1;
+      end
+    end else begin
+      uart_write_done <= 1'b0;
+    end
+  end
+
+  always @(posedge clk) begin
+    if(state_current == WRITE) begin
+      write_done <= 1'b1;
+    end else begin
+      write_done <= 1'b0;
+    end
+  end
+
+  assign io_bvalid = (state_current == B_VALID) ? 1'b1 : 1'b0;
+
+  assign io_rresp = 2'b00;
+  assign io_rid = 4'b0;
+  assign io_bid = 4'b0;
+  assign io_bresp = 2'b00;
+endmodule
+`endif
+
+`ifdef VERILATOR
 // 仿真的 axi_memory 模块（包含 DPI-C，不参与综合）
 module axi_memory (
     input clk,
@@ -353,7 +690,7 @@ module axi_memory (
       end
 
       default: begin
-        $error("Invalid state");
+        $display("[axi_memory] ERROR: invalid state"); $stop;
       end
     endcase
   end
@@ -366,11 +703,18 @@ module axi_memory (
   // -----------------------------
   reg io_arready_o_q, io_awready_o_q, io_wready_o_q;
   always @(posedge clk) begin
-    if(is_write) begin
+    if(rst) begin
+      io_arready_o_q <= 1'b0;
+      io_awready_o_q <= 1'b0;
+      io_wready_o_q <= 1'b0;
+    end else if(is_write) begin
       io_awready_o_q <= 1'b1;
       io_wready_o_q <= 1'b1;
+      io_arready_o_q <= 1'b0;
     end else if(is_read) begin
       io_arready_o_q <= 1'b1;
+      io_awready_o_q <= 1'b0;
+      io_wready_o_q <= 1'b0;
     end else begin
       io_arready_o_q <= 1'b0;
       io_awready_o_q <= 1'b0;
@@ -454,8 +798,9 @@ module axi_memory (
                   current_addr <= current_addr + 4;
                 end
               end
-              RESERVED: begin 
-                $error("the arburst type cannot be reserved");
+              RESERVED: begin
+                $display("[axi_memory] ERROR: arburst RESERVED not supported");
+                $stop;
               end
             endcase
           end
@@ -546,3 +891,4 @@ module axi_memory (
   assign io_bid = 4'b0;
   assign io_bresp = 2'b00;
 endmodule
+`endif

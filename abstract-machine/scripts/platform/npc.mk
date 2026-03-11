@@ -31,3 +31,11 @@ run: image
 
 sim:
 	$(MAKE) -C $(NPC_HOME) sim
+
+ivg-image: $(IMAGE).elf
+	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
+	@echo + OBJCOPY "->" $(IMAGE_REL).ivg 
+	$(OBJCOPY) -S --set-section-flags .bss=alloc,contents --adjust-vma -0x80000000 -O verilog $(IMAGE).elf $(IMAGE).ivg
+
+ivg: ivg-image
+	$(MAKE) -C $(NPC_HOME) ARGS='$(ARGS)' IVG=$(IMAGE).ivg ivg 

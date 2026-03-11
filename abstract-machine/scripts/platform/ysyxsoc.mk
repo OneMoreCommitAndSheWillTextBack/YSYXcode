@@ -41,3 +41,4 @@ run: image
 
 sim:
 	$(MAKE) -C $(NPC_HOME) sim
+

@@ -1,6 +1,8 @@
+`ifdef VERILATOR
 // synopsys translate_off
 import "DPI-C" function void ret(int pc);
 // synopsys translate_on
+`endif
 module ysyx_24100007_control_unit(
   input [6:0] opcode,
   input [2:0] func3,
@@ -66,9 +68,20 @@ module ysyx_24100007_control_unit(
                       1'b1;
   
   // synopsys translate_off
+  `ifdef VERILATOR
   always @(*) begin
     if(ebreaksig)
       ret(0);
   end
+  `endif
+  
+  // `ifdef __ICARUS__
+  // always @(*) begin
+  //   if(ebreak)
+  //     $finish;
+  // end
+  // `endif
   // synopsys translate_on
 endmodule
+
+

@@ -8,13 +8,20 @@ module ysyx_24100007_pcreg(
 
 `ifdef __NPC__
   localparam init = 32'h80000000;
-`else
+`elsif __YSYXSOC__
   localparam init = 32'h30000000;
+`else
+  localparam init = 32'h80000000;   // 或 0x30000000，依默认需求
 `endif
 
-  initial begin 
+// synopsys translate_off
+  initial begin
     pcout = init;
+    `ifdef __ICARUS__
+      $display("[Init] Start PC: 0x%h", pcout);
+    `endif 
   end
+// synopsys translate_on
   
   always @(posedge clk) begin
     if(rst) begin

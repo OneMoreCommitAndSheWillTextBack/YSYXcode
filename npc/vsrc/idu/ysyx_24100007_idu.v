@@ -192,10 +192,12 @@ module ysyx_24100007_idu(
   );
   
   // synopsys translate_off
+  `ifdef VERILATOR
   import "DPI-C" function void get_idu_state(int state);
   always @(posedge clk) begin 
     get_idu_state({31'b0, idu_state_r == VALID});
   end
+  `endif
   // synopsys translate_on
 endmodule
 
