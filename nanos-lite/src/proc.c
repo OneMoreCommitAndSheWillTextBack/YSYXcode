@@ -38,5 +38,8 @@ void init_proc() {
 
 Context *schedule(Context *prev) {
   int current = ((uintptr_t)prev - (uintptr_t)pcb) / sizeof(PCB);
+  if(current > 4) {
+    panic("the current should not larger than 4");
+  }
   return pcb[(current + 1) / pcb_num].cp;
 }
