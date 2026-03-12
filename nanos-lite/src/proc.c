@@ -32,9 +32,9 @@ void init_proc() {
 
   Log("Initializing processes...");
 
-  // naive_uload(NULL, "/bin/nterm");
-  context_kload(&pcb[0], hello_fun, "A");
-  context_kload(&pcb[1], hello_fun, "B");
+  naive_uload(NULL, "/bin/nterm");
+  // context_kload(&pcb[0], hello_fun, "A");
+  // context_kload(&pcb[1], hello_fun, "B");
 }
 
 Context *schedule(Context *prev) {
