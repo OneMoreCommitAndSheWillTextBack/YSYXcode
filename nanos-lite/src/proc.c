@@ -44,6 +44,9 @@ Context *schedule(Context *prev) {
     cur = current - pcb;
   }
   int next = (cur + 1) % pcb_num;
+  if(next > MAX_NR_PROC) {
+    panic("the next should not larger than MAX_NR_PROC");
+  }
   current = &pcb[next];
   return pcb[next].cp;
 }
