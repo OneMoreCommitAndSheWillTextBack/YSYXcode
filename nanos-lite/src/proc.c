@@ -5,10 +5,10 @@
 
 static PCB pcb[MAX_NR_PROC] __attribute__((used)) = {};
 static int pcb_num = 0;
-static PCB pcb_boot = {};
+// static PCB pcb_boot = {};
 PCB *current = NULL;
 
-void switch_boot_pcb() { current = &pcb_boot; }
+void switch_boot_pcb() { current = &pcb[0]; }
 
 void hello_fun(void *arg) {
   int j = 1;
@@ -27,14 +27,15 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg) {
 }
 
 void init_proc() {
-  
+  switch_boot_pcb();
 
   Log("Initializing processes...");
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   context_kload(&pcb[1], hello_fun, "B");
-  switch_boot_pcb();
+  
+
 }
 
 Context *schedule(Context *prev) {
