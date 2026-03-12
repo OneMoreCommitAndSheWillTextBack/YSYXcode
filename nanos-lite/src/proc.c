@@ -34,8 +34,6 @@ void init_proc() {
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   context_kload(&pcb[1], hello_fun, "B");
-  
-
 }
 
 Context *schedule(Context *prev) {
