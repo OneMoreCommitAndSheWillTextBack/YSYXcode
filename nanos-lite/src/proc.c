@@ -27,14 +27,14 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg) {
 }
 
 void init_proc() {
-  switch_boot_pcb();
+  
 
   Log("Initializing processes...");
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   context_kload(&pcb[1], hello_fun, "B");
-
+  switch_boot_pcb();
 }
 
 Context *schedule(Context *prev) {
