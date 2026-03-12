@@ -34,7 +34,6 @@ void do_syscall(Context *c) {
       // naive_uload(NULL, "/bin/menu");
 
     case SYS_yield:
-       schedule(c);
       c->GPRx = 0;
       break;
 

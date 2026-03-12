@@ -15,7 +15,8 @@ Context *__am_irq_handle(Context *c) {
         ev.event = EVENT_YIELD;
         break;
 			case 1:
-        ev.event = EVENT_SYSCALL;
+        if(c->gpr[17] == -1) ev.event = EVENT_YIELD; 
+        else ev.event = EVENT_SYSCALL;
         break;
       default: ev.event = EVENT_ERROR; break;
       // clang-format on
