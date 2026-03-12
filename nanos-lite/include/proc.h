@@ -18,6 +18,8 @@ typedef union {
 
 extern PCB *current;
 
+uintptr_t uload(PCB *pcb, const char *filename);
+
 void naive_uload(PCB *pcb, const char *filename);
 int syscall_execve(const char *filename);
 Context *schedule(Context *prev);

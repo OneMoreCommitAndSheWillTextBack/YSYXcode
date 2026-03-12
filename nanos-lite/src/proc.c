@@ -22,8 +22,14 @@ void hello_fun(void *arg) {
 
 void context_kload(PCB *p, void (*entry)(void *), void *arg) {
   uint8_t *kstack_high = p->stack;
-  Area kstack = { .end = kstack_high};
+  Area kstack = { .end = kstack_high };
   p->cp = kcontext(kstack, entry, arg);
+  pcb_num++;
+}
+
+void context_uload(PCB *p, const char *filename) {
+  uintptr_t entry = uload(p, filename);
+  p->cp = ucontext(NULL, heap, (void *)entry);
   pcb_num++;
 }
 
@@ -32,9 +38,9 @@ void init_proc() {
 
   Log("Initializing processes...");
 
-  naive_uload(NULL, "/bin/nterm");
-  // context_kload(&pcb[0], hello_fun, "A");
-  // context_kload(&pcb[1], hello_fun, "B");
+  // naive_uload(NULL, "/bin/nterm");
+  context_kload(&pcb[0], hello_fun, "A");
+  context_uload(&pcb[1], "/bin/pal");
 }
 
 Context *schedule(Context *prev) {
