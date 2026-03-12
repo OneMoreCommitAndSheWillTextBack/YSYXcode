@@ -24,6 +24,7 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg) {
   uint8_t *kstack_high = p->stack;
   Area kstack = { .end = kstack_high};
   p->cp = kcontext(kstack, entry, arg);
+  pcb_num++;
 }
 
 void init_proc() {
@@ -37,9 +38,12 @@ void init_proc() {
 }
 
 Context *schedule(Context *prev) {
-  int cur = ((uintptr_t)prev - (uintptr_t)pcb) / sizeof(PCB);
-  if (cur >= MAX_NR_PROC) {
-    panic("invalid process index %d", cur);
+  (void)prev;
+  int cur = -1;
+  if (current >= &pcb[0] && current < &pcb[pcb_num]) {
+    cur = current - pcb;
   }
-  return pcb[(cur + 1) % pcb_num].cp;
+  int next = (cur + 1) % pcb_num;
+  current = &pcb[next];
+  return pcb[next].cp;
 }
