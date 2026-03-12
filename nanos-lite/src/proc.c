@@ -37,9 +37,9 @@ void init_proc() {
 }
 
 Context *schedule(Context *prev) {
-  int current = ((uintptr_t)prev - (uintptr_t)pcb) / sizeof(PCB);
-  if(current > 4) {
-    panic("the current should not larger than 4");
+  int cur = ((uintptr_t)prev - (uintptr_t)pcb) / sizeof(PCB);
+  if (cur >= MAX_NR_PROC) {
+    panic("invalid process index %d", cur);
   }
-  return pcb[(current + 1) % pcb_num].cp;
+  return pcb[(cur + 1) % pcb_num].cp;
 }
