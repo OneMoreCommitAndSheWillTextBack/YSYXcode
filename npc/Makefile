@@ -200,7 +200,7 @@ sim-verilator-netlist: $(BIN_NETLIST) $(IMG)
 
 $(BIN_NETLIST): $(NETLIST) $(CSRC) $(HEADFILE)
 	@if [ -z "$(NETLIST)" ]; then echo "Error: NETLIST=path/to/netlist.v required"; exit 1; fi
-	$(VERILATOR) $(VERILATOR_FLAGS) -Wno-UNOPTFLAT \
+	$(VERILATOR) $(VERILATOR_FLAGS) -Wno-UNOPTFLAT -fno-inline \
 		$(CELLS_V) \
 		$(NETLIST) \
 		./vsrc-extra/npc.v \
