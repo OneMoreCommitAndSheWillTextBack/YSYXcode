@@ -20,5 +20,6 @@ extern PCB *current;
 
 void naive_uload(PCB *pcb, const char *filename);
 int syscall_execve(const char *filename);
+Context *schedule(Context *prev);
 
 #endif

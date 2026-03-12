@@ -1671,14 +1671,16 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // IFU STATE MACHINE
   // ------------------------------------
-  typedef enum logic [2:0] {
-    INIT, // the inst is not valid
-    VALID, CHECK_CACHE, BUS_HANDSHAKE,
-    BUS_TRANSACTION, UPDATE_CACHE,
-    BUS_INVALID, UPDATE_PC
-  } ifu_state_t;
+  localparam [2:0] INIT          = 3'd0;
+  localparam [2:0] VALID         = 3'd1;
+  localparam [2:0] CHECK_CACHE   = 3'd2;
+  localparam [2:0] BUS_HANDSHAKE = 3'd3;
+  localparam [2:0] BUS_TRANSACTION = 3'd4;
+  localparam [2:0] UPDATE_CACHE  = 3'd5;
+  localparam [2:0] BUS_INVALID   = 3'd6;
+  localparam [2:0] UPDATE_PC     = 3'd7;
 
-  ifu_state_t ifu_state;
+  reg [2:0] ifu_state;
 
   always @(posedge clk) begin
     if(rst) begin
@@ -1686,8 +1688,7 @@ module ysyx_24100007_ifu(
     end else begin
       case(ifu_state) 
         INIT: begin
-          // 这里 reset 是0， 那么ifu要将npc驱动起来
-          ifu_state <= BUS_HANDSHAKE;
+          ifu_state <= 3'd3;
         end
 
         VALID: begin
@@ -1695,6 +1696,8 @@ module ysyx_24100007_ifu(
             ifu_state <= UPDATE_PC;
           end else if(ready) begin
             ifu_state <= CHECK_CACHE;
+          end else begin
+            ifu_state <= VALID;
           end
         end
 
@@ -1717,6 +1720,8 @@ module ysyx_24100007_ifu(
             end
           end else if(ifu_req_acp) begin
             ifu_state <= BUS_TRANSACTION;
+          end else begin
+            ifu_state <= BUS_HANDSHAKE;
           end
         end
 
@@ -1725,6 +1730,8 @@ module ysyx_24100007_ifu(
             ifu_state <= BUS_INVALID;
           end else if(ifu_req_finish) begin
             ifu_state <= UPDATE_CACHE;
+          end else begin
+            ifu_state <= BUS_TRANSACTION;
           end
         end
 
@@ -1737,8 +1744,10 @@ module ysyx_24100007_ifu(
         end
 
         BUS_INVALID: begin
-          if(ifu_req_ready &  ifu_req_finish) begin
+          if(ifu_req_ready & ifu_req_finish) begin
             ifu_state <= UPDATE_PC;
+          end else begin
+            ifu_state <= BUS_INVALID;
           end
         end
 
@@ -1750,6 +1759,7 @@ module ysyx_24100007_ifu(
           // synopsys translate_off
           $error("ifu state machine Invalid state error");
           // synopsys translate_on
+          ifu_state <= INIT;
         end
       endcase
     end
@@ -1782,7 +1792,6 @@ module ysyx_24100007_ifu(
   assign valid = (ifu_state == VALID);
 endmodule
 
-
 module ysyx_24100007_pcreg(
   input clk,
   input [31:0] npc,
@@ -1796,18 +1805,19 @@ module ysyx_24100007_pcreg(
 `elsif __YSYXSOC__
   localparam init = 32'h30000000;
 `else
-  localparam init = 32'h80000000;   // 或 0x30000000，依默认需求
+  localparam init = 32'h80000000;
 `endif
 
-// synopsys translate_off
+  // synopsys translate_off
   initial begin
     pcout = init;
     `ifdef __ICARUS__
       $display("[Init] Start PC: 0x%h", pcout);
-    `endif 
+    `endif
   end
-// synopsys translate_on
-  
+  // synopsys translate_on
+  // 综合时仅依赖 reset 初始化，initial 块已被 translate_off 排除
+
   always @(posedge clk) begin
     if(rst) begin
       pcout <= init;
@@ -1819,13 +1829,6 @@ module ysyx_24100007_pcreg(
 
 endmodule
 
-/**
- * IFU AXI 配置模块
- * 将取指请求转换为 AXI 读通道参数
- * - 4-beat burst (16B cache line)
- * - 32-bit 传输宽度
- * - WRAP 突发类型（cache line 对齐）
- */
 module ysyx_24100007_ifucfg (
     input  [31:0] addr,
 
@@ -2973,10 +2976,12 @@ module ysyx_24100007_wbu(
   );
 
   // Memory access state machine
-  typedef enum logic [1:0] {
-    WAIT_VALID, BUS_HANDSHAKE, BUS_TRANSACTION, WRITE_BACK
-  } wbu_state_t;
-  wbu_state_t wbu_state;
+  localparam [1:0] WAIT_VALID    = 2'd0;
+  localparam [1:0] BUS_HANDSHAKE = 2'd1;
+  localparam [1:0] BUS_TRANSACTION = 2'd2;
+  localparam [1:0] WRITE_BACK    = 2'd3;
+
+  reg [1:0] wbu_state;
 
   wire mem_access = memew_in | memer_in;
   wire avaliable;

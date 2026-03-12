@@ -1,10 +1,3 @@
-/**
- * IFU AXI 配置模块
- * 将取指请求转换为 AXI 读通道参数
- * - 4-beat burst (16B cache line)
- * - 32-bit 传输宽度
- * - WRAP 突发类型（cache line 对齐）
- */
 module ysyx_24100007_ifucfg (
     input  [31:0] addr,
 

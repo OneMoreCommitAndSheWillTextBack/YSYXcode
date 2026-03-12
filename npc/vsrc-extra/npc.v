@@ -553,11 +553,19 @@ module axi_memory (
 
   wire [31:0] pmem_read_data_mux = in_uart ? uart_read_data : pmem_read_data;
 
+  always @(*) begin
+    if ((state_current == READ || state_current == WRITE) && !in_pmem && !in_uart) begin
+      $display("[axi_memory] ERROR: unmapped access, addr=0x%h", addr_aligned);
+      $finish();
+    end
+  end
+
   // --------------------------
   // WRITE: pmem
   // --------------------------
   always @(posedge clk) begin
     if(state_current == WRITE && in_pmem) begin
+      $display("[pmem write] addr=0x%h data=0x%h wstrb=%b", addr_aligned, data_i, wstrb_i);
       if(wstrb_i[0]) pmem[pmem_offset + 32'd0] <= data_i[7:0];
       if(wstrb_i[1]) pmem[pmem_offset + 32'd1] <= data_i[15:8];
       if(wstrb_i[2]) pmem[pmem_offset + 32'd2] <= data_i[23:16];

@@ -7,6 +7,13 @@
 static char* sys_table[20] = {
   [SYS_exit] = "sys_exit",
   [SYS_yield] = "sys_yield",
+  [SYS_open] = "sys_open",
+  [SYS_read] = "sys_read",
+  [SYS_write] = "sys_write",
+  [SYS_close] = "sys_close",
+  [SYS_lseek] = "sys_lseek",
+  [SYS_execve] = "sys_execve",
+  [SYS_gettimeofday] = "sys_gettimeofday",
 };
 
 static bool strace_on = false;
@@ -26,7 +33,8 @@ void do_syscall(Context *c) {
       halt(c->GPR2);
       // naive_uload(NULL, "/bin/menu");
 
-    case SYS_yield: 
+    case SYS_yield:
+       schedule(c);
       c->GPRx = 0;
       break;
 
