@@ -16,6 +16,7 @@ void hello_fun(void *arg) {
   while (1) {
     Log("Hello World from Nanos-lite with arg '%s' for the %pth time!",
         (char *)arg, j);
+    Log("check the int j = %d", j);
     j++;
     if(j == 10) {
       j = 1;
