@@ -1,3 +1,4 @@
+#include <common.h>
 #include "am.h"
 #include <proc.h>
 
@@ -8,7 +9,7 @@ static int pcb_num = 0;
 static PCB pcb_boot = {};
 PCB *current = NULL;
 
-void switch_boot_pcb() { current = &pcb[0]; }
+void switch_boot_pcb() { current = &pcb_boot; }
 
 void hello_fun(void *arg) {
   int j = 1;
@@ -34,14 +35,13 @@ void context_uload(PCB *p, const char *filename) {
 }
 
 void init_proc() {
-  current = &pcb_boot;
+  switch_boot_pcb();
 
   Log("Initializing processes...");
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   context_uload(&pcb[1], "/bin/pal");
-  switch_boot_pcb();
 }
 
 Context *schedule(Context *prev) {
@@ -54,6 +54,7 @@ Context *schedule(Context *prev) {
   if(next > MAX_NR_PROC) {
     panic("the next should not larger than MAX_NR_PROC");
   }
+  Log("schedule: from %p to %p", cur, next);
   current = &pcb[next];
   return pcb[next].cp;
 }
