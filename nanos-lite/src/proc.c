@@ -20,6 +20,7 @@ void hello_fun(void *arg) {
     if(j == 10) {
       j = 1;
     }
+    assert(j >= 0 && j <= 10);
     yield();
   }
 }
