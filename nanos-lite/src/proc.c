@@ -16,10 +16,10 @@ void hello_fun(void *arg) {
   while (1) {
     Log("Hello World from Nanos-lite with arg '%s' for the %pth time!",
         (char *)arg, j);
-    j++;
     if(j >= 0 && j <= 10) {
       Log("hello world");
     }
+    j++;
     if(j == 10) {
       j = 1;
     }
