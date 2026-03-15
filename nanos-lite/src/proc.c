@@ -45,6 +45,7 @@ void init_proc() {
 }
 
 Context *schedule(Context *prev) {
+  current->cp = prev;
   int cur = -1;
   if (current >= &pcb[0] && current < &pcb[pcb_num]) {
     cur = current - pcb;
