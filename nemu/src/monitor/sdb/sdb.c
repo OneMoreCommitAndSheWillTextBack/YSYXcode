@@ -95,22 +95,39 @@ int strtox(char *arg) {
 }
 
 static int cmd_x(char *args) {
-  char *arg1 = strtok(args, " ");
-  int times = atoi(arg1);
-  if (times == 0) {
-    printf("[error] get a wrong args %s\n", args);
+  if (args == NULL) {
+    printf("[error] missing count and address\n");
     return 0;
   }
-  char *arg2 = arg1 + strlen(arg1) + 1;
-  int addr = strtox(arg2);
-  for (int i = 0; i < times; i++) {
-    printf("0x%x: ", addr);
-    for (int j = 0; j < 4; j++) {
-      int ret = paddr_read((uint32_t)(addr + 4 * i + j), 1);
-      printf("%02x ", ret);
-    }
-    printf("\n");
+
+  // arg1: count (按 4 字节 word 个数)
+  char *arg1 = strtok(args, " ");
+  if (arg1 == NULL) {
+    printf("[error] missing count\n");
+    return 0;
   }
+  int times = atoi(arg1);
+  if (times <= 0) {
+    printf("[error] invalid count: %s\n", arg1);
+    return 0;
+  }
+
+  // arg2: 起始地址
+  char *arg2 = strtok(NULL, " ");
+  if (arg2 == NULL) {
+    printf("[error] missing address\n");
+    return 0;
+  }
+  uint32_t addr = (uint32_t)strtox(arg2);
+
+  for (int i = 0; i < times; i++) {
+    uint32_t cur = addr + i * 4;
+    uint32_t val = paddr_read(cur, 4);
+
+    // 地址（4 字节对齐）、十六进制值、十进制值
+    printf("0x%08x:  0x%08x  %10u\n", cur, val, val);
+  }
+
   return 0;
 }
 
