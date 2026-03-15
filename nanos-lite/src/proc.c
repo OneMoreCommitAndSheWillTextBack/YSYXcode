@@ -54,7 +54,7 @@ Context *schedule(Context *prev) {
   if(next > MAX_NR_PROC) {
     panic("the next should not larger than MAX_NR_PROC");
   }
-  Log("schedule: from %p to %p", prev, &pcb[next]);
+  Log("schedule: from %p to %p", prev, pcb[next].cp);
   current = &pcb[next];
   return pcb[next].cp;
 }
