@@ -8,7 +8,7 @@ static int pcb_num = 0;
 static PCB pcb_boot = {};
 PCB *current = NULL;
 
-void switch_boot_pcb() { current = &pcb_boot; }
+void switch_boot_pcb() { current = &pcb[0]; }
 
 void hello_fun(void *arg) {
   int j = 1;
@@ -34,13 +34,14 @@ void context_uload(PCB *p, const char *filename) {
 }
 
 void init_proc() {
-  switch_boot_pcb();
+  current = &pcb_boot;
 
   Log("Initializing processes...");
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   context_uload(&pcb[1], "/bin/pal");
+  switch_boot_pcb();
 }
 
 Context *schedule(Context *prev) {
