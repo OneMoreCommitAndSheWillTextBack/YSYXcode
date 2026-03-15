@@ -16,7 +16,7 @@ void hello_fun(void *arg) {
   while (1) {
     Log("Hello World from Nanos-lite with arg '%s' for the %pth time!",
         (char *)arg, j);
-    j = j * 2;
+    j++;
     yield();
   }
 }
