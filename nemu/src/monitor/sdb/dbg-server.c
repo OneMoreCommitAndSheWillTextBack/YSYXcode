@@ -143,7 +143,7 @@ static bool cmd_quit(char *args, char *reply) {
 // read_mem 0x80000000 3 4 -> 从0x80000000 开始读3个四字节
 // reply format "OK:[data1,data2,data3]"
 static bool cmd_read_mem(char *args, char *reply) {
-    printf("get to here\n");
+    printf("get to here, the arg is %s\n", args);
     char *save = NULL;
     char *str_addr = strtok_r(args, " ", &save);
     char *str_n = strtok_r( NULL, " ", &save);
@@ -190,9 +190,9 @@ static bool cmd_read_mem(char *args, char *reply) {
         if (len == 4) {
             p += sprintf(p, "0x%08x", buffer[i]);
         } else if (len == 2) {
-            p += sprintf(p, "0x%04x", (uint16_t)buffer[i]);
+            p += sprintf(p, "0x%04x", buffer[i]);
         } else { // len == 1
-            p += sprintf(p, "0x%02x", (uint8_t)buffer[i]);
+            p += sprintf(p, "0x%02x", buffer[i]);
         }
     }
     
