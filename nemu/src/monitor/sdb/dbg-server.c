@@ -231,6 +231,10 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         space = strchr(args, '\n');
         if (space)
             *space = '\0';
+    } else {
+        space = strchr(cmd, '\n');
+        if (space)
+            *space = '\0';
     }
 
     if (cmd == NULL) {
