@@ -220,10 +220,12 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         return false;
     }
 
-    // Parse "<cmd> <args>" directly from cmd_line (modified in place)
-    char *save = NULL;
-    char *cmd = strtok_r(cmd_line, " \t\r\n", &save);
-    char *args = strtok_r(NULL, " \t\r\n", &save);
+    char *space = strchr(cmd_line, ' ');
+    char *cmd = cmd_line;      
+    char *args = NULL; 
+    if (space) {
+      args = space + 1; 
+    }
 
     if (cmd == NULL) {
         snprintf(replay, replay_size, "ERR empty_command\n");
