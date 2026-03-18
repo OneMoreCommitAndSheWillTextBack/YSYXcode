@@ -23,10 +23,10 @@ void dbg_read_reg(const char *regname, bool *success, word_t *result) {
 }
 
 void dbg_read_mem(paddr_t addr, void *buf, size_t n, size_t len) {
-    uint8_t *dst = (uint8_t *)buf;
+    uint32_t *dst = (uint32_t *)buf;
     for (size_t i = 0; i < n; i++) {
         word_t data = paddr_read(addr + i * len, (int)len);
-        memcpy(dst + i * len, &data, len);
+        dst[i] = data;
     }
 }
 
@@ -49,7 +49,7 @@ void dbg_quit() {
 }
 
 // socket
-typedef bool (*dbg_cmd_handler_t)(const char *args, char *reply);
+typedef bool (*dbg_cmd_handler_t)(char *args, char *reply);
 
 typedef struct {
     const char *name;
@@ -57,10 +57,11 @@ typedef struct {
     bool not_probe;
 } dbg_command_t;
 
-static bool cmd_set_mode(const char *args, char *reply);
-static bool cmd_step(const char *args, char *reply);
-static bool cmd_is_over(const char *args, char *reply);
-static bool cmd_quit(const char *args, char *reply);
+static bool cmd_set_mode(char *args, char *reply);
+static bool cmd_step(char *args, char *reply);
+static bool cmd_is_over(char *args, char *reply);
+static bool cmd_quit(char *args, char *reply);
+static bool cmd_read_mem(char *args, char *reply);
 
 static const dbg_command_t dbg_cmd_table[] = {
     // execution control
@@ -68,8 +69,8 @@ static const dbg_command_t dbg_cmd_table[] = {
     { "continue", NULL, true},
     // registers/memory
     { "read_reg", NULL, false},
-    { "read_mem", false },
-    { "write_mem", false }, // allow probe_only to change memory
+    { "read_mem", cmd_read_mem, false },
+    { "write_mem", NULL, false }, // allow probe_only to change memory
     // state control
     { "is_over", cmd_is_over, false},
     { "quit", cmd_quit, true},
@@ -88,7 +89,7 @@ static const dbg_command_t *find_command(const char *name) {
     return NULL;
 }
 
-static bool cmd_set_mode(const char *args, char *reply) {
+static bool cmd_set_mode(char *args, char *reply) {
     dbg_mode_t dbg_mode = get_dbg_mode();
     if(args == NULL) {
         sprintf(reply, "ERR:the mode cannot be null");
@@ -110,7 +111,7 @@ static bool cmd_set_mode(const char *args, char *reply) {
     return true;
 }
 
-static bool cmd_step(const char *args, char *reply) {
+static bool cmd_step(char *args, char *reply) {
     if (args == NULL || args[0] == '\0') {
         sprintf(reply, "ERR:step count cannot be empty");
         return false;
@@ -127,17 +128,85 @@ static bool cmd_step(const char *args, char *reply) {
     return true;
 }
 
-static bool cmd_is_over(const char *args, char *reply) {
+static bool cmd_is_over(char *args, char *reply) {
     bool is_over = dbg_is_over();
     sprintf(reply, "OK:%s", is_over ? "true" : "false");
     return true;
 }
 
-static bool cmd_quit(const char *args, char *reply) {
+static bool cmd_quit(char *args, char *reply) {
     dbg_quit();
     set_dbg_mode(DBG_QUIT);
     return true;
 }
+
+// read_mem 0x80000000 3 4 -> 从0x80000000 开始读3个四字节
+// reply format "OK:[data1,data2,data3]"
+static bool cmd_read_mem(char *args, char *reply) {
+    char *save = NULL;
+    char *str_addr = strtok_r(args, " ", &save);
+    char *str_n = strtok_r( NULL, " ", &save);
+    char *str_len = strtok_r(NULL, " ", &save);
+
+    if(str_addr == NULL || str_n == NULL || str_len == NULL) {
+        sprintf(reply, "ERR:arguments missing");
+        return false;
+    }
+
+    char *endptr = NULL;
+    uint32_t addr = (uint32_t)strtoul(str_addr, &endptr, 0);
+    if(*endptr != '\0') {
+        sprintf(reply, "ERR:invalid address format");
+        return false;
+    }
+
+    int n = (int)strtol(str_n, &endptr, 10);
+    if (*endptr != '\0' || n <= 0) {
+        sprintf(reply, "ERR:invalid count (must be positive integer)");
+        return false;
+    }
+
+    int len = (int)strtol(str_len, &endptr, 10);
+    if (*endptr != '\0' || (len != 1 && len != 2 && len != 4)) {
+        sprintf(reply, "ERR:invalid length (must be 1, 2, or 4)");
+        return false;
+    }
+
+
+    uint32_t *buffer = (uint32_t*)malloc(n * sizeof(uint32_t));
+    dbg_read_mem(addr, (void *)buffer, n, len);
+
+    char *p = reply;
+    p += sprintf(p, "OK:[");
+    
+    for (int i = 0; i < n; i++) {
+        if (i > 0) {
+            p += sprintf(p, ",");
+        }
+        
+        if (len == 4) {
+            p += sprintf(p, "0x%08x", buffer[i]);
+        } else if (len == 2) {
+            p += sprintf(p, "0x%04x", (uint16_t)buffer[i]);
+        } else { // len == 1
+            p += sprintf(p, "0x%02x", (uint8_t)buffer[i]);
+        }
+    }
+    
+    sprintf(p, "]");
+
+    printf("[dbg-server] reply = %s\n", reply);
+    free(buffer);
+    return true;
+}   
+
+// static bool cmd_write_mem(const char *args, char *reply) {
+
+// }
+
+// static bool cmd_write_reg(const char *args, char *reply) {
+
+// }
 
 bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
     dbg_mode_t dbg_mode = get_dbg_mode();
@@ -159,8 +228,6 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         return false;
     }
 
-    printf("get the cmd %s\n", cmd);
-    
     // Check mode validity
     if (dbg_mode == INVALID) {
         if (strcmp(cmd, "set_mode") != 0) {
