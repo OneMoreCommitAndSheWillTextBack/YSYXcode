@@ -147,7 +147,6 @@ static bool cmd_quit(char *args[], int arg_num, char *reply) {
 // read_mem 0x80000000 3 4 -> 从0x80000000 开始读3个四字节
 // reply format "OK:[data1,data2,data3]"
 static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
-    
     if (arg_num < 3) {
         sprintf(reply, "ERR:arguments missing, need 3 arguments");
         return false;
@@ -207,9 +206,64 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
     return true;
 }
 
-// static bool cmd_write_mem(const char *args, char *reply) {
+// write_mem 0x80000000 2 [data1,data2,data3]
+static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
+    if (arg_num < 3) {
+        sprintf(reply, "ERR:arguments missing, need 3 arguments");
+        return false;
+    }
 
-// }
+    char *str_addr = args[0];
+    char *str_len = args[1];
+    char *str_data = args[2];
+
+    char *endptr = NULL;
+    uint32_t addr = (uint32_t)strtoul(str_addr, &endptr, 0);
+    if(*endptr != '\0') {
+        sprintf(reply, "ERR:invalid address format");
+        return false;
+    }
+
+    int len = (int)strtol(str_len, &endptr, 10);
+    if (*endptr != '\0' || (len != 1 && len != 2 && len != 4)) {
+        sprintf(reply, "ERR:invalid length (must be 1, 2, or 4)");
+        return false;
+    }
+
+    if (str_data[0] != '[') {
+        sprintf(reply, "ERR:data must start with '['");
+        return false;
+    }
+
+    // 跳过开头的'['
+    str_data++;
+
+    // 计算数据个数
+    int n = 0;
+    const char *p = str_data;
+    while (*p && *p != ']') {
+        if (*p == ',') {
+            n++;
+        }
+        p++;
+    }
+    n++; // 最后一个数据
+
+    if (*p != ']') {
+        sprintf(reply, "ERR:data must end with ']'");
+        return false;
+    }
+
+    // 分配缓冲区存储解析后的数据
+    uint8_t *buffer = (uint8_t *)malloc(n * len);
+    if (buffer == NULL) {
+        sprintf(reply, "ERR:memory allocation failed");
+        return false;
+    }
+
+    // TODO : still not implement
+    return false;
+}
 
 // static bool cmd_write_reg(const char *args, char *reply) {
 
