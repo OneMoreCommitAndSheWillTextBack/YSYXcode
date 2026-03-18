@@ -80,11 +80,17 @@ static int parse_args(int argc, char *argv[]) {
       {"port", required_argument, NULL, 'p'},
       {"help", no_argument, NULL, 'h'},
       {"ftrace", required_argument, NULL, 'f'},
+      {"dbg-port", required_argument, NULL, 'g'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-bhl:d:p:f:", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-bhl:d:p:f:g:", table, NULL)) != -1) {
     switch (o) {
+      case 'g':
+        int dgb_port = 0;
+        sscanf(optarg, "%d", &dgb_port);
+        
+        break;
 
     case 'f':
 #ifdef CONFIG_FTRACE
