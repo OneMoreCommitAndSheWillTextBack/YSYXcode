@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "sdb.h"
+
 typedef enum {
     INVALID,
     AUTOMATIC,
@@ -229,4 +231,8 @@ void dbg_listen(void) {
   close(client_fd);
   close(server_fd);
   return;
+}
+
+void dbg_main() {
+    dbg_listen();
 }

@@ -266,6 +266,10 @@ void sdb_mainloop() {
     return;
   }
 
+  if(dbg_is_on()) {
+    dbg_main();
+  }
+
   for (char *str; (str = rl_gets()) != NULL;) {
     char *str_end = str + strlen(str);
 

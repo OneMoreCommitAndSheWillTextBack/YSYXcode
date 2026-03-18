@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "sdb/sdb.h"
 #include <isa.h>
 #include <memory/paddr.h>
 
@@ -41,6 +42,7 @@ static void welcome() {
 #include <getopt.h>
 
 void sdb_set_batch_mode();
+void set_dbg_port(int port);
 
 static char *log_file = NULL;
 static char *diff_so_file = NULL;
@@ -49,6 +51,7 @@ static int difftest_port = 1234;
 #ifdef CONFIG_FTRACE
 static char *elf_file = NULL;
 #endif
+static int dbg_port = 0;
 
 static long load_img() {
   if (img_file == NULL) {
@@ -87,11 +90,11 @@ static int parse_args(int argc, char *argv[]) {
   while ((o = getopt_long(argc, argv, "-bhl:d:p:f:g:", table, NULL)) != -1) {
     switch (o) {
       case 'g':
-        int dgb_port = 0;
-        sscanf(optarg, "%d", &dgb_port);
-        
+        dbg_port = 0;
+        sscanf(optarg, "%d", &dbg_port);
+        Log("Debugger server port set to %d", dbg_port);
+        set_dbg_port(dbg_port);
         break;
-
     case 'f':
 #ifdef CONFIG_FTRACE
       elf_file = optarg;
