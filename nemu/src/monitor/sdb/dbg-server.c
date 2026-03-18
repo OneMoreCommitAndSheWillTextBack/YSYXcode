@@ -143,10 +143,13 @@ static bool cmd_quit(char *args, char *reply) {
 // read_mem 0x80000000 3 4 -> 从0x80000000 开始读3个四字节
 // reply format "OK:[data1,data2,data3]"
 static bool cmd_read_mem(char *args, char *reply) {
+    printf("get to here\n");
     char *save = NULL;
     char *str_addr = strtok_r(args, " ", &save);
     char *str_n = strtok_r( NULL, " ", &save);
     char *str_len = strtok_r(NULL, " ", &save);
+
+    printf("str_addr=%s, str_n=%s, str_len=%s\n", str_addr, str_n, str_len);
 
     if(str_addr == NULL || str_n == NULL || str_len == NULL) {
         sprintf(reply, "ERR:arguments missing");
