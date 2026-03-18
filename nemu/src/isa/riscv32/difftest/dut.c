@@ -37,3 +37,7 @@ void isa_difftest_attach() {
 void isa_difftest_detach() {
   difftest_detach();
 }
+
+bool isa_difftest_is_attach() {
+  return difftest_is_attach();
+}

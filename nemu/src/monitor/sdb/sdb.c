@@ -167,8 +167,10 @@ static int cmd_save(char *args) {
 
 static int cmd_load(char *args) {
   int res = snap_load(args);
-  isa_difftest_detach();
-  isa_difftest_attach();
+  if(isa_difftest_is_attach()) {
+    isa_difftest_detach();
+    isa_difftest_attach();
+  }
   return res;
 }
 
