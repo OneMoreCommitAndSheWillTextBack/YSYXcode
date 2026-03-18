@@ -137,6 +137,18 @@ static ssize_t read_line(int fd, char *buf, size_t cap) {
   return (ssize_t)i;
 }
 
+static void write_best_effort(int fd, const char *buf, size_t len) {
+  while (len > 0) {
+    ssize_t n = write(fd, buf, len);
+    if (n < 0) {
+      if (errno == EINTR) continue;
+      return;
+    }
+    buf += (size_t)n;
+    len -= (size_t)n;
+  }
+}
+
 void dbg_listen(void) {
   if (!dbg_is_on()) return;
   if (dbg_port <= 0) {
@@ -219,6 +231,12 @@ void dbg_listen(void) {
   bool ok = false;
   if (ent && ent->handler) {
     ok = ent->handler(args);
+  }
+
+  if (ok) {
+    write_best_effort(client_fd, "OK\n", 3);
+  } else {
+    write_best_effort(client_fd, "ERR\n", 4);
   }
 
   if (!ok) {
