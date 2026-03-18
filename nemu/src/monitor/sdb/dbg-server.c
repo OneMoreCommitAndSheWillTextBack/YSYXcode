@@ -224,7 +224,8 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
     char *cmd = cmd_line;      
     char *args = NULL; 
     if (space) {
-      args = space + 1; 
+        *space = '\0';
+        args = space + 1; 
     }
 
     if (cmd == NULL) {
