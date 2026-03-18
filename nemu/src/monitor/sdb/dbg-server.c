@@ -227,9 +227,11 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         *space = '\0';
         args = space + 1; 
     }
-    space = strchr(args, '\n');
-    if (space)
-        *space = '\0';
+    if(args != NULL) {
+        space = strchr(args, '\n');
+        if (space)
+            *space = '\0';
+    }
 
     if (cmd == NULL) {
         snprintf(replay, replay_size, "ERR empty_command\n");
