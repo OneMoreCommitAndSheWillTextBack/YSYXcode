@@ -92,7 +92,6 @@ static int parse_args(int argc, char *argv[]) {
       case 'g':
         dbg_port = 0;
         sscanf(optarg, "%d", &dbg_port);
-        Log("Debugger server port set to %d", dbg_port);
         set_dbg_port(dbg_port);
         break;
     case 'f':
