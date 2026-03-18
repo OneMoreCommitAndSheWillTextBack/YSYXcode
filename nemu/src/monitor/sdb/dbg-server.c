@@ -49,7 +49,7 @@ void dbg_quit() {
 }
 
 // socket
-typedef bool (*dbg_cmd_handler_t)(char *args, char *reply);
+typedef bool (*dbg_cmd_handler_t)(char *args[], int arg_num, char *reply);
 
 typedef struct {
     const char *name;
@@ -57,11 +57,11 @@ typedef struct {
     bool not_probe;
 } dbg_command_t;
 
-static bool cmd_set_mode(char *args, char *reply);
-static bool cmd_step(char *args, char *reply);
-static bool cmd_is_over(char *args, char *reply);
-static bool cmd_quit(char *args, char *reply);
-static bool cmd_read_mem(char *args, char *reply);
+static bool cmd_set_mode(char *args[], int arg_num, char *reply);
+static bool cmd_step(char *args[], int arg_num, char *reply);
+static bool cmd_is_over(char *args[], int arg_num, char *reply);
+static bool cmd_quit(char *args[], int arg_num, char *reply);
+static bool cmd_read_mem(char *args[], int arg_num, char *reply);
 
 static const dbg_command_t dbg_cmd_table[] = {
     // execution control
@@ -89,35 +89,37 @@ static const dbg_command_t *find_command(const char *name) {
     return NULL;
 }
 
-static bool cmd_set_mode(char *args, char *reply) {
+static bool cmd_set_mode(char *args[], int arg_num, char *reply) {
     dbg_mode_t dbg_mode = get_dbg_mode();
-    if(args == NULL) {
+    
+    if(arg_num < 1 || args[0] == NULL) {
         sprintf(reply, "ERR:the mode cannot be null");
         dbg_mode = INVALID;
         return false;
     }
 
-    if (strcmp(args, "probe") == 0) {
+    char *mode_str = args[0];
+    if (strcmp(mode_str, "probe") == 0) {
         dbg_mode = PROBE_ONLY;
-    } else if(strcmp(args, "auto") == 0) {
+    } else if(strcmp(mode_str, "auto") == 0) {
         dbg_mode = AUTOMATIC;
     } else {
-        sprintf(reply, "ERR:invalid mode %s", args);
+        sprintf(reply, "ERR:invalid mode %s", mode_str);
         dbg_mode = INVALID;
         return false;
     }
     set_dbg_mode(dbg_mode);
-    sprintf(reply, "OK:mode set to %s", args);
+    sprintf(reply, "OK:mode set to %s", mode_str);
     return true;
 }
 
-static bool cmd_step(char *args, char *reply) {
-    if (args == NULL || args[0] == '\0') {
-        sprintf(reply, "ERR:step count cannot be empty");
-        return false;
+static bool cmd_step(char *args[], int arg_num, char *reply) {
+    int n = 0;
+    if (arg_num < 1 || args[0] == NULL || args[0][0] == '\0') {
+        n = 1;
+    } else {
+        n = atoi(args[0]);
     }
-    
-    int n = atoi(args);
     if (n <= 0) {
         sprintf(reply, "ERR:step count must be positive");
         return false;
@@ -128,13 +130,15 @@ static bool cmd_step(char *args, char *reply) {
     return true;
 }
 
-static bool cmd_is_over(char *args, char *reply) {
+static bool cmd_is_over(char *args[], int arg_num, char *reply) {
+    // is_over 命令不需要参数
     bool is_over = dbg_is_over();
     sprintf(reply, "OK:%s", is_over ? "true" : "false");
     return true;
 }
 
-static bool cmd_quit(char *args, char *reply) {
+static bool cmd_quit(char *args[], int arg_num, char *reply) {
+    // quit 命令不需要参数
     dbg_quit();
     set_dbg_mode(DBG_QUIT);
     return true;
@@ -142,19 +146,19 @@ static bool cmd_quit(char *args, char *reply) {
 
 // read_mem 0x80000000 3 4 -> 从0x80000000 开始读3个四字节
 // reply format "OK:[data1,data2,data3]"
-static bool cmd_read_mem(char *args, char *reply) {
-    printf("get to here, the arg is %s\n", args);
-    char *save = NULL;
-    char *str_addr = strtok_r(args, " ", &save);
-    char *str_n = strtok_r( NULL, " ", &save);
-    char *str_len = strtok_r(NULL, " ", &save);
-
-    printf("str_addr=%s, str_n=%s, str_len=%s\n", str_addr, str_n, str_len);
-
-    if(str_addr == NULL || str_n == NULL || str_len == NULL) {
-        sprintf(reply, "ERR:arguments missing");
+static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
+    printf("get to here, arg_num = %d\n", arg_num);
+    
+    if (arg_num < 3) {
+        sprintf(reply, "ERR:arguments missing, need 3 arguments");
         return false;
     }
+
+    char *str_addr = args[0];
+    char *str_n = args[1];
+    char *str_len = args[2];
+
+    printf("str_addr=%s, str_n=%s, str_len=%s\n", str_addr, str_n, str_len);
 
     char *endptr = NULL;
     uint32_t addr = (uint32_t)strtoul(str_addr, &endptr, 0);
@@ -175,8 +179,12 @@ static bool cmd_read_mem(char *args, char *reply) {
         return false;
     }
 
-
     uint32_t *buffer = (uint32_t*)malloc(n * sizeof(uint32_t));
+    if (buffer == NULL) {
+        sprintf(reply, "ERR:memory allocation failed");
+        return false;
+    }
+    
     dbg_read_mem(addr, (void *)buffer, n, len);
 
     char *p = reply;
@@ -190,9 +198,9 @@ static bool cmd_read_mem(char *args, char *reply) {
         if (len == 4) {
             p += sprintf(p, "0x%08x", buffer[i]);
         } else if (len == 2) {
-            p += sprintf(p, "0x%04x", buffer[i]);
+            p += sprintf(p, "0x%04x", buffer[i] & 0xFFFF);
         } else { // len == 1
-            p += sprintf(p, "0x%02x", buffer[i]);
+            p += sprintf(p, "0x%02x", buffer[i] & 0xFF);
         }
     }
     
@@ -201,7 +209,7 @@ static bool cmd_read_mem(char *args, char *reply) {
     printf("[dbg-server] reply = %s\n", reply);
     free(buffer);
     return true;
-}   
+}
 
 // static bool cmd_write_mem(const char *args, char *reply) {
 
@@ -211,6 +219,7 @@ static bool cmd_read_mem(char *args, char *reply) {
 
 // }
 
+#define DBG_MAXARG 5
 bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
     dbg_mode_t dbg_mode = get_dbg_mode();
   
@@ -220,21 +229,19 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         return false;
     }
 
-    char *space = strchr(cmd_line, ' ');
-    char *cmd = cmd_line;      
-    char *args = NULL; 
-    if (space) {
-        *space = '\0';
-        args = space + 1; 
+    char *tokens[DBG_MAXARG] = {0};
+    char *saveptr = NULL;
+    int argc = 0;
+
+    char *token = strtok_r(cmd_line, " \t\r\n", &saveptr);
+    while (token != NULL && argc < DBG_MAXARG) {
+        tokens[argc++] = token;
+        token = strtok_r(NULL, " \t\r\n", &saveptr);
     }
-    if(args != NULL) {
-        space = strchr(args, '\n');
-        if (space)
-            *space = '\0';
-    } else {
-        space = strchr(cmd, '\n');
-        if (space)
-            *space = '\0';
+    char *cmd = tokens[0];
+    char *argv[DBG_MAXARG] = {0};
+    for(int i = 1; i<argc;i++) {
+        argv[i-1] = tokens[i];
     }
 
     if (cmd == NULL) {
@@ -268,7 +275,7 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
             return false;
         }
         
-        ent->handler(args, replay);
+        ent->handler(argv, argc-1, replay);
     } else {
         snprintf(replay, replay_size, "ERR no_handler\n");
         return false;
