@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 #include "sdb.h"
 
@@ -118,7 +119,6 @@ static bool cmd_set_mode(const char *args) {
     return true;
 }
 
-#include <errno.h>
 static ssize_t read_line(int fd, char *buf, size_t cap) {
   if (cap == 0) return -1;
   size_t i = 0;
@@ -177,6 +177,7 @@ void dbg_listen(void) {
   // Block until one client connects
   struct sockaddr_in cli;
   socklen_t cli_len = sizeof(cli);
+  printf("\033[34m[dbg] Waiting for the connection to port %d\033[0m\n", dbg_port);
   int client_fd = accept(server_fd, (struct sockaddr *)&cli, &cli_len);
   if (client_fd < 0) {
     perror("dbg-server: accept");
