@@ -267,7 +267,9 @@ void sdb_mainloop() {
   }
 
   while(1) {
-    dbg_listen();
+    do {
+      dbg_listen();
+    } while(get_dbg_mode() == AUTOMATIC);
 
     char *str;
     if((str = rl_gets()) == NULL) {
@@ -329,6 +331,4 @@ void init_sdb() {
   if(dbg_is_on()) {
     dbg_init_and_wait_connection();
   }
-
-
 }

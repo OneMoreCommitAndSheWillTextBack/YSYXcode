@@ -11,12 +11,6 @@
 
 #include "sdb.h"
 
-typedef enum {
-    INVALID,
-    AUTOMATIC,
-    PROBE_ONLY
-} dbg_mode_t;
-
 static bool dbg_is_on_ = false;
 static int dbg_port = 0;
 static int dbg_mode = INVALID;
@@ -24,6 +18,10 @@ static int dbg_mode = INVALID;
 void set_dbg_port(int port) {
     dbg_port = port;
     dbg_is_on_ = true;
+}
+
+int get_dbg_mode() {
+    return dbg_mode;
 }
 
 bool dbg_is_on() { 
