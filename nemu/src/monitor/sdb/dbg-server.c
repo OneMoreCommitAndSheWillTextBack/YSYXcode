@@ -138,6 +138,8 @@ static ssize_t read_line(int fd, char *buf, size_t cap) {
 }
 
 void dbg_listen(void) {
+    printf("get to here\n");
+
   if (!dbg_is_on()) return;
   if (dbg_port <= 0) {
     printf("dbg-server: invalid dbg_port=%d\n", dbg_port);
