@@ -266,11 +266,13 @@ void sdb_mainloop() {
     return;
   }
 
-  if(dbg_is_on()) {
-    dbg_init_and_wait_connection();
-  }
+  while(1) {
+    dbg_listen();
 
-  for (char *str; (str = rl_gets()) != NULL;) {
+    char *str;
+    if((str = rl_gets()) == NULL) {
+      break;
+    }
     char *str_end = str + strlen(str);
 
     /* extract the first token as the command */
@@ -323,4 +325,10 @@ void init_sdb() {
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();
+
+  if(dbg_is_on()) {
+    dbg_init_and_wait_connection();
+  }
+
+
 }
