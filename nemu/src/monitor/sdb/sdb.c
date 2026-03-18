@@ -267,7 +267,7 @@ void sdb_mainloop() {
   }
 
   if(dbg_is_on()) {
-    dbg_main();
+    dbg_init_and_wait_connection();
   }
 
   for (char *str; (str = rl_gets()) != NULL;) {

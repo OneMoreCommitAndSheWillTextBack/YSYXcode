@@ -31,6 +31,7 @@ int snap_store(const char *filename);
 
 bool dbg_is_on();
 void set_dbg_port(int port);
-void dbg_main();
+bool dbg_init_and_wait_connection(void);
+void dbg_listen(void);
 
 #endif

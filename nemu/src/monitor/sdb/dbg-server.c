@@ -80,12 +80,24 @@ typedef bool (*dbg_cmd_handler_t)(const char *args);
 typedef struct {
     const char *name;
     dbg_cmd_handler_t handler;
+    bool not_probe;
 } dbg_command_t;
 
 static bool cmd_set_mode(const char *args);
 
 static const dbg_command_t dbg_cmd_table[] = {
-    { "set_mode", cmd_set_mode },
+    // execution control
+    { "step", NULL, true},
+    { "continue", NULL, true},
+    // registers/memory
+    { "read_reg", NULL, false},
+    { "read_mem", false },
+    { "write_mem", false }, // allow probe_only to change memory
+    // state control
+    { "is_over", NULL, false},
+    { "quit", NULL, true},
+    // mode
+    { "set_mode", cmd_set_mode, false},
 };
 
 static const size_t dbg_cmd_table_size = sizeof(dbg_cmd_table) / sizeof(dbg_cmd_table[0]);
@@ -149,24 +161,45 @@ static void write_best_effort(int fd, const char *buf, size_t len) {
   }
 }
 
-void dbg_listen(void) {
-  if (!dbg_is_on()) return;
+// ---- socket global state (minimal, single-connection) ----
+static int dbg_server_fd = -1;
+static int dbg_client_fd = -1;
+
+static void dbg_socket_reset(void) {
+  if (dbg_client_fd >= 0) {
+    close(dbg_client_fd);
+    dbg_client_fd = -1;
+  }
+  if (dbg_server_fd >= 0) {
+    close(dbg_server_fd);
+    dbg_server_fd = -1;
+  }
+}
+
+// Initialize server socket and block until a client connects.
+// On success: dbg_server_fd/dbg_client_fd are valid and ready for I/O.
+// On failure: prints error and resets fds.
+bool dbg_init_and_wait_connection(void) {
+  if (!dbg_is_on()) return true;
   if (dbg_port <= 0) {
     printf("dbg-server: invalid dbg_port=%d\n", dbg_port);
-    return;
+    return false;
   }
 
-  int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (server_fd < 0) {
+  dbg_socket_reset();
+
+  dbg_server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (dbg_server_fd < 0) {
     perror("dbg-server: socket");
-    return;
+    dbg_socket_reset();
+    return false;
   }
 
   int yes = 1;
-  if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
+  if (setsockopt(dbg_server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
     perror("dbg-server: setsockopt(SO_REUSEADDR)");
-    close(server_fd);
-    return;
+    dbg_socket_reset();
+    return false;
   }
 
   struct sockaddr_in addr;
@@ -175,35 +208,37 @@ void dbg_listen(void) {
   addr.sin_addr.s_addr = htonl(INADDR_ANY);
   addr.sin_port = htons((uint16_t)dbg_port);
 
-  if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+  if (bind(dbg_server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
     perror("dbg-server: bind");
-    close(server_fd);
-    return;
+    dbg_socket_reset();
+    return false;
   }
-  if (listen(server_fd, 1) < 0) {
+  if (listen(dbg_server_fd, 1) < 0) {
     perror("dbg-server: listen");
-    close(server_fd);
-    return;
+    dbg_socket_reset();
+    return false;
   }
 
-  // Block until one client connects
   struct sockaddr_in cli;
   socklen_t cli_len = sizeof(cli);
   printf("\033[34m[dbg] Waiting for the connection to port %d\033[0m\n", dbg_port);
-  int client_fd = accept(server_fd, (struct sockaddr *)&cli, &cli_len);
-  if (client_fd < 0) {
+  dbg_client_fd = accept(dbg_server_fd, (struct sockaddr *)&cli, &cli_len);
+  if (dbg_client_fd < 0) {
     perror("dbg-server: accept");
-    close(server_fd);
-    return;
+    dbg_socket_reset();
+    return false;
   }
+
+  return true;
+}
+
+void dbg_listen(void) {
+  if (!dbg_init_and_wait_connection()) return;
 
   // Read exactly one line
   char line[256];
-  ssize_t n = read_line(client_fd, line, sizeof(line));
+  ssize_t n = read_line(dbg_client_fd, line, sizeof(line));
   if (n <= 0) {
-    // client closed or read error; just return
-    close(client_fd);
-    close(server_fd);
     return;
   }
 
@@ -214,44 +249,41 @@ void dbg_listen(void) {
 
   if (cmd == NULL) {
     printf("dbg-server: empty command\n");
-    close(client_fd);
-    close(server_fd);
     return;
   }
 
-  if (strcmp(cmd, "set_mode") != 0) {
-    printf("dbg-server: first command must be set_mode, got '%s'\n", cmd);
-    close(client_fd);
-    close(server_fd);
-    return;
+  printf("get the cmd %s\n", cmd);
+  if (dbg_mode == INVALID) {
+    if (strcmp(cmd, "set_mode") != 0) {
+      printf("dbg-server: mode invalid, only set_mode allowed as first command\n");
+      return;
+    }
   }
 
   // Dispatch to handler
   const dbg_command_t *ent = find_command(cmd);
+  if (ent == NULL) {
+    set_dbg_mode(INVALID);
+    printf("dbg-server: unknown command '%s', mode set to INVALID\n", cmd);
+    return;
+  }
   bool ok = false;
   if (ent && ent->handler) {
+    if (dbg_mode == PROBE_ONLY && ent->not_probe) {
+      printf("dbg-server: command '%s' is forbidden in PROBE_ONLY mode\n", cmd);
+      write_best_effort(dbg_client_fd, "ERR forbidden_in_probe_only\n",
+                        strlen("ERR forbidden_in_probe_only\n"));
+      return;
+    }
     ok = ent->handler(args);
   }
 
   if (ok) {
-    write_best_effort(client_fd, "OK\n", 3);
+    write_best_effort(dbg_client_fd, "OK\n", 3);
   } else {
-    write_best_effort(client_fd, "ERR\n", 4);
+    set_dbg_mode(INVALID);
+    write_best_effort(dbg_client_fd, "ERR\n", 4);
   }
 
-  if (!ok) {
-    // handler failed; just return
-    close(client_fd);
-    close(server_fd);
-    return;
-  }
-
-  printf("test success\n");
-  close(client_fd);
-  close(server_fd);
   return;
-}
-
-void dbg_main() {
-    dbg_listen();
 }
