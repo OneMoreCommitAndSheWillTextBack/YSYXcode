@@ -147,7 +147,6 @@ static bool cmd_quit(char *args[], int arg_num, char *reply) {
 // read_mem 0x80000000 3 4 -> 从0x80000000 开始读3个四字节
 // reply format "OK:[data1,data2,data3]"
 static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
-    printf("get to here, arg_num = %d\n", arg_num);
     
     if (arg_num < 3) {
         sprintf(reply, "ERR:arguments missing, need 3 arguments");
@@ -157,8 +156,6 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
     char *str_addr = args[0];
     char *str_n = args[1];
     char *str_len = args[2];
-
-    printf("str_addr=%s, str_n=%s, str_len=%s\n", str_addr, str_n, str_len);
 
     char *endptr = NULL;
     uint32_t addr = (uint32_t)strtoul(str_addr, &endptr, 0);
@@ -206,7 +203,6 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
     
     sprintf(p, "]");
 
-    printf("[dbg-server] reply = %s\n", reply);
     free(buffer);
     return true;
 }
