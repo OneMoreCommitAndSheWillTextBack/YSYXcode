@@ -38,7 +38,9 @@ typedef enum {
 bool dbg_is_on();
 void set_dbg_port(int port);
 int get_dbg_mode();
+void set_dbg_mode(dbg_mode_t mode);
 bool dbg_init_and_wait_connection(void);
+bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size);
 void dbg_listen(void);
 
 #endif
