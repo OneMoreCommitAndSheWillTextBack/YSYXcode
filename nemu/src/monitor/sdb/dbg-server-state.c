@@ -217,7 +217,7 @@ void dbg_listen(void) {
       write_best_effort(dbg_client_fd, fallback, strlen(fallback));
     }
     
-    if (dbg_mode == PROBE_ONLY || dbg_mode == INVALID) {
+    if (dbg_mode == PROBE_ONLY || dbg_mode == INVALID || dbg_mode == DBG_QUIT) {
       return;
     }
     

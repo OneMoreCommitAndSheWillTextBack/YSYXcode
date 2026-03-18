@@ -32,7 +32,8 @@ int snap_store(const char *filename);
 typedef enum {
     INVALID,
     AUTOMATIC,
-    PROBE_ONLY
+    PROBE_ONLY,
+    DBG_QUIT
 } dbg_mode_t;
 
 bool dbg_is_on();

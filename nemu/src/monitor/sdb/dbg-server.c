@@ -44,9 +44,8 @@ bool dbg_is_over() {
     return (state == NEMU_END || state == NEMU_ABORT);
 }
 
-void dbg_quit(bool *result) {
+void dbg_quit() {
     set_state_quit();
-    *result = true;
 }
 
 // socket
@@ -61,6 +60,7 @@ typedef struct {
 static bool cmd_set_mode(const char *args, char *reply);
 static bool cmd_step(const char *args, char *reply);
 static bool cmd_is_over(const char *args, char *reply);
+static bool cmd_quit(const char *args, char *reply);
 
 static const dbg_command_t dbg_cmd_table[] = {
     // execution control
@@ -72,7 +72,7 @@ static const dbg_command_t dbg_cmd_table[] = {
     { "write_mem", false }, // allow probe_only to change memory
     // state control
     { "is_over", cmd_is_over, false},
-    { "quit", NULL, true},
+    { "quit", cmd_quit, true},
     // mode
     { "set_mode", cmd_set_mode, false},
 };
@@ -133,6 +133,12 @@ static bool cmd_is_over(const char *args, char *reply) {
     return true;
 }
 
+static bool cmd_quit(const char *args, char *reply) {
+    dbg_quit();
+    set_dbg_mode(DBG_QUIT);
+    return true;
+}
+
 bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
     dbg_mode_t dbg_mode = get_dbg_mode();
   
@@ -158,9 +164,9 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
     // Check mode validity
     if (dbg_mode == INVALID) {
         if (strcmp(cmd, "set_mode") != 0) {
-        printf("dbg-server: mode invalid, only set_mode allowed as first command\n");
-        snprintf(replay, replay_size, "ERR mode_invalid\n");
-        return false;
+            printf("dbg-server: mode invalid, only set_mode allowed as first command\n");
+            snprintf(replay, replay_size, "ERR mode_invalid\n");
+            return false;
         }
     }
 

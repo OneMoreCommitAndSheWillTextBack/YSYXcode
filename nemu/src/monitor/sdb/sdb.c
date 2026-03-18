@@ -15,6 +15,7 @@
 
 #include "sdb.h"
 #include "common.h"
+#include "utils.h"
 #include <cpu/cpu.h>
 #include <isa.h>
 #include <readline/history.h>
@@ -270,6 +271,10 @@ void sdb_mainloop() {
     do {
       dbg_listen();
     } while(get_dbg_mode() == AUTOMATIC);
+
+    if(get_nemu_state() == NEMU_QUIT) {
+      return ;
+    }
 
     char *str;
     if((str = rl_gets()) == NULL) {
