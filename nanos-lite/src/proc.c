@@ -99,7 +99,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   void *new_alloc =  new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
   p->as.area.end = alloc_end;
-  p->as.area.start =  new_alloc;
+  p->as.area.start = new_alloc;
+  Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
   uintptr_t stack_start = argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)stack_start};
