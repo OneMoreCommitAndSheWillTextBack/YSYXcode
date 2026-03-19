@@ -97,7 +97,7 @@ static bool cmd_set_mode(char *args[], int arg_num, char *reply) {
     dbg_mode_t dbg_mode = get_dbg_mode();
     
     if(arg_num < 1 || args[0] == NULL) {
-        sprintf(reply, "ERR:the mode cannot be null");
+        sprintf(reply, "ERR:the mode cannot be null\n");
         dbg_mode = INVALID;
         return false;
     }
@@ -108,12 +108,12 @@ static bool cmd_set_mode(char *args[], int arg_num, char *reply) {
     } else if(strcmp(mode_str, "auto") == 0) {
         dbg_mode = AUTOMATIC;
     } else {
-        sprintf(reply, "ERR:invalid mode %s", mode_str);
+        sprintf(reply, "ERR:invalid mode %s\n", mode_str);
         dbg_mode = INVALID;
         return false;
     }
     set_dbg_mode(dbg_mode);
-    sprintf(reply, "OK:mode set to %s", mode_str);
+    sprintf(reply, "OK:mode set to %s\n", mode_str);
     return true;
 }
 
@@ -125,19 +125,19 @@ static bool cmd_step(char *args[], int arg_num, char *reply) {
         n = atoi(args[0]);
     }
     if (n <= 0) {
-        sprintf(reply, "ERR:step count must be positive");
+        sprintf(reply, "ERR:step count must be positive\n");
         return false;
     }
     
     dbg_step(n);
-    sprintf(reply, "OK:stepped %d", n);
+    sprintf(reply, "OK:stepped %d\n", n);
     return true;
 }
 
 static bool cmd_is_over(char *args[], int arg_num, char *reply) {
     // is_over 命令不需要参数
     bool is_over = dbg_is_over();
-    sprintf(reply, "OK:%s", is_over ? "true" : "false");
+    sprintf(reply, "OK:%s\n", is_over ? "true" : "false");
     return true;
 }
 
@@ -152,7 +152,7 @@ static bool cmd_quit(char *args[], int arg_num, char *reply) {
 // reply format "OK:[data1,data2,data3]"
 static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
     if (arg_num < 3) {
-        sprintf(reply, "ERR:arguments missing, need 3 arguments");
+        sprintf(reply, "ERR:arguments missing, need 3 arguments\n");
         return false;
     }
 
@@ -163,25 +163,25 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
     char *endptr = NULL;
     uint32_t addr = (uint32_t)strtoul(str_addr, &endptr, 0);
     if(*endptr != '\0') {
-        sprintf(reply, "ERR:invalid address format");
+        sprintf(reply, "ERR:invalid address format\n");
         return false;
     }
 
     int n = (int)strtol(str_n, &endptr, 10);
     if (*endptr != '\0' || n <= 0) {
-        sprintf(reply, "ERR:invalid count (must be positive integer)");
+        sprintf(reply, "ERR:invalid count (must be positive integer)\n");
         return false;
     }
 
     int len = (int)strtol(str_len, &endptr, 10);
     if (*endptr != '\0' || (len != 1 && len != 2 && len != 4)) {
-        sprintf(reply, "ERR:invalid length (must be 1, 2, or 4)");
+        sprintf(reply, "ERR:invalid length (must be 1, 2, or 4)\n");
         return false;
     }
 
     uint32_t *buffer = (uint32_t*)malloc(n * sizeof(uint32_t));
     if (buffer == NULL) {
-        sprintf(reply, "ERR:memory allocation failed");
+        sprintf(reply, "ERR:memory allocation failed\n");
         return false;
     }
     
@@ -204,7 +204,7 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
         }
     }
     
-    sprintf(p, "]");
+    sprintf(p, "]\n");
 
     free(buffer);
     return true;
@@ -213,7 +213,7 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
 // write_mem 0x80000000 2 [data1,data2,data3]
 static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
     if (arg_num < 3) {
-        sprintf(reply, "ERR:arguments missing, need 3 arguments");
+        sprintf(reply, "ERR:arguments missing, need 3 arguments\n");
         return false;
     }
 
@@ -224,18 +224,18 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
     char *endptr = NULL;
     uint32_t addr = (uint32_t)strtoul(str_addr, &endptr, 0);
     if(*endptr != '\0') {
-        sprintf(reply, "ERR:invalid address format");
+        sprintf(reply, "ERR:invalid address format\n");
         return false;
     }
 
     int len = (int)strtol(str_len, &endptr, 10);
     if (*endptr != '\0' || (len != 1 && len != 2 && len != 4)) {
-        sprintf(reply, "ERR:invalid length (must be 1, 2, or 4)");
+        sprintf(reply, "ERR:invalid length (must be 1, 2, or 4)\n");
         return false;
     }
 
     if (str_data[0] != '[') {
-        sprintf(reply, "ERR:data must start with '['");
+        sprintf(reply, "ERR:data must start with '['\n");
         return false;
     }
 
@@ -256,14 +256,14 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
     n++; // 最后一个数据
 
     if (*p != ']') {
-        sprintf(reply, "ERR:data must end with ']'");
+        sprintf(reply, "ERR:data must end with ']'\n");
         return false;
     }
 
     // 分配缓冲区存储解析后的数据
     uint8_t *buffer = (uint8_t *)malloc(n * len);
     if (buffer == NULL) {
-        sprintf(reply, "ERR:memory allocation failed");
+        sprintf(reply, "ERR:memory allocation failed\n");
         return false;
     }
 
@@ -279,14 +279,14 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
 
         if(start == p) {
             free(buffer);
-            sprintf(reply, "ERR:empty data at position %d", i);
+            sprintf(reply, "ERR:empty data at position %d\n", i);
             return false;
         }
 
         size_t token_len = p - start;
         if (token_len >= sizeof(token)) {
             free(buffer);
-            sprintf(reply, "ERR:data token too long");
+            sprintf(reply, "ERR:data token too long\n");
             return false;
         }
 
@@ -297,7 +297,7 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
         uint32_t value = (uint32_t)strtoul(token, &token_endptr, 0);
         if (*token_endptr != '\0') {
             free(buffer);
-            sprintf(reply, "ERR:invalid data format at position %d: %s", i, token);
+            sprintf(reply, "ERR:invalid data format at position %d: %s\n", i, token);
             return false;
         }
         
@@ -312,7 +312,7 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
         
         if (value > max_value) {
             free(buffer);
-            sprintf(reply, "ERR:data value 0x%x exceeds %d-byte limit", value, len);
+            sprintf(reply, "ERR:data value 0x%x exceeds %d-byte limit\n", value, len);
             return false;
         }
         
@@ -333,10 +333,10 @@ static bool cmd_read_reg(char *args[], int arg_num, char *reply) {
     bool success = true;
     word_t data = isa_reg_str2val(args[0], &success);
     if(success) {
-        sprintf(reply, "OK:[%d]", data);
+        sprintf(reply, "OK:[%d]\n", data);
         return true;
     } else {
-        sprintf(reply, "ERR");
+        sprintf(reply, "ERR\n");
         return false;
     }
 }
