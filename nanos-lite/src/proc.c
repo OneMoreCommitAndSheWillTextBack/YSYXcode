@@ -108,7 +108,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   Log("the address of argc is %p, argc is %d", p->cp->GPRx, *(uint32_t *)(p->cp->GPRx));
   uint32_t argc = *(uint32_t *)(p->cp->GPRx);
   for (int i = 0; i < argc &&  *((char **)(p->cp->GPRx) + i) != NULL; i++) {
-    Log("argv[%d] = %s", i, argv[i] ? *((char **)(p->cp->GPRx) + i) : "(null)");
+    Log("argv[%d] = %s", i, *((char **)(p->cp->GPRx) + i) ? *((char **)(p->cp->GPRx) + i) : "(null)");
   }
   switch_boot_pcb();
   yield();
