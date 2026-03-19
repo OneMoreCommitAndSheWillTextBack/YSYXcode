@@ -2,6 +2,7 @@
 #include "isa.h"
 #include <memory/paddr.h>
 #include <common.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -63,13 +64,15 @@ static bool cmd_is_over(char *args[], int arg_num, char *reply);
 static bool cmd_quit(char *args[], int arg_num, char *reply);
 static bool cmd_read_mem(char *args[], int arg_num, char *reply);
 static bool cmd_write_mem(char *args[], int arg_num, char *reply);
+static bool cmd_read_reg(char *args[], int arg_num, char *reply);
 
 static const dbg_command_t dbg_cmd_table[] = {
     // execution control
     { "step", cmd_step, true},
     { "continue", NULL, true},
     // registers/memory
-    { "read_reg", NULL, false},
+    { "read_reg", cmd_read_reg, false},
+    {"write_reg", NULL, false},
     { "read_mem", cmd_read_mem, false },
     { "write_mem", cmd_write_mem, false }, // allow probe_only to change memory
     // state control
@@ -236,8 +239,6 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
         return false;
     }
 
-    printf("the data is %s\n", str_data);
-
     // 跳过开头的'['
     str_data++;
 
@@ -324,9 +325,18 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
     return true;
 }
 
-// static bool cmd_write_reg(const char *args, char *reply) {
-
-// }
+// read_reg pc -> OK:[data]
+static bool cmd_read_reg(char *args[], int arg_num, char *reply) {
+    bool success = true;
+    word_t data = isa_reg_str2val(args[0], &success);
+    if(success) {
+        sprintf(reply, "OK:[%d]", data);
+        return true;
+    } else {
+        sprintf(reply, "ERR");
+        return false;
+    }
+}
 
 #define DBG_MAXARG 5
 bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
