@@ -105,6 +105,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)stack_start};
   p->cp = ucontext(NULL, stack, (void *)entry);
+  Log("the address of argc is %p, argc is %d", p->cp->GPRx, *(uint32_t *)(p->cp->GPRx));
   switch_boot_pcb();
   yield();
 }
