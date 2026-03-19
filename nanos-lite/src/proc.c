@@ -71,24 +71,26 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
 
   assert(filename != NULL);
   size_t filename_len = strlen(filename) + 1;
-  string_area_cur = allocate_string(string_area_cur, filename, filename_len); 
+  string_area_cur = allocate_string(string_area_cur, filename, filename_len);
   argv_re[0] = string_area_cur;
 
-  uint32_t *ptr_array_pos = (uint32_t *)string_area_cur;
+  size_t argc_val = argv_count + 1;
+  size_t ptr_slots = 1 + argc_val + 1 + envp_count + 1;
+  uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
+
+  *ptr_array_pos = 0;  /* envp 末尾 NULL */
   ptr_array_pos--;
-  *ptr_array_pos = 0;
-  ptr_array_pos--;
-  for(int i = envp_count - 1; i >= 0; i--) {
+  for (int i = envp_count - 1; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)envp_re[i];
     ptr_array_pos--;
   }
-  *ptr_array_pos = 0;
+  *ptr_array_pos = 0;  /* argv/envp 之间的 NULL */
   ptr_array_pos--;
-  for(int i = argv_count; i>= 0; i--) {
+  for (int i = argv_count; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)argv_re[i];
     ptr_array_pos--;
   }
-  *ptr_array_pos = argv_count;
+  *ptr_array_pos = (uint32_t)argc_val;
   ptr_array_pos--;
   return (uintptr_t)ptr_array_pos;
 }
@@ -111,8 +113,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   char **argv0 = (char **)(argc_ptr + 1);   // argv 紧跟在 argc 后面
 
   Log("argc = %d", argc);
-  for (int i = 0; i < argc + 1; i++) {
-    Log("argv[%d] = \"%s\"", i, argv0[i]);
+  for (int i = 0; i <= argc; i++) {
+    Log("argv[%d] = %s", i, argv0[i] ? argv0[i] : "(null)");
   }
   switch_boot_pcb();
   yield();
