@@ -62,6 +62,7 @@ static bool cmd_step(char *args[], int arg_num, char *reply);
 static bool cmd_is_over(char *args[], int arg_num, char *reply);
 static bool cmd_quit(char *args[], int arg_num, char *reply);
 static bool cmd_read_mem(char *args[], int arg_num, char *reply);
+static bool cmd_write_mem(char *args[], int arg_num, char *reply);
 
 static const dbg_command_t dbg_cmd_table[] = {
     // execution control
@@ -70,7 +71,7 @@ static const dbg_command_t dbg_cmd_table[] = {
     // registers/memory
     { "read_reg", NULL, false},
     { "read_mem", cmd_read_mem, false },
-    { "write_mem", NULL, false }, // allow probe_only to change memory
+    { "write_mem", cmd_write_mem, false }, // allow probe_only to change memory
     // state control
     { "is_over", cmd_is_over, false},
     { "quit", cmd_quit, true},
@@ -147,7 +148,6 @@ static bool cmd_quit(char *args[], int arg_num, char *reply) {
 // read_mem 0x80000000 3 4 -> 从0x80000000 开始读3个四字节
 // reply format "OK:[data1,data2,data3]"
 static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
-    
     if (arg_num < 3) {
         sprintf(reply, "ERR:arguments missing, need 3 arguments");
         return false;
@@ -207,9 +207,122 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
     return true;
 }
 
-// static bool cmd_write_mem(const char *args, char *reply) {
+// write_mem 0x80000000 2 [data1,data2,data3]
+static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
+    if (arg_num < 3) {
+        sprintf(reply, "ERR:arguments missing, need 3 arguments");
+        return false;
+    }
 
-// }
+    char *str_addr = args[0];
+    char *str_len = args[1];
+    char *str_data = args[2];
+
+    char *endptr = NULL;
+    uint32_t addr = (uint32_t)strtoul(str_addr, &endptr, 0);
+    if(*endptr != '\0') {
+        sprintf(reply, "ERR:invalid address format");
+        return false;
+    }
+
+    int len = (int)strtol(str_len, &endptr, 10);
+    if (*endptr != '\0' || (len != 1 && len != 2 && len != 4)) {
+        sprintf(reply, "ERR:invalid length (must be 1, 2, or 4)");
+        return false;
+    }
+
+    if (str_data[0] != '[') {
+        sprintf(reply, "ERR:data must start with '['");
+        return false;
+    }
+
+    printf("the data is %s\n", str_data);
+
+    // 跳过开头的'['
+    str_data++;
+
+    // 计算数据个数
+    int n = 0;
+    const char *p = str_data;
+    while (*p && *p != ']') {
+        if (*p == ',') {
+            n++;
+        }
+        p++;
+    }
+    n++; // 最后一个数据
+
+    if (*p != ']') {
+        sprintf(reply, "ERR:data must end with ']'");
+        return false;
+    }
+
+    // 分配缓冲区存储解析后的数据
+    uint8_t *buffer = (uint8_t *)malloc(n * len);
+    if (buffer == NULL) {
+        sprintf(reply, "ERR:memory allocation failed");
+        return false;
+    }
+
+    // 解析数据
+    p = str_data;
+    char token[32];
+    for(int i = 0; i<n; i++) {
+        while(*p == ',') p++;
+
+        const char *start = p;
+
+        while (*p && *p != ',' && *p != ']') p++;
+
+        if(start == p) {
+            free(buffer);
+            sprintf(reply, "ERR:empty data at position %d", i);
+            return false;
+        }
+
+        size_t token_len = p - start;
+        if (token_len >= sizeof(token)) {
+            free(buffer);
+            sprintf(reply, "ERR:data token too long");
+            return false;
+        }
+
+        strncpy(token, start, token_len);
+        token[token_len] = '\0';
+        
+        char *token_endptr;
+        uint32_t value = (uint32_t)strtoul(token, &token_endptr, 0);
+        if (*token_endptr != '\0') {
+            free(buffer);
+            sprintf(reply, "ERR:invalid data format at position %d: %s", i, token);
+            return false;
+        }
+        
+        // 根据数据长度检查数值范围
+        uint32_t max_value;
+        switch(len) {
+            case 1: max_value = 0xFF; break;
+            case 2: max_value = 0xFFFF; break;
+            case 4: max_value = 0xFFFFFFFF; break;
+            default: max_value = 0xFFFFFFFF;
+        }
+        
+        if (value > max_value) {
+            free(buffer);
+            sprintf(reply, "ERR:data value 0x%x exceeds %d-byte limit", value, len);
+            return false;
+        }
+        
+        memcpy(buffer + i * len, &value, len);
+    }
+    
+    dbg_write_mem(addr, buffer, n, len);
+
+    free(buffer);
+
+    sprintf(reply, "OK");
+    return true;
+}
 
 // static bool cmd_write_reg(const char *args, char *reply) {
 
