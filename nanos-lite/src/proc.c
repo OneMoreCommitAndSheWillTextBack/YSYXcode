@@ -75,6 +75,7 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   argv_re[0] = string_area_cur;
 
   uint32_t *ptr_array_pos = (uint32_t *)string_area_cur;
+  ptr_array_pos--;
   *ptr_array_pos = 0;
   ptr_array_pos--;
   for(int i = envp_count - 1; i >= 0; i--) {
