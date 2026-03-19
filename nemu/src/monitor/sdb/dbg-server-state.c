@@ -235,6 +235,9 @@ void dbg_listen(void) {
   }
   
   if (get_dbg_mode() == PROBE_ONLY) {
+    if (!probe_task_on) {
+      start_probe_task();
+    }
     dbg_mark_ready_pending();
   }
 
