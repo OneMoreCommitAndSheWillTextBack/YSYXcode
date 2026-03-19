@@ -74,8 +74,9 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   string_area_cur = allocate_string(string_area_cur, filename, filename_len);
   argv_re[0] = string_area_cur;
 
-  size_t argc_val = argv_count;
-  size_t ptr_slots = 1 + argc_val + 1 + envp_count + 1;
+  /* argc = argv_count+1 (filename + user args); ptr array: envp_null + envp[] + sep + argv[] + argc */
+  size_t argc_val = argv_count + 1;
+  size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1) + 1;
   uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
 
   *ptr_array_pos = 0;  /* envp 末尾 NULL */
@@ -85,6 +86,8 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
     ptr_array_pos--;
   }
   *ptr_array_pos = 0;  /* argv/envp 之间的 NULL */
+  ptr_array_pos--;
+  *ptr_array_pos = 0;  /* argv[argc]=NULL */
   ptr_array_pos--;
   for (int i = argv_count; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)argv_re[i];
