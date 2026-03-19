@@ -67,3 +67,5 @@ cmake-build-debug
 !tools/**
 !examples/
 !examples/**
+
+bsp/abstract-machine/build/

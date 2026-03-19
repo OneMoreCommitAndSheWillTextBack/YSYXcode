@@ -106,14 +106,16 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // IFU STATE MACHINE
   // ------------------------------------
-  typedef enum logic [2:0] {
-    INIT, // the inst is not valid
-    VALID, CHECK_CACHE, BUS_HANDSHAKE,
-    BUS_TRANSACTION, UPDATE_CACHE,
-    BUS_INVALID, UPDATE_PC
-  } ifu_state_t;
+  localparam [2:0] INIT          = 3'd0;
+  localparam [2:0] VALID         = 3'd1;
+  localparam [2:0] CHECK_CACHE   = 3'd2;
+  localparam [2:0] BUS_HANDSHAKE = 3'd3;
+  localparam [2:0] BUS_TRANSACTION = 3'd4;
+  localparam [2:0] UPDATE_CACHE  = 3'd5;
+  localparam [2:0] BUS_INVALID   = 3'd6;
+  localparam [2:0] UPDATE_PC     = 3'd7;
 
-  ifu_state_t ifu_state;
+  reg [2:0] ifu_state;
 
   always @(posedge clk) begin
     if(rst) begin
@@ -121,7 +123,6 @@ module ysyx_24100007_ifu(
     end else begin
       case(ifu_state) 
         INIT: begin
-          // 这里 reset 是0， 那么ifu要将npc驱动起来
           ifu_state <= BUS_HANDSHAKE;
         end
 
@@ -130,6 +131,8 @@ module ysyx_24100007_ifu(
             ifu_state <= UPDATE_PC;
           end else if(ready) begin
             ifu_state <= CHECK_CACHE;
+          end else begin
+            ifu_state <= VALID;
           end
         end
 
@@ -152,6 +155,8 @@ module ysyx_24100007_ifu(
             end
           end else if(ifu_req_acp) begin
             ifu_state <= BUS_TRANSACTION;
+          end else begin
+            ifu_state <= BUS_HANDSHAKE;
           end
         end
 
@@ -160,6 +165,8 @@ module ysyx_24100007_ifu(
             ifu_state <= BUS_INVALID;
           end else if(ifu_req_finish) begin
             ifu_state <= UPDATE_CACHE;
+          end else begin
+            ifu_state <= BUS_TRANSACTION;
           end
         end
 
@@ -172,8 +179,10 @@ module ysyx_24100007_ifu(
         end
 
         BUS_INVALID: begin
-          if(ifu_req_ready &  ifu_req_finish) begin
+          if(ifu_req_ready & ifu_req_finish) begin
             ifu_state <= UPDATE_PC;
+          end else begin
+            ifu_state <= BUS_INVALID;
           end
         end
 
@@ -185,6 +194,7 @@ module ysyx_24100007_ifu(
           // synopsys translate_off
           $error("ifu state machine Invalid state error");
           // synopsys translate_on
+          ifu_state <= INIT;
         end
       endcase
     end

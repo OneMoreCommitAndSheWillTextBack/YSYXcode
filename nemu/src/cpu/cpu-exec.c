@@ -187,11 +187,11 @@ void set_state_stop() {
   return;
 }
 
-int check_state() { return nemu_state.state; }
+int get_nemu_state() { return nemu_state.state; }
 
 int cmd_si_check(int n) {
   // this function used for si command in sdb
-  int sta = check_state();
+  int sta = get_nemu_state();
   if (sta == NEMU_ABORT || sta == NEMU_END) {
     return -1;
   }

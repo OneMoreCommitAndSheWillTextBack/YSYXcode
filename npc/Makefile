@@ -177,18 +177,58 @@ sim-iverilog: $(IMG) $(BIN_IVG)
 		./vsrc-extra/npc.v
 	vvp ./build/npc_ivg
 
+<<<<<<< HEAD
 sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST)
 	iverilog -o $(abspath ./build/npc_ivg) -g2012 \
 		-I $(CELLS) \
+=======
+CELLS_V = $(if $(CELLS),$(shell find $(CELLS) -name "*.v" 2>/dev/null),)
+sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST)
+	iverilog -o $(abspath ./build/npc_ivg) -g2012 \
+		$(CELLS_V) \
+>>>>>>> rescue-dbg-write-mem
 		$(NETLIST) \
 		./vsrc-extra/ivg_top.v \
 		./vsrc-extra/npc.v
 	vvp ./build/npc_ivg
 
+<<<<<<< HEAD
+=======
+# Verilator 网表仿真：使用 NETLIST 替代 RTL，npc 为顶层，无需 ivg_top
+# 用法: make sim-verilator-netlist NETLIST=path/to/ysyx_24100007.netlist.v.sim [CELLS=path/to/cells]
+# 可选 CELLS: 工艺库路径，用于门级网表
+BUILDDIR_NETLIST = ./build/netlist
+OBJDIR_NETLIST = $(BUILDDIR_NETLIST)/obj_dir
+BIN_NETLIST = $(BUILDDIR_NETLIST)/npc
+
+$(shell mkdir -p $(BUILDDIR_NETLIST))
+
+sim-verilator-netlist: $(BIN_NETLIST) $(IMG)
+	$(BIN_NETLIST) $(ARGS) -f $(IMG)
+
+$(BIN_NETLIST): $(NETLIST) $(CSRC) $(HEADFILE)
+	@if [ -z "$(NETLIST)" ]; then echo "Error: NETLIST=path/to/netlist.v required"; exit 1; fi
+	$(VERILATOR) $(VERILATOR_FLAGS) -Wno-UNOPTFLAT -fno-inline \
+		$(CELLS_V) \
+		$(NETLIST) \
+		./vsrc-extra/npc.v \
+		$(CSRC) \
+		$(BASE_CFLAGS) \
+		$(VERILATOR_INCLUDE) \
+		--CFLAGS -D__NPC__ \
+		--top-module npc \
+		--Mdir $(OBJDIR_NETLIST) --exe -o $(abspath $(BIN_NETLIST))
+	
+
+>>>>>>> rescue-dbg-write-mem
 check:
 	$(VERILATOR) --lint-only --top-module ysyx_24100007 -Wall -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME /home/ysyx/project/ysyx-workbench/npc/release/ysyx_24100007.v 
 
 perf:
 	python3 show-perf-table.py ./performance.txt
 
+<<<<<<< HEAD
 .PHONY: run clean sim npc ysyxsocys yxsoc-nvboard check release
+=======
+.PHONY: run clean sim npc ysyxsocys yxsoc-nvboard check release sim-verilator-netlist sim-iverilog-netlist
+>>>>>>> rescue-dbg-write-mem

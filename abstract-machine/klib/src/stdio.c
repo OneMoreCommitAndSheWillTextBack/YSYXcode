@@ -5,9 +5,15 @@
 #include <stdio.h>
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+#define PRINTF_BUFFER_SIZE 1024
+#define SPRINTF_LIMIT 512
+#define VSNPRINTF_LIMIT 512
+
+static_assert(VSNPRINTF_LIMIT < PRINTF_BUFFER_SIZE);
+static_assert(SPRINTF_LIMIT < PRINTF_BUFFER_SIZE);
 
 int printf(const char *fmt, ...) {
-  char buffer[1024];
+  char buffer[PRINTF_BUFFER_SIZE];
   va_list ap;
   va_start(ap, fmt);
   int size = vsprintf(buffer, fmt, ap);
@@ -19,13 +25,13 @@ int printf(const char *fmt, ...) {
 }
 
 int vsprintf(char *out, const char *fmt, va_list ap) {
-  return vsnprintf(out, 512, fmt, ap);
+  return vsnprintf(out, VSNPRINTF_LIMIT, fmt, ap);
 }
 
 int sprintf(char *out, const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int size = vsnprintf(out, 512, fmt, ap);
+  int size = vsnprintf(out, SPRINTF_LIMIT, fmt, ap);
   va_end(ap);
   return size;
 }

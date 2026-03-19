@@ -65,12 +65,15 @@ void new_wp(char *exp) {
       if (head_tmp->next->NO > tmp->NO) {
         tmp->next = head_tmp->next;
         head_tmp->next = tmp;
-        return;
+        goto wp_init;
       }
+      head_tmp = head_tmp->next;
     }
     head_tmp->next = tmp;
     tmp->next = NULL;
   }
+
+wp_init:
   tmp->expr = (char *)malloc(sizeof(char) * strlen(exp));
   strcpy(tmp->expr, exp);
   tmp->val = val;
