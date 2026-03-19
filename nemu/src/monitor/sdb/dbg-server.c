@@ -324,6 +324,7 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
     free(buffer);
 
     sprintf(reply, "OK");
+    printf("%s\n", reply);
     return true;
 }
 
