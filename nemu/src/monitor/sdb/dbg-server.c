@@ -356,6 +356,8 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         return false;
     }
 
+    printf("[dbg]: get cmdline: %s\n", cmd_line);
+
     char *tokens[DBG_MAXARG] = {0};
     char *saveptr = NULL;
     int argc = 0;
