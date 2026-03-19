@@ -2976,19 +2976,12 @@ module ysyx_24100007_wbu(
   );
 
   // Memory access state machine
-<<<<<<< HEAD
-  typedef enum logic [1:0] {
-    WAIT_VALID, BUS_HANDSHAKE, BUS_TRANSACTION, WRITE_BACK
-  } wbu_state_t;
-  wbu_state_t wbu_state;
-=======
   localparam [1:0] WAIT_VALID    = 2'd0;
   localparam [1:0] BUS_HANDSHAKE = 2'd1;
   localparam [1:0] BUS_TRANSACTION = 2'd2;
   localparam [1:0] WRITE_BACK    = 2'd3;
 
   reg [1:0] wbu_state;
->>>>>>> rescue-dbg-write-mem
 
   wire mem_access = memew_in | memer_in;
   wire avaliable;
