@@ -8,9 +8,13 @@
 
 #include "sdb.h"
 
+void start_probe_task();
+
 static bool dbg_is_on_ = false;
 static int dbg_port = 0;
 static int dbg_mode = INVALID;
+static int probe_task_on = false;
+static bool pending_ready = false;
 
 static void dbg_disable(void) {
   dbg_is_on_ = false;
@@ -31,6 +35,10 @@ bool dbg_is_on() {
 
 void set_dbg_mode(dbg_mode_t mode) {
     dbg_mode = mode;
+}
+
+void dbg_mark_ready_pending(void) {
+  pending_ready = true;
 }
 
 static ssize_t read_line(int fd, char *buf, size_t cap) {
@@ -157,7 +165,7 @@ bool dbg_init_and_wait_connection(void) {
     char *save = NULL;
     char *cmd = strtok_r(line, " \t\r\n", &save);
     char *args = strtok_r(NULL, " \t\r\n", &save);
-    if (cmd == NULL || strcmp(cmd, "set_mode") != 0) {
+    if (cmd == NULL || strcmp(cmd, "set_mode") != 0 || args == NULL) {
         set_dbg_mode(INVALID);
         dbg_socket_reset();
         dbg_disable();
@@ -166,16 +174,21 @@ bool dbg_init_and_wait_connection(void) {
 
     bool ok = true;
     if (strcmp(args, "probe") == 0) {
-        dbg_mode = PROBE_ONLY;
+        set_dbg_mode(PROBE_ONLY);
+        start_probe_task();
     } else if(strcmp(args, "auto") == 0) {
-        dbg_mode = AUTOMATIC;
+        set_dbg_mode(AUTOMATIC);
     } else {
         printf("invlaid mode %s, dbg-server quit\n", args);
-        dbg_mode = INVALID;
+        set_dbg_mode(INVALID);
         ok = false;
     }
     if (ok) {
         write_best_effort(dbg_client_fd, "OK\n", 3);
+        if (get_dbg_mode() == PROBE_ONLY) {
+          // ready must come after the reply; mark it pending and let dbg_listen flush it.
+          dbg_mark_ready_pending();
+        }
     } else {
         write_best_effort(dbg_client_fd, "ERR\n", 4);
         set_dbg_mode(INVALID);
@@ -187,22 +200,62 @@ bool dbg_init_and_wait_connection(void) {
     return true;
 }
 
+void finish_probe_task() {
+  if(probe_task_on == false) {
+    printf("the probe_taks_on is false, should not reach here\n");
+    return ;
+  }
+
+  if(dbg_mode != PROBE_ONLY) {
+    printf("the finish_task_on is valid only when the mode set to probe_only\n");
+    return ;
+  }
+
+  probe_task_on = false;
+}
+
+void start_probe_task() {
+  if (probe_task_on) {
+    printf("Error: Cannot start probe task - task is already running\n");
+    return ;
+  }
+
+  if (dbg_mode != PROBE_ONLY) {
+    printf("Error: start_probe_task() is only valid when mode is PROBE_ONLY\n");
+    return ;
+  }
+
+  probe_task_on = true;
+}
+
 void dbg_listen(void) {
   if (!dbg_is_on() || !dbg_has_client()) {
     return;
   }
   
+  if (get_dbg_mode() == PROBE_ONLY) {
+    if (!probe_task_on) {
+      start_probe_task();
+    }
+    dbg_mark_ready_pending();
+  }
+
   char cmd_buffer[256];
   char response_buffer[256];
-  
+
   while (1) {
-    response_buffer[0] = '\0';
+    if (pending_ready && get_dbg_mode() == PROBE_ONLY) {
+      write_best_effort(dbg_client_fd, "ready\n", 6);
+      pending_ready = false;
+    }
+
+    response_buffer[0] = '\0';    
     
     // Read command from client
     ssize_t n = read_line(dbg_client_fd, cmd_buffer, sizeof(cmd_buffer));
     
     if (n <= 0) {
-      if (dbg_mode == PROBE_ONLY || dbg_mode == INVALID) {
+      if (dbg_mode == INVALID) {
         return;
       }
       continue;
@@ -216,10 +269,19 @@ void dbg_listen(void) {
       const char *fallback = success ? "OK\n" : "ERR\n";
       write_best_effort(dbg_client_fd, fallback, strlen(fallback));
     }
-    
-    if (dbg_mode == PROBE_ONLY || dbg_mode == INVALID || dbg_mode == DBG_QUIT) {
+
+    // Flush any post-reply events (e.g., ready after set_mode probe).
+    if (pending_ready && get_dbg_mode() == PROBE_ONLY) {
+      write_best_effort(dbg_client_fd, "ready\n", 6);
+      pending_ready = false;
+    }
+
+    if(dbg_mode == PROBE_ONLY && probe_task_on ==  false) {
+      return ;
+    }  
+
+    if (dbg_mode == INVALID || dbg_mode == DBG_QUIT) {
       return;
     }
-    
   }
 }

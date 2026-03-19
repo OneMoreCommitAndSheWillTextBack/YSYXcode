@@ -1,6 +1,7 @@
 #include <common.h>
 #include "am.h"
 #include <proc.h>
+#include "memory.h"
 
 #define MAX_NR_PROC 4
 
@@ -47,52 +48,69 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   // string area
   char *string_area_cur = (char *)stack_top;
   int envp_count = 0;
-  while(envp[envp_count] != NULL) {
-    size_t len = strlen(envp[envp_count]) + 1;  
-    string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);    
-    envp_re[envp_count] = string_area_cur;
-    
-    assert(envp_count < MAXENVP);
-    envp_count++;
+  if(envp != NULL) {
+    while(envp[envp_count] != NULL) {
+      size_t len = strlen(envp[envp_count]) + 1;  
+      string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);    
+      assert(envp_count < MAXENVP);
+      envp_re[envp_count] = string_area_cur;
+      envp_count++;
+    }
   }
 
   int argv_count = 0;
+  if(argv != NULL) {
   while(argv[argv_count] != NULL) {
-    size_t len = strlen(argv[argv_count]) + 1;
-    string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);  
-    argv_re[argv_count+1] = string_area_cur;
-    
-    assert(argv_count+1 < MAXARG);
-    argv_count++;
+      size_t len = strlen(argv[argv_count]) + 1;
+      string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);  
+      assert(argv_count+1 < MAXARG);
+      argv_re[argv_count+1] = string_area_cur;
+      argv_count++;
+    }
   }
 
   assert(filename != NULL);
   size_t filename_len = strlen(filename) + 1;
-  string_area_cur = allocate_string(string_area_cur, filename, filename_len); 
+  string_area_cur = allocate_string(string_area_cur, filename, filename_len);
   argv_re[0] = string_area_cur;
 
-  uint32_t *ptr_array_pos = (uint32_t *)string_area_cur;
-  *ptr_array_pos = 0;
+  /* argc = argv_count+1; ptr array: envp_null + envp[] + (argv[argc]=NULL, 同时为 argv/envp 分隔) + argv[] + argc */
+  size_t argc_val = argv_count + 1;
+  size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1) + 1;
+  uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
+
+  *ptr_array_pos = 0;  /* envp 末尾 NULL */
   ptr_array_pos--;
-  for(int i = envp_count - 1; i >= 0; i--) {
+  for (int i = envp_count - 1; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)envp_re[i];
     ptr_array_pos--;
   }
-  *ptr_array_pos = 0;
+  *ptr_array_pos = 0;  /* argv[argc]=NULL，同时作为 argv/envp 之间的分隔 */
   ptr_array_pos--;
-  for(int i = argv_count; i>= 0; i--) {
+  for (int i = argv_count; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)argv_re[i];
     ptr_array_pos--;
   }
-  *ptr_array_pos = argv_count;
+  *ptr_array_pos = (uint32_t)argc_val;
   ptr_array_pos--;
   return (uintptr_t)ptr_array_pos;
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
+  if(p->cp == NULL) {
+    pcb_num++;
+  }
+  void *new_alloc =  new_page(8);
+  uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
+  p->as.area.end = alloc_end;
+  p->as.area.start = new_alloc;
+  Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
+  uintptr_t stack_start = argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
-  p->cp = ucontext(NULL, heap, (void *)entry);
-  pcb_num++;
+  Area stack = {.end = (void *)stack_start};
+  p->cp = ucontext(NULL, stack, (void *)entry);
+  switch_boot_pcb();
+  yield();
 }
 
 void init_proc() {
@@ -102,7 +120,8 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
-  context_uload(&pcb[1], "/bin/pal", NULL, NULL);
+  char *argv[] = {"--skip", NULL};
+  context_uload(&pcb[1], "/bin/exec-test", argv, NULL);
 }
 
 Context *schedule(Context *prev) {
@@ -115,7 +134,7 @@ Context *schedule(Context *prev) {
   if(next > MAX_NR_PROC) {
     panic("the next should not larger than MAX_NR_PROC");
   }
-  Log("schedule: from %p to %p", prev, pcb[next].cp);
+  // Log("schedule: from %p to %p", prev, pcb[next].cp);
   current = &pcb[next];
-  return pcb[next].cp;
+  return current->cp;
 }

@@ -268,9 +268,7 @@ void sdb_mainloop() {
   }
 
   while(1) {
-    do {
-      dbg_listen();
-    } while(get_dbg_mode() == AUTOMATIC);
+    dbg_listen();
 
     if(get_nemu_state() == NEMU_QUIT) {
       return ;

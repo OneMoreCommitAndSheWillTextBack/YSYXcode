@@ -1,9 +1,12 @@
+#include "klib-macros.h"
 #include <memory.h>
 
 static void *pf = NULL;
 
 void* new_page(size_t nr_page) {
-  return NULL;
+  uint8_t *old_pf = (uint8_t *)pf;
+  pf = (void *)ROUNDUP(pf + nr_page * PGSIZE, PGSIZE);
+  return (void *)old_pf;
 }
 
 #ifdef HAS_VME
