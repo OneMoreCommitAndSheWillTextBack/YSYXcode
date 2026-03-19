@@ -152,7 +152,7 @@ static bool cmd_quit(char *args[], int arg_num, char *reply) {
 
 static bool cmd_finish(char *args[], int arg_num, char *reply) {
     finish_probe_task();
-    sprintf(reply, "OK");
+    sprintf(reply, "OK\n");
     return true;
 }
 
