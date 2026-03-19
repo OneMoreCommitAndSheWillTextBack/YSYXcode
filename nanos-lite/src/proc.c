@@ -84,7 +84,7 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   }
   *ptr_array_pos = 0;
   ptr_array_pos--;
-  for(int i = argv_count; i>= 0; i--) {
+  for(int i = argv_count - 1; i>= 0; i--) {
     *ptr_array_pos = (uint32_t)argv_re[i];
     ptr_array_pos--;
   }
