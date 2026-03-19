@@ -239,6 +239,8 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
         return false;
     }
 
+    printf("get data %s\n", str_data);
+
     // 跳过开头的'['
     str_data++;
 
