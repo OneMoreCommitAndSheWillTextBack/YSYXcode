@@ -369,6 +369,8 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         return false;
     }
 
+    printf("get cmd %s\n", cmd);
+
     // Check mode validity
     if (dbg_mode == INVALID) {
         if (strcmp(cmd, "set_mode") != 0) {
