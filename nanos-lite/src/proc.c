@@ -109,14 +109,6 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)stack_start};
   p->cp = ucontext(NULL, stack, (void *)entry);
-  uint32_t *argc_ptr = (uint32_t *)p->cp->GPRx;
-  uint32_t argc = *argc_ptr;
-  char **argv0 = (char **)(argc_ptr + 1);   // argv 紧跟在 argc 后面
-
-  Log("argc = %d", argc);
-  for (int i = 0; i <= argc; i++) {
-    Log("argv[%d] = %s", i, argv0[i] ? argv0[i] : "(null)");
-  }
   switch_boot_pcb();
   yield();
 }
