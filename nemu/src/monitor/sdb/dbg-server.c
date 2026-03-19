@@ -47,6 +47,8 @@ void dbg_quit() {
     set_state_quit();
 }
 
+void finish_probe_task();
+void start_probe_task();
 // socket
 typedef bool (*dbg_cmd_handler_t)(char *args[], int arg_num, char *reply);
 
@@ -94,25 +96,24 @@ static const dbg_command_t *find_command(const char *name) {
 }
 
 static bool cmd_set_mode(char *args[], int arg_num, char *reply) {
-    dbg_mode_t dbg_mode = get_dbg_mode();
-    
     if(arg_num < 1 || args[0] == NULL) {
         sprintf(reply, "ERR:the mode cannot be null\n");
-        dbg_mode = INVALID;
+        set_dbg_mode(INVALID);
         return false;
     }
 
     char *mode_str = args[0];
     if (strcmp(mode_str, "probe") == 0) {
-        dbg_mode = PROBE_ONLY;
+        set_dbg_mode(PROBE_ONLY);
+        start_probe_task();
+        dbg_mark_ready_pending();
     } else if(strcmp(mode_str, "auto") == 0) {
-        dbg_mode = AUTOMATIC;
+        set_dbg_mode(AUTOMATIC);
     } else {
         sprintf(reply, "ERR:invalid mode %s\n", mode_str);
-        dbg_mode = INVALID;
+        set_dbg_mode(INVALID);
         return false;
     }
-    set_dbg_mode(dbg_mode);
     sprintf(reply, "OK:mode set to %s\n", mode_str);
     return true;
 }
@@ -148,7 +149,7 @@ static bool cmd_quit(char *args[], int arg_num, char *reply) {
     return true;
 }
 
-void finish_probe_task();
+
 static bool cmd_finish(char *args[], int arg_num, char *reply) {
     finish_probe_task();
     sprintf(reply, "OK");
