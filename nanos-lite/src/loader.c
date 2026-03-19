@@ -67,7 +67,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
       memset((char *)(uintptr_t)(paddr + filesize), 0, memsize - filesize);
     }
   }
-
+  fs_close(fd);
   return e_entry;
 }
 
