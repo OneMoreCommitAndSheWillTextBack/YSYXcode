@@ -1,6 +1,7 @@
 #include <common.h>
 #include "am.h"
 #include <proc.h>
+#include "memory.h"
 
 #define MAX_NR_PROC 4
 
@@ -92,11 +93,19 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
-  uintptr_t stack_start = argdeal_uload((uintptr_t)heap.end, filename, argv, envp);
+  if(p->cp == NULL) {
+    pcb_num++;
+  }
+  void *new_alloc =  new_page(8);
+  uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
+  p->as.area.end = alloc_end;
+  p->as.area.start =  new_alloc;
+  uintptr_t stack_start = argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)stack_start};
   p->cp = ucontext(NULL, stack, (void *)entry);
-  pcb_num++;
+  switch_boot_pcb();
+  yield();
 }
 
 void init_proc() {
@@ -107,7 +116,7 @@ void init_proc() {
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   char *argv[] = {"--skip", NULL};
-  context_uload(&pcb[1], "/bin/pal", argv, NULL);
+  context_uload(&pcb[1], "/bin/exec-test", argv, NULL);
 }
 
 Context *schedule(Context *prev) {
@@ -122,5 +131,5 @@ Context *schedule(Context *prev) {
   }
   // Log("schedule: from %p to %p", prev, pcb[next].cp);
   current = &pcb[next];
-  return pcb[next].cp;
+  return current->cp;
 }

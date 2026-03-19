@@ -82,11 +82,11 @@ uintptr_t uload(PCB *pcb, const char *filename) {
   return loader(pcb, filename);
 } 
 
-int syscall_execve(const char *filename) {
+int syscall_execve(const char *filename, char *argv[], char *envp[]) {
   Log("syscall execve:[%s]", filename);
 
   if(fs_exist(filename)) {
-    naive_uload(NULL, filename);
+    context_uload(current, filename, argv, envp);
     panic("should not reach here");
   } 
 
