@@ -8,8 +8,6 @@
 
 #include "sdb.h"
 
-
-
 // dbg command
 void dbg_step(int n) {
     cpu_exec(n);
@@ -65,6 +63,7 @@ static bool cmd_quit(char *args[], int arg_num, char *reply);
 static bool cmd_read_mem(char *args[], int arg_num, char *reply);
 static bool cmd_write_mem(char *args[], int arg_num, char *reply);
 static bool cmd_read_reg(char *args[], int arg_num, char *reply);
+static bool cmd_finish(char *args[], int arg_num, char *reply);
 
 static const dbg_command_t dbg_cmd_table[] = {
     // execution control
@@ -80,6 +79,7 @@ static const dbg_command_t dbg_cmd_table[] = {
     { "quit", cmd_quit, true},
     // mode
     { "set_mode", cmd_set_mode, false},
+    {"finish", cmd_finish, false},
 };
 
 static const size_t dbg_cmd_table_size = sizeof(dbg_cmd_table) / sizeof(dbg_cmd_table[0]);
@@ -145,6 +145,13 @@ static bool cmd_quit(char *args[], int arg_num, char *reply) {
     // quit 命令不需要参数
     dbg_quit();
     set_dbg_mode(DBG_QUIT);
+    return true;
+}
+
+void finish_probe_task();
+static bool cmd_finish(char *args[], int arg_num, char *reply) {
+    finish_probe_task();
+    sprintf(reply, "OK");
     return true;
 }
 

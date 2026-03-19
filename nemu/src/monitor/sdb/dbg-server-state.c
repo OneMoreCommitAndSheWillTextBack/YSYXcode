@@ -11,6 +11,7 @@
 static bool dbg_is_on_ = false;
 static int dbg_port = 0;
 static int dbg_mode = INVALID;
+static int probe_task_on = false;
 
 static void dbg_disable(void) {
   dbg_is_on_ = false;
@@ -187,6 +188,20 @@ bool dbg_init_and_wait_connection(void) {
     return true;
 }
 
+void finish_probe_task() {
+  if(probe_task_on == false) {
+    printf("the probe_taks_on is false, should not reach here\n");
+    return ;
+  }
+
+  if(dbg_mode != PROBE_ONLY) {
+    printf("the finish_task_on is valid only when the mode set to probe_only\n");
+    return ;
+  }
+
+  probe_task_on = false;
+}
+
 void dbg_listen(void) {
   if (!dbg_is_on() || !dbg_has_client()) {
     return;
@@ -195,14 +210,20 @@ void dbg_listen(void) {
   char cmd_buffer[256];
   char response_buffer[256];
   
+  if(dbg_mode == PROBE_ONLY) {
+    sprintf(response_buffer, "ready\n");
+    write_best_effort(dbg_client_fd, response_buffer, sizeof(response_buffer));
+    probe_task_on = true;
+  }
+
   while (1) {
-    response_buffer[0] = '\0';
+    response_buffer[0] = '\0';    
     
     // Read command from client
     ssize_t n = read_line(dbg_client_fd, cmd_buffer, sizeof(cmd_buffer));
     
     if (n <= 0) {
-      if (dbg_mode == PROBE_ONLY || dbg_mode == INVALID) {
+      if (dbg_mode == INVALID) {
         return;
       }
       continue;
@@ -216,10 +237,13 @@ void dbg_listen(void) {
       const char *fallback = success ? "OK\n" : "ERR\n";
       write_best_effort(dbg_client_fd, fallback, strlen(fallback));
     }
-    
-    if (dbg_mode == PROBE_ONLY || dbg_mode == INVALID || dbg_mode == DBG_QUIT) {
+
+    if(dbg_mode == PROBE_ONLY && probe_task_on ==  false) {
+      return ;
+    }  
+
+    if (dbg_mode == INVALID || dbg_mode == DBG_QUIT) {
       return;
     }
-    
   }
 }
