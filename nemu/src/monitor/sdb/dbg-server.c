@@ -239,8 +239,6 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
         return false;
     }
 
-    printf("get data %s\n", str_data);
-
     // 跳过开头的'['
     str_data++;
 
@@ -323,8 +321,7 @@ static bool cmd_write_mem(char *args[], int arg_num, char *reply) {
 
     free(buffer);
 
-    sprintf(reply, "OK");
-    printf("%s\n", reply);
+    sprintf(reply, "OK\n");
     return true;
 }
 
@@ -371,8 +368,6 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size) {
         printf("dbg-server: empty command after parsing\n");
         return false;
     }
-
-    printf("get cmd %s\n", cmd);
 
     // Check mode validity
     if (dbg_mode == INVALID) {
