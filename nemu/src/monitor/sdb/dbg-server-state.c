@@ -226,7 +226,6 @@ void start_probe_task() {
   }
 
   probe_task_on = true;
-  printf("Probe task started successfully\n");
 }
 
 void dbg_listen(void) {

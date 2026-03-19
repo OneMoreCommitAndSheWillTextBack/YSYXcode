@@ -47,23 +47,25 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   // string area
   char *string_area_cur = (char *)stack_top;
   int envp_count = 0;
-  while(envp[envp_count] != NULL) {
-    size_t len = strlen(envp[envp_count]) + 1;  
-    string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);    
-    envp_re[envp_count] = string_area_cur;
-    
-    assert(envp_count < MAXENVP);
-    envp_count++;
+  if(envp != NULL) {
+    while(envp[envp_count] != NULL) {
+      size_t len = strlen(envp[envp_count]) + 1;  
+      string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);    
+      assert(envp_count < MAXENVP);
+      envp_re[envp_count] = string_area_cur;
+      envp_count++;
+    }
   }
 
   int argv_count = 0;
+  if(argv != NULL) {
   while(argv[argv_count] != NULL) {
-    size_t len = strlen(argv[argv_count]) + 1;
-    string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);  
-    argv_re[argv_count+1] = string_area_cur;
-    
-    assert(argv_count+1 < MAXARG);
-    argv_count++;
+      size_t len = strlen(argv[argv_count]) + 1;
+      string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);  
+      assert(argv_count+1 < MAXARG);
+      argv_re[argv_count+1] = string_area_cur;
+      argv_count++;
+    }
   }
 
   assert(filename != NULL);
@@ -90,8 +92,10 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
+  uintptr_t stack_start = argdeal_uload((uintptr_t)heap.end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
-  p->cp = ucontext(NULL, heap, (void *)entry);
+  Area stack = {.end = (void *)stack_start};
+  p->cp = ucontext(NULL, stack, (void *)entry);
   pcb_num++;
 }
 
@@ -102,7 +106,8 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
-  context_uload(&pcb[1], "/bin/pal", NULL, NULL);
+  char *argv[] = {"--skip", NULL};
+  context_uload(&pcb[1], "/bin/pal", argv, NULL);
 }
 
 Context *schedule(Context *prev) {
