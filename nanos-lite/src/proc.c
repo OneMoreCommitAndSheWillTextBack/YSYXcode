@@ -110,7 +110,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   char **argv0 = (char **)(argc_ptr + 1);   // argv 紧跟在 argc 后面
 
   Log("argc = %d", argc);
-  for (int i = 0; i < argc; i++) {
+  for (int i = 0; i < argc + 1; i++) {
     Log("argv[%d] = \"%s\"", i, argv0[i]);
   }
   switch_boot_pcb();
