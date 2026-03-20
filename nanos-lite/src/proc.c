@@ -76,8 +76,8 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
     }
   }
 
-  size_t argc_val = argv_count + 1;
-  size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1);
+  size_t argc_val = argv_count;
+  size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1) + 1;
   uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
 
   *ptr_array_pos = 0;  
@@ -88,7 +88,7 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   }
   *ptr_array_pos = 0; 
   ptr_array_pos--;
-  for (int i = argv_count; i >= 0; i--) {
+  for (int i = argv_count - 1; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)argv_re[i];
     ptr_array_pos--;
   }
