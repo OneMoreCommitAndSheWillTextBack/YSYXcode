@@ -43,11 +43,11 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   char *argv_re[MAXARG];
   char *envp_re[MAXENVP];
 
-  if (argv != NULL) {
-    for (int i = 0; argv[i] != NULL; i++) {
-      Log("argv[%d] is %s", i, argv[i]);
-    }
-  }
+  // if (argv != NULL) {
+  //   for (int i = 0; argv[i] != NULL; i++) {
+  //     Log("argv[%d] is %s", i, argv[i]);
+  //   }
+  // }
 
   // 让stack_top向下4字节对齐
   stack_top = stack_top & ~0x3;
@@ -118,9 +118,9 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
-  // char *argv[] = {"--skip", NULL};
+  char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin", NULL};
-  context_uload(&pcb[1], "/bin/nterm", NULL, envp);
+  context_uload(&pcb[1], "/bin/pal", argv, envp);
 }
 
 Context *schedule(Context *prev) {
