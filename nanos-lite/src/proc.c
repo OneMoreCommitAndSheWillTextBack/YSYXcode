@@ -74,18 +74,17 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   string_area_cur = allocate_string(string_area_cur, filename, filename_len);
   argv_re[0] = string_area_cur;
 
-  /* argc = argv_count+1; ptr array: envp_null + envp[] + (argv[argc]=NULL, 同时为 argv/envp 分隔) + argv[] + argc */
   size_t argc_val = argv_count + 1;
   size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1) + 1;
   uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
 
-  *ptr_array_pos = 0;  /* envp 末尾 NULL */
+  *ptr_array_pos = 0;  
   ptr_array_pos--;
   for (int i = envp_count - 1; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)envp_re[i];
     ptr_array_pos--;
   }
-  *ptr_array_pos = 0;  /* argv[argc]=NULL，同时作为 argv/envp 之间的分隔 */
+  *ptr_array_pos = 0; 
   ptr_array_pos--;
   for (int i = argv_count; i >= 0; i--) {
     *ptr_array_pos = (uint32_t)argv_re[i];
@@ -120,8 +119,8 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
-  char *argv[] = {"--skip", NULL};
-  context_uload(&pcb[1], "/bin/exec-test", argv, NULL);
+  // char *argv[] = {"--skip", NULL};
+  context_uload(&pcb[1], "/bin/menu", NULL, NULL);
 }
 
 Context *schedule(Context *prev) {

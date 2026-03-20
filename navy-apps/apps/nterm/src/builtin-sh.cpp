@@ -59,7 +59,7 @@ static int check_and_set_envp(const char *cmd) {
   if (eq == NULL) return 0;
 
   size_t name_len = eq - cmd;
-  if (name_len == 0) return 0;  /* invalid: no name before '=' */
+  if (name_len == 0) return 0;
 
   char name[64], value[256];
   if (name_len >= sizeof(name)) return 0;
