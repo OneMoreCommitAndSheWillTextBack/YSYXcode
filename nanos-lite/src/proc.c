@@ -77,24 +77,21 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   }
 
   size_t argc_val = argv_count;
-  size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1) + 1;
-  uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
+  /* crt0 期望: [padding][argc][argv...][NULL][envp...][NULL]，a0 = &padding + 4 = &argc */
+  size_t ptr_slots = 1 + 1 + (argc_val + 1) + (envp_count + 1);
+  uint32_t *ptr_array_base = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
+  uint32_t *ptr_array_cur = ptr_array_base;
 
-  *ptr_array_pos = 0;  
-  ptr_array_pos--;
-  for (int i = envp_count - 1; i >= 0; i--) {
-    *ptr_array_pos = (uint32_t)envp_re[i];
-    ptr_array_pos--;
-  }
-  *ptr_array_pos = 0; 
-  ptr_array_pos--;
-  for (int i = argv_count - 1; i >= 0; i--) {
-    *ptr_array_pos = (uint32_t)argv_re[i];
-    ptr_array_pos--;
-  }
-  *ptr_array_pos = (uint32_t)argc_val;
-  ptr_array_pos--;
-  return (uintptr_t)ptr_array_pos;
+  *ptr_array_cur++ = 0;                                    /* padding，使 a0+4 指向 argc */
+  *ptr_array_cur++ = (uint32_t)argc_val;                   /* argc */
+  for (int i = 0; i < argv_count; i++)
+    *ptr_array_cur++ = (uint32_t)argv_re[i];               /* argv[0]..argv[n-1] */
+  *ptr_array_cur++ = 0;                                    /* argv 的 NULL 终止 */
+  for (int i = 0; i < envp_count; i++)
+    *ptr_array_cur++ = (uint32_t)envp_re[i];               /* envp[0]..envp[m-1] */
+  *ptr_array_cur++ = 0;                                    /* envp 的 NULL 终止 */
+
+  return (uintptr_t)ptr_array_base;
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
