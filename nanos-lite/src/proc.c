@@ -109,7 +109,18 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   *ptr_array_cur++ = 0;                                    
   for (int i = 0; i < envp_count; i++)
     *ptr_array_cur++ = (uint32_t)envp_re[i];               
-  *ptr_array_cur++ = 0;                                   
+  *ptr_array_cur++ = 0;
+
+  /* 调试：打印传递给用户程序的参数 */
+  Log("argdeal_uload: ptr_array_base = %p, argc = %d", ptr_array_base, (int)argc_val);
+  for (int i = 0; i < argv_count; i++) {
+    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv_re[i]);
+  }
+  for (int i = 0; i < envp_count; i++) {
+    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp_re[i]);
+  }
+  Log("  ptr_array content: [0]=%u [1]=%u [2]=%p [3]=%p ...",
+      ptr_array_base[0], ptr_array_base[1], (void *)ptr_array_base[2], (void *)ptr_array_base[3]);
 
   return (uintptr_t)ptr_array_base;
 }
@@ -126,6 +137,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t stack_start = argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)stack_start};
+  Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(NULL, stack, (void *)entry);
   switch_boot_pcb();
   yield();
