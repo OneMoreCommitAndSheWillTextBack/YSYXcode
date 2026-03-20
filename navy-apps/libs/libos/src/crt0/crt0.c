@@ -24,6 +24,7 @@ void call_main(uintptr_t *args) {
   while (*ptr_array != NULL && envp_count < MAXENVP) {
     envp[envp_count++] = *ptr_array++;
   }
+  assert(envp_count != 0);
   envp[envp_count] = NULL;  
 
   environ = envp;
