@@ -84,7 +84,26 @@ void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
 
     free(pixels_32);
   } else if (s->format->BytesPerPixel == 4) {
-    NDL_DrawRect(s->pixels, x, y, w, h);
+    int update_x = (x < 0 ? 0 : x);
+    int update_y = (y < 0 ? 0 : y);
+    int update_w = (w <= 0 || update_x + w > s->w ? s->w - update_x : w);
+    int update_h = (h <= 0 || update_y + h > s->h ? s->h - update_y : h);
+    if (update_w > 0 && update_h > 0) {
+      uint32_t *pixels = (uint32_t *)s->pixels;
+      int pitch_pixels = s->pitch / 4;
+      if (update_x == 0 && update_y == 0 && update_w == s->w && update_h == s->h) {
+        NDL_DrawRect(pixels, 0, 0, update_w, update_h);
+      } else {
+        uint32_t *region = malloc(sizeof(uint32_t) * update_w * update_h);
+        for (int i = 0; i < update_h; i++) {
+          memcpy(region + i * update_w,
+                 pixels + (update_y + i) * pitch_pixels + update_x,
+                 sizeof(uint32_t) * update_w);
+        }
+        NDL_DrawRect(region, update_x, update_y, update_w, update_h);
+        free(region);
+      }
+    }
   } else {
     printf("invalid s->format->BytesPerPixel");
     assert(0);
