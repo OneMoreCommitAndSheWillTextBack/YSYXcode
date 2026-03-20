@@ -77,18 +77,6 @@ void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h) {
     lseek(fd_fb, sizeof(uint32_t) * ((frame_buffer_y + i) * max_width + frame_buffer_x), SEEK_SET);
     write(fd_fb, (pixels + i * w), sizeof(uint32_t) * w);
   }
-  /* canvas 小于屏幕时，用黑色清空下方未绘制区域，避免 nterm 等应用显示残留噪声 */
-  if (h < max_height && frame_buffer_x == 0 && frame_buffer_y == 0) {
-    int remain = max_height - h;
-    uint32_t *black = calloc(max_width, sizeof(uint32_t));
-    if (black) {
-      for (int i = 0; i < remain; i++) {
-        lseek(fd_fb, sizeof(uint32_t) * ((frame_buffer_y + h + i) * max_width + frame_buffer_x), SEEK_SET);
-        write(fd_fb, black, sizeof(uint32_t) * max_width);
-      }
-      free(black);
-    }
-  }
   close(fd_fb);
 }
 

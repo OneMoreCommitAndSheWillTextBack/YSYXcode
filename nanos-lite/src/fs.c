@@ -108,7 +108,7 @@ static int fs_call_is_valid(int sys_fd, int is_write) {
 }
 
 size_t fs_read(int fd, void *buf, size_t len) {
-  if (fd < 0 || fd >= FDMAPSIZE || fd_maping[fd].valid == false) {
+  if (fd_maping[fd].valid == false) {
     panic("fsread meet a invalid fd");
   }
   int sys_fd = fd_maping[fd].sys_fs;
@@ -137,8 +137,8 @@ size_t fs_read(int fd, void *buf, size_t len) {
 }
 
 size_t fs_write(int fd, const void *buf, size_t len) {
-  if (fd < 0 || fd >= FDMAPSIZE || fd_maping[fd].valid == false) {
-    panic("fswrite meet a invalid fd");
+  if (fd_maping[fd].valid == false) {
+    panic("fswrite meet a invalid rd");
   }
   int sys_fd = fd_maping[fd].sys_fs;
   size_t file_offset = fd_maping[fd].fs_offset;
@@ -166,7 +166,7 @@ size_t fs_write(int fd, const void *buf, size_t len) {
 #define SEEK_CUR 1
 #define SEEK_END 2
 size_t fs_lseek(int fd, size_t offset, int whence) {
-  if (fd < 0 || fd >= FDMAPSIZE || fd_maping[fd].valid == false) {
+  if (fd_maping[fd].valid == false) {
     panic("fslseek meet a invalid fd");
   }
   int sys_fd = fd_maping[fd].sys_fs;
