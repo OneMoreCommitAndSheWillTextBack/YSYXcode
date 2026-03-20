@@ -140,7 +140,7 @@ void init_proc() {
   context_kload(&pcb[0], hello_fun, "A");
   char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin", NULL};
-  context_uload(&pcb[1], "/bin/pal", argv, envp);
+  context_uload(&pcb[1], "/bin/nterm", argv, envp);
 }
 
 Context *schedule(Context *prev) {
