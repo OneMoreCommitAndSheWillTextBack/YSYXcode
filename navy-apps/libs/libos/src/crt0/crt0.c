@@ -20,6 +20,9 @@ void __attribute__((optimize("O0"))) call_main(uintptr_t *args) {
   char *envp[MAXENVP];
   int argc = *(uint32_t *)args;
 
+  char buf[] = "get to the function call_main\n";
+  debug_write(buf);
+
   {
     char buf[64];
     snprintf(buf, sizeof(buf), "[call_main] args=%p argc=%d\n", (void *)args, argc);
