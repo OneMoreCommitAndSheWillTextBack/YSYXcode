@@ -166,8 +166,8 @@ size_t fs_write(int fd, const void *buf, size_t len) {
 #define SEEK_CUR 1
 #define SEEK_END 2
 size_t fs_lseek(int fd, size_t offset, int whence) {
-  if (fd_maping[fd].valid == false) {
-    panic("fslseek meet a invalid fd");
+  if (fd < 0 || fd >= FDMAPSIZE || fd_maping[fd].valid == false) {
+    panic("fs_lseek: invalid fd=%d (valid range 0..%d, fd not open)", fd, FDMAPSIZE - 1);
   }
   int sys_fd = fd_maping[fd].sys_fs;
   switch (whence) {
