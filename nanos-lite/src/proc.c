@@ -70,13 +70,18 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   while(argv[argv_count] != NULL) {
       size_t len = strlen(argv[argv_count]) + 1;
       string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);  
-      assert(argv_count < MAXARG);
-      argv_re[argv_count] = string_area_cur;
+      assert(argv_count+1 < MAXARG);
+      argv_re[argv_count+1] = string_area_cur;
       argv_count++;
     }
   }
 
-  size_t argc_val = argv_count;
+  assert(filename != NULL);
+  size_t filename_len = strlen(filename) + 1;
+  string_area_cur = allocate_string(string_area_cur, filename, filename_len);
+  argv_re[0] = string_area_cur;
+
+  size_t argc_val = argv_count + 1;
   size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1) + 1;
   uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
 
@@ -122,7 +127,7 @@ void init_proc() {
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   // char *argv[] = {"--skip", NULL};
-  char *envp[] = {"PATH=/bin/", NULL};
+  char *envp[] = {"PATH=/bin", NULL};
   context_uload(&pcb[1], "/bin/nterm", NULL, envp);
 }
 
