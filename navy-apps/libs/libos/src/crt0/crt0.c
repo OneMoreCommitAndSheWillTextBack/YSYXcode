@@ -15,12 +15,11 @@ static void debug_write(const char *s) {
   _write(1, (void *)s, strlen(s));
 }
 
-void call_main(uintptr_t *args) {
+void __attribute__((optimize("O0"))) call_main(uintptr_t *args) {
   char *argv[MAXARG];
   char *envp[MAXENVP];
   int argc = *(uint32_t *)args;
 
-  /* 调试：打印收到的 args */
   {
     char buf[64];
     snprintf(buf, sizeof(buf), "[call_main] args=%p argc=%d\n", (void *)args, argc);
