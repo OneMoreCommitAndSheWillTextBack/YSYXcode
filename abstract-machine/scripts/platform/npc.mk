@@ -18,7 +18,7 @@ CFLAGS += -DMAINARGS=\"$(mainargs)\"
 NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
 
 ARGS = -f$(IMAGE).bin
-# ARGS += -b
+ARGS += -b
 # ARGS += -e
 
 image: $(IMAGE).elf
