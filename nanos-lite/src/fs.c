@@ -81,8 +81,6 @@ int fs_exist(const char *filename) {
   return false;
 }
 
-static int fd_6_is_on = false;
-
 int fs_open(const char *filename, int flags, int mode) {
   int file_table_size = sizeof(file_table) / sizeof(file_table[0]);
   for (int i = 3; i < file_table_size; i++) {
@@ -91,10 +89,8 @@ int fs_open(const char *filename, int flags, int mode) {
       fd_maping[u_fd].valid = true;
       fd_maping[u_fd].fs_offset = 0;
       fd_maping[u_fd].sys_fs = i;
-      Log("[fs_open] open file %s, diskoffset 0x%x, set fd is %d", filename,
-          file_table[i].disk_offset, u_fd);
-      if(u_fd == 6) fd_6_is_on = true;
-      assert(fd_maping[6].valid == fd_6_is_on);
+      // Log("[fs_open] open file %s, diskoffset 0x%x, set fd is %d", filename,
+      //     file_table[i].disk_offset, u_fd);
       return u_fd;
     }
   }
@@ -142,7 +138,6 @@ size_t fs_read(int fd, void *buf, size_t len) {
 
 size_t fs_write(int fd, const void *buf, size_t len) {
   if (fd_maping[fd].valid == false) {
-    assert(fd_maping[6].valid == fd_6_is_on);
     panic("fswrite meet a invalid rd");
   }
   int sys_fd = fd_maping[fd].sys_fs;
@@ -172,7 +167,6 @@ size_t fs_write(int fd, const void *buf, size_t len) {
 #define SEEK_END 2
 size_t fs_lseek(int fd, size_t offset, int whence) {
   if (fd < 0 || fd >= FDMAPSIZE || fd_maping[fd].valid == false) {
-    assert(fd_maping[6].valid == fd_6_is_on);
     panic("fs_lseek: invalid fd=%d (valid range 0..%d, fd not open)", fd, FDMAPSIZE - 1);
   }
   int sys_fd = fd_maping[fd].sys_fs;
@@ -211,18 +205,12 @@ int fs_close(int fd) {
     return 0;
   }
 
-  Log("close the opened file, fd is %d", fd);
-
-  if (fd == 6) {
-    fd_6_is_on = false;
-    Log("[fs_close] >>> fd 6 closed, was file: %s", file_table[fd_maping[fd].sys_fs].name);
-  }
+  // Log("close the opened file, fd is %d", fd);
 
   fd_maping[fd].valid = 0;
   fd_maping[fd].sys_fs = 0;
   fd_maping[fd].fs_offset = 0;
 
-  assert(fd_maping[6].valid == fd_6_is_on);
   return 0;
 }
 
