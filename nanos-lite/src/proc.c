@@ -76,20 +76,40 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
     }
   }
 
+  /*
+ *  User Stack Layout (top to bottom)
+ *
+ *  +-------------------+
+ *  |   ustack.end      |
+ *  +-------------------+
+ *  |   string area     |
+ *  +-------------------+
+ *  |   NULL            |
+ *  |   envp[1]         |
+ *  |   envp[0]         |
+ *  +-------------------+
+ *  |   NULL            |
+ *  |   argv[argc-1]    |
+ *  |   ...             |
+ *  |   argv[0]         |
+ *  +-------------------+
+ *  |   argc            |
+ *  +-------------------+ <-- cp->GPRx
+ */
+
   size_t argc_val = argv_count;
-  /* crt0 期望: [padding][argc][argv...][NULL][envp...][NULL]，a0 = &padding + 4 = &argc */
   size_t ptr_slots = 1 + 1 + (argc_val + 1) + (envp_count + 1);
   uint32_t *ptr_array_base = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
   uint32_t *ptr_array_cur = ptr_array_base;
 
-  *ptr_array_cur++ = 0;                                    /* padding，使 a0+4 指向 argc */
-  *ptr_array_cur++ = (uint32_t)argc_val;                   /* argc */
+  *ptr_array_cur++ = 0;                                    
+  *ptr_array_cur++ = (uint32_t)argc_val;                   
   for (int i = 0; i < argv_count; i++)
-    *ptr_array_cur++ = (uint32_t)argv_re[i];               /* argv[0]..argv[n-1] */
-  *ptr_array_cur++ = 0;                                    /* argv 的 NULL 终止 */
+    *ptr_array_cur++ = (uint32_t)argv_re[i];               
+  *ptr_array_cur++ = 0;                                    
   for (int i = 0; i < envp_count; i++)
-    *ptr_array_cur++ = (uint32_t)envp_re[i];               /* envp[0]..envp[m-1] */
-  *ptr_array_cur++ = 0;                                    /* envp 的 NULL 终止 */
+    *ptr_array_cur++ = (uint32_t)envp_re[i];               
+  *ptr_array_cur++ = 0;                                   
 
   return (uintptr_t)ptr_array_base;
 }
