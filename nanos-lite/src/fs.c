@@ -207,6 +207,10 @@ int fs_close(int fd) {
 
   Log("close the opened file, fd is %d", fd);
 
+  if (fd == 6) {
+    Log("[fs_close] >>> fd 6 closed, was file: %s", file_table[fd_maping[fd].sys_fs].name);
+  }
+
   fd_maping[fd].valid = 0;
   fd_maping[fd].sys_fs = 0;
   fd_maping[fd].fs_offset = 0;
