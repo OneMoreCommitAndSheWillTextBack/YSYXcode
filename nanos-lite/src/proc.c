@@ -43,11 +43,11 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   char *argv_re[MAXARG];
   char *envp_re[MAXENVP];
 
-  // if (argv != NULL) {
-  //   for (int i = 0; argv[i] != NULL; i++) {
-  //     Log("argv[%d] is %s", i, argv[i]);
-  //   }
-  // }
+  if (argv != NULL) {
+    for (int i = 0; argv[i] != NULL; i++) {
+      Log("argv[%d] is %s", i, argv[i]);
+    }
+  }
 
   // 让stack_top向下4字节对齐
   stack_top = stack_top & ~0x3;
