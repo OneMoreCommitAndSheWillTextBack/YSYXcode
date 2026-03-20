@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "macro.h"
 #include "utils.h"
 #include <cpu/cpu.h>
 #include <cpu/decode.h>
@@ -54,9 +55,8 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
     iringbuf_count = 0;
 #endif
 
-#ifdef CONFIG_WATCHPOINT
-  exe_wp();
-#endif
+  IFDEF(CONFIG_WATCHPOINT, exe_wp()); 
+
   if (g_print_step) {
     IFDEF(CONFIG_ITRACE, puts(_this->logbuf));
   }
