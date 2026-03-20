@@ -31,8 +31,8 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
 
     for (int i = 0; i < src_rect_h; i++) {
       for (int j = 0; j < src_rect_w; j++) {
-        dst_pix[(dst_rect_y + i) * dst->w + dst_rect_x + j] =
-            src_pix[(src_rect_y + i) * src->w + src_rect_x + j];
+        dst_pix[(dst_rect_y + i) * dst->pitch + dst_rect_x + j] =
+            src_pix[(src_rect_y + i) * src->pitch + src_rect_x + j];
       }
     }
   } else {
@@ -71,10 +71,10 @@ void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
     uint32_t *pixels_32 = malloc(sizeof(uint32_t) * update_w * update_h);
     assert(pixels_32);
 
-    // 转换8位像素到32位
+    // 转换8位像素到32位（使用 pitch 作为行步长，确保偏移计算正确）
     for (int i = 0; i < update_h; i++) {
       for (int j = 0; j < update_w; j++) {
-        uint8_t index = pixels_8[(update_y + i) * s->w + update_x + j];
+        uint8_t index = pixels_8[(update_y + i) * s->pitch + update_x + j];
         SDL_Color color = s->format->palette->colors[index];
         pixels_32[i * update_w + j] = (color.r << 16) | (color.g << 8) | color.b;
       }
