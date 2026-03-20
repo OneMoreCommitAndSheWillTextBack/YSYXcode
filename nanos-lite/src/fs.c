@@ -43,7 +43,7 @@ static Finfo file_table[] __attribute__((used)) = {
 #include "files.h"
 };
 
-struct fd_mapping {
+static struct fd_mapping {
   int sys_fs;
   size_t fs_offset;
   int valid;
