@@ -18,7 +18,9 @@ void call_main(uintptr_t *args) {
     argv[argv_count++] = *ptr_array++;
   }
   argv[argv_count] = NULL;  
-  ptr_array++;              
+  ptr_array++;
+  if(argv_count == 0)
+    ptr_array++;              
 
   int envp_count = 0;
   while (*ptr_array != NULL && envp_count < MAXENVP) {
