@@ -90,5 +90,5 @@ int syscall_execve(const char *filename, char *argv[], char *envp[]) {
     panic("should not reach here");
   } 
 
-  return -1;
+  return -2;
 }
