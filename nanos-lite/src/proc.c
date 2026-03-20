@@ -120,7 +120,7 @@ void init_proc() {
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
   // char *argv[] = {"--skip", NULL};
-  context_uload(&pcb[1], "/bin/menu", NULL, NULL);
+  context_uload(&pcb[1], "/bin/nterm", NULL, NULL);
 }
 
 Context *schedule(Context *prev) {
