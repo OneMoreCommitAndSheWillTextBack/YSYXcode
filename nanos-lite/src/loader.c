@@ -55,10 +55,10 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
       size_t memsize = phdr.p_memsz;
       uint32_t paddr = phdr.p_paddr;
 
-      // Log("Loading segment: p_type = 0x%x, p_offset = 0x%x, p_vaddr = 0x%x,
-      // p_paddr = 0x%x, p_filesz = 0x%x, p_memsz = 0x%x, p_flags = 0x%x",
-      // phdr.p_type, phdr.p_offset, phdr.p_vaddr, phdr.p_paddr, phdr.p_filesz,
-      // phdr.p_memsz, phdr.p_flags);
+      Log("Loading segment: p_type = 0x%x, p_offset = 0x%x, p_vaddr = 0x%x, \
+      p_paddr = 0x%x, p_filesz = 0x%x, p_memsz = 0x%x, p_flags = 0x%x", \
+      phdr.p_type, phdr.p_offset, phdr.p_vaddr, phdr.p_paddr, phdr.p_filesz, \
+      phdr.p_memsz, phdr.p_flags); 
 
       size = fs_lseek(fd, phdr.p_offset, SEEK_SET);
       size = fs_read(fd, (char *)(uintptr_t)paddr, filesize);
@@ -90,5 +90,5 @@ int syscall_execve(const char *filename, char *argv[], char *envp[]) {
     panic("should not reach here");
   } 
 
-  return -1;
+  return -2;
 }

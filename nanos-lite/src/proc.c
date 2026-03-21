@@ -15,8 +15,9 @@ void switch_boot_pcb() { current = &pcb_boot; }
 void hello_fun(void *arg) {
   int j = 1;
   while (1) {
-    Log("Hello World from Nanos-lite with arg '%s' for the %dth time!",
-        (char *)arg, j);
+    if(j % 1000 == 0)
+      Log("Hello World from Nanos-lite with arg '%s' for the %dth time!",
+          (char *)arg, j);
     j++;
     yield();
   }
@@ -42,6 +43,12 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   char *argv_re[MAXARG];
   char *envp_re[MAXENVP];
 
+  if (argv != NULL) {
+    for (int i = 0; argv[i] != NULL; i++) {
+      Log("argv[%d] is %s", i, argv[i]);
+    }
+  }
+
   // 让stack_top向下4字节对齐
   stack_top = stack_top & ~0x3;
 
@@ -63,37 +70,59 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   while(argv[argv_count] != NULL) {
       size_t len = strlen(argv[argv_count]) + 1;
       string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);  
-      assert(argv_count+1 < MAXARG);
-      argv_re[argv_count+1] = string_area_cur;
+      assert(argv_count < MAXARG);
+      argv_re[argv_count] = string_area_cur;
       argv_count++;
     }
   }
 
-  assert(filename != NULL);
-  size_t filename_len = strlen(filename) + 1;
-  string_area_cur = allocate_string(string_area_cur, filename, filename_len);
-  argv_re[0] = string_area_cur;
+  /*
+ *  User Stack Layout (top to bottom)
+ *
+ *  +-------------------+
+ *  |   ustack.end      |
+ *  +-------------------+
+ *  |   string area     |
+ *  +-------------------+
+ *  |   NULL            |
+ *  |   envp[1]         |
+ *  |   envp[0]         |
+ *  +-------------------+
+ *  |   NULL            |
+ *  |   argv[argc-1]    |
+ *  |   ...             |
+ *  |   argv[0]         |
+ *  +-------------------+
+ *  |   argc            |
+ *  +-------------------+ <-- cp->GPRx
+ */
 
-  /* argc = argv_count+1; ptr array: envp_null + envp[] + (argv[argc]=NULL, 同时为 argv/envp 分隔) + argv[] + argc */
-  size_t argc_val = argv_count + 1;
-  size_t ptr_slots = 1 + envp_count + 1 + (argc_val + 1) + 1;
-  uint32_t *ptr_array_pos = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
+  size_t argc_val = argv_count;
+  size_t ptr_slots = 1 + 1 + (argc_val + 1) + (envp_count + 1);
+  uint32_t *ptr_array_base = (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
+  uint32_t *ptr_array_cur = ptr_array_base;
 
-  *ptr_array_pos = 0;  /* envp 末尾 NULL */
-  ptr_array_pos--;
-  for (int i = envp_count - 1; i >= 0; i--) {
-    *ptr_array_pos = (uint32_t)envp_re[i];
-    ptr_array_pos--;
+  *ptr_array_cur++ = 0;                                    
+  *ptr_array_cur++ = (uint32_t)argc_val;                   
+  for (int i = 0; i < argv_count; i++)
+    *ptr_array_cur++ = (uint32_t)argv_re[i];               
+  *ptr_array_cur++ = 0;                                    
+  for (int i = 0; i < envp_count; i++)
+    *ptr_array_cur++ = (uint32_t)envp_re[i];               
+  *ptr_array_cur++ = 0;
+
+  /* 调试：打印传递给用户程序的参数 */
+  Log("argdeal_uload: ptr_array_base = %p, argc = %d", ptr_array_base, (int)argc_val);
+  for (int i = 0; i < argv_count; i++) {
+    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv_re[i]);
   }
-  *ptr_array_pos = 0;  /* argv[argc]=NULL，同时作为 argv/envp 之间的分隔 */
-  ptr_array_pos--;
-  for (int i = argv_count; i >= 0; i--) {
-    *ptr_array_pos = (uint32_t)argv_re[i];
-    ptr_array_pos--;
+  for (int i = 0; i < envp_count; i++) {
+    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp_re[i]);
   }
-  *ptr_array_pos = (uint32_t)argc_val;
-  ptr_array_pos--;
-  return (uintptr_t)ptr_array_pos;
+  Log("  ptr_array content: [0]=%u [1]=%u [2]=%p [3]=%p ...",
+      ptr_array_base[0], ptr_array_base[1], (void *)ptr_array_base[2], (void *)ptr_array_base[3]);
+
+  return (uintptr_t)ptr_array_base;
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
@@ -108,6 +137,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t stack_start = argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)stack_start};
+  Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(NULL, stack, (void *)entry);
   switch_boot_pcb();
   yield();
@@ -120,8 +150,9 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
-  char *argv[] = {"--skip", NULL};
-  context_uload(&pcb[1], "/bin/exec-test", argv, NULL);
+  // char *argv[] = {"/bin/pal", "--skip", NULL};
+  char *envp[] = {"PATH=/bin:/usr/bin", NULL};
+  context_uload(&pcb[1], "/bin/nterm", NULL, envp);
 }
 
 Context *schedule(Context *prev) {

@@ -43,7 +43,7 @@ static Finfo file_table[] __attribute__((used)) = {
 #include "files.h"
 };
 
-struct fd_mapping {
+static struct fd_mapping {
   int sys_fs;
   size_t fs_offset;
   int valid;
@@ -89,8 +89,8 @@ int fs_open(const char *filename, int flags, int mode) {
       fd_maping[u_fd].valid = true;
       fd_maping[u_fd].fs_offset = 0;
       fd_maping[u_fd].sys_fs = i;
-      // Log("[fs_open] open file %s, diskoffset 0x%x", filename,
-      //     file_table[i].disk_offset);
+      // Log("[fs_open] open file %s, diskoffset 0x%x, set fd is %d", filename,
+      //     file_table[i].disk_offset, u_fd);
       return u_fd;
     }
   }
@@ -166,8 +166,8 @@ size_t fs_write(int fd, const void *buf, size_t len) {
 #define SEEK_CUR 1
 #define SEEK_END 2
 size_t fs_lseek(int fd, size_t offset, int whence) {
-  if (fd_maping[fd].valid == false) {
-    panic("fslseek meet a invalid fd");
+  if (fd < 0 || fd >= FDMAPSIZE || fd_maping[fd].valid == false) {
+    panic("fs_lseek: invalid fd=%d (valid range 0..%d, fd not open)", fd, FDMAPSIZE - 1);
   }
   int sys_fd = fd_maping[fd].sys_fs;
   switch (whence) {
@@ -204,6 +204,8 @@ int fs_close(int fd) {
   if (fd == 0 || fd == 1 || fd == 2) {
     return 0;
   }
+
+  // Log("close the opened file, fd is %d", fd);
 
   fd_maping[fd].valid = 0;
   fd_maping[fd].sys_fs = 0;

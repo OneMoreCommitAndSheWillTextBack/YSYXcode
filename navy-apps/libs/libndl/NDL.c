@@ -60,7 +60,7 @@ void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h) {
   char buf[128];
   int readn = read(fd_info, buf, sizeof(buf));
   while(readn == 0) {
-    int readn = read(fd_info, buf, sizeof(buf));
+    readn = read(fd_info, buf, sizeof(buf));
   }
   close(fd_info);
   int max_height, max_width;
@@ -75,7 +75,7 @@ void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h) {
   int fd_fb = open("/dev/fb", 0, 0);
   for(int i = 0; i < h; i++) {
     lseek(fd_fb, sizeof(uint32_t) * ((frame_buffer_y + i) * max_width + frame_buffer_x), SEEK_SET);
-    write(fd_fb, (pixels + i * canvas_width), sizeof(uint32_t) * canvas_width);
+    write(fd_fb, (pixels + i * w), sizeof(uint32_t) * w);
   }
   close(fd_fb);
 }
