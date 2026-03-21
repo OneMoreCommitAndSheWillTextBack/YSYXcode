@@ -180,6 +180,11 @@ static bool cmd_read_mem(char *args[], int arg_num, char *reply) {
         sprintf(reply, "ERR:invalid count (must be positive integer)\n");
         return false;
     }
+    /* Each element ~11 chars; keep total reply under 4K */
+    if (n > 360) {
+        sprintf(reply, "ERR:count %d exceeds max 360\n", n);
+        return false;
+    }
 
     int len = (int)strtol(str_len, &endptr, 10);
     if (*endptr != '\0' || (len != 1 && len != 2 && len != 4)) {

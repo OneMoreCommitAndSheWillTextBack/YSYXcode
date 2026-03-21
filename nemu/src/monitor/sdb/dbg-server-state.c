@@ -241,7 +241,7 @@ void dbg_listen(void) {
   }
 
   char cmd_buffer[256];
-  char response_buffer[256];
+  char response_buffer[4096];  /* read_mem can produce ~11 chars per element */
 
   while (1) {
     if (pending_ready && get_dbg_mode() == PROBE_ONLY) {
