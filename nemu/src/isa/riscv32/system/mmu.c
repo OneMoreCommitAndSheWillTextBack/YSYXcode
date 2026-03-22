@@ -62,7 +62,7 @@ static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
 
   // 如果有更新，写回页表项
   if (need_update) {
-    paddr_write(pte_addr, new_pte, 4);
+    paddr_write(pte_addr, 4, new_pte);
   }
 }
 
