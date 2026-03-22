@@ -33,12 +33,13 @@ enum { MODE_U, MODE_S, MODE_M = 3 };
 #define MSTATUS_UXL 0
 #endif
 
-#define VPN0_SHIFT 11
-#define VPN1_SHIFT 21
+#define VPN0_SHIFT 12  /* VA[21:12] for Sv32 */
+#define VPN1_SHIFT 22  /* VA[31:22] for Sv32 */
 
 #define VPN1_MASK (0x3FF << VPN1_SHIFT)
 #define VPN0_MASK (0x3FF << VPN0_SHIFT)
-#define OFFSET_MAX 0x7FF
+#define OFFSET_MASK 0xFFF  /* VA[11:0] page offset for 4KB page */
+#define OFFSET_MAX 0xFFF
 
 #define PPN_MASK (0x3FFFFF << 10)
 

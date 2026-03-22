@@ -26,12 +26,12 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
   }
 }
 
-#define VPN0_SHIFT 11
-#define VPN1_SHIFT 21
+#define VPN0_SHIFT 12  /* VA[21:12] for Sv32 */
+#define VPN1_SHIFT 22  /* VA[31:22] for Sv32 */
 
 #define VPN1_MASK (0x3FF << VPN1_SHIFT)
 #define VPN0_MASK (0x3FF << VPN0_SHIFT)
-#define OFFSET_MASK 0x7FF
+#define OFFSET_MASK 0xFFF  /* VA[11:0] for 4KB page */
 
 #define PPN_MASK (0x3FFFFF << 10)
 #define PTE_PPN(pte) (pte & PPN_MASK)
