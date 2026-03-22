@@ -24,6 +24,7 @@ typedef struct {
   uint32_t mstatus;
   uint32_t mcause;
   uint32_t mtvec;
+  uint32_t satp;
 } riscv32_CPU_csr;
 
 typedef struct {
@@ -39,6 +40,6 @@ typedef struct {
   } inst;
 } MUXDEF(CONFIG_RV64, riscv64_ISADecodeInfo, riscv32_ISADecodeInfo);
 
-#define isa_mmu_check(vaddr, len, type) (MMU_DIRECT)
+// #define isa_mmu_check(vaddr, len, type) (MMU_DIRECT)
 
 #endif

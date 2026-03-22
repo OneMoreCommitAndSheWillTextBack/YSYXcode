@@ -1,15 +1,15 @@
+#include "arch/riscv.h"
 #include <am.h>
-#include <nemu.h>
 #include <klib.h>
+#include <nemu.h>
 
 static AddrSpace kas = {};
-static void* (*pgalloc_usr)(int) = NULL;
-static void (*pgfree_usr)(void*) = NULL;
+static void *(*pgalloc_usr)(int) = NULL;
+static void (*pgfree_usr)(void *) = NULL;
 static int vme_enable = 0;
 
-static Area segments[] = {      // Kernel memory mappings
-  NEMU_PADDR_SPACE
-};
+static Area segments[] = { // Kernel memory mappings
+    NEMU_PADDR_SPACE};
 
 #define USER_SPACE RANGE(0x40000000, 0x80000000)
 
@@ -24,14 +24,14 @@ static inline uintptr_t get_satp() {
   return satp << 12;
 }
 
-bool vme_init(void* (*pgalloc_f)(int), void (*pgfree_f)(void*)) {
+bool vme_init(void *(*pgalloc_f)(int), void (*pgfree_f)(void *)) {
   pgalloc_usr = pgalloc_f;
   pgfree_usr = pgfree_f;
 
   kas.ptr = pgalloc_f(PGSIZE);
 
   int i;
-  for (i = 0; i < LENGTH(segments); i ++) {
+  for (i = 0; i < LENGTH(segments); i++) {
     void *va = segments[i].start;
     for (; va < segments[i].end; va += PGSIZE) {
       map(&kas, va, va, 0);
@@ -45,7 +45,7 @@ bool vme_init(void* (*pgalloc_f)(int), void (*pgfree_f)(void*)) {
 }
 
 void protect(AddrSpace *as) {
-  PTE *updir = (PTE*)(pgalloc_usr(PGSIZE));
+  PTE *updir = (PTE *)(pgalloc_usr(PGSIZE));
   as->ptr = updir;
   as->area = USER_SPACE;
   as->pgsize = PGSIZE;
@@ -53,8 +53,7 @@ void protect(AddrSpace *as) {
   memcpy(updir, kas.ptr, PGSIZE);
 }
 
-void unprotect(AddrSpace *as) {
-}
+void unprotect(AddrSpace *as) {}
 
 void __am_get_cur_as(Context *c) {
   c->pdir = (vme_enable ? (void *)get_satp() : NULL);
@@ -67,6 +66,29 @@ void __am_switch(Context *c) {
 }
 
 void map(AddrSpace *as, void *va, void *pa, int prot) {
+  // 从satp寄存器之中得到页表基址，然后将这个地方的ppn改为pa所在的地址
+  // 通过as->ptr获得页目录的基地址
+  PTE *pgt1_start = as->ptr;
+  assert(pgt1_start != NULL);
+  PTE *pgt0_start = NULL;
+  int pte1_idx = ((uint32_t)(uintptr_t)va >> VPN1_SHIFT) & 0x3FF;
+  PTE pte1 = (pgt1_start[pte1_idx]);
+
+  if (!(pte1 & PTE_V)) {
+    // 如果页表无效
+    pgt0_start = (PTE *)(pgalloc_usr(PGSIZE));
+    assert(pgt0_start != NULL);
+    pgt1_start[pte1_idx] =
+        (((uint32_t)(uintptr_t)pgt0_start >> 2) & PPN_MASK) | PTE_V | PTE_U;
+  } else {
+    pgt0_start = (PTE *)((pte1 & PPN_MASK) << 2);
+  }
+
+  int pte0_idx = ((uint32_t)(uintptr_t)va >> VPN0_SHIFT) & 0x3FF;
+  pgt0_start[pte0_idx] = pgt0_start[pte0_idx] & ~(PPN_MASK);
+  pgt0_start[pte0_idx] =
+      pgt0_start[pte0_idx] | (((uint32_t)(uintptr_t)pa >> 2) & PPN_MASK);
+  pgt0_start[pte0_idx] = pgt0_start[pte0_idx] | PTE_V | PTE_U;
 }
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
