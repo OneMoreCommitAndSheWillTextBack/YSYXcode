@@ -12,6 +12,7 @@ void *new_page(size_t nr_page) {
 
 #ifdef HAS_VME
 static void *pg_alloc(int n) {
+  Log("alloc page %d, %u byte total", n, n * PGSIZE);
   uint8_t *alloc_ptr = new_page(n);
   memset(alloc_ptr, 0, PGSIZE * n);
   return alloc_ptr;
