@@ -68,7 +68,6 @@ static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
 
 static bool isa_mmu_permission_check(uint32_t pte, int type) {
   if (!(pte & PTE_V)) {
-    assert(false && "access page invalid");
     return false;
   }
 
@@ -103,6 +102,9 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   uint32_t pte1 = paddr_read(pte1_addr, 4);
 
   if (isa_mmu_permission_check(pte1, type) == false) {
+    printf("MMU PTE1 check failed: vaddr=0x%08x type=%s vpn1_idx=%d pte1_addr=0x%08x pte1=0x%08x (V=%d)",
+        vaddr, type == MEM_TYPE_IFETCH ? "IFETCH" : type == MEM_TYPE_READ ? "READ" : "WRITE",
+        vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V));
     assert(0);
   }
 
@@ -113,6 +115,9 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   uint32_t pte0 = paddr_read(pte0_addr, 4);
 
   if (isa_mmu_permission_check(pte0, type) == false) {
+    printf("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d pte0_addr=0x%08x pte0=0x%08x (V=%d)",
+        vaddr, type == MEM_TYPE_IFETCH ? "IFETCH" : type == MEM_TYPE_READ ? "READ" : "WRITE",
+        vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V));
     assert(0);
   }
 
