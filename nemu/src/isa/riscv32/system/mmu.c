@@ -19,7 +19,7 @@
 #include <memory/vaddr.h>
 
 int isa_mmu_check(vaddr_t vaddr, int len, int type) {
-  if (cpu.csr.stap & (0x1 << 31)) {
+  if (cpu.csr.satp & (0x1 << 31)) {
     return MMU_TRANSLATE;
   } else {
     return MMU_DIRECT;
@@ -92,7 +92,7 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
 }
 
 static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
-  paddr_t pgt1_start = cpu.csr.stap << 12;
+  paddr_t pgt1_start = (cpu.csr.satp & 0x3FFFFF) << 12;
 
   int vpn1_idx = (vaddr >> VPN1_SHIFT) & 0x3FF;
   int vpn0_idx = (vaddr >> VPN0_SHIFT) & 0x3FF;
@@ -115,6 +115,7 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   uint32_t pte0 = paddr_read(pte0_addr, 4);
 
   if (isa_mmu_permission_check(pte0, type) == false) {
+    printf("pc = %08x\n", cpu.pc);
     printf("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d pte0_addr=0x%08x pte0=0x%08x (V=%d)\n",
         vaddr, type == MEM_TYPE_IFETCH ? "IFETCH" : type == MEM_TYPE_READ ? "READ" : "WRITE",
         vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V));
