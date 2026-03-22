@@ -1,6 +1,7 @@
 #include "common.h"
 #include "debug.h"
 #include "fs.h"
+#include "memory.h"
 #include <elf.h>
 #include <proc.h>
 #include <stdint.h>
@@ -12,6 +13,8 @@
 #define Elf_Ehdr Elf32_Ehdr
 #define Elf_Phdr Elf32_Phdr
 #endif
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static uintptr_t loader(PCB *pcb, const char *filename) {
   int fd = fs_open(filename, 0, 0);
@@ -51,20 +54,43 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
     // phdr.p_flags);
 
     if (phdr.p_type == PT_LOAD) {
+      uintptr_t vaddr = phdr.p_vaddr;
       size_t filesize = phdr.p_filesz;
       size_t memsize = phdr.p_memsz;
-      uint32_t paddr = phdr.p_paddr;
 
-      Log("Loading segment: p_type = 0x%x, p_offset = 0x%x, p_vaddr = 0x%x, \
-      p_paddr = 0x%x, p_filesz = 0x%x, p_memsz = 0x%x, p_flags = 0x%x", \
-      phdr.p_type, phdr.p_offset, phdr.p_vaddr, phdr.p_paddr, phdr.p_filesz, \
-      phdr.p_memsz, phdr.p_flags); 
+      Log("Loading segment: p_type=0x%x p_offset=0x%x p_vaddr=0x%x "
+          "p_filesz=0x%x p_memsz=0x%x p_flags=0x%x",
+          phdr.p_type, phdr.p_offset, phdr.p_vaddr,
+          phdr.p_filesz, phdr.p_memsz, phdr.p_flags);
 
-      size = fs_lseek(fd, phdr.p_offset, SEEK_SET);
-      size = fs_read(fd, (char *)(uintptr_t)paddr, filesize);
-      assert(size == filesize);
       assert(memsize >= filesize);
-      memset((char *)(uintptr_t)(paddr + filesize), 0, memsize - filesize);
+
+      uintptr_t vaddr_min = ROUNDDOWN(vaddr, PGSIZE);
+      uintptr_t vaddr_max = ROUNDUP(vaddr + memsize, PGSIZE);
+
+      size_t file_remain = filesize;
+      size_t mem_remain = memsize - filesize;
+      fs_lseek(fd, phdr.p_offset, SEEK_SET);
+
+      for (uintptr_t va = vaddr_min; va < vaddr_max; va += PGSIZE) {
+        void *pa = new_page(1);
+        map(&pcb->as, (void *)va, pa, PTE_X | PTE_R);
+
+        // Phase 1: read file data into this page
+        size_t read_sz = MIN(file_remain, PGSIZE);
+        if (read_sz > 0) {
+          fs_read(fd, pa, read_sz);
+          file_remain -= read_sz;
+        }
+
+        // Phase 2: zero-fill the rest of this page (BSS)
+        size_t zero_sz = PGSIZE - read_sz;
+        if (zero_sz > 0 && mem_remain > 0) {
+          size_t fill = MIN(zero_sz, mem_remain);
+          memset((char *)pa + read_sz, 0, fill);
+          mem_remain -= fill;
+        }
+      }
     }
   }
   fs_close(fd);
@@ -80,15 +106,15 @@ void naive_uload(PCB *pcb, const char *filename) {
 
 uintptr_t uload(PCB *pcb, const char *filename) {
   return loader(pcb, filename);
-} 
+}
 
 int syscall_execve(const char *filename, char *argv[], char *envp[]) {
   Log("syscall execve:[%s]", filename);
 
-  if(fs_exist(filename)) {
+  if (fs_exist(filename)) {
     context_uload(current, filename, argv, envp);
     panic("should not reach here");
-  } 
+  }
 
   return -2;
 }
