@@ -30,7 +30,8 @@ bool vme_init(void *(*pgalloc_f)(int), void (*pgfree_f)(void *)) {
 
   kas.ptr = pgalloc_f(PGSIZE);
 
-  assert(0);
+  panic("should not reach here");
+
   int i;
   for (i = 0; i < LENGTH(segments); i++) {
     void *va = segments[i].start;
