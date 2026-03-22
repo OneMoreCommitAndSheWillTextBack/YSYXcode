@@ -17,9 +17,7 @@ static void *pg_alloc(int n) {
   size_t pages = (n + PGSIZE - 1) / PGSIZE;
 
   uint8_t *alloc_ptr = new_page(pages);
-  Log("memset %u bytes", PGSIZE * pages);
   memset(alloc_ptr, 0, PGSIZE * pages);
-  Log("alloc finish");
   return alloc_ptr;
 }
 #endif
