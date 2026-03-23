@@ -140,7 +140,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   Log("protect the user area spaece");
 
-  void *pa = alloc_end - PGSIZE;
+  void *pa = alloc_end;
   void *va = (uint8_t *)p->as.area.end - PGSIZE;
   for (int i = 0; i < 8; i++) {
     map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
