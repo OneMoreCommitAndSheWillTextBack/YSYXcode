@@ -141,8 +141,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   void *va = p->as.area.end;
   for (int i = 0; i < 8; i++) {
     map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
-    va += PGSIZE;
-    pa += PGSIZE;
+    va -= PGSIZE;
+    pa -= PGSIZE;
   }
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
