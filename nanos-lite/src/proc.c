@@ -163,6 +163,9 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
+
+  Log("finish loading kernel process");
+
   char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
   context_uload(&pcb[1], "/bin/dummy", argv, envp);
