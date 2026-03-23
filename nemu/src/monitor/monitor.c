@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "cpu/difftest.h"
 #include "sdb/sdb.h"
 #include <isa.h>
 #include <memory/paddr.h>
@@ -84,16 +85,17 @@ static int parse_args(int argc, char *argv[]) {
       {"help", no_argument, NULL, 'h'},
       {"ftrace", required_argument, NULL, 'f'},
       {"dbg-port", required_argument, NULL, 'g'},
+      {"detach-diff", no_argument, NULL, 'k'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-bhl:d:p:f:g:", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-bhl:d:p:f:g:e", table, NULL)) != -1) {
     switch (o) {
-      case 'g':
-        dbg_port = 0;
-        sscanf(optarg, "%d", &dbg_port);
-        set_dbg_port(dbg_port);
-        break;
+    case 'g':
+      dbg_port = 0;
+      sscanf(optarg, "%d", &dbg_port);
+      set_dbg_port(dbg_port);
+      break;
     case 'f':
 #ifdef CONFIG_FTRACE
       elf_file = optarg;
@@ -112,6 +114,10 @@ static int parse_args(int argc, char *argv[]) {
     case 'd':
       diff_so_file = optarg;
       break;
+    case 'k':
+      if (difftest_is_attach()) {
+        difftest_detach();
+      }
     case 1:
       img_file = optarg;
       return 0;
