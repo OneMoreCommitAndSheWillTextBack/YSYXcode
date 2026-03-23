@@ -140,9 +140,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   Log("protect the user area spaece");
 
-  /* 用户栈必须在 USER_SPACE [0x40000000, 0x80000000) 内，0x80000000 是内核空间起始
-   * 若从 area.end(0x80000000) 开始映射会污染与 kas 共享的页表项，破坏内核恒等映射 */
-  void *pa = alloc_end;
+  void *pa = alloc_end - PGSIZE;
   void *va = (uint8_t *)p->as.area.end - PGSIZE;
   for (int i = 0; i < 8; i++) {
     map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
