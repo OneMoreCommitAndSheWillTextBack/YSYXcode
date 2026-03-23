@@ -134,13 +134,14 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   if (p->cp == NULL) {
     pcb_num++;
   }
-  protect(&p->as);  /* 必须先 protect：页表会从 pf 分配，必须在用户栈之前 */
+  protect(&p->as);
   void *new_alloc = new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
 
   Log("protect the user area space, page table=%p, stack pa=%p", p->as.ptr, new_alloc);
 
-  void *pa = alloc_end;
+  /* 映射 va 0x7fff8000..0x7ffff000 -> pa new_alloc..alloc_end-PGSIZE */
+  void *pa = (uint8_t *)alloc_end - PGSIZE; /* 最高页，非 alloc_end */
   void *va = (uint8_t *)p->as.area.end - PGSIZE;
   Log("Mapping 8 pages: va_start=%p, pa_start=%p", va, pa);
   for (int i = 0; i < 8; i++) {
@@ -149,11 +150,18 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
     va -= PGSIZE;
     pa -= PGSIZE;
   }
-  Log("Mapping done. va_end=%p, pa_end=%p", va + PGSIZE, pa + PGSIZE);
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
-  uintptr_t stack_start =
-      argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
+
+  /*
+   * 内核线程空间：用物理地址写入（heap 恒等映射）。
+   * argdeal_uload 写入 pa 区域，返回 ptr_array_base(pa)；
+   * 用户进程的 sp 需为用户虚拟地址，故做 pa -> va 转换。
+   * va = 0x7fff8000 + (pa - new_alloc)
+   */
+  uintptr_t ptr_array_pa =
+      argdeal_uload((uintptr_t)alloc_end, filename, argv, envp);
+  uintptr_t stack_start = 0x7fff8000 + (ptr_array_pa - (uintptr_t)new_alloc);
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)stack_start};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
