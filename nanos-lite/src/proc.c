@@ -134,11 +134,11 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   if (p->cp == NULL) {
     pcb_num++;
   }
+  protect(&p->as);  /* 必须先 protect：页表会从 pf 分配，必须在用户栈之前 */
   void *new_alloc = new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
-  protect(&p->as);
 
-  Log("protect the user area spaece, page table is %p", p->as.ptr);
+  Log("protect the user area space, page table=%p, stack pa=%p", p->as.ptr, new_alloc);
 
   void *pa = alloc_end;
   void *va = (uint8_t *)p->as.area.end - PGSIZE;
