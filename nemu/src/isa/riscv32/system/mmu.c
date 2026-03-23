@@ -92,6 +92,7 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
 }
 
 static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
+  bool trace_ifetch_target = (type == MEM_TYPE_IFETCH && vaddr == 0x80000be0);
   paddr_t pgt1_start = (cpu.csr.satp & 0x3FFFFF) << 12;
 
   int vpn1_idx = (vaddr >> VPN1_SHIFT) & 0x3FF;
@@ -100,6 +101,14 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
 
   paddr_t pte1_addr = pgt1_start + 4 * vpn1_idx;
   uint32_t pte1 = paddr_read(pte1_addr, 4);
+  if (trace_ifetch_target) {
+    printf("[MMU IFETCH TRACE] vaddr=0x%08x satp=0x%08x pgt1_start=0x%08x "
+           "vpn1_idx=%d vpn0_idx=%d offset=0x%03x\n",
+           vaddr, cpu.csr.satp, pgt1_start, vpn1_idx, vpn0_idx, offset);
+    printf("[MMU IFETCH TRACE] pte1_addr=0x%08x pte1=0x%08x (V=%d R=%d W=%d X=%d A=%d D=%d)\n",
+           pte1_addr, pte1, !!(pte1 & PTE_V), !!(pte1 & PTE_R), !!(pte1 & PTE_W),
+           !!(pte1 & PTE_X), !!(pte1 & PTE_A), !!(pte1 & PTE_D));
+  }
 
   if (isa_mmu_permission_check(pte1, type) == false) {
     printf("MMU PTE1 check failed: vaddr=0x%08x type=%s vpn1_idx=%d "
@@ -117,6 +126,12 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   paddr_t pgt0_start = PTE_PPN(pte1) << 2;
   paddr_t pte0_addr = pgt0_start + 4 * vpn0_idx;
   uint32_t pte0 = paddr_read(pte0_addr, 4);
+  if (trace_ifetch_target) {
+    printf("[MMU IFETCH TRACE] pgt0_start=0x%08x pte0_addr=0x%08x pte0=0x%08x "
+           "(V=%d R=%d W=%d X=%d A=%d D=%d)\n",
+           pgt0_start, pte0_addr, pte0, !!(pte0 & PTE_V), !!(pte0 & PTE_R),
+           !!(pte0 & PTE_W), !!(pte0 & PTE_X), !!(pte0 & PTE_A), !!(pte0 & PTE_D));
+  }
 
   if (isa_mmu_permission_check(pte0, type) == false) {
     printf("pc = %08x\n", cpu.pc);
@@ -133,6 +148,9 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   isa_mmu_update_pte(pte0_addr, pte0, type);
 
   paddr_t addr_res = (PTE_PPN(pte0) << 2) | offset;
+  if (trace_ifetch_target) {
+    printf("[MMU IFETCH TRACE] translated paddr=0x%08x\n", addr_res);
+  }
   return addr_res;
 }
 
