@@ -130,29 +130,37 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
+  Log("start to load user processes");
   if (p->cp == NULL) {
     pcb_num++;
   }
+  protect(&p->as);
   void *new_alloc = new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
-  protect(&p->as);
 
-  void *pa = alloc_end;
-  void *va = p->as.area.end;
+  Log("protect the user area space, page table=%p, stack pa=%p", p->as.ptr, new_alloc);
+
+  /* 映射 va 0x7fff8000..0x7ffff000 -> pa new_alloc..alloc_end-PGSIZE */
+  void *pa = (uint8_t *)alloc_end - PGSIZE; /* 最高页，非 alloc_end */
+  void *va = (uint8_t *)p->as.area.end - PGSIZE;
+  Log("Mapping 8 pages: va_start=%p, pa_start=%p", va, pa);
   for (int i = 0; i < 8; i++) {
+    Log("  [%d] mapping va=%p -> pa=%p (flags: V|R|W)", i, va, pa);
     map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
-    va += PGSIZE;
-    pa += PGSIZE;
+    va -= PGSIZE;
+    pa -= PGSIZE;
   }
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
-  uintptr_t stack_start =
-      argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
+
+  uintptr_t ptr_array_pa =
+      argdeal_uload((uintptr_t)alloc_end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
-  Area stack = {.end = (void *)stack_start};
+  Area stack = {.end = (void *)ptr_array_pa};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
-  p->cp = ucontext(NULL, stack, (void *)entry);
+  p->cp = ucontext(&p->as, stack, (void *)entry);
   switch_boot_pcb();
+  Log("switch to user process");
   yield();
 }
 
@@ -163,9 +171,10 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
+
   char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
-  context_uload(&pcb[1], "/bin/pal", argv, envp);
+  context_uload(&pcb[1], "/bin/dummy", argv, envp);
 }
 
 Context *schedule(Context *prev) {
