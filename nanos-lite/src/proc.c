@@ -158,7 +158,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)ptr_array_pa};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
-  p->cp = ucontext(NULL, stack, (void *)entry);
+  p->cp = ucontext(&p->as, stack, (void *)entry);
   switch_boot_pcb();
   Log("switch to user process");
   yield();
