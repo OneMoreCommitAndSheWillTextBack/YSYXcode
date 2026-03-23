@@ -130,12 +130,15 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
+  Log("start to load user processes");
   if (p->cp == NULL) {
     pcb_num++;
   }
   void *new_alloc = new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
   protect(&p->as);
+
+  Log("protect the user area spaece");
 
   void *pa = alloc_end;
   void *va = p->as.area.end;
@@ -163,8 +166,6 @@ void init_proc() {
 
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
-
-  Log("finish loading kernel process");
 
   char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
