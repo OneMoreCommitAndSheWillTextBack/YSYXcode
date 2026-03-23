@@ -26,12 +26,12 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
   }
 }
 
-#define VPN0_SHIFT 12  /* VA[21:12] for Sv32 */
-#define VPN1_SHIFT 22  /* VA[31:22] for Sv32 */
+#define VPN0_SHIFT 12 /* VA[21:12] for Sv32 */
+#define VPN1_SHIFT 22 /* VA[31:22] for Sv32 */
 
 #define VPN1_MASK (0x3FF << VPN1_SHIFT)
 #define VPN0_MASK (0x3FF << VPN0_SHIFT)
-#define OFFSET_MASK 0xFFF  /* VA[11:0] for 4KB page */
+#define OFFSET_MASK 0xFFF /* VA[11:0] for 4KB page */
 
 #define PPN_MASK (0x3FFFFF << 10)
 #define PTE_PPN(pte) (pte & PPN_MASK)
@@ -102,9 +102,13 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   uint32_t pte1 = paddr_read(pte1_addr, 4);
 
   if (isa_mmu_permission_check(pte1, type) == false) {
-    printf("MMU PTE1 check failed: vaddr=0x%08x type=%s vpn1_idx=%d pte1_addr=0x%08x pte1=0x%08x (V=%d)\n",
-        vaddr, type == MEM_TYPE_IFETCH ? "IFETCH" : type == MEM_TYPE_READ ? "READ" : "WRITE",
-        vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V));
+    printf("MMU PTE1 check failed: vaddr=0x%08x type=%s vpn1_idx=%d "
+           "pte1_addr=0x%08x pte1=0x%08x (V=%d)\n",
+           vaddr,
+           type == MEM_TYPE_IFETCH ? "IFETCH"
+           : type == MEM_TYPE_READ ? "READ"
+                                   : "WRITE",
+           vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V));
     assert(0);
   }
 
@@ -116,16 +120,19 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
 
   if (isa_mmu_permission_check(pte0, type) == false) {
     printf("pc = %08x\n", cpu.pc);
-    printf("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d pte0_addr=0x%08x pte0=0x%08x (V=%d)\n",
-        vaddr, type == MEM_TYPE_IFETCH ? "IFETCH" : type == MEM_TYPE_READ ? "READ" : "WRITE",
-        vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V));
+    printf("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d "
+           "pte0_addr=0x%08x pte0=0x%08x (V=%d)\n",
+           vaddr,
+           type == MEM_TYPE_IFETCH ? "IFETCH"
+           : type == MEM_TYPE_READ ? "READ"
+                                   : "WRITE",
+           vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V));
     assert(0);
   }
 
   isa_mmu_update_pte(pte0_addr, pte0, type);
 
   paddr_t addr_res = (PTE_PPN(pte0) << 2) | offset;
-  assert(addr_res == vaddr);
   return addr_res;
 }
 
