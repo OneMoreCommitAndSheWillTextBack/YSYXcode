@@ -118,6 +118,7 @@ static int parse_args(int argc, char *argv[]) {
       if (difftest_is_attach()) {
         difftest_detach();
       }
+      break;
     case 1:
       img_file = optarg;
       return 0;
