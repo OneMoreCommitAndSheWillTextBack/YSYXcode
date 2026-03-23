@@ -135,8 +135,16 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   }
   void *new_alloc = new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
-  p->as.area.end = alloc_end;
-  p->as.area.start = new_alloc;
+  protect(&p->as);
+
+  void *pa = alloc_end;
+  void *va = p->as.area.end;
+  for (int i = 0; i < 8; i++) {
+    map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
+    va += PGSIZE;
+    pa += PGSIZE;
+  }
+
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
   uintptr_t stack_start =
       argdeal_uload((uintptr_t)p->as.area.end, filename, argv, envp);
@@ -157,7 +165,7 @@ void init_proc() {
   context_kload(&pcb[0], hello_fun, "A");
   char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
-  context_uload(&pcb[1], "/bin/pal", argv, envp);
+  context_uload(&pcb[1], "/bin/dummy", argv, envp);
 }
 
 Context *schedule(Context *prev) {
