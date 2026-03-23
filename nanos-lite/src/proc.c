@@ -142,11 +142,15 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   void *pa = alloc_end;
   void *va = (uint8_t *)p->as.area.end - PGSIZE;
+  Log("Mapping 8 pages: va_start=%p, pa_start=%p", va, pa);
   for (int i = 0; i < 8; i++) {
-    map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
-    va -= PGSIZE;
-    pa -= PGSIZE;
+      Log("  [%d] mapping va=%p -> pa=%p (flags: V|R|W)", i, va, pa);
+      map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
+      va -= PGSIZE;
+      pa -= PGSIZE;
   }
+  Log("Mapping done. va_end=%p, pa_end=%p", va + PGSIZE, pa + PGSIZE);
+
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
   uintptr_t stack_start =
