@@ -138,7 +138,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   void *new_alloc = new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
 
-  Log("protect the user area space, page table=%p, stack pa=%p", p->as.ptr, new_alloc);
+  Log("protect the user area space, page table=%p, stack pa=%p", p->as.ptr,
+      new_alloc);
 
   /* 映射 va 0x7fff8000..0x7ffff000 -> pa new_alloc..alloc_end-PGSIZE */
   void *pa = (uint8_t *)alloc_end - PGSIZE; /* 最高页，非 alloc_end */
@@ -174,7 +175,7 @@ void init_proc() {
 
   char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
-  context_uload(&pcb[1], "/bin/dummy", argv, envp);
+  context_uload(&pcb[1], "/bin/pal", argv, envp);
 }
 
 Context *schedule(Context *prev) {
