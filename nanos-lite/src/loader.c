@@ -15,6 +15,7 @@
 #endif
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 static uintptr_t loader(PCB *pcb, const char *filename) {
   int fd = fs_open(filename, 0, 0);
@@ -54,7 +55,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
     // phdr.p_flags);
 
     if (phdr.p_type == PT_LOAD) {
-      uintptr_t vaddr = phdr.p_vaddr;
+      uintptr_t seg_start = phdr.p_vaddr;
       size_t filesize = phdr.p_filesz;
       size_t memsize = phdr.p_memsz;
 
@@ -65,30 +66,34 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
 
       assert(memsize >= filesize);
 
-      uintptr_t vaddr_min = ROUNDDOWN(vaddr, PGSIZE);
-      uintptr_t vaddr_max = ROUNDUP(vaddr + memsize, PGSIZE);
+      uintptr_t seg_end = seg_start + memsize;
+      uintptr_t file_end = seg_start + filesize;
+      uintptr_t vaddr_min = ROUNDDOWN(seg_start, PGSIZE);
+      uintptr_t vaddr_max = ROUNDUP(seg_end, PGSIZE);
+      int prot = 0;
+      if (phdr.p_flags & PF_R)
+        prot |= PTE_R;
+      if (phdr.p_flags & PF_W)
+        prot |= PTE_W;
+      if (phdr.p_flags & PF_X)
+        prot |= PTE_X;
 
-      size_t file_remain = filesize;
-      size_t mem_remain = memsize - filesize;
       fs_lseek(fd, phdr.p_offset, SEEK_SET);
 
       for (uintptr_t va = vaddr_min; va < vaddr_max; va += PGSIZE) {
         void *pa = new_page(1);
-        map(&pcb->as, (void *)va, pa, PTE_X | PTE_R);
+        memset(pa, 0, PGSIZE);
+        map(&pcb->as, (void *)va, pa, prot);
 
-        // Phase 1: read file data into this page
-        size_t read_sz = MIN(file_remain, PGSIZE);
-        if (read_sz > 0) {
-          fs_read(fd, pa, read_sz);
-          file_remain -= read_sz;
-        }
-
-        // Phase 2: zero-fill the rest of this page (BSS)
-        size_t zero_sz = PGSIZE - read_sz;
-        if (zero_sz > 0 && mem_remain > 0) {
-          size_t fill = MIN(zero_sz, mem_remain);
-          memset((char *)pa + read_sz, 0, fill);
-          mem_remain -= fill;
+        // Copy only the file-backed region in this virtual page.
+        uintptr_t page_start = va;
+        uintptr_t page_end = va + PGSIZE;
+        uintptr_t copy_start = MAX(page_start, seg_start);
+        uintptr_t copy_end = MIN(page_end, file_end);
+        if (copy_start < copy_end) {
+          size_t read_sz = copy_end - copy_start;
+          size_t page_off = copy_start - page_start;
+          fs_read(fd, (char *)pa + page_off, read_sz);
         }
       }
     }
