@@ -86,7 +86,7 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
 
   int pte0_idx = ((uint32_t)(uintptr_t)va >> VPN0_SHIFT) & 0x3FF;
 
-  if (pgt1_start[pte0_idx] & PTE_V) {
+  if (pgt0_start[pte0_idx] & PTE_V) {
     return;
   }
 
