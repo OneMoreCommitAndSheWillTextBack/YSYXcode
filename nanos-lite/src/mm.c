@@ -35,6 +35,7 @@ int mm_brk(uintptr_t brk) {
 
   if (has_init == false) {
     current->max_brk = brk;
+    has_init = true;
     return 0;
   }
 
