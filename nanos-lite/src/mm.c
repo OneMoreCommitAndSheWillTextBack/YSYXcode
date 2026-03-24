@@ -34,7 +34,7 @@ int mm_brk(uintptr_t brk) {
   void *va = (void *)current->max_brk;
   for (; (uintptr_t)va < brk; va += PGSIZE) {
     void *pa = new_page(1);
-    Log("mm_brk: map va=%p -> pa=%p (R|W|V)", va, pa);
+    // Log("mm_brk: map va=%p -> pa=%p (R|W|V)", va, pa);
     map(&current->as, va, pa, PTE_R | PTE_W | PTE_V);
   }
   current->max_brk = (uintptr_t)va;
