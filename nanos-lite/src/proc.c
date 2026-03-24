@@ -175,7 +175,7 @@ void init_proc() {
 
   char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
-  context_uload(&pcb[1], "/bin/pal", argv, envp);
+  context_uload(&pcb[1], "/bin/gmp-test", argv, envp);
 }
 
 Context *schedule(Context *prev) {
