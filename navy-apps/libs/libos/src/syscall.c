@@ -84,7 +84,8 @@ void *_sbrk(intptr_t increment) {
     assert(0 && "should not reach here");
     return NULL;
   }
-  assert(0);
+  while (1)
+    ;
   return (void *)old_program_break;
 }
 
