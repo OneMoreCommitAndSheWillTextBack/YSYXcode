@@ -1,4 +1,5 @@
 #include "klib-macros.h"
+#include "proc.h"
 #include <memory.h>
 #include <string.h>
 
@@ -25,7 +26,19 @@ static void *pg_alloc(int n) {
 void free_page(void *p) { panic("not implement yet"); }
 
 /* The brk() system call handler. */
-int mm_brk(uintptr_t brk) { return 0; }
+int mm_brk(uintptr_t brk) {
+  if (brk < current->max_brk)
+    return 0;
+
+  void *va = (void *)current->max_brk;
+  for (; (uintptr_t)va < brk; va += PGSIZE) {
+    void *pa = new_page(1);
+    map(&current->as, va, pa, PTE_R | PTE_W | PTE_V);
+  }
+  current->max_brk = (uintptr_t)va;
+
+  return 0;
+}
 
 void init_mm() {
   pf = (void *)ROUNDUP(heap.start, PGSIZE);

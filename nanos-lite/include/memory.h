@@ -20,5 +20,6 @@
 #define PTE_D (1 << 7) /* Dirty */
 
 void *new_page(size_t);
+int mm_brk(uintptr_t brk);
 
 #endif
