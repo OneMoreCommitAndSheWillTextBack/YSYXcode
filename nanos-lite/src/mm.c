@@ -34,6 +34,7 @@ int mm_brk(uintptr_t brk) {
     return 0;
 
   if (has_init == false) {
+    Log("");
     current->max_brk = brk;
     has_init = true;
     return 0;
