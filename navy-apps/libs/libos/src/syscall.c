@@ -73,6 +73,7 @@ int _write(int fd, void *buf, size_t count) {
 
 extern char end;
 void *_sbrk(intptr_t increment) {
+  assert(0);
   static intptr_t program_break = 0;
   if (program_break == 0) {
     program_break = (intptr_t)&end;
@@ -84,8 +85,6 @@ void *_sbrk(intptr_t increment) {
     assert(0 && "should not reach here");
     return NULL;
   }
-  while (1)
-    ;
   return (void *)old_program_break;
 }
 
