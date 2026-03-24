@@ -102,6 +102,7 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   uint32_t pte1 = paddr_read(pte1_addr, 4);
 
   if (isa_mmu_permission_check(pte1, type) == false) {
+    printf("pc = %08x\n", cpu.pc);
     printf("MMU PTE1 check failed: vaddr=0x%08x type=%s vpn1_idx=%d "
            "pte1_addr=0x%08x pte1=0x%08x (V=%d)\n",
            vaddr,
