@@ -58,6 +58,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
       uintptr_t seg_start = phdr.p_vaddr;
       size_t filesize = phdr.p_filesz;
       size_t memsize = phdr.p_memsz;
+      uintptr_t seg_end = seg_start + memsize;
 
       Log("Loading segment: p_type=0x%x p_offset=0x%x p_vaddr=0x%x "
           "p_filesz=0x%x p_memsz=0x%x p_flags=0x%x",
@@ -66,7 +67,6 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
 
       assert(memsize >= filesize);
 
-      uintptr_t seg_end = seg_start + memsize;
       uintptr_t file_end = seg_start + filesize;
       uintptr_t vaddr_min = ROUNDDOWN(seg_start, PGSIZE);
       uintptr_t vaddr_max = ROUNDUP(seg_end, PGSIZE);
