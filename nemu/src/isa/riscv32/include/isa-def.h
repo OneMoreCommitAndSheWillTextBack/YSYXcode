@@ -41,5 +41,18 @@ typedef struct {
 } MUXDEF(CONFIG_RV64, riscv64_ISADecodeInfo, riscv32_ISADecodeInfo);
 
 // #define isa_mmu_check(vaddr, len, type) (MMU_DIRECT)
+#define MMP_USER 0x0
+#define MMP_SUPR 0x1
+#define MMP_MACH 0x3
+
+#define MSTATUS_MPP_SHIFT 11
+
+#define MSTATUS_MPP_MASK 0x2
+
+#define MSTATUS_SET(mstatus, mode)                                             \
+  (mstatus & ~(MSTATUS_MPP_MASK << MSTATUS_MPP_SHIFT)) |                       \
+      ((mode & MSTATUS_MPP_MASK) << MSTATUS_MPP_SHIFT)
+
+#define MSTATUS_GET(mstatus) (mstatus >> MSTATUS_MPP_SHIFT) & MSTATUS_MPP_MASK
 
 #endif
