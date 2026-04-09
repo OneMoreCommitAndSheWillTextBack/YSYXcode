@@ -13,7 +13,7 @@ LDFLAGS   += -T $(AM_HOME)/scripts/linker.ld \
 LDFLAGS   += --gc-sections -e _start
 NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt -f$(IMAGE).elf
 NEMUFLAGS += -b
-NEMUFLAGS += -k
+# NEMUFLAGS += -k
 # NEMUFLAGS += -g 10000
 
 CFLAGS += -DMAINARGS=\"$(mainargs)\"
