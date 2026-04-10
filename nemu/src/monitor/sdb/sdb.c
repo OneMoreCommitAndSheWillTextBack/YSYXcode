@@ -82,8 +82,10 @@ static int cmd_info(char *args) {
     isa_reg_display(NULL);
   else if (strcmp("w", args) == 0)
     info_wp();
+  else if (strcmp("g", args) == 0)
+    info_memguard();
   else
-    printf("invlid args %s\n", args);
+    printf("[error] invlid args %s\n", args);
   return 0;
 }
 
@@ -162,17 +164,36 @@ static int cmd_detach(char *args) {
   return 0;
 }
 
-static int cmd_save(char *args) {
-  return snap_store(args);  
-}
+static int cmd_save(char *args) { return snap_store(args); }
 
 static int cmd_load(char *args) {
   int res = snap_load(args);
-  if(isa_difftest_is_attach()) {
+  if (isa_difftest_is_attach()) {
     isa_difftest_detach();
     isa_difftest_attach();
   }
   return res;
+}
+
+static int cmd_memguard(char *args) {
+  if (!isa_difftest_is_attach()) {
+    printf("[error] the memguard rely on the difftest\n");
+    return 0;
+  }
+  uint32_t addr = (uint32_t)strtox(args);
+  add_memguard(addr);
+  return 0;
+}
+
+static int cmd_delguard(char *args) {
+  if (!isa_difftest_is_attach()) {
+    printf("[error] the memguard rely on the difftest\n");
+    return 0;
+  }
+
+  int idx = atoi(args);
+  del_memguard(idx);
+  return 0;
 }
 
 static int test_p(char *args) {
@@ -205,8 +226,7 @@ static int test_p(char *args) {
   return 0;
 }
 
-__attribute__((unused))
-static int cmd_invalid(char *args) {
+__attribute__((unused)) static int cmd_invalid(char *args) {
   assert(false && "call cmd_invalid");
 }
 
@@ -223,17 +243,17 @@ static struct {
 
     /* TODO: Add more commands */
     {"si", "run the program N steps, default is 1", cmd_si},
-    {"info", "r:print reg  w:print watchpoint", cmd_info},
+    {"info", "r:print reg  w:print watchpoint g:print memguard", cmd_info},
     {"x", "scan the memory", cmd_x},
     {"p", "evaluate the expr", cmd_p},
-    {"test", "test the function of p", test_p},
+    {"test", "test expression evaluater", test_p},
     {"b", "create a watchpoint", cmd_b},
     {"d", "delete a watchpoint", cmd_d},
-   {"attach", "attach the difftest", cmd_attach},
-   {"detach", "detach the difftest", cmd_detach},
-   {"save", "save the snapshot", cmd_save},
-   {"load", "load the snapshot", cmd_load},
-  };
+    {"attach", "attach the difftest", cmd_attach},
+    {"detach", "detach the difftest", cmd_detach},
+    {"save", "save the snapshot", cmd_save},
+    {"load", "load the snapshot", cmd_load},
+    {"memguard", "add a memguard", cmd_memguard}};
 
 #define NR_CMD ARRLEN(cmd_table)
 
@@ -267,15 +287,15 @@ void sdb_mainloop() {
     return;
   }
 
-  while(1) {
+  while (1) {
     dbg_listen();
 
-    if(get_nemu_state() == NEMU_QUIT) {
-      return ;
+    if (get_nemu_state() == NEMU_QUIT) {
+      return;
     }
 
     char *str;
-    if((str = rl_gets()) == NULL) {
+    if ((str = rl_gets()) == NULL) {
       break;
     }
     char *str_end = str + strlen(str);
@@ -317,9 +337,7 @@ void sdb_mainloop() {
 
 #include "signal.h"
 
-void interrupt() {
-  set_state_stop();
-}
+void interrupt(int arg) { set_state_stop(); }
 
 void init_sdb() {
   /* Register interrupt function */
@@ -331,7 +349,7 @@ void init_sdb() {
   /* Initialize the watchpoint pool. */
   init_wp_pool();
 
-  if(dbg_is_on()) {
+  if (dbg_is_on()) {
     dbg_init_and_wait_connection();
   }
 }

@@ -33,8 +33,9 @@ void set_state_stop();
 int cmd_si_check(int n);
 int get_nemu_state();
 
-// from watchpoint.c
+// from sdb.c
 void exe_wp();
+void exec_memguard();
 // end
 
 // from ftrace.c

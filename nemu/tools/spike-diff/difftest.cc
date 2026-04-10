@@ -42,6 +42,7 @@ struct diff_csr {
   uint32_t mstatus;
   uint32_t mcause;
   uint32_t mtvec;
+  uint32_t satp;
 };
 
 struct diff_context_t {
@@ -67,6 +68,13 @@ void sim_t::diff_get_regs(void *diff_context) {
     ctx->gpr[i] = state->XPR[i];
   }
   ctx->pc = state->pc;
+
+  // get csr from spike
+  ctx->csr.mcause = state->mcause->read();
+  ctx->csr.mepc = state->mepc->read();
+  ctx->csr.mstatus = state->mstatus->read();
+  ctx->csr.mtvec = state->mtvec->read();
+  ctx->csr.satp = state->satp->read();
 }
 
 void sim_t::diff_set_regs(void *diff_context) {
@@ -77,10 +85,17 @@ void sim_t::diff_set_regs(void *diff_context) {
   state->pc = ctx->pc;
 }
 
-void sim_t::diff_memcpy(reg_t dest, void *src, size_t n) {
+void sim_t::diff_memcpy_to_ref(reg_t dest, void *src, size_t n) {
   mmu_t *mmu = p->get_mmu();
   for (size_t i = 0; i < n; i++) {
     mmu->store<uint8_t>(dest + i, *((uint8_t *)src + i));
+  }
+}
+
+void sim_t::diff_memcpy_to_dut(reg_t src, void *dest, size_t n) {
+  mmu_t *mmu = p->get_mmu();
+  for (size_t i = 0; i < n; i++) {
+    *((uint8_t *)src + i) = mmu->load<uint8_t>(src + i);
   }
 }
 
@@ -89,9 +104,9 @@ extern "C" {
 __EXPORT void difftest_memcpy(uint32_t addr, void *buf, size_t n,
                               int direction) {
   if (direction == DIFFTEST_TO_REF) {
-    s->diff_memcpy(addr, buf, n);
-  } else {
-    assert(0);
+    s->diff_memcpy_to_ref(addr, buf, n);
+  } else if (direction == DIFFTEST_TO_DUT) {
+    s->diff_memcpy_to_dut(addr, buf, n);
   }
 }
 
