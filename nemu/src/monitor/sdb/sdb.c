@@ -82,8 +82,10 @@ static int cmd_info(char *args) {
     isa_reg_display(NULL);
   else if (strcmp("w", args) == 0)
     info_wp();
+  else if (strcmp("g", args) == 0)
+    info_memguard();
   else
-    printf("invlid args %s\n", args);
+    printf("[error] invlid args %s\n", args);
   return 0;
 }
 
@@ -173,6 +175,27 @@ static int cmd_load(char *args) {
   return res;
 }
 
+static int cmd_memguard(char *args) {
+  if (!isa_difftest_is_attach()) {
+    printf("[error] the memguard rely on the difftest\n");
+    return 0;
+  }
+  uint32_t addr = (uint32_t)strtox(args);
+  add_memguard(addr);
+  return 0;
+}
+
+static int cmd_delguard(char *args) {
+  if (!isa_difftest_is_attach()) {
+    printf("[error] the memguard rely on the difftest\n");
+    return 0;
+  }
+
+  int idx = atoi(args);
+  del_memguard(idx);
+  return 0;
+}
+
 static int test_p(char *args) {
   char *line = NULL;
   size_t len = 0;
@@ -220,16 +243,18 @@ static struct {
 
     /* TODO: Add more commands */
     {"si", "run the program N steps, default is 1", cmd_si},
-    {"info", "r:print reg  w:print watchpoint", cmd_info},
+    {"info", "r:print reg  w:print watchpoint g:print memguard", cmd_info},
     {"x", "scan the memory", cmd_x},
     {"p", "evaluate the expr", cmd_p},
-    {"test", "test the function of p", test_p},
+    {"test", "test expression evaluater", test_p},
     {"b", "create a watchpoint", cmd_b},
     {"d", "delete a watchpoint", cmd_d},
     {"attach", "attach the difftest", cmd_attach},
     {"detach", "detach the difftest", cmd_detach},
     {"save", "save the snapshot", cmd_save},
     {"load", "load the snapshot", cmd_load},
+    {"memguard", "add a memguard", cmd_memguard},
+    {"delguard", "delete a memguard", cmd_delguard},
 };
 
 #define NR_CMD ARRLEN(cmd_table)

@@ -29,12 +29,7 @@ int check_wp_hit();
 int snap_load(const char *filename);
 int snap_store(const char *filename);
 
-typedef enum {
-    INVALID,
-    AUTOMATIC,
-    PROBE_ONLY,
-    DBG_QUIT
-} dbg_mode_t;
+typedef enum { INVALID, AUTOMATIC, PROBE_ONLY, DBG_QUIT } dbg_mode_t;
 
 bool dbg_is_on();
 void set_dbg_port(int port);
@@ -45,4 +40,7 @@ bool dbg_process_one_command(char *cmd_line, char *replay, size_t replay_size);
 void dbg_listen(void);
 void dbg_mark_ready_pending(void);
 
+int add_memguard(paddr_t addr);
+void info_memguard();
+void del_memguard(int idx);
 #endif
