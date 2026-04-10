@@ -1,7 +1,7 @@
 # 公共配置
 VERILATOR = verilator
 VERILATOR_FLAGS = --trace --prof-exec --cc --MMD --exe --build --autoflush 
-SOCPATH = /home/ysyx/project/ysyx-workbench/ysyxSoC
+SOCPATH = /home/cinder/Code/project/ysyx-workbench/ysyxSoC
 INCLUDE_PATH = $(abspath ./include/)
 VERILATOR_INCLUDE_PATH = $(abspath ./vsrc/include/)
 
@@ -30,16 +30,16 @@ ifeq ($(filter $(BUILD_MODE),$(VALID_BUILD_MODES)),)
 endif
 
 ifeq ($(BUILD_MODE),npc)
-  	TOPNAME = npc
-  	NVBOARD_ENABLE = 0
+  TOPNAME = npc
+  NVBOARD_ENABLE = 0
 	VERILATOR_FLAGS += -D__NPC__
 	BASE_CFLAGS += --CFLAGS -D__NPC__
 	VSRC += ./vsrc-extra/npc.v
 endif
 
 ifeq ($(BUILD_MODE),ysyxsoc)
-  	TOPNAME = ysyxSoCFull
-  	NVBOARD_ENABLE = 0
+  TOPNAME = ysyxSoCFull
+  NVBOARD_ENABLE = 0
 
 	VERILATOR_FLAGS += -D__YSYXSOC__
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
@@ -49,12 +49,12 @@ ifeq ($(BUILD_MODE),ysyxsoc)
 endif
 
 # nvboard 部分
-NXDC_FILES = /home/ysyx/project/ysyx-workbench/npc/constr/ysyxSoCFull.nxdc
+NXDC_FILES = $(NPC_HOME)/constr/ysyxSoCFull.nxdc
 SRC_AUTO_BIND = $(abspath ./constr/auto_bind.cpp)
 
 ifeq ($(BUILD_MODE),ysyxsoc_nvboard)
-  	TOPNAME = ysyxSoCFull
-  	NVBOARD_ENABLE = 1
+  TOPNAME = ysyxSoCFull
+  NVBOARD_ENABLE = 1
 
 	VERILATOR_FLAGS += -D__YSYXSOC__
   	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
@@ -69,8 +69,8 @@ ifeq ($(BUILD_MODE),ysyxsoc_nvboard)
 endif
 
 ifeq ($(BUILD_MODE),release)
-  	TOPNAME = ysyxSoCFull 
-  	NVBOARD_ENABLE = 1
+  TOPNAME = ysyxSoCFull 
+  NVBOARD_ENABLE = 1
 
 	VERILATOR_FLAGS += -D__YSYXSOC__
   	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
@@ -155,15 +155,15 @@ verilog:
 
 ivg:
 	@if [ -n "$(IVG)" ]; then \
-		ln -sf $(IVG) /home/ysyx/project/ysyx-workbench/npc/bin.ivg; \
+		ln -sf $(IVG) /home/cinder/Code/project/ysyx-workbench/npc/bin.ivg; \
 	fi
-	iverilog -D__NPC__ -o /home/ysyx/project/ysyx-workbench/npc/build/npc_ivg -g2012 \
-		/home/ysyx/project/ysyx-workbench/npc/build/ysyx_24100007.v \
-		/home/ysyx/project/ysyx-workbench/npc/vsrc-extra/ivg_top.v \
-		/home/ysyx/project/ysyx-workbench/npc/vsrc-extra/npc.v 
-	vvp /home/ysyx/project/ysyx-workbench/npc/build/npc_ivg
+	iverilog -D__NPC__ -o /home/cinder/Code/project/ysyx-workbench/npc/build/npc_ivg -g2012 \
+		/home/cinder/Code/project/ysyx-workbench/npc/build/ysyx_24100007.v \
+		/home/cinder/Code/project/ysyx-workbench/npc/vsrc-extra/ivg_top.v \
+		/home/cinder/Code/project/ysyx-workbench/npc/vsrc-extra/npc.v 
+	vvp /home/cinder/Code/project/ysyx-workbench/npc/build/npc_ivg
 
-BIN_IVG = /home/ysyx/project/ysyx-workbench/npc/bin.ivg
+BIN_IVG = /home/cinder/Code/project/ysyx-workbench/npc/bin.ivg
 
 $(BIN_IVG): $(IMG)
 	@if [ -z "$(IMG)" ]; then echo "Error: IMG=xxx.bin required"; exit 1; fi
@@ -213,7 +213,7 @@ $(BIN_NETLIST): $(NETLIST) $(CSRC) $(HEADFILE)
 	
 
 check:
-	$(VERILATOR) --lint-only --top-module ysyx_24100007 -Wall -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME /home/ysyx/project/ysyx-workbench/npc/release/ysyx_24100007.v 
+	$(VERILATOR) --lint-only --top-module ysyx_24100007 -Wall -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME /home/cinder/Code/project/ysyx-workbench/npc/release/ysyx_24100007.v 
 
 perf:
 	python3 show-perf-table.py ./performance.txt
