@@ -1,7 +1,7 @@
 # 公共配置
 VERILATOR = verilator
 VERILATOR_FLAGS = --trace --prof-exec --cc --MMD --exe --build --autoflush 
-SOCPATH = /home/cinder/Code/project/ysyx-workbench/ysyxSoC
+SOCPATH = $(YSYXSOC_HOME)
 INCLUDE_PATH = $(abspath ./include/)
 VERILATOR_INCLUDE_PATH = $(abspath ./vsrc/include/)
 
@@ -50,7 +50,7 @@ endif
 
 # nvboard 部分
 NXDC_FILES = $(NPC_HOME)/constr/ysyxSoCFull.nxdc
-SRC_AUTO_BIND = $(abspath ./constr/auto_bind.cpp)
+SRC_AUTO_BIND = $(NPC_HOME)/constr/auto_bind.cpp
 
 ifeq ($(BUILD_MODE),ysyxsoc_nvboard)
   TOPNAME = ysyxSoCFull
