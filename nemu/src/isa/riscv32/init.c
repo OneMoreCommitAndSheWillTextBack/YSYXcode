@@ -32,7 +32,6 @@ static void restart() {
   cpu.pc = RESET_VECTOR;
 
   /* The zero register is always 0. */
-  cpu.csr.mstatus = MSTATUS_SET(cpu.csr.mstatus, MMP_USER);
   cpu.gpr[0] = 0;
 }
 

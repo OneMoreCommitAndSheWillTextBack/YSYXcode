@@ -14,7 +14,9 @@
  ***************************************************************************************/
 // clang-format off
 
+#include "common.h"
 #include "cpu/difftest.h"
+#include "isa-def.h"
 #include "isa.h"
 #include "local-include/reg.h"
 #include "macro.h"
@@ -27,15 +29,13 @@
 #define Mr vaddr_read
 #define Mw vaddr_write
 
-// clang-format on
-#define ECALL                                                                  \
-  s->dnpc = isa_raise_intr(1, cpu.pc);                                         \
-  // difftest_skip_ref()
+static word_t ecall_inst();
+static word_t mret_inst();
 
-#define MRET                                                                   \
-  s->dnpc = cpu.csr.mepc;                                                      \
-  // difftest_skip_ref()
-// clang-format off
+CPU_MODE current_cpu_priv = M_MODE;
+
+#define ECALL s->dnpc = ecall_inst()
+#define MRET s->dnpc = mret_inst()
 
 enum {
   TYPE_I, TYPE_U, TYPE_S,
@@ -166,9 +166,42 @@ static inline uint32_t *get_csr(uint32_t csr_num){
   }
 }
 
+static word_t ecall_inst() {
+  if (current_cpu_priv == M_MODE) {
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_M;
+    return isa_raise_intr(11, cpu.pc);
+  } else if (current_cpu_priv == S_MODE) {
+    current_cpu_priv = M_MODE;
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_S;
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
+                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE));
+    return isa_raise_intr(9, cpu.pc);
+  } else {
+    assert(false && "should not reach here");
+  }
+}
+
+static word_t mret_inst() { 
+  assert(current_cpu_priv == M_MODE);
+  uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
+  if(mpp == MSTATUS_MPP_S) {
+    current_cpu_priv = S_MODE;
+  } else if(mpp == MSTATUS_MPP_U) {
+    assert(false && "should not reach here");
+  }
+  // MSTATUS_MPIE -> MSTATUS_MIE
+  // 1 -> MSTATUS_MPIE
+  uint32_t mpie = cpu.csr.mstatus & MSTATUS_MPIE;
+  cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE)) | (mpie >> 4);
+  cpu.csr.mstatus = cpu.csr.mstatus | MSTATUS_MPIE;
+
+  return cpu.csr.mepc; 
+}
+
 static uint32_t csr_read(uint32_t csr_num) {
   // difftest_skip_ref();
-  return *(get_csr(csr_num)); 
+  return *(get_csr(csr_num));
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {

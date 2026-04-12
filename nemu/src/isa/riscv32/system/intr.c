@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include <isa.h>
+#include <stdint.h>
 
 word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   // printf("into isa_raise_intr, NO is %d\n", NO);
