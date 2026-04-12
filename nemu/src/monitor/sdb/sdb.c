@@ -253,7 +253,9 @@ static struct {
     {"detach", "detach the difftest", cmd_detach},
     {"save", "save the snapshot", cmd_save},
     {"load", "load the snapshot", cmd_load},
-    {"memguard", "add a memguard", cmd_memguard}};
+    {"memguard", "add a memguard", cmd_memguard},
+    {"delguard", "delete a memguard", cmd_delguard},
+};
 
 #define NR_CMD ARRLEN(cmd_table)
 

@@ -1,8 +1,8 @@
 #include "common.h"
+#include "cpu/difftest.h"
 #include "difftest-def.h"
 #include "isa.h"
-#include "paddr.h"
-#include <difftest.h>
+#include "memory/paddr.h"
 #include <stdint.h>
 #include <stdio.h>
 

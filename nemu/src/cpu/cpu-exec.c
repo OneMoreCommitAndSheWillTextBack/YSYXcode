@@ -55,7 +55,8 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
     iringbuf_count = 0;
 #endif
 
-  IFDEF(CONFIG_WATCHPOINT, exe_wp()); 
+  IFDEF(CONFIG_WATCHPOINT, exe_wp());
+  IFDEF(CONFIG_DIFFTEST, exec_memguard());
 
   if (g_print_step) {
     IFDEF(CONFIG_ITRACE, puts(_this->logbuf));
