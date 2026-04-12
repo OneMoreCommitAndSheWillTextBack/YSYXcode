@@ -30,11 +30,11 @@
 // clang-format on
 #define ECALL                                                                  \
   s->dnpc = isa_raise_intr(1, cpu.pc);                                         \
-  difftest_skip_ref()
+  // difftest_skip_ref()
 
 #define MRET                                                                   \
   s->dnpc = cpu.csr.mepc;                                                      \
-  difftest_skip_ref()
+  // difftest_skip_ref()
 // clang-format off
 
 enum {
@@ -167,12 +167,12 @@ static inline uint32_t *get_csr(uint32_t csr_num){
 }
 
 static uint32_t csr_read(uint32_t csr_num) {
-  difftest_skip_ref();
+  // difftest_skip_ref();
   return *(get_csr(csr_num)); 
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
-  difftest_skip_ref();
+  // difftest_skip_ref();
   *(get_csr(csr_num)) = data;
   return;
 }
