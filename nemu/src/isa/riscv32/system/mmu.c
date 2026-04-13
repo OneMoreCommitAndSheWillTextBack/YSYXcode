@@ -44,6 +44,8 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
 #define PTE_A 0x40
 #define PTE_D 0x80
 
+extern CPU_MODE current_cpu_priv;
+
 static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
   // In Sv32, A/D bits are meaningful for leaf PTEs only.
   // Non-leaf PTEs should keep software/reserved bits unchanged.
@@ -75,6 +77,13 @@ static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
 static bool isa_mmu_permission_check(uint32_t pte, int type) {
   if (!(pte & PTE_V)) {
     return false;
+  }
+
+  if (current_cpu_priv == U_MODE) {
+    if (!(pte & PTE_U)) {
+      assert(false && "mmu permission deny, page cannot access");
+      return false;
+    }
   }
 
   if (type == MEM_TYPE_READ) {
