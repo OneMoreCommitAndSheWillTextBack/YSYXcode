@@ -97,14 +97,10 @@ void exec_memguard() {
   memguarder_t *cur = guard_list;
   bool failed = false;
   while (cur != NULL) {
-    printf("get to here\n");
     uint32_t ref_data = 0;
     uint32_t dut_data = 0;
     ref_difftest_memcpy(cur->addr, &ref_data, 4, DIFFTEST_TO_DUT);
     dut_data = paddr_read(cur->addr, 4);
-
-    printf("[debug] memguard ref is 0x%08x dut is 0x%08x\n", ref_data,
-           dut_data);
 
     if (ref_data != dut_data) {
       failed = true;
