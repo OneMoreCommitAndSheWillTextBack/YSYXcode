@@ -93,10 +93,10 @@ void del_memguard(int idx) {
 }
 
 void exec_memguard() {
-  printf("get to here\n");
   memguarder_t *cur = guard_list;
   bool failed = false;
   while (cur != NULL) {
+    printf("get to here\n");
     uint32_t ref_data = 0;
     uint32_t dut_data = 0;
     ref_difftest_memcpy(cur->addr, &ref_data, 4, DIFFTEST_TO_DUT);
