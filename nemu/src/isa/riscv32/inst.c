@@ -190,6 +190,8 @@ static word_t mret_inst() {
   } else if(mpp == MSTATUS_MPP_U) {
     assert(false && "should not reach here");
   }
+  // reset MSTATUS_MPP 
+  cpu.csr.mstatus = cpu.csr.mstatus & ~(MSTATUS_MPP_MASK);
   // MSTATUS_MPIE -> MSTATUS_MIE
   // 1 -> MSTATUS_MPIE
   uint32_t mpie = cpu.csr.mstatus & MSTATUS_MPIE;
