@@ -101,6 +101,9 @@ void exec_memguard() {
     ref_difftest_memcpy(cur->addr, &ref_data, 4, DIFFTEST_TO_DUT);
     dut_data = paddr_read(cur->addr, 4);
 
+    printf("[debug] memguard ref is 0x%08x dut is 0x%08x\n", ref_data,
+           dut_data);
+
     if (ref_data != dut_data) {
       failed = true;
       printf("[memguard failed] ref(0x%x) != dut(0x%x)\n", ref_data, dut_data);
