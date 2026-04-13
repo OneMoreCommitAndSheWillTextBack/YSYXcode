@@ -173,9 +173,12 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)ptr_array_pa};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
-  p->cp = ucontext(&p->as, stack, (void *)entry);
-  p->cp->gpr[2] = ptr_array_va;      // user sp
-  p->cp->GPRx = ptr_array_va + 0x4;  // a0 points to argc slot
+  Context *cp_pa = ucontext(&p->as, stack, (void *)entry);
+  cp_pa->GPRx = ptr_array_va + 0x4;  // a0 points to argc slot
+  // trap.S recovers sp from context location, not gpr[2]:
+  // translate initial context pointer to user VA alias.
+  uintptr_t cp_va = (uintptr_t)cp_pa - ptr_array_pa + ptr_array_va;
+  p->cp = (Context *)cp_va;
   switch_boot_pcb();
   Log("switch to user process");
   yield();
