@@ -51,13 +51,13 @@ void isa_reg_display(CPU_state *ref) {
       printf("  %s%-7s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, regs[i], C_RESET,
              C_VAL, val, C_RESET, C_VAL, (int32_t)val, C_RESET);
     }
-    printf("  %s%-7s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, "pc", C_RESET, C_VAL,
-           cpu.pc, C_RESET, C_VAL, (int32_t)cpu.pc, C_RESET);
     for (int i = 0; i < 5; i++) {
       uint32_t val = get_csr_val(&cpu, i);
       printf("  %s%-7s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, csr[i], C_RESET,
              C_VAL, val, C_RESET, C_VAL, (int32_t)val, C_RESET);
     }
+    printf("  %s%-7s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, "pc", C_RESET, C_VAL,
+           cpu.pc, C_RESET, C_VAL, (int32_t)cpu.pc, C_RESET);
   } else {
     // 对比 DUT 和 REF 寄存器
     printf("%s  %-7s %-12s %-12s %-8s%s\n", C_HDR, "reg", "DUT", "REF", "diff",
@@ -72,10 +72,6 @@ void isa_reg_display(CPU_state *ref) {
              C_RESET, c, d, C_RESET, c, r, C_RESET, c, (int32_t)d - (int32_t)r,
              C_RESET);
     }
-    const char *cpc = (cpu.pc == ref->pc) ? C_VAL : C_DIFF;
-    printf("  %s%-7s%s %s0x%08x%s   %s0x%08x%s   %s%-8d%s\n", C_NAME, "pc",
-           C_RESET, cpc, cpu.pc, C_RESET, cpc, ref->pc, C_RESET, cpc,
-           (int32_t)cpu.pc - (int32_t)ref->pc, C_RESET);
     for (int i = 0; i < 5; i++) {
       uint32_t d = get_csr_val(&cpu, i);
       uint32_t r = get_csr_val(ref, i);
@@ -84,6 +80,10 @@ void isa_reg_display(CPU_state *ref) {
              C_RESET, c, d, C_RESET, c, r, C_RESET, c, (int32_t)d - (int32_t)r,
              C_RESET);
     }
+    const char *cpc = (cpu.pc == ref->pc) ? C_VAL : C_DIFF;
+    printf("  %s%-7s%s %s0x%08x%s   %s0x%08x%s   %s%-8d%s\n", C_NAME, "pc",
+           C_RESET, cpc, cpu.pc, C_RESET, cpc, ref->pc, C_RESET, cpc,
+           (int32_t)cpu.pc - (int32_t)ref->pc, C_RESET);
   }
 }
 
