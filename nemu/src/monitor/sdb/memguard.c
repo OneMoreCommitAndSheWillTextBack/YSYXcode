@@ -54,6 +54,7 @@ int add_memguard(paddr_t addr) {
   }
   new_node->addr = addr;
   new_node->next = NULL;
+  *cur = new_node;
 
   return 0;
 }
