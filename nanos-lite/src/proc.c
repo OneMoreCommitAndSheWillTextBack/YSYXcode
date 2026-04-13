@@ -40,11 +40,10 @@ static char *allocate_string(char *current_pos, const char *source,
   return current_pos;
 }
 
-uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
-                        const char *filename, char *argv[], char *envp[],
-                        uintptr_t *ptr_array_base_pa_out) {
-  uintptr_t argv_re[MAXARG];
-  uintptr_t envp_re[MAXENVP];
+uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
+                        char *envp[]) {
+  char *argv_re[MAXARG];
+  char *envp_re[MAXENVP];
 
   if (argv != NULL) {
     for (int i = 0; argv[i] != NULL; i++) {
@@ -52,22 +51,18 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
     }
   }
 
-  // stack top 4-byte align
-  stack_top_pa &= ~0x3;
-  stack_top_va &= ~0x3;
+  // 让stack_top向下4字节对齐
+  stack_top = stack_top & ~0x3;
 
   // string area
-  char *string_area_cur_pa = (char *)stack_top_pa;
-  uintptr_t string_area_cur_va = stack_top_va;
+  char *string_area_cur = (char *)stack_top;
   int envp_count = 0;
   if (envp != NULL) {
     while (envp[envp_count] != NULL) {
       size_t len = strlen(envp[envp_count]) + 1;
-      string_area_cur_pa =
-          allocate_string(string_area_cur_pa, envp[envp_count], len);
-      string_area_cur_va = (string_area_cur_va - len) & ~0x3;
+      string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);
       assert(envp_count < MAXENVP);
-      envp_re[envp_count] = string_area_cur_va;
+      envp_re[envp_count] = string_area_cur;
       envp_count++;
     }
   }
@@ -76,11 +71,9 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
   if (argv != NULL) {
     while (argv[argv_count] != NULL) {
       size_t len = strlen(argv[argv_count]) + 1;
-      string_area_cur_pa =
-          allocate_string(string_area_cur_pa, argv[argv_count], len);
-      string_area_cur_va = (string_area_cur_va - len) & ~0x3;
+      string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);
       assert(argv_count < MAXARG);
-      argv_re[argv_count] = string_area_cur_va;
+      argv_re[argv_count] = string_area_cur;
       argv_count++;
     }
   }
@@ -108,10 +101,9 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
 
   size_t argc_val = argv_count;
   size_t ptr_slots = 1 + 1 + (argc_val + 1) + (envp_count + 1);
-  uint32_t *ptr_array_base_pa =
-      (uint32_t *)(string_area_cur_pa - ptr_slots * sizeof(uint32_t));
-  uintptr_t ptr_array_base_va = string_area_cur_va - ptr_slots * sizeof(uint32_t);
-  uint32_t *ptr_array_cur = ptr_array_base_pa;
+  uint32_t *ptr_array_base =
+      (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
+  uint32_t *ptr_array_cur = ptr_array_base;
 
   *ptr_array_cur++ = 0;
   *ptr_array_cur++ = (uint32_t)argc_val;
@@ -123,22 +115,18 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
   *ptr_array_cur++ = 0;
 
   /* 调试：打印传递给用户程序的参数 */
-  Log("argdeal_uload: ptr_array_base_pa = %p, ptr_array_base_va = %p, argc = %d",
-      ptr_array_base_pa, (void *)ptr_array_base_va, (int)argc_val);
+  Log("argdeal_uload: ptr_array_base = %p, argc = %d", ptr_array_base,
+      (int)argc_val);
   for (int i = 0; i < argv_count; i++) {
-    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv[i]);
+    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv_re[i]);
   }
   for (int i = 0; i < envp_count; i++) {
-    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp[i]);
+    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp_re[i]);
   }
-  Log("  ptr_array content(pa): [0]=%u [1]=%u [2]=%p [3]=%p ...",
-      ptr_array_base_pa[0], ptr_array_base_pa[1], (void *)ptr_array_base_pa[2],
-      (void *)ptr_array_base_pa[3]);
+  Log("  ptr_array content: [0]=%u [1]=%u [2]=%p [3]=%p ...", ptr_array_base[0],
+      ptr_array_base[1], (void *)ptr_array_base[2], (void *)ptr_array_base[3]);
 
-  if (ptr_array_base_pa_out != NULL) {
-    *ptr_array_base_pa_out = (uintptr_t)ptr_array_base_pa;
-  }
-  return ptr_array_base_va;
+  return (uintptr_t)ptr_array_base;
 }
 
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
@@ -166,15 +154,12 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
 
-  uintptr_t ptr_array_pa = 0;
-  uintptr_t ptr_array_va = argdeal_uload((uintptr_t)alloc_end,
-                                         (uintptr_t)p->as.area.end, filename,
-                                         argv, envp, &ptr_array_pa);
+  uintptr_t ptr_array_pa =
+      argdeal_uload((uintptr_t)alloc_end, filename, argv, envp);
   uintptr_t entry = uload(p, filename);
-  Area stack = {.end = (void *)ptr_array_va};
+  Area stack = {.end = (void *)ptr_array_pa};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
-  p->cp = (Context *)ptr_array_pa;
-  ucontext(&p->as, stack, (void *)entry);
+  p->cp = ucontext(&p->as, stack, (void *)entry);
   switch_boot_pcb();
   Log("switch to user process");
   yield();
