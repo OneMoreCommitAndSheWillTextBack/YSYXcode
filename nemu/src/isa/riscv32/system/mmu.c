@@ -77,22 +77,22 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
     return false;
   }
 
-  // if (type == MEM_TYPE_READ) {
-  //   if (!(pte & PTE_R)) {
-  //     assert(false && "mmu permission deny, page cannot read");
-  //     return false;
-  //   }
-  // } else if (type == MEM_TYPE_IFETCH) {
-  //   if (!(pte & PTE_X)) {
-  //     assert(false && "mmu permisssion deny, page cannot exec");
-  //     return false;
-  //   }
-  // } else if (type == MEM_TYPE_WRITE) {
-  //   if (!(pte & PTE_W)) {
-  //     assert(false && "mmu permisssion deny, page cannot write");
-  //     return false;
-  //   }
-  // }
+  if (type == MEM_TYPE_READ) {
+    if (!(pte & PTE_R)) {
+      assert(false && "mmu permission deny, page cannot read");
+      return false;
+    }
+  } else if (type == MEM_TYPE_IFETCH) {
+    if (!(pte & PTE_X)) {
+      assert(false && "mmu permisssion deny, page cannot exec");
+      return false;
+    }
+  } else if (type == MEM_TYPE_WRITE) {
+    if (!(pte & PTE_W)) {
+      assert(false && "mmu permisssion deny, page cannot write");
+      return false;
+    }
+  }
 
   return true;
 }
