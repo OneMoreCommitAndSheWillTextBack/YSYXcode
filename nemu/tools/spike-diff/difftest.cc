@@ -101,7 +101,7 @@ void sim_t::diff_memcpy_to_ref(reg_t dest, void *src, size_t n) {
 void sim_t::diff_memcpy_to_dut(reg_t src, void *dest, size_t n) {
   mmu_t *mmu = p->get_mmu();
   for (size_t i = 0; i < n; i++) {
-    *((uint8_t *)src + i) = mmu->load<uint8_t>(src + i);
+    *((uint8_t *)dest + i) = mmu->load<uint8_t>(src + i);
   }
 }
 
