@@ -106,7 +106,7 @@ void exec_memguard() {
 
     if (ref_data != dut_data) {
       failed = true;
-      printf("[memguard failed] ref(0x%x) != dut(0x%x)\n", ref_data, dut_data);
+      printf("[memguard failed] dut(0x%x) != ref(0x%x)\n", dut_data, ref_data);
     }
 
     cur = cur->next;

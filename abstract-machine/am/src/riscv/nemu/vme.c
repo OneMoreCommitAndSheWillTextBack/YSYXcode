@@ -79,7 +79,7 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
     pgt0_start = (PTE *)(pgalloc_usr(PGSIZE));
     assert(pgt0_start != NULL);
     pgt1_start[pte1_idx] =
-        (((uint32_t)(uintptr_t)pgt0_start >> 2) & PPN_MASK) | PTE_V | prot;
+        (((uint32_t)(uintptr_t)pgt0_start >> 2) & PPN_MASK) | PTE_V;
   } else {
     pgt0_start = (PTE *)((pte1 & PPN_MASK) << 2);
   }
@@ -90,10 +90,8 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
     return;
   }
 
-  pgt0_start[pte0_idx] = pgt0_start[pte0_idx] & ~(PPN_MASK);
   pgt0_start[pte0_idx] =
-      pgt0_start[pte0_idx] | (((uint32_t)(uintptr_t)pa >> 2) & PPN_MASK);
-  pgt0_start[pte0_idx] = pgt0_start[pte0_idx] | PTE_V | prot;
+      (((uint32_t)(uintptr_t)pa >> 2) & PPN_MASK) | PTE_V | prot;
 }
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
