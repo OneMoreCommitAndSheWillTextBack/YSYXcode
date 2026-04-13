@@ -79,6 +79,13 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
     return false;
   }
 
+  if (current_cpu_priv == U_MODE) {
+    if (!(pte & PTE_U)) {
+      assert(false && "mmu permission deny, page cannot access");
+      return false;
+    }
+  }
+
   if (type == MEM_TYPE_READ) {
     if (!(pte & PTE_R)) {
       assert(false && "mmu permission deny, page cannot read");
