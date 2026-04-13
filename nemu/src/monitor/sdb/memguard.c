@@ -93,6 +93,7 @@ void del_memguard(int idx) {
 }
 
 void exec_memguard() {
+  printf("get to here\n");
   memguarder_t *cur = guard_list;
   bool failed = false;
   while (cur != NULL) {
