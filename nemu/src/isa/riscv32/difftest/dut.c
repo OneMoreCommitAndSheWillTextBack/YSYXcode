@@ -22,8 +22,8 @@
   do {                                                                         \
     if (ref_r->csr.csrname != cpu.csr.csrname) {                               \
       printf("the difftest encounter a error at pc:%x\n", pc);                 \
-      printf("nemu[mcause] %08x spike[mcause] %08x \n", cpu.csr.csrname,       \
-             ref_r->csr.csrname);                                              \
+      printf("nemu[" #csrname "] %08x spike[" #csrname "] %08x \n",            \
+             cpu.csr.csrname, ref_r->csr.csrname);                             \
       return false;                                                            \
     }                                                                          \
   } while (0);
