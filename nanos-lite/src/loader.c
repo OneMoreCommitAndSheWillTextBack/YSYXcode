@@ -86,6 +86,8 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
         memset(pa, 0, PGSIZE);
         map(&pcb->as, (void *)va, pa, prot);
 
+        Log("  Map va = 0x%x to pa = %p (flags = 0x%x)", va, pa, prot);
+
         // Copy only the file-backed region in this virtual page.
         uintptr_t page_start = va;
         uintptr_t page_end = va + PGSIZE;
