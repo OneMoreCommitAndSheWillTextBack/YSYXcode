@@ -41,7 +41,8 @@ static char *allocate_string(char *current_pos, const char *source,
 }
 
 uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
-                        const char *filename, char *argv[], char *envp[]) {
+                        const char *filename, char *argv[], char *envp[],
+                        uintptr_t *ptr_array_base_pa_out) {
   uintptr_t argv_re[MAXARG];
   uintptr_t envp_re[MAXENVP];
 
@@ -134,6 +135,9 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
       ptr_array_base_pa[0], ptr_array_base_pa[1], (void *)ptr_array_base_pa[2],
       (void *)ptr_array_base_pa[3]);
 
+  if (ptr_array_base_pa_out != NULL) {
+    *ptr_array_base_pa_out = (uintptr_t)ptr_array_base_pa;
+  }
   return ptr_array_base_va;
 }
 
@@ -162,13 +166,16 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
 
+  uintptr_t ptr_array_pa = 0;
   uintptr_t ptr_array_va = argdeal_uload((uintptr_t)alloc_end,
                                          (uintptr_t)p->as.area.end, filename,
-                                         argv, envp);
+                                         argv, envp, &ptr_array_pa);
   uintptr_t entry = uload(p, filename);
-  Area stack = {.end = (void *)ptr_array_va};
+  Area stack = {.end = (void *)ptr_array_pa};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(&p->as, stack, (void *)entry);
+  p->cp->gpr[2] = ptr_array_va;      // user sp
+  p->cp->GPRx = ptr_array_va + 0x4;  // a0 points to argc slot
   switch_boot_pcb();
   Log("switch to user process");
   yield();
