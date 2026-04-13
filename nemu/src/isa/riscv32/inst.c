@@ -169,6 +169,9 @@ static inline uint32_t *get_csr(uint32_t csr_num){
 static word_t ecall_inst() {
   if (current_cpu_priv == M_MODE) {
     cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_M;
+    // MSTATUS_MIE -> MSTATUS_MPIE
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
+                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
     return isa_raise_intr(11, cpu.pc);
   } else if (current_cpu_priv == S_MODE) {
     current_cpu_priv = M_MODE;
@@ -186,6 +189,7 @@ static word_t mret_inst() {
   assert(current_cpu_priv == M_MODE);
   uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
   if(mpp == MSTATUS_MPP_S) {
+    printf("switch to S_MODE\n");
     current_cpu_priv = S_MODE;
   } else if(mpp == MSTATUS_MPP_U) {
     assert(false && "should not reach here");
