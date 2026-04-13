@@ -45,14 +45,20 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
 #define PTE_D 0x80
 
 static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
+  // In Sv32, A/D bits are meaningful for leaf PTEs only.
+  // Non-leaf PTEs should keep software/reserved bits unchanged.
+  if ((pte & (PTE_R | PTE_W | PTE_X)) == 0) {
+    return;
+  }
+
   uint32_t new_pte = pte;
   bool need_update = false;
 
   // 设置访问位（A位）
-  // if (!(pte & PTE_A)) {
-  //   new_pte |= PTE_A;
-  //   need_update = true;
-  // }
+  if (!(pte & PTE_A)) {
+    new_pte |= PTE_A;
+    need_update = true;
+  }
 
   // 如果是写操作，设置脏位（D位）
   if (type == MEM_TYPE_WRITE && !(pte & PTE_D)) {
