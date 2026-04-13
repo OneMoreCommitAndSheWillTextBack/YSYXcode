@@ -49,10 +49,10 @@ static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
   bool need_update = false;
 
   // 设置访问位（A位）
-  if (!(pte & PTE_A)) {
-    new_pte |= PTE_A;
-    need_update = true;
-  }
+  // if (!(pte & PTE_A)) {
+  //   new_pte |= PTE_A;
+  //   need_update = true;
+  // }
 
   // 如果是写操作，设置脏位（D位）
   if (type == MEM_TYPE_WRITE && !(pte & PTE_D)) {
