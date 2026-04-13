@@ -78,6 +78,7 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
       if (phdr.p_flags & PF_X)
         prot |= PTE_X;
       prot |= PTE_U;
+      prot |= PTE_A;
 
       fs_lseek(fd, phdr.p_offset, SEEK_SET);
 
