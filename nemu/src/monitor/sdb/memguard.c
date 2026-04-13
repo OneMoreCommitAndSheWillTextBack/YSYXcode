@@ -1,4 +1,5 @@
 #include "common.h"
+#include "cpu/cpu.h"
 #include "cpu/difftest.h"
 #include "difftest-def.h"
 #include "isa.h"
@@ -111,7 +112,7 @@ void exec_memguard() {
   }
 
   if (failed) {
-    assert(false && "memguard failed");
+    set_state_stop();
   }
 
   return;
