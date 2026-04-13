@@ -180,19 +180,29 @@ static word_t ecall_inst() {
                       ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
     cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE));
     return isa_raise_intr(9, cpu.pc);
+  } else if(current_cpu_priv == U_MODE) {
+    current_cpu_priv = M_MODE;
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_U;
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
+                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
+    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE));
+    return isa_raise_intr(8, cpu.pc);
   } else {
-    assert(false && "should not reach here");
+    assert(false && "invalid current_cpu_priv");
   }
 }
 
 static word_t mret_inst() { 
   assert(current_cpu_priv == M_MODE);
   uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
-  if(mpp == MSTATUS_MPP_S) {
-    printf("switch to S_MODE\n");
+  if(mpp == MSTATUS_MPP_M) {
+    current_cpu_priv = M_MODE;
+  } else if(mpp == MSTATUS_MPP_S) {
     current_cpu_priv = S_MODE;
   } else if(mpp == MSTATUS_MPP_U) {
-    assert(false && "should not reach here");
+    current_cpu_priv = U_MODE;
+  } else {
+    assert(false && "mpp");
   }
   // reset MSTATUS_MPP 
   cpu.csr.mstatus = cpu.csr.mstatus & ~(MSTATUS_MPP_MASK);
@@ -206,12 +216,10 @@ static word_t mret_inst() {
 }
 
 static uint32_t csr_read(uint32_t csr_num) {
-  // difftest_skip_ref();
   return *(get_csr(csr_num));
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
-  // difftest_skip_ref();
   *(get_csr(csr_num)) = data;
   return;
 }
