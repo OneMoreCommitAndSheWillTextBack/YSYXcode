@@ -1,19 +1,21 @@
 #include "common.h"
+#include "cpu/cpu.h"
 #include "cpu/difftest.h"
 #include "difftest-def.h"
 #include "isa.h"
 #include "memory/paddr.h"
+#include "memory/vaddr.h"
 #include <stdint.h>
 #include <stdio.h>
 
 typedef struct memguarder {
-  paddr_t addr;
+  vaddr_t addr;
   struct memguarder *next;
 } memguarder_t;
 
 static memguarder_t *guard_list = NULL;
 
-int add_memguard(paddr_t addr) {
+int add_memguard(vaddr_t addr) {
   if (!isa_difftest_is_attach()) {
     printf("[error] the memguarder rely on the difftest\n");
     return -1;
@@ -32,7 +34,7 @@ int add_memguard(paddr_t addr) {
   }
 
   ref_difftest_memcpy(addr, &ref_data, 4, DIFFTEST_TO_DUT);
-  dut_data = paddr_read(addr, 4);
+  dut_data = vaddr_read(addr, 4);
   if (dut_data != ref_data) {
     printf("[error] ref(0x%x) != dut(0x%x)\n", ref_data, dut_data);
     printf("\t consider the diffinit sync or here is a bug\n");
@@ -54,6 +56,7 @@ int add_memguard(paddr_t addr) {
   }
   new_node->addr = addr;
   new_node->next = NULL;
+  *cur = new_node;
 
   return 0;
 }
@@ -62,7 +65,7 @@ void info_memguard() {
   memguarder_t *cur = guard_list;
   int i = 0;
   while (cur != NULL) {
-    uint32_t data = paddr_read(cur->addr, 4);
+    uint32_t data = vaddr_read(cur->addr, 4);
     printf("memguard[%d] watching the addr 0x%x value is 0x%x %d\n", i,
            cur->addr, data, data);
   }
@@ -75,7 +78,7 @@ void del_memguard(int idx) {
   memguarder_t **cur = &guard_list;
   while (*cur != NULL) {
     if (counter == idx) {
-      paddr_t addr = (*cur)->addr;
+      vaddr_t addr = (*cur)->addr;
       memguarder_t *to_del = *cur;
       *cur = (*cur)->next;
       free(to_del);
@@ -99,7 +102,7 @@ void exec_memguard() {
     uint32_t ref_data = 0;
     uint32_t dut_data = 0;
     ref_difftest_memcpy(cur->addr, &ref_data, 4, DIFFTEST_TO_DUT);
-    dut_data = paddr_read(cur->addr, 4);
+    dut_data = vaddr_read(cur->addr, 4);
 
     if (ref_data != dut_data) {
       failed = true;
@@ -110,7 +113,7 @@ void exec_memguard() {
   }
 
   if (failed) {
-    assert(false && "memguard failed");
+    set_state_stop();
   }
 
   return;
