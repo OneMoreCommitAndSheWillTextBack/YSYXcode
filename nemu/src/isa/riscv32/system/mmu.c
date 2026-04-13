@@ -107,15 +107,26 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   paddr_t pte1_addr = pgt1_start + 4 * vpn1_idx;
   uint32_t pte1 = paddr_read(pte1_addr, 4);
 
-  if (isa_mmu_permission_check(pte1, type) == false) {
+  if (!(pte1 & PTE_V)) {
     printf("pc = %08x\n", cpu.pc);
-    printf("MMU PTE1 check failed: vaddr=0x%08x type=%s vpn1_idx=%d "
+    printf("MMU PTE1 invalid: vaddr=0x%08x type=%s vpn1_idx=%d "
            "pte1_addr=0x%08x pte1=0x%08x (V=%d)\n",
            vaddr,
            type == MEM_TYPE_IFETCH ? "IFETCH"
            : type == MEM_TYPE_READ ? "READ"
                                    : "WRITE",
            vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V));
+    assert(0);
+  }
+
+  // For Sv32 two-level page walk in this project:
+  // level-1 PTE is expected to be non-leaf (R/W/X all zero),
+  // and only the level-0 PTE carries access permissions.
+  if (pte1 & (PTE_R | PTE_W | PTE_X)) {
+    printf("pc = %08x\n", cpu.pc);
+    printf("MMU PTE1 leaf(superpage) is not supported: vaddr=0x%08x "
+           "pte1_addr=0x%08x pte1=0x%08x\n",
+           vaddr, pte1_addr, pte1);
     assert(0);
   }
 
