@@ -21,7 +21,7 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
                       "a6", "a7", "s2",  "s3",  "s4", "s5", "s6", "s7",
                       "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
-const char *csr[] = {"mstatus", "mcause", "mepc", "mtvec", "satp"};
+const char *csr[] = {"mstatus", "mcause", "mepc", "mtvec", "satp", "mscratch"};
 
 static uint32_t get_csr_val(CPU_state *state, int idx) {
   switch (idx) {
@@ -30,6 +30,7 @@ static uint32_t get_csr_val(CPU_state *state, int idx) {
     case 2: return state->csr.mepc;
     case 3: return state->csr.mtvec;
     case 4: return state->csr.satp;
+    case 5: return state->csr.mscratch;
     default: assert(false && "invalid csr idx");
   }
 }
@@ -51,7 +52,7 @@ void isa_reg_display(CPU_state *ref) {
       printf("  %s%-7s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, regs[i], C_RESET,
              C_VAL, val, C_RESET, C_VAL, (int32_t)val, C_RESET);
     }
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
       uint32_t val = get_csr_val(&cpu, i);
       printf("  %s%-7s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, csr[i], C_RESET,
              C_VAL, val, C_RESET, C_VAL, (int32_t)val, C_RESET);
@@ -72,7 +73,7 @@ void isa_reg_display(CPU_state *ref) {
              C_RESET, c, d, C_RESET, c, r, C_RESET, c, (int32_t)d - (int32_t)r,
              C_RESET);
     }
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
       uint32_t d = get_csr_val(&cpu, i);
       uint32_t r = get_csr_val(ref, i);
       const char *c = (d == r) ? C_VAL : C_DIFF;
@@ -96,7 +97,7 @@ word_t isa_reg_str2val(const char *s, bool *success) {
       return cpu.gpr[i];
     }
   }
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     if (strcmp(csr[i], s + 1) == 0) {
       return get_csr_val(&cpu, i);
     }

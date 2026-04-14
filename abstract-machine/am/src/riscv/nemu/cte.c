@@ -7,10 +7,17 @@ static Context *(*user_handler)(Event, Context *) = NULL;
 void __am_get_cur_as(Context *c);
 void __am_switch(Context *c);
 
+static inline uintptr_t read_mscratch_csr() {
+  uintptr_t v = 0;
+  asm volatile("csrr %0, mscratch" : "=r"(v));
+  return v;
+}
+
 static void dump_context(const char *tag, Context *c) {
-  printf("[cte] %s: c=%p pdir=%p mcause=%08x mstatus=%08x mepc=%08x\n", tag, c,
-         c->pdir, (uint32_t)c->mcause, (uint32_t)c->mstatus,
-         (uint32_t)c->mepc);
+  printf("[cte] %s: c=%p pdir=%p c->mscratch=%p csr(mscratch)=%p mcause=%08x "
+         "mstatus=%08x mepc=%08x\n",
+         tag, c, c->pdir, (void *)c->mscratch, (void *)read_mscratch_csr(),
+         (uint32_t)c->mcause, (uint32_t)c->mstatus, (uint32_t)c->mepc);
   for (int i = 0; i < NR_REGS; i++) {
     printf("[cte] %s: gpr[%02d]=%08x\n", tag, i, (uint32_t)c->gpr[i]);
   }
