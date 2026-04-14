@@ -15,6 +15,9 @@ static Area segments[] = { // Kernel memory mappings
 
 static inline void set_satp(void *pdir) {
   uintptr_t mode = 1ul << (__riscv_xlen - 1);
+  printf("[vme] set_satp: pdir=%p ppn=0x%08x satp=0x%08x\n", pdir,
+         (uint32_t)((uintptr_t)pdir >> 12),
+         (uint32_t)(mode | ((uintptr_t)pdir >> 12)));
   asm volatile("csrw satp, %0" : : "r"(mode | ((uintptr_t)pdir >> 12)));
 }
 
@@ -49,8 +52,11 @@ void protect(AddrSpace *as) {
   as->ptr = updir;
   as->area = USER_SPACE;
   as->pgsize = PGSIZE;
+  printf("[vme] protect: new user pdir base=%p\n", updir);
   // map kernel space
   memcpy(updir, kas.ptr, PGSIZE);
+  printf("[vme] protect: copied kernel mappings from kas=%p to user pdir=%p\n",
+         kas.ptr, updir);
 }
 
 void unprotect(AddrSpace *as) {}
@@ -61,6 +67,7 @@ void __am_get_cur_as(Context *c) {
 
 void __am_switch(Context *c) {
   if (vme_enable && c->pdir != NULL) {
+    printf("[vme] __am_switch: switch to pdir=%p\n", c->pdir);
     set_satp(c->pdir);
   }
 }
@@ -80,6 +87,8 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
     assert(pgt0_start != NULL);
     pgt1_start[pte1_idx] =
         (((uint32_t)(uintptr_t)pgt0_start >> 2) & PPN_MASK) | PTE_V;
+    printf("[vme] map: alloc l0 pgt base=%p for l1_idx=%d (va=%p), l1_base=%p\n",
+           pgt0_start, pte1_idx, va, pgt1_start);
   } else {
     pgt0_start = (PTE *)((pte1 & PPN_MASK) << 2);
   }
