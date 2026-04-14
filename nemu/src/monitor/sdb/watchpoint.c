@@ -44,6 +44,11 @@ void init_wp_pool() {
 /* TODO: Implement the functionality of watchpoint */
 void new_wp(char *exp) {
   // move a wp from free_ to head
+  size_t expr_len = 0;
+  if (exp == NULL || *exp == '\0') {
+    printf("empty expression for watchpoint\n");
+    return;
+  }
   bool success = true;
   int val = expr(exp, &success);
   if (success == false) {
@@ -74,7 +79,14 @@ void new_wp(char *exp) {
   }
 
 wp_init:
-  tmp->expr = (char *)malloc(sizeof(char) * strlen(exp));
+  expr_len = strlen(exp);
+  tmp->expr = (char *)malloc(expr_len + 1);
+  if (tmp->expr == NULL) {
+    printf("failed to allocate memory for watchpoint expr\n");
+    tmp->next = free_;
+    free_ = tmp;
+    return;
+  }
   strcpy(tmp->expr, exp);
   tmp->val = val;
   printf("create a watchpoint[%d] expr:%s val:%d\n", tmp->NO, tmp->expr,
