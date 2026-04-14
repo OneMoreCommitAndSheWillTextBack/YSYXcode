@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include "common.h"
+#include "cpu/cpu.h"
 #include <isa.h>
 #include <memory/paddr.h>
 #include <memory/vaddr.h>
@@ -88,17 +89,20 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
 
   if (type == MEM_TYPE_READ) {
     if (!(pte & PTE_R)) {
-      assert(false && "mmu permission deny, page cannot read");
+      printf("mmu permission deny, page cannot read");
+      set_state_abort(1);
       return false;
     }
   } else if (type == MEM_TYPE_IFETCH) {
     if (!(pte & PTE_X)) {
-      assert(false && "mmu permisssion deny, page cannot exec");
+      printf("mmu permission deny, page cannot exec");
+      set_state_abort(1);
       return false;
     }
   } else if (type == MEM_TYPE_WRITE) {
     if (!(pte & PTE_W)) {
-      assert(false && "mmu permisssion deny, page cannot write");
+      printf("mmu permission deny, page cannot write");
+      set_state_abort(1);
       return false;
     }
   }
@@ -125,7 +129,7 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
            : type == MEM_TYPE_READ ? "READ"
                                    : "WRITE",
            vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V));
-    assert(0);
+    set_state_abort(1);
   }
 
   // For Sv32 two-level page walk in this project:
@@ -136,7 +140,7 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
     printf("MMU PTE1 leaf(superpage) is not supported: vaddr=0x%08x "
            "pte1_addr=0x%08x pte1=0x%08x\n",
            vaddr, pte1_addr, pte1);
-    assert(0);
+    set_state_abort(1);
   }
 
   isa_mmu_update_pte(pte1_addr, pte1, type);
@@ -154,7 +158,7 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
            : type == MEM_TYPE_READ ? "READ"
                                    : "WRITE",
            vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V));
-    assert(0);
+    set_state_abort(1);
   }
 
   isa_mmu_update_pte(pte0_addr, pte0, type);
