@@ -168,17 +168,27 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   yield();
 }
 
+void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
+  context_kload(p, entry, arg);
+  p->cp->mscratch = (uintptr_t)p->cp;
+}
+
+void context_uload_wrapper(PCB *p, const char *filename, char *argv[], char *envp[]) {
+  context_uload(p, filename, argv, envp);
+  p->cp->mscratch = (uintptr_t)p->cp;
+}
+
 void init_proc() {
   switch_boot_pcb();
 
   Log("Initializing processes...");
 
   // naive_uload(NULL, "/bin/nterm");
-  context_kload(&pcb[0], hello_fun, "A");
+  context_kload_wrapper(&pcb[0], hello_fun, "A");
 
   // char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
-  context_uload(&pcb[1], "/bin/nterm", NULL, envp);
+  context_uload_wrapper(&pcb[1], "/bin/nterm", NULL, envp);
 }
 
 Context *schedule(Context *prev) {
