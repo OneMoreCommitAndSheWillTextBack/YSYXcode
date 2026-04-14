@@ -34,7 +34,7 @@ bool vme_init(void *(*pgalloc_f)(int), void (*pgfree_f)(void *)) {
   for (i = 0; i < LENGTH(segments); i++) {
     void *va = segments[i].start;
     for (; va < segments[i].end; va += PGSIZE) {
-      map(&kas, va, va, PTE_U);
+      map(&kas, va, va, PTE_R | PTE_W | PTE_X | PTE_A);
     }
   }
 
@@ -79,7 +79,7 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
     pgt0_start = (PTE *)(pgalloc_usr(PGSIZE));
     assert(pgt0_start != NULL);
     pgt1_start[pte1_idx] =
-        (((uint32_t)(uintptr_t)pgt0_start >> 2) & PPN_MASK) | PTE_V | prot;
+        (((uint32_t)(uintptr_t)pgt0_start >> 2) & PPN_MASK) | PTE_V;
   } else {
     pgt0_start = (PTE *)((pte1 & PPN_MASK) << 2);
   }
@@ -90,15 +90,13 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
     return;
   }
 
-  pgt0_start[pte0_idx] = pgt0_start[pte0_idx] & ~(PPN_MASK);
   pgt0_start[pte0_idx] =
-      pgt0_start[pte0_idx] | (((uint32_t)(uintptr_t)pa >> 2) & PPN_MASK);
-  pgt0_start[pte0_idx] = pgt0_start[pte0_idx] | PTE_V | prot;
+      (((uint32_t)(uintptr_t)pa >> 2) & PPN_MASK) | PTE_V | prot;
 }
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
   Context *context = (Context *)kstack.end - 1;
-  context->mstatus = 0x1800;
+  context->mstatus = 0x80;
   context->mepc = (uintptr_t)entry;
   context->pdir = as->ptr;
   context->GPRx = (uintptr_t)((uint32_t *)kstack.end + 1);

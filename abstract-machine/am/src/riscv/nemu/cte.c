@@ -17,7 +17,8 @@ Context *__am_irq_handle(Context *c) {
       case -1:
         ev.event = EVENT_YIELD;
         break;
-			case 1:
+      case 9:
+			case 11:
         if(c->gpr[17] == -1) 
           ev.event = EVENT_YIELD; 
         else
@@ -49,7 +50,7 @@ bool cte_init(Context *(*handler)(Event, Context *)) {
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   // 这个减一不可以删掉，否则cp和context会重合，修改一个会导致另一个发生改变
-  Context *context = (Context *)kstack.end - 1; 
+  Context *context = (Context *)kstack.end - 1;
   context->mstatus = 0x1800;
   context->mepc = (uintptr_t)entry;
   context->gpr[10] = (uintptr_t)arg;
