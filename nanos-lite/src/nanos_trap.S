@@ -42,9 +42,14 @@ f(30) f(31)
 .align 3
 .globl __am_asm_nanos_trap
 __am_asm_nanos_trap:
-  csrr a0, mscratch
+  # Swap user a0 and mscratch:
+  #   a0 <- trap context ptr, mscratch <- user a0
+  csrrw a0, mscratch, a0
 
   MAP(REGS, PUSH)
+  # Restore original user a0 into saved gpr[10]
+  csrr t0, mscratch
+  STORE t0, (10 * XLEN)(a0)
 
   csrr t0, mcause
   csrr t1, mstatus
