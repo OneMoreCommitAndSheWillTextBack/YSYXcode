@@ -85,6 +85,10 @@ INCFLAGS += $(addprefix -I, $(INC_PATH))
 CFLAGS   += -O2 -MMD $(INCFLAGS) -static -D__NAVY__ \
             -D__ISA__=\"$(ISA)\" -D__ISA_$(shell echo $(ISA) | tr a-z A-Z)__ \
             -fno-asynchronous-unwind-tables -fno-builtin -fno-stack-protector
+
+# to avoid implict declaration error 
+CFLAGS += -Wno-implicit-function-declaration -Wno-error=implicit-function-declaration
+
 CXXFLAGS +=  $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
 ASFLAGS  +=  $(CFLAGS)
 
