@@ -2,18 +2,18 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <fcntl.h>  // 用于 O_WRONLY 等文件打开标志
+#include <signal.h> // 用于 kill(), raise(), SIGSTOP, SIGCONT
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>      // 用于 fork(), close(), dup2()
-#include <sys/types.h>   // 用于 pid_t, waitpid()
-#include <sys/wait.h>    // 用于 waitpid()
-#include <sys/stat.h>    // 用于 open()
-#include <fcntl.h>       // 用于 O_WRONLY 等文件打开标志
-#include <signal.h>      // 用于 kill(), raise(), SIGSTOP, SIGCONT
+#include <sys/stat.h>  // 用于 open()
+#include <sys/types.h> // 用于 pid_t, waitpid()
+#include <sys/wait.h>  // 用于 waitpid()
+#include <unistd.h>    // 用于 fork(), close(), dup2()
 
 #include <sys/wait.h>
 #ifdef __NVBOARD__
-  #include "nvboard.h"
+#include "nvboard.h"
 #endif
 
 Npc *npc = NULL;
@@ -28,53 +28,49 @@ itrace_cfg_t *itrace_cfg = NULL;
 static bool start_load = false;
 static unsigned long long loadfinish_time = -1;
 
-unsigned long long get_loadfinish_time() {
-  return loadfinish_time;
-}
+unsigned long long get_loadfinish_time() { return loadfinish_time; }
 
 void tfpclose();
 
 void demp_wave() {
 #ifdef TRACE
   if (fork_interval_is_on()) {
-    if(record_isenable()) {
+    if (record_isenable()) {
       trace->context->timeInc(1);
       trace->tfp->dump(trace->context->time());
     }
 
-    if(!record_isenable() && npc->cycs % fork_interval_val() == 0) {
-      pid_t old = fork_pid_val;          
+    if (!record_isenable() && npc->cycs % fork_interval_val() == 0) {
+      pid_t old = fork_pid_val;
       pid_t pid = fork();
-      if (pid == 0) {                /* child */
-          // 关闭标准输出和错误输出，避免干扰
-          close(STDOUT_FILENO);
-          // 重定向到 /dev/null 更安全
-          int null_fd = open("/dev/null", O_WRONLY);
-          dup2(null_fd, STDOUT_FILENO);
-          close(null_fd);
-          signal(SIGUSR2, [](int) {
-              set_record_enable();  
-          });
-          raise(SIGSTOP);
+      if (pid == 0) { /* child */
+        // 关闭标准输出和错误输出，避免干扰
+        close(STDOUT_FILENO);
+        // 重定向到 /dev/null 更安全
+        int null_fd = open("/dev/null", O_WRONLY);
+        dup2(null_fd, STDOUT_FILENO);
+        close(null_fd);
+        signal(SIGUSR2, [](int) { set_record_enable(); });
+        raise(SIGSTOP);
 
-          while(!record_isenable()) {
-            pause();
-          }
+        while (!record_isenable()) {
+          pause();
+        }
 
-          cpu_exec(-1);
+        cpu_exec(-1);
 
-      } else if (pid > 0) {          /* parent */
-          fork_pid_val = pid;            
-          if (old) {
-              kill(old, SIGCONT);
-              usleep(10000);
-              kill(old, SIGKILL);
-              waitpid(old, NULL, 0);
-          }
-      }      
+      } else if (pid > 0) { /* parent */
+        fork_pid_val = pid;
+        if (old) {
+          kill(old, SIGCONT);
+          usleep(10000);
+          kill(old, SIGKILL);
+          waitpid(old, NULL, 0);
+        }
+      }
     }
   } else if (record_enable_when_on_val()) {
-    if(record_isenable()) {
+    if (record_isenable()) {
       trace->context->timeInc(1);
       trace->tfp->dump(trace->context->time());
     } else {
@@ -93,9 +89,11 @@ static int same_inst_cyc = 0;
 static unsigned int pre_inst = 0;
 static bool itrace_valid = false;
 static void exe_once() {
-  #ifdef __NVBOARD__
+
+#ifdef __NVBOARD__
   nvboard_update();
-  #endif
+#endif
+
   npc->top->clock = 1;
   npc->top->eval();
   demp_wave();
@@ -105,16 +103,17 @@ static void exe_once() {
   npc->cycs += 1; // one cyc
   npc->timer += 2;
 
-  #ifndef __NPC__
-  if(!start_load && npc->top->externalPins_gpio_out == 0x3AB) {
+#ifndef __NPC__
+  if (!start_load && npc->top->externalPins_gpio_out == 0x3AB) {
     start_load = true;
   }
 
-  if(start_load && npc->top->externalPins_gpio_out == 0x0 && loadfinish_time == -1) {
+  if (start_load && npc->top->externalPins_gpio_out == 0x0 &&
+      loadfinish_time == -1) {
     loadfinish_time = npc->timer;
     printf(COLOR_BLUE "npc finish load\n" COLOR_RESET);
   }
-  #endif
+#endif
 
   if (die_on_end_is_on() && npc->cycs >= die_on_end_val()) {
     npc->state = ABORT;
@@ -122,14 +121,15 @@ static void exe_once() {
   }
 
 #ifdef ITRACE
-  if(cpu->valid) {
+  if (cpu->valid) {
     char *p = cpu->logbuf;
     p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->commit.pc);
     int i;
     p += snprintf(p, 10, " %08x", cpu->inst);
     memset(p, ' ', 1);
     p += 1;
-    void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
+    void disassemble(char *str, int size, uint64_t pc, uint8_t *code,
+                     int nbyte);
     disassemble(p, cpu->logbuf + sizeof(cpu->logbuf) - p, cpu->commit.pc,
                 (uint8_t *)(&cpu->inst), 4);
     itrace_valid = true;
@@ -145,7 +145,8 @@ static void exe_once() {
 
   if (same_inst_cyc >= MAX_SAME_INST_CYC) {
     npc->state = ABORT;
-    printf(COLOR_RED "same inst cyc hit the max same inst cycle, abort\n" COLOR_RESET);
+    printf(COLOR_RED
+           "same inst cyc hit the max same inst cycle, abort\n" COLOR_RESET);
   }
 }
 
@@ -156,10 +157,10 @@ void trace_or_diff() {
 #endif
 
 #ifdef ITRACE
-if(itrace_valid) {
-  fprintf(itrace_cfg->itrace_out, "%s\n", cpu->logbuf);
-  itrace_valid = false;
-}
+  if (itrace_valid) {
+    fprintf(itrace_cfg->itrace_out, "%s\n", cpu->logbuf);
+    itrace_valid = false;
+  }
 #endif
 
 #ifdef DIFFTEST
@@ -172,24 +173,24 @@ if(itrace_valid) {
   }
 #endif
 #ifdef MEMORY_GUARD
-  if(cpu->valid == 1)
+  if (cpu->valid == 1)
     check_mem_guard();
 #endif
 }
 
-static void execute(unsigned int n) {  
+static void execute(unsigned int n) {
   while (n--) {
     exe_once();
     trace_or_diff();
-    if (npc->state == END || npc->state == ABORT){
+    if (npc->state == END || npc->state == ABORT) {
       deal_statistic();
-      #ifdef __NVBOARD__
+#ifdef __NVBOARD__
       nvboard_quit();
-      #endif
+#endif
       tfpclose();
-      return ;
-    } else if(npc->state == STOP) {
-      return ;
+      return;
+    } else if (npc->state == STOP) {
+      return;
     }
   }
 }
@@ -227,17 +228,15 @@ void cpu_exec(int n) {
 
 #ifdef TRACE
 int child_finished = 0;
-void sigusr1_handler(int sig) {
-  child_finished = 1;
-}
+void sigusr1_handler(int sig) { child_finished = 1; }
 #endif
 
 // SIGUSR1 子进程结束信号 (子进程 -> 父进程)
 // SIGUSR2 子进程开始记录信号 (父进程 -> 子进程)
 void tfpclose() {
 #ifdef TRACE
-  if(fork_interval_is_on()) {
-    if(record_isenable()) {
+  if (fork_interval_is_on()) {
+    if (record_isenable()) {
       fprintf(stderr, "close trace file\n");
       trace->tfp->close();
       usleep(10000);
@@ -245,14 +244,14 @@ void tfpclose() {
       exit(0);
     } else {
       // 父进程不进行记录， 但是在这里唤醒子进程
-      if(fork_pid_val != 0) {
+      if (fork_pid_val != 0) {
         int status;
-        if(kill(fork_pid_val, 0) == -1) {  // 检查进程是否存在
+        if (kill(fork_pid_val, 0) == -1) { // 检查进程是否存在
           fprintf(stderr, "Child process %d does not exist\n", fork_pid_val);
           fork_pid_val = 0;
           return;
         }
-        
+
         struct sigaction sa;
         sa.sa_handler = sigusr1_handler;
         sigemptyset(&sa.sa_mask);
@@ -261,13 +260,13 @@ void tfpclose() {
 
         __sync_synchronize();
 
-        kill(fork_pid_val, SIGCONT); 
+        kill(fork_pid_val, SIGCONT);
         kill(fork_pid_val, SIGUSR2);
 
-        while(!child_finished) {
+        while (!child_finished) {
           pause();
         }
-        
+
         fork_pid_val = 0;
       } else {
         assert(0);
@@ -281,24 +280,24 @@ void tfpclose() {
 
 void echo_status() {
   switch (npc->state) {
-    case RUNNING:
-      printf("npc state: running\n");
-      break;
-    case STOP:
-      printf("npc state: stop\n");
-      break;
-    case END:
-      printf("npc state: end\n");
-      break;
-    case ABORT:
-      printf("npc state: abort\n");
-      break;
-    case QUIT:
-      printf("npc state: quit\n");
-      break;
-    default:
-      printf("npc state: unknown\n");
-      break;
+  case RUNNING:
+    printf("npc state: running\n");
+    break;
+  case STOP:
+    printf("npc state: stop\n");
+    break;
+  case END:
+    printf("npc state: end\n");
+    break;
+  case ABORT:
+    printf("npc state: abort\n");
+    break;
+  case QUIT:
+    printf("npc state: quit\n");
+    break;
+  default:
+    printf("npc state: unknown\n");
+    break;
   }
 }
 
@@ -313,12 +312,12 @@ void set_npc_end() {
 }
 
 void set_npc_quit() {
-  if(npc->state == STOP) {
+  if (npc->state == STOP) {
     tfpclose();
     printf("quit the nvboard\n");
-    #ifdef __NVBOARD__
+#ifdef __NVBOARD__
     nvboard_quit();
-    #endif
+#endif
     npc->state = QUIT;
   }
   // 对于 ABORT 和 END 无需做任何事
@@ -326,12 +325,10 @@ void set_npc_quit() {
 
 void set_npc_stop() { npc->state = STOP; }
 
-void npc_diff_quit() {
-  npc->state = ABORT;
-}
+void npc_diff_quit() { npc->state = ABORT; }
 
-void set_diff_pass() { 
-  #ifdef DIFFTEST
+void set_diff_pass() {
+#ifdef DIFFTEST
   set_ref_skip();
-  #endif
+#endif
 }

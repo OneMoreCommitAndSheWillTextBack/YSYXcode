@@ -80,12 +80,12 @@ unsigned long long die_on_end = 0;
 bool die_on_end_on = false;
 
 char *filepath = NULL;
-char diff_ref[] = "/home/ysyx/project/ysyx-workbench/nemu/build/"
+char diff_ref[] = "/home/cinder/Code/project/ysyx-workbench/nemu/build/"
                   "riscv32-nemu-interpreter-so";
 int port = 0;
 bool batch_mode_on = false;
 
-char itrace_out_file[] = "/home/ysyx/project/ysyx-workbench/simulator/itrace-log.txt";
+char itrace_out_file[] = "/home/cinder/Code/project/ysyx-workbench/simulator/itrace-log.txt";
 
 #ifdef __NVBOARD__
 extern void nvboard_bind_all_pins(VysyxSoCFull* top);
@@ -158,7 +158,7 @@ void init_trace() {
   trace->context = new VerilatedContext;
   trace->context->traceEverOn(true);
   npc->top->trace(trace->tfp, 0);
-  trace->tfp->open("/home/ysyx/project/ysyx-workbench/npc/wave.vcd");
+  trace->tfp->open("/home/cinder/Code/project/ysyx-workbench/npc/wave.vcd");
 #endif
   return;
 }

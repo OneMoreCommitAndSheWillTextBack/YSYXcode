@@ -1,63 +1,65 @@
+#include "memory.h"
 #include "common.h"
 #include "host.h"
 #include "map.h"
-#include "memory.h"
 #include <assert.h>
 #include <cstdint>
 #include <iostream>
 
 #ifdef __NPC__
- const unsigned int psize = 0x20000000;
+const unsigned int psize = 0x20000000;
 #else
-  const unsigned int psize = 0x400000;
+const unsigned int psize = 0x400000;
 #endif
 const unsigned int msize = 0x800000;
 const unsigned int fsize = 0xfffffff;
 const unsigned int dsize = 0x20000000;
 static uint8_t pmem[msize] = {};
-static uint8_t flash[fsize] =  {};
+static uint8_t flash[fsize] = {};
 static uint8_t psram[psize] = {};
 static uint8_t sdram[dsize] = {};
 
 socspace soc_spaces[] = {
-  {"mrom" , MBASE , MBASE + msize, pmem },
-  {"flash", FBASE , FBASE + fsize, flash },
-  {"psram", PSBASE, PSBASE + psize, psram},
-  #ifndef __NPC__ 
-  {"sdram", SDBASE, SDBASE + dsize, sdram},
-  #endif
+    {"mrom", MBASE, MBASE + msize, pmem},
+    {"flash", FBASE, FBASE + fsize, flash},
+    {"psram", PSBASE, PSBASE + psize, psram},
+#ifndef __NPC__
+    {"sdram", SDBASE, SDBASE + dsize, sdram},
+#endif
 };
-
 
 #define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
 #ifdef MTRACE
-char mtrace_log_file[] = "/home/ysyx/project/ysyx-workbench/simulator/mtrace_log.txt";
+char mtrace_log_file[] =
+    "/home/cinder/Code/project/ysyx-workbench/simulator/mtrace_log.txt";
 FILE *mtrace_fd = NULL;
 #endif
 
 void init_mem() {
-  for(int i=0;i<SPACE_NUM;i++) {
-    printf(COLOR_BLUE "[%s] start: 0x%x -- end: 0x%x\n" COLOR_RESET, soc_spaces[i].name, soc_spaces[i].start, soc_spaces[i].end);
+  for (int i = 0; i < SPACE_NUM; i++) {
+    printf(COLOR_BLUE "[%s] start: 0x%x -- end: 0x%x\n" COLOR_RESET,
+           soc_spaces[i].name, soc_spaces[i].start, soc_spaces[i].end);
   }
 
 #ifdef MTRACE
   mtrace_fd = fopen(mtrace_log_file, "w");
-  printf(COLOR_GREEN "[INFO] mtrace log file %s\n" COLOR_RESET, mtrace_log_file);
+  printf(COLOR_GREEN "[INFO] mtrace log file %s\n" COLOR_RESET,
+         mtrace_log_file);
 #endif
 }
 
 bool in_pmem(uint32_t addr) {
-  for(int i = 0; i < SPACE_NUM; i++)
-    if(addr >= soc_spaces[i].start && addr <= soc_spaces[i].end)
+  for (int i = 0; i < SPACE_NUM; i++)
+    if (addr >= soc_spaces[i].start && addr <= soc_spaces[i].end)
       return true;
-  
+
   return false;
 }
 
-int space_to_host(uint32_t addr, socspace** space) {
-  for(int i = 0; i < SPACE_NUM; i++)
-    if(addr >= soc_spaces[i].start && addr <= soc_spaces[i].end){
+int space_to_host(uint32_t addr, socspace **space) {
+  for (int i = 0; i < SPACE_NUM; i++)
+    if (addr >= soc_spaces[i].start && addr <= soc_spaces[i].end) {
       *space = &soc_spaces[i];
       return 1;
     }
@@ -65,9 +67,9 @@ int space_to_host(uint32_t addr, socspace** space) {
 }
 
 uint8_t *guest_to_host(uint32_t addr) {
-  socspace* space;
-  if(space_to_host(addr, &space)){
-    return (uint8_t*)space->space + addr - space->start;
+  socspace *space;
+  if (space_to_host(addr, &space)) {
+    return (uint8_t *)space->space + addr - space->start;
   }
   printf("[guest_to_host]the addr 0x%08x is out of bound\n", addr);
   assert(0);
