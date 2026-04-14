@@ -146,8 +146,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   void *va = (uint8_t *)p->as.area.end - PGSIZE;
   Log("Mapping 8 pages: va_start=%p, pa_start=%p", va, pa);
   for (int i = 0; i < 8; i++) {
-    Log("  [%d] mapping va=%p -> pa=%p (flags: V|R|W)", i, va, pa);
-    map(&p->as, va, pa, PTE_V | PTE_R | PTE_W);
+    Log("  [%d] mapping va=%p -> pa=%p (flags: U|R|W|A|D)", i, va, pa);
+    map(&p->as, va, pa, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
     va -= PGSIZE;
     pa -= PGSIZE;
   }
@@ -156,10 +156,13 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   uintptr_t ptr_array_pa =
       argdeal_uload((uintptr_t)alloc_end, filename, argv, envp);
+  uintptr_t ptr_array_va =
+      (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
   Area stack = {.end = (void *)ptr_array_pa};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(&p->as, stack, (void *)entry);
+  p->cp->GPRx = ptr_array_va;
   switch_boot_pcb();
   Log("switch to user process");
   yield();
@@ -173,9 +176,9 @@ void init_proc() {
   // naive_uload(NULL, "/bin/nterm");
   context_kload(&pcb[0], hello_fun, "A");
 
-  char *argv[] = {"/bin/pal", "--skip", NULL};
+  // char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
-  context_uload(&pcb[1], "/bin/pal", argv, envp);
+  context_uload(&pcb[1], "/bin/nterm", NULL, envp);
 }
 
 Context *schedule(Context *prev) {
