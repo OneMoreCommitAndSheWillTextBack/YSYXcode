@@ -7,9 +7,18 @@ static Context *(*user_handler)(Event, Context *) = NULL;
 void __am_get_cur_as(Context *c);
 void __am_switch(Context *c);
 
+static void dump_context(const char *tag, Context *c) {
+  printf("[cte] %s: c=%p pdir=%p mcause=%08x mstatus=%08x mepc=%08x "
+         "sp(x2)=%08x ra(x1)=%08x a0(x10)=%08x a7(x17)=%08x\n",
+         tag, c, c->pdir, (uint32_t)c->mcause, (uint32_t)c->mstatus,
+         (uint32_t)c->mepc, (uint32_t)c->gpr[2], (uint32_t)c->gpr[1],
+         (uint32_t)c->gpr[10], (uint32_t)c->gpr[17]);
+}
+
 Context *__am_irq_handle(Context *c) {
   // printf("into am irq handle, mcause is %d\n", c->mcause);
   __am_get_cur_as(c);
+  dump_context("trap-enter", c);
   if (user_handler) {
     Event ev = {0};
     switch (c->mcause) {
@@ -31,6 +40,7 @@ Context *__am_irq_handle(Context *c) {
     assert(c != NULL);
   }
 
+  dump_context("trap-exit ", c);
   __am_switch(c);
   return c;
 }
