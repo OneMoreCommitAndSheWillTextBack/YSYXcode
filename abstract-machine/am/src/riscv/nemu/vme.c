@@ -66,6 +66,7 @@ void __am_get_cur_as(Context *c) {
 }
 
 void __am_switch(Context *c) {
+  asm volatile("csrw mscratch, %0" : : "r"(c));
   if (vme_enable && c->pdir != NULL) {
     printf("[vme] __am_switch: switch to pdir=%p\n", c->pdir);
     set_satp(c->pdir);
@@ -107,6 +108,7 @@ Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
   Context *context = (Context *)kstack.end - 1;
   context->mstatus = 0x80;
   context->mepc = (uintptr_t)entry;
+  context->mscratch = (uintptr_t)context;
   context->pdir = as->ptr;
   context->GPRx = (uintptr_t)((uint32_t *)kstack.end + 1);
   return context;

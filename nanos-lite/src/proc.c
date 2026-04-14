@@ -177,6 +177,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
   context_kload(p, entry, arg);
   p->cp->mscratch = (uintptr_t)p->cp;
+  asm volatile("csrw mscratch, %0" : : "r"(p->cp->mscratch));
 }
 
 void context_uload_wrapper(PCB *p, const char *filename, char *argv[], char *envp[]) {
