@@ -51,6 +51,8 @@ __am_asm_nanos_trap:
   # Save original user a0 into gpr[10]
   csrr t0, mscratch
   STORE t0, (10 * XLEN)(a0)
+  # Keep mscratch as trapframe pointer to support nested traps in kernel
+  csrw mscratch, a0
 
   csrr t0, mcause
   csrr t1, mstatus
@@ -59,7 +61,6 @@ __am_asm_nanos_trap:
   STORE t0, OFFSET_CAUSE(a0)
   STORE t1, OFFSET_STATUS(a0)
   STORE t2, OFFSET_EPC(a0)
-  STORE a0, OFFSET_SCRATCH(a0)
 
   # set mstatus.MPRV to pass difftest
   li t0, (1 << 17)
@@ -73,8 +74,7 @@ __am_asm_nanos_trap:
   csrw mstatus, t1
   csrw mepc, t2
 
-  LOAD t1, OFFSET_SCRATCH(a0)
-  csrw mscratch, t1
+  csrw mscratch, a0
 
   MAP(REGS, POP)
   LOAD a0, (10 * XLEN)(a0)
