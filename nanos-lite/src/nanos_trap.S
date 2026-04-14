@@ -73,7 +73,8 @@ __am_asm_nanos_trap:
   csrw mstatus, t1
   csrw mepc, t2
 
-  csrw mscratch, a0
+  LOAD t1, OFFSET_SCRATCH(a0)
+  csrw mscratch, t1
 
   MAP(REGS, POP)
 
