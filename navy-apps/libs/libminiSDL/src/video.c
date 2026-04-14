@@ -3,6 +3,7 @@
 #include <sdl-video.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
                      SDL_Rect *dstrect) {
@@ -36,7 +37,6 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
       }
     }
   } else {
-    printf("invalid BytesPerPixel\n");
     assert(0);
   }
 }

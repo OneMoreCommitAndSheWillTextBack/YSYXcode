@@ -1,4 +1,5 @@
 #include <NDL.h>
+#include <sdl-timer.h>
 
 int SDL_Init(uint32_t flags) {
   int res = NDL_Init(flags);
