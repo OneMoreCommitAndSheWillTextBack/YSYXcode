@@ -8,11 +8,12 @@ void __am_get_cur_as(Context *c);
 void __am_switch(Context *c);
 
 static void dump_context(const char *tag, Context *c) {
-  printf("[cte] %s: c=%p pdir=%p mcause=%08x mstatus=%08x mepc=%08x "
-         "sp(x2)=%08x ra(x1)=%08x a0(x10)=%08x a7(x17)=%08x\n",
-         tag, c, c->pdir, (uint32_t)c->mcause, (uint32_t)c->mstatus,
-         (uint32_t)c->mepc, (uint32_t)c->gpr[2], (uint32_t)c->gpr[1],
-         (uint32_t)c->gpr[10], (uint32_t)c->gpr[17]);
+  printf("[cte] %s: c=%p pdir=%p mcause=%08x mstatus=%08x mepc=%08x\n", tag, c,
+         c->pdir, (uint32_t)c->mcause, (uint32_t)c->mstatus,
+         (uint32_t)c->mepc);
+  for (int i = 0; i < NR_REGS; i++) {
+    printf("[cte] %s: gpr[%02d]=%08x\n", tag, i, (uint32_t)c->gpr[i]);
+  }
 }
 
 Context *__am_irq_handle(Context *c) {
