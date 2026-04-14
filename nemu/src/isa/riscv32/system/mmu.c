@@ -89,20 +89,17 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
 
   if (type == MEM_TYPE_READ) {
     if (!(pte & PTE_R)) {
-      printf("mmu permission deny, page cannot read");
-      set_state_abort(1);
+      panic("mmu permission deny, page cannot read");
       return false;
     }
   } else if (type == MEM_TYPE_IFETCH) {
     if (!(pte & PTE_X)) {
-      printf("mmu permission deny, page cannot exec");
-      set_state_abort(1);
+      panic("mmu permission deny, page cannot exec");
       return false;
     }
   } else if (type == MEM_TYPE_WRITE) {
     if (!(pte & PTE_W)) {
-      printf("mmu permission deny, page cannot write");
-      set_state_abort(1);
+      panic("mmu permission deny, page cannot write");
       return false;
     }
   }
@@ -121,26 +118,22 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   uint32_t pte1 = paddr_read(pte1_addr, 4);
 
   if (!(pte1 & PTE_V)) {
-    printf("pc = %08x\n", cpu.pc);
-    printf("MMU PTE1 invalid: vaddr=0x%08x type=%s vpn1_idx=%d "
-           "pte1_addr=0x%08x pte1=0x%08x (V=%d)\n",
-           vaddr,
-           type == MEM_TYPE_IFETCH ? "IFETCH"
-           : type == MEM_TYPE_READ ? "READ"
-                                   : "WRITE",
-           vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V));
-    set_state_abort(1);
+    panic("MMU PTE1 invalid: vaddr=0x%08x type=%s vpn1_idx=%d "
+          "pte1_addr=0x%08x pte1=0x%08x (V=%d) at pc = " FMT_WORD,
+          vaddr,
+          type == MEM_TYPE_IFETCH ? "IFETCH"
+          : type == MEM_TYPE_READ ? "READ"
+                                  : "WRITE",
+          vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V), cpu.pc);
   }
 
   // For Sv32 two-level page walk in this project:
   // level-1 PTE is expected to be non-leaf (R/W/X all zero),
   // and only the level-0 PTE carries access permissions.
   if (pte1 & (PTE_R | PTE_W | PTE_X)) {
-    printf("pc = %08x\n", cpu.pc);
-    printf("MMU PTE1 leaf(superpage) is not supported: vaddr=0x%08x "
-           "pte1_addr=0x%08x pte1=0x%08x\n",
-           vaddr, pte1_addr, pte1);
-    set_state_abort(1);
+    panic("MMU PTE1 leaf(superpage) is not supported: vaddr=0x%08x "
+          "pte1_addr=0x%08x pte1=0x%08x at pc = " FMT_WORD,
+          vaddr, pte1_addr, pte1, cpu.pc);
   }
 
   isa_mmu_update_pte(pte1_addr, pte1, type);
@@ -150,15 +143,13 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   uint32_t pte0 = paddr_read(pte0_addr, 4);
 
   if (isa_mmu_permission_check(pte0, type) == false) {
-    printf("pc = %08x\n", cpu.pc);
-    printf("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d "
-           "pte0_addr=0x%08x pte0=0x%08x (V=%d)\n",
-           vaddr,
-           type == MEM_TYPE_IFETCH ? "IFETCH"
-           : type == MEM_TYPE_READ ? "READ"
-                                   : "WRITE",
-           vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V));
-    set_state_abort(1);
+    panic("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d "
+          "pte0_addr=0x%08x pte0=0x%08x (V=%d) at pc = " FMT_WORD,
+          vaddr,
+          type == MEM_TYPE_IFETCH ? "IFETCH"
+          : type == MEM_TYPE_READ ? "READ"
+                                  : "WRITE",
+          vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V), cpu.pc);
   }
 
   isa_mmu_update_pte(pte0_addr, pte0, type);
@@ -175,6 +166,6 @@ paddr_t isa_mmu_translate(vaddr_t vaddr, int len, int type) {
     return vaddr;
   }
 
-  assert(false && "should not reach here");
+  panic("should not reach here at pc = " FMT_WORD, cpu.pc);
   return 0;
 }
