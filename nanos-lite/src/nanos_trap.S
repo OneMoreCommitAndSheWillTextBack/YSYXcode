@@ -66,7 +66,7 @@ __am_asm_nanos_trap:
   or t1, t1, a0
   csrw mstatus, t1
 
-  csrr a0, mscratch
+  LOAD a0, OFFSET_SCRATCH(a0)
 
   jal __am_irq_handle
 
