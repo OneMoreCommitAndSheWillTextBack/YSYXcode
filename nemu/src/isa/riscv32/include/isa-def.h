@@ -24,6 +24,7 @@ typedef struct {
   uint32_t mstatus;
   uint32_t mcause;
   uint32_t mtvec;
+  uint32_t mscratch;
   uint32_t satp;
 } riscv32_CPU_csr;
 

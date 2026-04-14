@@ -17,6 +17,7 @@ Context *__am_irq_handle(Context *c) {
       case -1:
         ev.event = EVENT_YIELD;
         break;
+      case 8:
       case 9:
 			case 11:
         if(c->gpr[17] == -1) 
