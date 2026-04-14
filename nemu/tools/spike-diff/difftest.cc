@@ -2,8 +2,8 @@
  * Copyright (c) 2014-2022 Zihao Yu, Nanjing University
  *
  * NEMU is licensed under Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan
- *PSL v2. You may obtain a copy of Mulan PSL v2 at:
+ * You can use this software according to the terms and conditions of the
+ * Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
  *          http://license.coscl.org.cn/MulanPSL2
  *
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY
@@ -77,12 +77,18 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->csr.satp = state->satp->read();
 }
 
+#define rv32_csr_syn(csrname) state->csrname->write(ctx->csr.csrname)
 void sim_t::diff_set_regs(void *diff_context) {
   struct diff_context_t *ctx = (struct diff_context_t *)diff_context;
   for (int i = 0; i < NR_GPR; i++) {
     state->XPR.write(i, (int32_t)ctx->gpr[i]);
   }
   state->pc = ctx->pc;
+  rv32_csr_syn(mstatus);
+  rv32_csr_syn(mcause);
+  rv32_csr_syn(mepc);
+  rv32_csr_syn(mtvec);
+  rv32_csr_syn(satp);
 }
 
 void sim_t::diff_memcpy_to_ref(reg_t dest, void *src, size_t n) {
@@ -95,7 +101,7 @@ void sim_t::diff_memcpy_to_ref(reg_t dest, void *src, size_t n) {
 void sim_t::diff_memcpy_to_dut(reg_t src, void *dest, size_t n) {
   mmu_t *mmu = p->get_mmu();
   for (size_t i = 0; i < n; i++) {
-    *((uint8_t *)src + i) = mmu->load<uint8_t>(src + i);
+    *((uint8_t *)dest + i) = mmu->load<uint8_t>(src + i);
   }
 }
 
