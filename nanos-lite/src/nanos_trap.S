@@ -14,7 +14,7 @@
 
 #define REGS_LO16(f) \
       f( 1) f( 2) f( 3) f( 4) f( 5) f( 6) f( 7) f( 8) f( 9) \
-f(10) f(11) f(12) f(13) f(14) f(15)
+f(11) f(12) f(13) f(14) f(15)
 #ifndef __riscv_e
 #define REGS_HI16(f) \
                                     f(16) f(17) f(18) f(19) \
@@ -48,7 +48,7 @@ __am_asm_nanos_trap:
 
   MAP(REGS, PUSH)
   
-  # Restore original user a0 into saved gpr[10]
+  # Save original user a0 into gpr[10]
   csrr t0, mscratch
   STORE t0, (10 * XLEN)(a0)
 
@@ -77,5 +77,6 @@ __am_asm_nanos_trap:
   csrw mscratch, t1
 
   MAP(REGS, POP)
+  LOAD a0, (10 * XLEN)(a0)
 
   mret
