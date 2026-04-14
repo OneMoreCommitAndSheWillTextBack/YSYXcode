@@ -2,6 +2,7 @@
 #include "memory.h"
 #include <common.h>
 #include <proc.h>
+#include <stdint.h>
 
 #define MAX_NR_PROC 4
 
@@ -159,13 +160,18 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
+  #ifdef HAS_VME
+  void *trapframe = trapframe_alloc();
+  map(&p->as, trapframe, trapframe, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
+  Area stack = {.end = trapframe};
+  #else
   Area stack = {.end = (void *)ptr_array_pa};
+  #endif
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(&p->as, stack, (void *)entry);
-  p->cp->GPRx = ptr_array_va;
-  switch_boot_pcb();
-  Log("switch to user process");
-  yield();
+  #ifdef HAS_VME
+  p->cp->gpr[2] = ptr_array_va;
+  #endif
 }
 
 void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
@@ -176,6 +182,9 @@ void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
 void context_uload_wrapper(PCB *p, const char *filename, char *argv[], char *envp[]) {
   context_uload(p, filename, argv, envp);
   p->cp->mscratch = (uintptr_t)p->cp;
+  switch_boot_pcb();
+  Log("switch to user process");
+  yield();
 }
 
 void init_proc() {

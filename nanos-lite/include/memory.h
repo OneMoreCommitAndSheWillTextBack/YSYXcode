@@ -22,4 +22,8 @@
 void *new_page(size_t);
 int mm_brk(uintptr_t brk);
 
+#ifdef HAS_VME
+void *trapframe_alloc(void);
+#endif
+
 #endif
