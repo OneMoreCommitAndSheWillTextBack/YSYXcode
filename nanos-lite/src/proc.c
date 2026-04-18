@@ -29,11 +29,18 @@ void hello_fun(void *arg) {
 
 void context_kload(PCB *p, void (*entry)(void *), void *arg) {
   protect(&p->as);
-  uint8_t *kstack_high = p->stack;
+  uint8_t *kstack_high = p->stack + STACK_SIZE;
+#ifdef HAS_VME
+  // Keep the saved context off the live kernel stack: nanos_trap.S calls into C
+  // without switching sp, so the trapframe must live in a separate page.
+  uint8_t *trapframe = trapframe_alloc();
+  Area kstack = {.end = trapframe + PGSIZE};
+#else
   Area kstack = {.end = kstack_high};
+#endif
   p->cp = kcontext(kstack, entry, arg);
   p->cp->mscratch = (uintptr_t)p->cp;
-  p->cp->gpr[2] = (uintptr_t)kstack.end;
+  p->cp->gpr[2] = (uintptr_t)kstack_high;
   pcb_num++;
 }
 
@@ -170,7 +177,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 #ifdef HAS_VME
   void *trapframe = trapframe_alloc();
   map(&p->as, trapframe, trapframe, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
-  Area stack = {.end = trapframe};
+  Area stack = {.end = (uint8_t *)trapframe + PGSIZE};
 #else
   Area stack = {.end = (void *)ptr_array_pa};
 #endif
