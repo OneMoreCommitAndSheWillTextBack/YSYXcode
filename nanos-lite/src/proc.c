@@ -28,6 +28,7 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg) {
   uint8_t *kstack_high = p->stack;
   Area kstack = {.end = kstack_high};
   p->cp = kcontext(kstack, entry, arg);
+  p->cp->mscratch = (uintptr_t)p->cp;
   pcb_num++;
 }
 
