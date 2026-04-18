@@ -17,8 +17,8 @@ void hello_fun(void *arg) {
   int j = 1;
   while (1) {
     // if (j % 1000 == 0)
-      Log("Hello World from Nanos-lite with arg '%s' for the %dth time!",
-          (char *)arg, j);
+    Log("Hello World from Nanos-lite with arg '%s' for the %dth time!",
+        (char *)arg, j);
     j++;
     yield();
   }
@@ -160,18 +160,18 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
-  #ifdef HAS_VME
+#ifdef HAS_VME
   void *trapframe = trapframe_alloc();
   map(&p->as, trapframe, trapframe, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
   Area stack = {.end = trapframe};
-  #else
+#else
   Area stack = {.end = (void *)ptr_array_pa};
-  #endif
+#endif
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(&p->as, stack, (void *)entry);
-  #ifdef HAS_VME
+#ifdef HAS_VME
   p->cp->gpr[2] = ptr_array_va;
-  #endif
+#endif
 }
 
 void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
@@ -180,12 +180,12 @@ void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
   asm volatile("csrw mscratch, %0" : : "r"(p->cp->mscratch));
 }
 
-void context_uload_wrapper(PCB *p, const char *filename, char *argv[], char *envp[]) {
+void context_uload_wrapper(PCB *p, const char *filename, char *argv[],
+                           char *envp[]) {
   context_uload(p, filename, argv, envp);
   p->cp->mscratch = (uintptr_t)p->cp;
   switch_boot_pcb();
   Log("switch to user process");
-  yield();
 }
 
 void init_proc() {
