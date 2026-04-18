@@ -11,7 +11,10 @@ static int pcb_num = 0;
 static PCB pcb_boot = {};
 PCB *current = NULL;
 
-void switch_boot_pcb() { current = &pcb_boot; }
+void switch_boot_pcb() {
+  current = &pcb_boot;
+  asm volatile("csrw mscratch, %0" : : "r"(&pcb_boot));
+}
 
 void hello_fun(void *arg) {
   int j = 1;
@@ -179,7 +182,6 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
   context_kload(p, entry, arg);
   p->cp->mscratch = (uintptr_t)p->cp;
-  asm volatile("csrw mscratch, %0" : : "r"(p->cp->mscratch));
 }
 
 void context_uload_wrapper(PCB *p, const char *filename, char *argv[],
