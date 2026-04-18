@@ -201,6 +201,8 @@ void init_proc() {
   // char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
   context_uload_wrapper(&pcb[1], "/bin/nterm", NULL, envp);
+
+  Log("finish the initializing, valid pcb num is %d", pcb_num);
 }
 
 Context *schedule(Context *prev) {
