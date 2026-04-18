@@ -28,6 +28,7 @@ void hello_fun(void *arg) {
 }
 
 void context_kload(PCB *p, void (*entry)(void *), void *arg) {
+  protect(&p->as);
   uint8_t *kstack_high = p->stack;
   Area kstack = {.end = kstack_high};
   p->cp = kcontext(kstack, entry, arg);
