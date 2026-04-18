@@ -217,5 +217,6 @@ Context *schedule(Context *prev) {
   }
   // Log("schedule: from %p to %p", prev, pcb[next].cp);
   current = &pcb[next];
+  Log("schedule decide to switch to pcb[%d]", next);
   return current->cp;
 }
