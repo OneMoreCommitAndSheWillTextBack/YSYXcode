@@ -161,6 +161,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
+  Log("user program entry %p", entry);
 #ifdef HAS_VME
   void *trapframe = trapframe_alloc();
   map(&p->as, trapframe, trapframe, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
