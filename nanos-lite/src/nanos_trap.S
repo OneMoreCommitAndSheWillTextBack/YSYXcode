@@ -69,6 +69,14 @@ __am_asm_nanos_trap:
   STORE t1, OFFSET_STATUS(a0)
   STORE t2, OFFSET_EPC(a0)
 
+  li t0, 0x1800
+  and t0, t1, t0
+  bnez t0, 1f
+  mv sp, a0
+  j 2f
+1:
+  LOAD sp, OFFSET_SP(a0)
+2:
   jal __am_irq_handle
 
   LOAD t1, OFFSET_STATUS(a0)
