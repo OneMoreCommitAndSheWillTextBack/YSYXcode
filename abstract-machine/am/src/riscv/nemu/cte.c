@@ -7,7 +7,7 @@ static Context *(*user_handler)(Event, Context *) = NULL;
 void __am_get_cur_as(Context *c);
 void __am_switch(Context *c);
 
-static void dump_context(const char *tag, Context *c) {
+__attribute__((unused)) static void dump_context(const char *tag, Context *c) {
   printf("[cte] %s: c=%p pdir=%p mcause=%08x mstatus=%08x mepc=%08x\n", tag, c,
          c->pdir, (uint32_t)c->mcause, (uint32_t)c->mstatus, (uint32_t)c->mepc);
   for (int i = 0; i < NR_REGS; i++) {
@@ -16,9 +16,9 @@ static void dump_context(const char *tag, Context *c) {
 }
 
 Context *__am_irq_handle(Context *c) {
-  printf("into am irq handle, mcause is %d\n", c->mcause);
+  // printf("into am irq handle, mcause is %d\n", c->mcause);
   __am_get_cur_as(c);
-  dump_context("trap-enter", c);
+  // dump_context("trap-enter", c);
   if (user_handler) {
     Event ev = {0};
     switch (c->mcause) {
@@ -40,7 +40,7 @@ Context *__am_irq_handle(Context *c) {
     assert(c != NULL);
   }
 
-  dump_context("trap-exit ", c);
+  // dump_context("trap-exit ", c);
   __am_switch(c);
   return c;
 }
