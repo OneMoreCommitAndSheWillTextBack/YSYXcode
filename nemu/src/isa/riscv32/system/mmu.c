@@ -109,17 +109,15 @@ static word_t isa_mmu_fault_cause(int type) {
   }
 }
 
-static bool isa_mmu_permission_check(uint32_t pte, int type) {
+static bool isa_mmu_permission_check(uint32_t pte, int type,
+                                     CPU_MODE effective_priv) {
   if (!(pte & PTE_V)) {
     return false;
   }
 
-  // if (current_cpu_priv == U_MODE) {
-  //   if (!(pte & PTE_U)) {
-  //     assert(false && "mmu permission deny, page cannot access");
-  //     return false;
-  //   }
-  // }
+  if (effective_priv == U_MODE && !(pte & PTE_U)) {
+    return false;
+  }
 
   if (type == MEM_TYPE_READ) {
     if (!(pte & PTE_R)) {
@@ -141,6 +139,7 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
 static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
                                   word_t *cause) {
   paddr_t pgt1_start = (cpu.csr.satp & 0x3FFFFF) << 12;
+  CPU_MODE effective_priv = isa_mmu_effective_priv(type);
 
   int vpn1_idx = (vaddr >> VPN1_SHIFT) & 0x3FF;
   int vpn0_idx = (vaddr >> VPN0_SHIFT) & 0x3FF;
@@ -162,7 +161,7 @@ static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
   paddr_t pte0_addr = pgt0_start + 4 * vpn0_idx;
   uint32_t pte0 = paddr_read(pte0_addr, 4);
 
-  if (!isa_mmu_permission_check(pte0, type)) {
+  if (!isa_mmu_permission_check(pte0, type, effective_priv)) {
     if (cause != NULL) {
       *cause = isa_mmu_fault_cause(type);
     }
@@ -180,6 +179,7 @@ static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
 
 static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   paddr_t pgt1_start = (cpu.csr.satp & 0x3FFFFF) << 12;
+  CPU_MODE effective_priv = isa_mmu_effective_priv(type);
 
   int vpn1_idx = (vaddr >> VPN1_SHIFT) & 0x3FF;
   int vpn0_idx = (vaddr >> VPN0_SHIFT) & 0x3FF;
@@ -213,7 +213,7 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   paddr_t pte0_addr = pgt0_start + 4 * vpn0_idx;
   uint32_t pte0 = paddr_read(pte0_addr, 4);
 
-  if (isa_mmu_permission_check(pte0, type) == false) {
+  if (isa_mmu_permission_check(pte0, type, effective_priv) == false) {
     panic("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d "
           "pte0_addr=0x%08x pte0=0x%08x (V=%d) at pc = " FMT_WORD,
           vaddr,
