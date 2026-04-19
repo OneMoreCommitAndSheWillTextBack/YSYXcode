@@ -68,9 +68,17 @@ bool do_syscall(Context *c) {
     c->GPRx = get_time((struct timeval *)a[1], (struct timezone *)a[2]);
     break;
 
-  case SYS_execve:
-    c->GPRx = syscall_execve((const char *)a[1], (char **)a[2], (char **)a[3]);
+  case SYS_execve: {
+    Context *new_context =
+        syscall_execve((const char *)a[1], (char **)a[2], (char **)a[3]);
+    if (new_context != NULL) {
+      sched_set_override(new_context);
+      need_schedule = true;
+      break;
+    }
+    c->GPRx = -2;
     break;
+  }
 
   case SYS_brk:
     c->GPRx = mm_brk(a[1]);

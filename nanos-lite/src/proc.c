@@ -9,6 +9,7 @@
 static PCB pcb[MAX_NR_PROC] __attribute__((used)) = {};
 static int pcb_num = 0;
 static PCB pcb_boot = {};
+static Context *sched_override = NULL;
 PCB *current = NULL;
 
 void switch_boot_pcb() {
@@ -203,6 +204,8 @@ void context_uload_wrapper(PCB *p, const char *filename, char *argv[],
   Log("switch to user process");
 }
 
+void sched_set_override(Context *next) { sched_override = next; }
+
 void init_proc() {
   switch_boot_pcb();
 
@@ -219,6 +222,13 @@ void init_proc() {
 }
 
 Context *schedule(Context *prev) {
+  if (sched_override != NULL) {
+    current->cp = sched_override;
+    Context *next = sched_override;
+    sched_override = NULL;
+    return next;
+  }
+
   current->cp = prev;
   int cur = -1;
   if (current >= &pcb[0] && current < &pcb[pcb_num]) {

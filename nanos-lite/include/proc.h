@@ -21,8 +21,9 @@ extern PCB *current;
 uintptr_t uload(PCB *pcb, const char *filename);
 
 void naive_uload(PCB *pcb, const char *filename);
-int syscall_execve(const char *filename, char *argv[], char *envp[]);
+Context *syscall_execve(const char *filename, char *argv[], char *envp[]);
 void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]);
+void sched_set_override(Context *next);
 Context *schedule(Context *prev);
 
 #endif
