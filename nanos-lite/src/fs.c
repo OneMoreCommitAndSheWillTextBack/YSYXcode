@@ -14,7 +14,8 @@ typedef struct {
   WriteFn write;
 } Finfo;
 
-enum { FD_STDIN, FD_STDOUT, FD_STDERR, FD_FB };
+enum { FD_STDIN, FD_STDOUT, FD_STDERR };
+enum { DEV_EVENTS = 3, DEV_FB = 4 };
 
 size_t invalid_read(void *buf, size_t offset, size_t len) {
   panic("[fs.c invalid_read] should not reach here");
@@ -79,6 +80,24 @@ int fs_exist(const char *filename) {
   }
 
   return false;
+}
+
+bool fs_should_schedule(int fd, bool is_write) {
+  if (fd < 0 || fd >= FDMAPSIZE || fd_maping[fd].valid == false) {
+    return false;
+  }
+
+  int sys_fd = fd_maping[fd].sys_fs;
+  switch (sys_fd) {
+  case FD_STDOUT:
+  case FD_STDERR:
+  case DEV_FB:
+    return is_write;
+  case DEV_EVENTS:
+    return !is_write;
+  default:
+    return false;
+  }
 }
 
 int fs_open(const char *filename, int flags, int mode) {

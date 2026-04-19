@@ -184,6 +184,9 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(&p->as, stack, (void *)entry);
 #ifdef HAS_VME
+  // _start copies a0 into sp before calling call_main, so keep both registers
+  // pointing at the argc/argv/envp block.
+  p->cp->GPRx = ptr_array_va;
   p->cp->gpr[2] = ptr_array_va;
 #endif
 }
