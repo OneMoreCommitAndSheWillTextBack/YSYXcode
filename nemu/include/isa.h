@@ -45,6 +45,8 @@ enum { MEM_RET_OK, MEM_RET_FAIL, MEM_RET_CROSS_PAGE };
 int isa_mmu_check(vaddr_t vaddr, int len, int type);
 #endif
 paddr_t isa_mmu_translate(vaddr_t vaddr, int len, int type);
+bool isa_mmu_translate_safe(vaddr_t vaddr, int len, int type, paddr_t *paddr,
+                            word_t *cause);
 word_t paddr_read(paddr_t addr, int len);
 
 // interrupt/exception

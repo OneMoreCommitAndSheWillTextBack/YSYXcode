@@ -18,6 +18,7 @@
 #include <difftest-def.h>
 #include <isa.h>
 #include <memory/paddr.h>
+#include <memory/vaddr.h>
 #include <stdint.h>
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
@@ -73,6 +74,18 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
 
 __EXPORT uint32_t difftest_get_mem(uint32_t addr) {
   return paddr_read(addr, 4);
+}
+
+__EXPORT void difftest_probe_mem(vaddr_t addr, difftest_mem_probe_t *result,
+                                 size_t n) {
+  word_t data = 0;
+  word_t cause = 0;
+  assert(result != NULL);
+  assert(n <= sizeof(result->data));
+
+  result->success = vaddr_read_safe(addr, n, &data, &cause);
+  result->data = (uint32_t)data;
+  result->cause = (uint32_t)cause;
 }
 
 __EXPORT void difftest_exec(uint64_t n) { cpu_exec(n); }

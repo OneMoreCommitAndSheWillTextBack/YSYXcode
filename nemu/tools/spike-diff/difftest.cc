@@ -106,6 +106,25 @@ __EXPORT void difftest_memcpy(uint32_t addr, void *buf, size_t n,
   }
 }
 
+__EXPORT void difftest_probe_mem(uint32_t addr, difftest_mem_probe_t *result,
+                                 size_t n) {
+  *result = {};
+  if (n > sizeof(result->data)) {
+    n = sizeof(result->data);
+  }
+
+  try {
+    mmu_t *mmu = p->get_mmu();
+    for (size_t i = 0; i < n; i++) {
+      *((uint8_t *)&result->data + i) = mmu->load<uint8_t>(addr + i);
+    }
+    result->success = 1;
+  } catch (trap_t &t) {
+    result->success = 0;
+    result->cause = t.cause();
+  }
+}
+
 __EXPORT void difftest_regcpy(void *dut, int direction) {
   if (direction == DIFFTEST_TO_REF) {
     s->diff_set_regs(dut);

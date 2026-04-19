@@ -15,29 +15,55 @@ typedef struct memguarder {
 
 static memguarder_t *guard_list = NULL;
 
+static bool probe_dut(vaddr_t addr, difftest_mem_probe_t *result) {
+  word_t data = 0;
+  word_t cause = 0;
+
+  assert(result != NULL);
+  result->success = vaddr_read_safe(addr, 4, &data, &cause);
+  result->data = (uint32_t)data;
+  result->cause = (uint32_t)cause;
+  return true;
+}
+
+static bool probe_ref(vaddr_t addr, difftest_mem_probe_t *result) {
+  if (ref_difftest_probe_mem == NULL) {
+    printf("[error] the current ref does not support memguard probing\n");
+    return false;
+  }
+
+  ref_difftest_probe_mem(addr, result, 4);
+  return true;
+}
+
+static bool memguard_match(const difftest_mem_probe_t *dut,
+                           const difftest_mem_probe_t *ref) {
+  if (dut->success != ref->success) {
+    return false;
+  }
+  if (dut->success) {
+    return dut->data == ref->data;
+  }
+  return dut->cause == ref->cause;
+}
+
+static void print_probe(const char *tag, const difftest_mem_probe_t *probe) {
+  if (probe->success) {
+    printf("%s value=0x%x", tag, probe->data);
+    return;
+  }
+
+  printf("%s fault(cause=0x%x)", tag, probe->cause);
+}
+
 int add_memguard(vaddr_t addr) {
   if (!isa_difftest_is_attach()) {
     printf("[error] the memguarder rely on the difftest\n");
     return -1;
   }
 
-  if (!in_pmem(addr)) {
-    printf("[error] invalid addr 0x%x\n", addr);
-    return -1;
-  }
-
-  uint32_t ref_data = 0;
-  uint32_t dut_data = 0;
-  if (ref_difftest_memcpy == NULL) {
-    printf("[error] the ref_difftest_memcpy handle should not be NULL\n");
-    return -1;
-  }
-
-  ref_difftest_memcpy(addr, &ref_data, 4, DIFFTEST_TO_DUT);
-  dut_data = vaddr_read(addr, 4);
-  if (dut_data != ref_data) {
-    printf("[error] ref(0x%x) != dut(0x%x)\n", ref_data, dut_data);
-    printf("\t consider the diffinit sync or here is a bug\n");
+  if (ref_difftest_probe_mem == NULL) {
+    printf("[error] the current ref does not support memguard probing\n");
     return -1;
   }
 
@@ -47,6 +73,23 @@ int add_memguard(vaddr_t addr) {
     if ((*cur)->addr == addr)
       return 0;
     cur = &(*cur)->next;
+  }
+
+  difftest_mem_probe_t ref_probe = {0};
+  difftest_mem_probe_t dut_probe = {0};
+  if (!probe_ref(addr, &ref_probe)) {
+    return -1;
+  }
+  probe_dut(addr, &dut_probe);
+
+  if (!memguard_match(&dut_probe, &ref_probe)) {
+    printf("[error] memguard probe mismatch at 0x%x: ", addr);
+    print_probe("dut", &dut_probe);
+    printf(", ");
+    print_probe("ref", &ref_probe);
+    printf("\n");
+    printf("\tconsider resyncing difftest or checking the mapping context\n");
+    return -1;
   }
 
   new_node = (memguarder_t *)malloc(sizeof(memguarder_t));
@@ -65,9 +108,20 @@ void info_memguard() {
   memguarder_t *cur = guard_list;
   int i = 0;
   while (cur != NULL) {
-    uint32_t data = vaddr_read(cur->addr, 4);
-    printf("memguard[%d] watching the addr 0x%x value is 0x%x %d\n", i,
-           cur->addr, data, data);
+    difftest_mem_probe_t dut_probe = {0};
+    probe_dut(cur->addr, &dut_probe);
+    printf("memguard[%d] watching addr 0x%x: ", i, cur->addr);
+    print_probe("dut", &dut_probe);
+    if (ref_difftest_probe_mem != NULL) {
+      difftest_mem_probe_t ref_probe = {0};
+      if (probe_ref(cur->addr, &ref_probe)) {
+        printf(", ");
+        print_probe("ref", &ref_probe);
+      }
+    }
+    printf("\n");
+    cur = cur->next;
+    i++;
   }
 
   return;
@@ -98,18 +152,27 @@ void del_memguard(int idx) {
 void exec_memguard() {
   memguarder_t *cur = guard_list;
   bool failed = false;
+  int idx = 0;
   while (cur != NULL) {
-    uint32_t ref_data = 0;
-    uint32_t dut_data = 0;
-    ref_difftest_memcpy(cur->addr, &ref_data, 4, DIFFTEST_TO_DUT);
-    dut_data = vaddr_read(cur->addr, 4);
+    difftest_mem_probe_t ref_probe = {0};
+    difftest_mem_probe_t dut_probe = {0};
+    if (!probe_ref(cur->addr, &ref_probe)) {
+      set_state_stop();
+      return;
+    }
+    probe_dut(cur->addr, &dut_probe);
 
-    if (ref_data != dut_data) {
+    if (!memguard_match(&dut_probe, &ref_probe)) {
       failed = true;
-      printf("[memguard failed] dut(0x%x) != ref(0x%x)\n", dut_data, ref_data);
+      printf("[memguard failed] guard[%d] addr=0x%x: ", idx, cur->addr);
+      print_probe("dut", &dut_probe);
+      printf(", ");
+      print_probe("ref", &ref_probe);
+      printf("\n");
     }
 
     cur = cur->next;
+    idx++;
   }
 
   if (failed) {

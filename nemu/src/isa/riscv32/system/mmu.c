@@ -64,6 +64,12 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
 #define PTE_A 0x40
 #define PTE_D 0x80
 
+enum {
+  RISCV_CAUSE_FETCH_PAGE_FAULT = 12,
+  RISCV_CAUSE_LOAD_PAGE_FAULT = 13,
+  RISCV_CAUSE_STORE_PAGE_FAULT = 15,
+};
+
 static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
   // In Sv32, A/D bits are meaningful for leaf PTEs only.
   // Non-leaf PTEs should keep software/reserved bits unchanged.
@@ -92,6 +98,17 @@ static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
   }
 }
 
+static word_t isa_mmu_fault_cause(int type) {
+  switch (type) {
+  case MEM_TYPE_IFETCH:
+    return RISCV_CAUSE_FETCH_PAGE_FAULT;
+  case MEM_TYPE_WRITE:
+    return RISCV_CAUSE_STORE_PAGE_FAULT;
+  default:
+    return RISCV_CAUSE_LOAD_PAGE_FAULT;
+  }
+}
+
 static bool isa_mmu_permission_check(uint32_t pte, int type) {
   if (!(pte & PTE_V)) {
     return false;
@@ -106,21 +123,58 @@ static bool isa_mmu_permission_check(uint32_t pte, int type) {
 
   if (type == MEM_TYPE_READ) {
     if (!(pte & PTE_R)) {
-      panic("mmu permission deny, page cannot read");
       return false;
     }
   } else if (type == MEM_TYPE_IFETCH) {
     if (!(pte & PTE_X)) {
-      panic("mmu permission deny, page cannot exec");
       return false;
     }
   } else if (type == MEM_TYPE_WRITE) {
     if (!(pte & PTE_W)) {
-      panic("mmu permission deny, page cannot write");
       return false;
     }
   }
 
+  return true;
+}
+
+static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
+                                  word_t *cause) {
+  paddr_t pgt1_start = (cpu.csr.satp & 0x3FFFFF) << 12;
+
+  int vpn1_idx = (vaddr >> VPN1_SHIFT) & 0x3FF;
+  int vpn0_idx = (vaddr >> VPN0_SHIFT) & 0x3FF;
+  int offset = vaddr & OFFSET_MASK;
+
+  paddr_t pte1_addr = pgt1_start + 4 * vpn1_idx;
+  uint32_t pte1 = paddr_read(pte1_addr, 4);
+
+  if (!(pte1 & PTE_V) || (pte1 & (PTE_R | PTE_W | PTE_X))) {
+    if (cause != NULL) {
+      *cause = isa_mmu_fault_cause(type);
+    }
+    return false;
+  }
+
+  isa_mmu_update_pte(pte1_addr, pte1, type);
+
+  paddr_t pgt0_start = PTE_PPN(pte1) << 2;
+  paddr_t pte0_addr = pgt0_start + 4 * vpn0_idx;
+  uint32_t pte0 = paddr_read(pte0_addr, 4);
+
+  if (!isa_mmu_permission_check(pte0, type)) {
+    if (cause != NULL) {
+      *cause = isa_mmu_fault_cause(type);
+    }
+    return false;
+  }
+
+  isa_mmu_update_pte(pte0_addr, pte0, type);
+
+  *addr_res = (PTE_PPN(pte0) << 2) | offset;
+  if (cause != NULL) {
+    *cause = 0;
+  }
   return true;
 }
 
@@ -185,4 +239,24 @@ paddr_t isa_mmu_translate(vaddr_t vaddr, int len, int type) {
 
   panic("should not reach here at pc = " FMT_WORD, cpu.pc);
   return 0;
+}
+
+bool isa_mmu_translate_safe(vaddr_t vaddr, int len, int type, paddr_t *paddr,
+                            word_t *cause) {
+  int mmu_check = isa_mmu_check(vaddr, len, type);
+  if (mmu_check == MMU_TRANSLATE) {
+    return isa_mmu_pagewalk_safe(vaddr, type, paddr, cause);
+  }
+  if (mmu_check == MMU_DIRECT) {
+    *paddr = vaddr;
+    if (cause != NULL) {
+      *cause = 0;
+    }
+    return true;
+  }
+
+  if (cause != NULL) {
+    *cause = isa_mmu_fault_cause(type);
+  }
+  return false;
 }
