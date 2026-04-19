@@ -37,6 +37,13 @@ f(30) f(31)
 #define OFFSET_STATUS ((NR_REGS + 1) * XLEN)
 #define OFFSET_EPC    ((NR_REGS + 2) * XLEN)
 #define OFFSET_SCRATCH ((NR_REGS + 3) * XLEN)
+#define OFFSET_PDIR   ((NR_REGS + 4) * XLEN)
+
+#if __riscv_xlen == 32
+#define SATP_MODE 0x80000000
+#else
+#define SATP_MODE 0x8000000000000000
+#endif
 
 
 .align 3
@@ -75,6 +82,14 @@ __am_asm_nanos_trap:
   csrw mepc, t2
 
   csrw mscratch, a0
+
+  LOAD t0, OFFSET_PDIR(a0)
+  beqz t0, 1f
+  srli t0, t0, 12
+  li t1, SATP_MODE
+  or t0, t0, t1
+  csrw satp, t0
+1:
 
   MAP(REGS, POP)
   LOAD a0, (10 * XLEN)(a0)

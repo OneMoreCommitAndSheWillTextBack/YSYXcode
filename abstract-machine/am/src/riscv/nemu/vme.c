@@ -67,10 +67,10 @@ void __am_get_cur_as(Context *c) {
 
 void __am_switch(Context *c) {
   asm volatile("csrw mscratch, %0" : : "r"(c));
-  if (vme_enable && c->pdir != NULL) {
-    printf("[vme] __am_switch: switch to pdir=%p\n", c->pdir);
-    set_satp(c->pdir);
-  }
+  // Delay the satp switch until the trap assembly is about to mret. When this
+  // function is reached from a user syscall, C is still running on the user's
+  // stack, so switching page tables here would unmap that stack frame before
+  // the function returns.
 }
 
 void map(AddrSpace *as, void *va, void *pa, int prot) {
