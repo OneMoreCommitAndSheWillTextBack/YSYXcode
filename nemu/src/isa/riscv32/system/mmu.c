@@ -38,8 +38,7 @@ static inline CPU_MODE isa_mmu_effective_priv(int type) {
 }
 
 int isa_mmu_check(vaddr_t vaddr, int len, int type) {
-  if ((cpu.csr.satp & (0x1 << 31)) &&
-      isa_mmu_effective_priv(type) != M_MODE) {
+  if ((cpu.csr.satp & (0x1 << 31)) && isa_mmu_effective_priv(type) != M_MODE) {
     return MMU_TRANSLATE;
   } else {
     return MMU_DIRECT;
@@ -115,9 +114,9 @@ static bool isa_mmu_permission_check(uint32_t pte, int type,
     return false;
   }
 
-  if (effective_priv == U_MODE && !(pte & PTE_U)) {
-    return false;
-  }
+  // if (effective_priv == U_MODE && !(pte & PTE_U)) {
+  //   return false;
+  // }
 
   if (type == MEM_TYPE_READ) {
     if (!(pte & PTE_R)) {
