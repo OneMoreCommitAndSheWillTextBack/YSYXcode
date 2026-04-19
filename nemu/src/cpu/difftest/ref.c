@@ -21,6 +21,10 @@
 #include <memory/vaddr.h>
 #include <stdint.h>
 
+#ifdef CONFIG_ISA_riscv
+extern CPU_MODE current_cpu_priv;
+#endif
+
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
   if (direction == DIFFTEST_TO_REF) {
     for (int i = 0; i < n; i++){
@@ -43,6 +47,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
     for (int i = 0; i < RISCV_GPR_NUM; i++) {
       cpu.gpr[i] = ctx->gpr[i];
     }
+    current_cpu_priv = ctx->priv;
     cpu.csr.mcause = ctx->csr.mcause;
     cpu.csr.mepc = ctx->csr.mepc;
     cpu.csr.mstatus = ctx->csr.mstatus;
@@ -59,6 +64,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
     for (int i = 0; i < RISCV_GPR_NUM; i++) {
       ctx->gpr[i] = cpu.gpr[i];
     }
+    ctx->priv = current_cpu_priv;
     ctx->csr.mepc = cpu.csr.mepc;
     ctx->csr.mtvec = cpu.csr.mtvec;
     ctx->csr.mstatus = cpu.csr.mstatus;

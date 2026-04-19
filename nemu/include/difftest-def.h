@@ -37,6 +37,11 @@ typedef struct {
 #elif defined(CONFIG_ISA_riscv)
 #define RISCV_GPR_TYPE MUXDEF(CONFIG_RV64, uint64_t, uint32_t)
 #define RISCV_GPR_NUM MUXDEF(CONFIG_RVE, 16, 32)
+enum {
+  DIFFTEST_RISCV_PRIV_S = 0,
+  DIFFTEST_RISCV_PRIV_M = 1,
+  DIFFTEST_RISCV_PRIV_U = 2,
+};
 typedef struct {
   RISCV_GPR_TYPE mepc;
   RISCV_GPR_TYPE mstatus;
@@ -49,6 +54,7 @@ typedef struct {
 typedef struct {
   RISCV_GPR_TYPE gpr[RISCV_GPR_NUM];
   RISCV_GPR_TYPE pc;
+  RISCV_GPR_TYPE priv;
   riscv_difftest_csr_t csr;
 } riscv_difftest_ctx_t;
 
