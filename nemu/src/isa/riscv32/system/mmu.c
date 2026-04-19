@@ -19,8 +19,27 @@
 #include <memory/paddr.h>
 #include <memory/vaddr.h>
 
+extern CPU_MODE current_cpu_priv;
+
+static inline CPU_MODE isa_mmu_effective_priv(int type) {
+  if (type != MEM_TYPE_IFETCH && current_cpu_priv == M_MODE &&
+      (cpu.csr.mstatus & MSTATUS_MPRV)) {
+    uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
+    if (mpp == MSTATUS_MPP_M) {
+      return M_MODE;
+    }
+    if (mpp == MSTATUS_MPP_S) {
+      return S_MODE;
+    }
+    return U_MODE;
+  }
+
+  return current_cpu_priv;
+}
+
 int isa_mmu_check(vaddr_t vaddr, int len, int type) {
-  if (cpu.csr.satp & (0x1 << 31)) {
+  if ((cpu.csr.satp & (0x1 << 31)) &&
+      isa_mmu_effective_priv(type) != M_MODE) {
     return MMU_TRANSLATE;
   } else {
     return MMU_DIRECT;
@@ -44,8 +63,6 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
 #define PTE_U 0x10
 #define PTE_A 0x40
 #define PTE_D 0x80
-
-extern CPU_MODE current_cpu_priv;
 
 static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
   // In Sv32, A/D bits are meaningful for leaf PTEs only.
