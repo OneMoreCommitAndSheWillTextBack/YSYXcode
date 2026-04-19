@@ -69,11 +69,6 @@ __am_asm_nanos_trap:
   STORE t1, OFFSET_STATUS(a0)
   STORE t2, OFFSET_EPC(a0)
 
-  # set mstatus.MPRV to pass difftest
-  li t0, (1 << 17)
-  or t1, t1, t0
-  csrw mstatus, t1
-
   jal __am_irq_handle
 
   LOAD t1, OFFSET_STATUS(a0)
