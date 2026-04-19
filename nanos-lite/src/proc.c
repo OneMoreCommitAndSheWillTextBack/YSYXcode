@@ -2,20 +2,25 @@
 #include "memory.h"
 #include <common.h>
 #include <proc.h>
+#include <stdint.h>
 
 #define MAX_NR_PROC 4
 
 static PCB pcb[MAX_NR_PROC] __attribute__((used)) = {};
 static int pcb_num = 0;
 static PCB pcb_boot = {};
+static Context *sched_override = NULL;
 PCB *current = NULL;
 
-void switch_boot_pcb() { current = &pcb_boot; }
+void switch_boot_pcb() {
+  current = &pcb_boot;
+  asm volatile("csrw mscratch, %0" : : "r"(&pcb_boot));
+}
 
 void hello_fun(void *arg) {
   int j = 1;
   while (1) {
-    if (j % 1000 == 0)
+    if (j % 10000 == 0)
       Log("Hello World from Nanos-lite with arg '%s' for the %dth time!",
           (char *)arg, j);
     j++;
@@ -24,9 +29,19 @@ void hello_fun(void *arg) {
 }
 
 void context_kload(PCB *p, void (*entry)(void *), void *arg) {
-  uint8_t *kstack_high = p->stack;
+  protect(&p->as);
+  uint8_t *kstack_high = p->stack + STACK_SIZE;
+#ifdef HAS_VME
+  // Keep the saved context off the live kernel stack: nanos_trap.S calls into C
+  // without switching sp, so the trapframe must live in a separate page.
+  uint8_t *trapframe = trapframe_alloc();
+  Area kstack = {.end = trapframe + PGSIZE};
+#else
   Area kstack = {.end = kstack_high};
+#endif
   p->cp = kcontext(kstack, entry, arg);
+  p->cp->mscratch = (uintptr_t)p->cp;
+  p->cp->gpr[2] = (uintptr_t)kstack_high;
   pcb_num++;
 }
 
@@ -100,12 +115,11 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
    */
 
   size_t argc_val = argv_count;
-  size_t ptr_slots = 1 + 1 + (argc_val + 1) + (envp_count + 1);
+  size_t ptr_slots = 1 + (argc_val + 1) + (envp_count + 1);
   uint32_t *ptr_array_base =
       (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
   uint32_t *ptr_array_cur = ptr_array_base;
 
-  *ptr_array_cur++ = 0;
   *ptr_array_cur++ = (uint32_t)argc_val;
   for (int i = 0; i < argv_count; i++)
     *ptr_array_cur++ = (uint32_t)argv_re[i];
@@ -159,14 +173,38 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
+  Log("user program entry %p", entry);
+#ifdef HAS_VME
+  void *trapframe = trapframe_alloc();
+  map(&p->as, trapframe, trapframe, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
+  Area stack = {.end = (uint8_t *)trapframe + PGSIZE};
+#else
   Area stack = {.end = (void *)ptr_array_pa};
+#endif
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   p->cp = ucontext(&p->as, stack, (void *)entry);
+#ifdef HAS_VME
+  // _start copies a0 into sp before calling call_main, so keep both registers
+  // pointing at the argc/argv/envp block.
   p->cp->GPRx = ptr_array_va;
+  p->cp->gpr[2] = ptr_array_va;
+#endif
+}
+
+void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
+  context_kload(p, entry, arg);
+  p->cp->mscratch = (uintptr_t)p->cp;
+}
+
+void context_uload_wrapper(PCB *p, const char *filename, char *argv[],
+                           char *envp[]) {
+  context_uload(p, filename, argv, envp);
+  p->cp->mscratch = (uintptr_t)p->cp;
   switch_boot_pcb();
   Log("switch to user process");
-  yield();
 }
+
+void sched_set_override(Context *next) { sched_override = next; }
 
 void init_proc() {
   switch_boot_pcb();
@@ -174,14 +212,23 @@ void init_proc() {
   Log("Initializing processes...");
 
   // naive_uload(NULL, "/bin/nterm");
-  context_kload(&pcb[0], hello_fun, "A");
+  context_kload_wrapper(&pcb[0], hello_fun, "A");
 
   // char *argv[] = {"/bin/pal", "--skip", NULL};
   char *envp[] = {"PATH=/bin:/usr/bin", NULL};
-  context_uload(&pcb[1], "/bin/nterm", NULL, envp);
+  context_uload_wrapper(&pcb[1], "/bin/nterm", NULL, envp);
+
+  Log("finish the initializing, valid pcb num is %d", pcb_num);
 }
 
 Context *schedule(Context *prev) {
+  if (sched_override != NULL) {
+    current->cp = sched_override;
+    Context *next = sched_override;
+    sched_override = NULL;
+    return next;
+  }
+
   current->cp = prev;
   int cur = -1;
   if (current >= &pcb[0] && current < &pcb[pcb_num]) {
@@ -193,5 +240,6 @@ Context *schedule(Context *prev) {
   }
   // Log("schedule: from %p to %p", prev, pcb[next].cp);
   current = &pcb[next];
+  // Log("schedule decide to switch to pcb[%d]", next);
   return current->cp;
 }

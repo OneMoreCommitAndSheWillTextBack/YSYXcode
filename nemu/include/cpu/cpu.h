@@ -30,6 +30,7 @@ void invalid_inst(vaddr_t thispc);
 // from cpu.c
 void set_state_quit();
 void set_state_stop();
+void set_state_abort(int halt_ret);
 int cmd_si_check(int n);
 int get_nemu_state();
 

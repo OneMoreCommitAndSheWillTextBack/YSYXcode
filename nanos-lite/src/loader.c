@@ -62,8 +62,8 @@ static uintptr_t loader(PCB *pcb, const char *filename) {
 
       Log("Loading segment: p_type=0x%x p_offset=0x%x p_vaddr=0x%x "
           "p_filesz=0x%x p_memsz=0x%x p_flags=0x%x",
-          phdr.p_type, phdr.p_offset, phdr.p_vaddr,
-          phdr.p_filesz, phdr.p_memsz, phdr.p_flags);
+          phdr.p_type, phdr.p_offset, phdr.p_vaddr, phdr.p_filesz, phdr.p_memsz,
+          phdr.p_flags);
 
       assert(memsize >= filesize);
 
@@ -118,13 +118,13 @@ uintptr_t uload(PCB *pcb, const char *filename) {
   return loader(pcb, filename);
 }
 
-int syscall_execve(const char *filename, char *argv[], char *envp[]) {
+Context *syscall_execve(const char *filename, char *argv[], char *envp[]) {
   Log("syscall execve:[%s]", filename);
 
   if (fs_exist(filename)) {
     context_uload(current, filename, argv, envp);
-    panic("should not reach here");
+    return current->cp;
   }
 
-  return -2;
+  return NULL;
 }

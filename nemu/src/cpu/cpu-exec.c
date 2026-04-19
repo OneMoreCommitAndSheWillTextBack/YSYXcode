@@ -188,6 +188,12 @@ void set_state_stop() {
   return;
 }
 
+void set_state_abort(int halt_ret) {
+  nemu_state.state = NEMU_ABORT;
+  nemu_state.halt_ret = halt_ret;
+  return;
+}
+
 int get_nemu_state() { return nemu_state.state; }
 
 int cmd_si_check(int n) {

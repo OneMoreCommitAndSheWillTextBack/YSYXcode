@@ -19,3 +19,4 @@
 /.hdl_checker
 /.git
 /rt-thread-am/bsp/abstract-machine/build/
+*compile_commands.json

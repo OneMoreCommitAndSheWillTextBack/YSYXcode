@@ -157,6 +157,7 @@ static inline uint32_t *get_csr(uint32_t csr_num){
   switch(csr_num){
     case 0x300: return &cpu.csr.mstatus;  break;
     case 0x305: return &cpu.csr.mtvec;    break;
+    case 0x340: return &cpu.csr.mscratch; break;
     case 0x341: return &cpu.csr.mepc;     break;
     case 0x342: return &cpu.csr.mcause;   break;
     case 0x180: return &cpu.csr.satp;     break;

@@ -22,6 +22,10 @@ static void *pg_alloc(int n) {
   memset(alloc_ptr, 0, PGSIZE * pages);
   return alloc_ptr;
 }
+
+void *trapframe_alloc(void) {
+  return pg_alloc(1);
+}
 #endif
 
 void free_page(void *p) { panic("not implement yet"); }
