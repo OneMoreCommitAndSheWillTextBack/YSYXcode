@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <difftest-def.h>
 
-#define NR_GPR MUXDEF(CONFIG_RVE, 16, 32)
+#define NR_GPR RISCV_GPR_NUM
 
 static std::vector<std::pair<reg_t, abstract_device_t *>>
     difftest_plugin_devices;
@@ -37,23 +37,11 @@ static debug_module_config_t difftest_dm_config = {
     .support_haltgroups = true,
     .support_impebreak = true};
 
-struct diff_csr {
-  uint32_t mepc;
-  uint32_t mstatus;
-  uint32_t mcause;
-  uint32_t mtvec;
-  uint32_t satp;
-};
-
-struct diff_context_t {
-  uint32_t gpr[MUXDEF(CONFIG_RVE, 16, 32)];
-  uint32_t pc;
-  diff_csr csr;
-};
-
 static sim_t *s = NULL;
 static processor_t *p = NULL;
 static state_t *state = NULL;
+
+static inline auto mscratch_csr() { return state->csrmap.at(CSR_MSCRATCH); }
 
 void sim_t::diff_init(int port) {
   p = get_core("0");
@@ -63,7 +51,7 @@ void sim_t::diff_init(int port) {
 void sim_t::diff_step(uint64_t n) { step(n); }
 
 void sim_t::diff_get_regs(void *diff_context) {
-  struct diff_context_t *ctx = (struct diff_context_t *)diff_context;
+  riscv_difftest_ctx_t *ctx = (riscv_difftest_ctx_t *)diff_context;
   for (int i = 0; i < NR_GPR; i++) {
     ctx->gpr[i] = state->XPR[i];
   }
@@ -74,12 +62,13 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->csr.mepc = state->mepc->read();
   ctx->csr.mstatus = state->mstatus->read();
   ctx->csr.mtvec = state->mtvec->read();
+  ctx->csr.mscratch = mscratch_csr()->read();
   ctx->csr.satp = state->satp->read();
 }
 
 #define rv32_csr_syn(csrname) state->csrname->write(ctx->csr.csrname)
 void sim_t::diff_set_regs(void *diff_context) {
-  struct diff_context_t *ctx = (struct diff_context_t *)diff_context;
+  riscv_difftest_ctx_t *ctx = (riscv_difftest_ctx_t *)diff_context;
   for (int i = 0; i < NR_GPR; i++) {
     state->XPR.write(i, (int32_t)ctx->gpr[i]);
   }
@@ -88,6 +77,7 @@ void sim_t::diff_set_regs(void *diff_context) {
   rv32_csr_syn(mcause);
   rv32_csr_syn(mepc);
   rv32_csr_syn(mtvec);
+  mscratch_csr()->write(ctx->csr.mscratch);
   rv32_csr_syn(satp);
 }
 

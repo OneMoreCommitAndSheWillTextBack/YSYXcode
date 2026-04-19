@@ -32,6 +32,55 @@ void (*ref_difftest_raise_intr)(uint64_t NO) = NULL;
 static bool is_skip_ref = false;
 static int skip_dut_nr_inst = 0;
 
+#ifdef CONFIG_ISA_riscv
+static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state) {
+  for (int i = 0; i < RISCV_GPR_NUM; i++) {
+    ctx->gpr[i] = state->gpr[i];
+  }
+  ctx->pc = state->pc;
+  ctx->csr.mepc = state->csr.mepc;
+  ctx->csr.mstatus = state->csr.mstatus;
+  ctx->csr.mcause = state->csr.mcause;
+  ctx->csr.mtvec = state->csr.mtvec;
+  ctx->csr.mscratch = state->csr.mscratch;
+  ctx->csr.satp = state->csr.satp;
+}
+
+static void unpack_difftest_ctx(CPU_state *state,
+                                const riscv_difftest_ctx_t *ctx) {
+  for (int i = 0; i < RISCV_GPR_NUM; i++) {
+    state->gpr[i] = ctx->gpr[i];
+  }
+  state->pc = ctx->pc;
+  state->csr.mepc = ctx->csr.mepc;
+  state->csr.mstatus = ctx->csr.mstatus;
+  state->csr.mcause = ctx->csr.mcause;
+  state->csr.mtvec = ctx->csr.mtvec;
+  state->csr.mscratch = ctx->csr.mscratch;
+  state->csr.satp = ctx->csr.satp;
+}
+
+static void difftest_regcpy_to_ref(const CPU_state *state) {
+  riscv_difftest_ctx_t ctx = {};
+  pack_difftest_ctx(&ctx, state);
+  ref_difftest_regcpy(&ctx, DIFFTEST_TO_REF);
+}
+
+static void difftest_regcpy_to_dut(CPU_state *state) {
+  riscv_difftest_ctx_t ctx = {};
+  ref_difftest_regcpy(&ctx, DIFFTEST_TO_DUT);
+  unpack_difftest_ctx(state, &ctx);
+}
+#else
+static void difftest_regcpy_to_ref(const CPU_state *state) {
+  ref_difftest_regcpy((void *)state, DIFFTEST_TO_REF);
+}
+
+static void difftest_regcpy_to_dut(CPU_state *state) {
+  ref_difftest_regcpy(state, DIFFTEST_TO_DUT);
+}
+#endif
+
 // this is used to let ref skip instructions which
 // can not produce consistent behavior with NEMU
 void difftest_skip_ref() {
@@ -91,13 +140,13 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
 
   ref_difftest_init(port);
   ref_difftest_memcpy(RESET_VECTOR, guest_to_host(RESET_VECTOR), img_size, DIFFTEST_TO_REF);
-  ref_difftest_regcpy(&cpu, DIFFTEST_TO_REF);
+  difftest_regcpy_to_ref(&cpu);
 }
 
 static void difftest_syn() {
   // detach -> attach: need to sync
   ref_difftest_memcpy(RESET_VECTOR, guest_to_host(RESET_VECTOR), CONFIG_MSIZE,DIFFTEST_TO_REF);
-  ref_difftest_regcpy(&cpu, DIFFTEST_TO_REF);
+  difftest_regcpy_to_ref(&cpu);
 }
 
 static void checkregs(CPU_state *ref, vaddr_t pc) {
@@ -112,7 +161,7 @@ static void difftest_step_(vaddr_t pc, vaddr_t npc) {
   CPU_state ref_r;
 
   if (skip_dut_nr_inst > 0) {
-    ref_difftest_regcpy(&ref_r, DIFFTEST_TO_DUT);
+    difftest_regcpy_to_dut(&ref_r);
     if (ref_r.pc == npc) {
       skip_dut_nr_inst = 0;
       checkregs(&ref_r, npc);
@@ -126,13 +175,13 @@ static void difftest_step_(vaddr_t pc, vaddr_t npc) {
 
   if (is_skip_ref) {
     // to skip the checking of an instruction, just copy the reg state to reference design
-    ref_difftest_regcpy(&cpu, DIFFTEST_TO_REF);
+    difftest_regcpy_to_ref(&cpu);
     is_skip_ref = false;
     return;
   }
 
   ref_difftest_exec(1);
-  ref_difftest_regcpy(&ref_r, DIFFTEST_TO_DUT);
+  difftest_regcpy_to_dut(&ref_r);
 
   checkregs(&ref_r, pc);
 }
