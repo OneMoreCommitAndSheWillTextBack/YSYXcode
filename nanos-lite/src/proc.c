@@ -114,12 +114,11 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
    */
 
   size_t argc_val = argv_count;
-  size_t ptr_slots = 1 + 1 + (argc_val + 1) + (envp_count + 1);
+  size_t ptr_slots = 1 + (argc_val + 1) + (envp_count + 1);
   uint32_t *ptr_array_base =
       (uint32_t *)((char *)string_area_cur - ptr_slots * sizeof(uint32_t));
   uint32_t *ptr_array_cur = ptr_array_base;
 
-  *ptr_array_cur++ = 0;
   *ptr_array_cur++ = (uint32_t)argc_val;
   for (int i = 0; i < argv_count; i++)
     *ptr_array_cur++ = (uint32_t)argv_re[i];
