@@ -54,6 +54,7 @@ enum {
 
 static uint32_t csr_read(uint32_t csr_num);
 static void csr_write(uint32_t csr_num, uint32_t data);
+static void readonly_recover();
 
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
   uint32_t i = s->isa.inst.val;
@@ -145,6 +146,7 @@ static int decode_exec(Decode *s) {
   INSTPAT_END();
 
   R(0) = 0; // reset $zero to 0
+  readonly_recover();
 
   return 0;
 }
@@ -152,6 +154,10 @@ static int decode_exec(Decode *s) {
 int isa_exec_once(Decode *s) {
   s->isa.inst.val = inst_fetch(&s->snpc, 4);
   return decode_exec(s);
+}
+
+static void readonly_recover() {
+  cpu.csr.mhartid = 0; // mhartid is a readonly csr 
 }
 
 static inline uint32_t *get_csr(uint32_t csr_num){
@@ -162,6 +168,7 @@ static inline uint32_t *get_csr(uint32_t csr_num){
     case 0x341: return &cpu.csr.mepc;     break;
     case 0x342: return &cpu.csr.mcause;   break;
     case 0x180: return &cpu.csr.satp;     break;
+    case 0xf14: return &cpu.csr.mhartid;  break;
     default:
       // printf("[error] a undefined csr num %d\n", csr_num);
       panic("[error] a undefined csr num %x\n", csr_num);
