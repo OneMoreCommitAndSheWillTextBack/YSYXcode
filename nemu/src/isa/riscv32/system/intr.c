@@ -16,12 +16,40 @@
 #include <isa.h>
 #include <stdint.h>
 
+extern CPU_MODE current_cpu_priv;
+
+static inline uint32_t encode_mpp(CPU_MODE priv) {
+  switch (priv) {
+  case M_MODE:
+    return MSTATUS_MPP_M;
+  case S_MODE:
+    return MSTATUS_MPP_S;
+  case U_MODE:
+    return MSTATUS_MPP_U;
+  default:
+    assert(0 && "invalid current_cpu_priv");
+    return MSTATUS_MPP_U;
+  }
+}
+
 word_t isa_raise_intr(word_t NO, vaddr_t epc) {
-  // printf("into isa_raise_intr, NO is %d\n", NO);
+  uint32_t mstatus = cpu.csr.mstatus;
+  cpu.csr.mstatus =
+      (mstatus & ~(MSTATUS_MPP_MASK | MSTATUS_MPIE | MSTATUS_MIE)) |
+      encode_mpp(current_cpu_priv) | ((mstatus & MSTATUS_MIE) << 4);
+  current_cpu_priv = M_MODE;
   cpu.csr.mepc = epc;
   cpu.csr.mcause = NO;
 
   return cpu.csr.mtvec;
 }
 
-word_t isa_query_intr() { return INTR_EMPTY; }
+#define IRQ_TIMER 0x80000007
+word_t isa_query_intr() {
+  if (cpu.INTR == true) {
+    cpu.INTR = false;
+    return IRQ_TIMER;
+  }
+
+  return INTR_EMPTY;
+}

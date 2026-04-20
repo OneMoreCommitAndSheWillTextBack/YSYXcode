@@ -181,24 +181,10 @@ static inline uint32_t *get_csr(uint32_t csr_num){
 
 static word_t ecall_inst() {
   if (current_cpu_priv == M_MODE) {
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_M;
-    // MSTATUS_MIE -> MSTATUS_MPIE
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
-                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
     return isa_raise_intr(11, cpu.pc);
   } else if (current_cpu_priv == S_MODE) {
-    current_cpu_priv = M_MODE;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_S;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
-                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE));
     return isa_raise_intr(9, cpu.pc);
   } else if(current_cpu_priv == U_MODE) {
-    current_cpu_priv = M_MODE;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_U;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
-                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE));
     return isa_raise_intr(8, cpu.pc);
   } else {
     assert(false && "invalid current_cpu_priv");

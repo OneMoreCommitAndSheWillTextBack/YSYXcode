@@ -8,6 +8,15 @@ static void *(*pgalloc_usr)(int) = NULL;
 static void (*pgfree_usr)(void *) = NULL;
 static int vme_enable = 0;
 
+#define MSTATUS_SIE  (1u << 1)
+#define MSTATUS_MPIE (1u << 7)
+
+static inline uintptr_t ucontext_mstatus(void) {
+  // Keep interrupts off during trap unwinding and let mret restore MIE from
+  // MPIE so the user context returns with interrupts enabled.
+  return MSTATUS_MPIE | MSTATUS_SIE;
+}
+
 static Area segments[] = { // Kernel memory mappings
     NEMU_PADDR_SPACE};
 
@@ -106,7 +115,7 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
   Context *context = (Context *)kstack.end - 1;
-  context->mstatus = 0x80;
+  context->mstatus = ucontext_mstatus();
   context->mepc = (uintptr_t)entry;
   context->mscratch = (uintptr_t)context;
   context->pdir = as->ptr;
