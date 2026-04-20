@@ -53,6 +53,7 @@ word_t paddr_read(paddr_t addr, int len);
 vaddr_t isa_raise_intr(word_t NO, vaddr_t epc);
 #define INTR_EMPTY ((word_t) - 1)
 word_t isa_query_intr();
+bool isa_enable_intr();
 
 // difftest
 bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc);

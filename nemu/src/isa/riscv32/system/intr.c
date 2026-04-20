@@ -55,3 +55,17 @@ word_t isa_query_intr() {
 
   return INTR_EMPTY;
 }
+
+bool isa_enable_intr() {
+  switch (current_cpu_priv) {
+  case M_MODE:
+    return (cpu.csr.mstatus & MSTATUS_MIE) != 0;
+  case S_MODE:
+    return (cpu.csr.mstatus & MSTATUS_SIE) != 0;
+  case U_MODE:
+    return true;
+  default:
+    assert(0 && "invalid current_cpu_priv");
+    return false;
+  }
+}
