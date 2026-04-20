@@ -75,11 +75,19 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
     uint32_t *src_pix = (uint32_t *)src->pixels;
     int src_pitch = src->pitch / 4;
     int dst_pitch = dst->pitch / 4;
-
-    for (int i = 0; i < copy_h; i++) {
-      memcpy(dst_pix + (dst_rect_y + i) * dst_pitch + dst_rect_x,
-             src_pix + (src_rect_y + i) * src_pitch + src_rect_x,
-             sizeof(uint32_t) * copy_w);
+    int step = 1;
+    int start = 0;
+    int end = copy_h;
+    if (src == dst && dst_rect_y > src_rect_y) {
+      // Overlapped blit on the same surface must copy bottom-up.
+      step = -1;
+      start = copy_h - 1;
+      end = -1;
+    }
+    for (int i = start; i != end; i += step) {
+      memmove(dst_pix + (dst_rect_y + i) * dst_pitch + dst_rect_x,
+              src_pix + (src_rect_y + i) * src_pitch + src_rect_x,
+              sizeof(uint32_t) * copy_w);
     }
   } else if (src->format->BytesPerPixel == 1 &&
              dst->format->BytesPerPixel == 1) {
@@ -88,10 +96,18 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
     }
     uint8_t *dst_pix = dst->pixels;
     uint8_t *src_pix = src->pixels;
-
-    for (int i = 0; i < copy_h; i++) {
-      memcpy(dst_pix + (dst_rect_y + i) * dst->pitch + dst_rect_x,
-             src_pix + (src_rect_y + i) * src->pitch + src_rect_x, copy_w);
+    int step = 1;
+    int start = 0;
+    int end = copy_h;
+    if (src == dst && dst_rect_y > src_rect_y) {
+      // Overlapped blit on the same surface must copy bottom-up.
+      step = -1;
+      start = copy_h - 1;
+      end = -1;
+    }
+    for (int i = start; i != end; i += step) {
+      memmove(dst_pix + (dst_rect_y + i) * dst->pitch + dst_rect_x,
+              src_pix + (src_rect_y + i) * src->pitch + src_rect_x, copy_w);
     }
   } else {
     assert(0);
