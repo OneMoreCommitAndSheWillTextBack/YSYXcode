@@ -47,11 +47,24 @@ void refresh_terminal() {
 
   static uint32_t last = 0;
   static int flip = 0;
+  static int prev_x = 0, prev_y = 0;
   uint32_t now = SDL_GetTicks();
   if (now - last > 500 || needsync) {
     int x = term->cursor.x, y = term->cursor.y;
+    if (prev_x >= 0 && prev_x < term->w && prev_y >= 0 && prev_y < term->h &&
+        (prev_x != x || prev_y != y)) {
+      draw_ch(prev_x * font->w, prev_y * font->h, term->getch(prev_x, prev_y),
+              term->foreground(prev_x, prev_y), term->background(prev_x, prev_y));
+      needsync = 1;
+    }
+    if (x < 0) x = 0;
+    if (x >= term->w) x = term->w - 1;
+    if (y < 0) y = 0;
+    if (y >= term->h) y = term->h - 1;
     uint32_t color = (flip ? term->foreground(x, y) : term->background(x, y));
     draw_ch(x * font->w, y * font->h, ' ', 0, color);
+    prev_x = x;
+    prev_y = y;
     SDL_UpdateRect(screen, 0, 0, 0, 0);
     if (now - last > 500) {
       flip = !flip;
