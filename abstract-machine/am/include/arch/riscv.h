@@ -9,13 +9,12 @@
 #endif
 
 struct Context {
-  // TODO: fix the order of these members to match trap.S
   uintptr_t gpr[NR_REGS];
+  void *pdir;
+  uintptr_t mscratch;
   uintptr_t mcause;
   uintptr_t mstatus;
   uintptr_t mepc;
-  uintptr_t mscratch;
-  void *pdir;
 };
 
 #ifdef __riscv_e
