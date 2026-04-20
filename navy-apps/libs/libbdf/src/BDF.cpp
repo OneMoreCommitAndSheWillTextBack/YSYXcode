@@ -9,7 +9,7 @@ void BDF_Font::create(uint32_t ch, int *bbx, uint32_t *bitmap, int count) {
     for (int x = 0; x < w; x ++) {
       int x1 = x - bbx[2];
       int y1 = y - (h - bbx[1] - bbx[3]) - h1;
-      if (x1 >= 0 && y1 >= 0 && y1 < bbx[1]) {
+      if (x1 >= 0 && x1 < bbx[0] && y1 >= 0 && y1 < bbx[1]) {
         uint32_t mask = bitmap[y1];
         if ( (mask >> (x1)) & 1 ) {
           row |= (1 << x);
