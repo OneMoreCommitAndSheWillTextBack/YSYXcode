@@ -14,13 +14,57 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
 
   int dst_rect_x = (dstrect == NULL ? 0 : dstrect->x);
   int dst_rect_y = (dstrect == NULL ? 0 : dstrect->y);
+  int copy_w = src_rect_w;
+  int copy_h = src_rect_h;
+
+  if (copy_w <= 0 || copy_h <= 0) {
+    return;
+  }
+
+  if (src_rect_x < 0) {
+    int shift = -src_rect_x;
+    src_rect_x = 0;
+    dst_rect_x += shift;
+    copy_w -= shift;
+  }
+  if (src_rect_y < 0) {
+    int shift = -src_rect_y;
+    src_rect_y = 0;
+    dst_rect_y += shift;
+    copy_h -= shift;
+  }
+  if (dst_rect_x < 0) {
+    int shift = -dst_rect_x;
+    dst_rect_x = 0;
+    src_rect_x += shift;
+    copy_w -= shift;
+  }
+  if (dst_rect_y < 0) {
+    int shift = -dst_rect_y;
+    dst_rect_y = 0;
+    src_rect_y += shift;
+    copy_h -= shift;
+  }
+
+  if (src_rect_x + copy_w > src->w)
+    copy_w = src->w - src_rect_x;
+  if (src_rect_y + copy_h > src->h)
+    copy_h = src->h - src_rect_y;
+  if (dst_rect_x + copy_w > dst->w)
+    copy_w = dst->w - dst_rect_x;
+  if (dst_rect_y + copy_h > dst->h)
+    copy_h = dst->h - dst_rect_y;
+
+  if (copy_w <= 0 || copy_h <= 0) {
+    return;
+  }
 
   if (src->format->BytesPerPixel == 4 && dst->format->BytesPerPixel == 4) {
     uint32_t *dst_pix = (uint32_t *)dst->pixels;
     uint32_t *src_pix = (uint32_t *)src->pixels;
 
-    for (int i = 0; i < src_rect_h; i++) {
-      for (int j = 0; j < src_rect_w; j++) {
+    for (int i = 0; i < copy_h; i++) {
+      for (int j = 0; j < copy_w; j++) {
         dst_pix[(dst_rect_y + i) * dst->w + dst_rect_x + j] =
             src_pix[(src_rect_y + i) * src->w + src_rect_x + j];
       }
@@ -30,8 +74,8 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
     uint8_t *dst_pix = dst->pixels;
     uint8_t *src_pix = src->pixels;
 
-    for (int i = 0; i < src_rect_h; i++) {
-      for (int j = 0; j < src_rect_w; j++) {
+    for (int i = 0; i < copy_h; i++) {
+      for (int j = 0; j < copy_w; j++) {
         dst_pix[(dst_rect_y + i) * dst->pitch + dst_rect_x + j] =
             src_pix[(src_rect_y + i) * src->pitch + src_rect_x + j];
       }
