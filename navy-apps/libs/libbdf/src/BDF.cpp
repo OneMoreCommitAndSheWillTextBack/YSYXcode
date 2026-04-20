@@ -27,7 +27,8 @@ BDF_Font::BDF_Font(const char *fname) {
 
   char buf[256], cmd[32];
   bool valid_file = false, in_bitmap = false;
-  uint32_t bm[32], ch = '\0';
+  uint32_t bm[32];
+  int ch = -1;
   int bm_idx, bm_bbx[4];
 
   while (fgets(buf, 256, fp)) {
@@ -39,17 +40,20 @@ BDF_Font::BDF_Font(const char *fname) {
       sscanf(buf, "%*s %d %d %d %d", &w, &h, &w1, &h1);
     }
     if (strcmp(cmd, "STARTCHAR") == 0) {
-      sscanf(buf, "%*s %x", &ch);
+      ch = -1;
+    }
+    if (strcmp(cmd, "ENCODING") == 0) {
+      sscanf(buf, "%*s %d", &ch);
     }
     if (strcmp(cmd, "BBX") == 0) {
       sscanf(buf, "%*s %d %d %d %d", &bm_bbx[0], &bm_bbx[1], &bm_bbx[2], &bm_bbx[3]);
     }
     if (strcmp(cmd, "ENDCHAR") == 0) {
-      if (ch < 256) {
-        create(ch, bm_bbx, bm, bm_idx);
+      if (ch >= 0 && ch < 256) {
+        create((uint32_t)ch, bm_bbx, bm, bm_idx);
       }
       in_bitmap = false;
-      ch = '\0';
+      ch = -1;
     } else if (strcmp(cmd, "BITMAP") == 0) {
       in_bitmap = true;
       bm_idx = 0;
@@ -57,9 +61,16 @@ BDF_Font::BDF_Font(const char *fname) {
       int idx = 0;
       bm[bm_idx] = 0;
       for (const char *p = buf; *p != '\n'; p ++) {
-        int val;
-        if (*p >= '0' && *p <= '9') val = *p - '0';
-        else val = *p - 'A' + 10;
+        int val = -1;
+        if (*p >= '0' && *p <= '9') {
+          val = *p - '0';
+        } else if (*p >= 'A' && *p <= 'F') {
+          val = *p - 'A' + 10;
+        } else if (*p >= 'a' && *p <= 'f') {
+          val = *p - 'a' + 10;
+        } else {
+          continue;
+        }
         for (int i = 0; i < 4; i ++) {
           if ((val >> (3 - i)) & 1) {
             bm[bm_idx] |= 1 << idx;
