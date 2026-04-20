@@ -15,20 +15,6 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
   int dst_rect_x = (dstrect == NULL ? 0 : dstrect->x);
   int dst_rect_y = (dstrect == NULL ? 0 : dstrect->y);
 
-  if (src_rect_x < 0 || src_rect_y < 0 ||
-      src_rect_x + src_rect_w > src->w ||
-      src_rect_y + src_rect_h > src->h ||
-      dst_rect_x < 0 || dst_rect_y < 0 ||
-      dst_rect_x + src_rect_w > dst->w ||
-      dst_rect_y + src_rect_h > dst->h) {
-    printf("[miniSDL] SDL_BlitSurface OOB: "
-           "src=(%d,%d %dx%d) src_wh=(%d,%d) "
-           "dst=(%d,%d %dx%d) dst_wh=(%d,%d)\n",
-           src_rect_x, src_rect_y, src_rect_w, src_rect_h, src->w, src->h,
-           dst_rect_x, dst_rect_y, src_rect_w, src_rect_h, dst->w, dst->h);
-    assert(0);
-  }
-
   if (src->format->BytesPerPixel == 4 && dst->format->BytesPerPixel == 4) {
     uint32_t *dst_pix = (uint32_t *)dst->pixels;
     uint32_t *src_pix = (uint32_t *)src->pixels;

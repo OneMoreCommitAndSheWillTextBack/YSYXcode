@@ -18,8 +18,6 @@ int main(int argc, char *argv[]) {
   int win_w = font->w * W;
   int win_h = font->h * H;
   screen = SDL_SetVideoMode(win_w, win_h, 32, SDL_HWSURFACE);
-  SDL_FillRect(screen, NULL, 0xffffff);
-  SDL_UpdateRect(screen, 0, 0, 0, 0);
 
   term = new Terminal(W, H);
 
@@ -49,32 +47,11 @@ void refresh_terminal() {
 
   static uint32_t last = 0;
   static int flip = 0;
-  static int prev_x = -1, prev_y = -1;
   uint32_t now = SDL_GetTicks();
   if (now - last > 500 || needsync) {
     int x = term->cursor.x, y = term->cursor.y;
-    if (x < 0) x = 0;
-    if (x >= term->w) x = term->w - 1;
-    if (y < 0) y = 0;
-    if (y >= term->h) y = term->h - 1;
-
-    if (prev_x >= 0 && prev_x < term->w && prev_y >= 0 && prev_y < term->h &&
-        (prev_x != x || prev_y != y || now - last > 500)) {
-      draw_ch(prev_x * font->w, prev_y * font->h, term->getch(prev_x, prev_y),
-              term->foreground(prev_x, prev_y), term->background(prev_x, prev_y));
-      needsync = 1;
-    }
-
-    uint32_t fg = term->foreground(x, y);
-    uint32_t bg = term->background(x, y);
-    char ch = term->getch(x, y);
-    if (flip) {
-      draw_ch(x * font->w, y * font->h, ch, bg, fg);
-    } else {
-      draw_ch(x * font->w, y * font->h, ch, fg, bg);
-    }
-    prev_x = x;
-    prev_y = y;
+    uint32_t color = (flip ? term->foreground(x, y) : term->background(x, y));
+    draw_ch(x * font->w, y * font->h, ' ', 0, color);
     SDL_UpdateRect(screen, 0, 0, 0, 0);
     if (now - last > 500) {
       flip = !flip;

@@ -9,7 +9,7 @@ void BDF_Font::create(uint32_t ch, int *bbx, uint32_t *bitmap, int count) {
     for (int x = 0; x < w; x ++) {
       int x1 = x - bbx[2];
       int y1 = y - (h - bbx[1] - bbx[3]) - h1;
-      if (x1 >= 0 && x1 < bbx[0] && y1 >= 0 && y1 < bbx[1]) {
+      if (x1 >= 0 && y1 >= 0 && y1 < bbx[1]) {
         uint32_t mask = bitmap[y1];
         if ( (mask >> (x1)) & 1 ) {
           row |= (1 << x);
@@ -27,8 +27,7 @@ BDF_Font::BDF_Font(const char *fname) {
 
   char buf[256], cmd[32];
   bool valid_file = false, in_bitmap = false;
-  uint32_t bm[32];
-  int ch = -1;
+  uint32_t bm[32], ch = '\0';
   int bm_idx, bm_bbx[4];
 
   while (fgets(buf, 256, fp)) {
@@ -40,20 +39,17 @@ BDF_Font::BDF_Font(const char *fname) {
       sscanf(buf, "%*s %d %d %d %d", &w, &h, &w1, &h1);
     }
     if (strcmp(cmd, "STARTCHAR") == 0) {
-      ch = -1;
-    }
-    if (strcmp(cmd, "ENCODING") == 0) {
-      sscanf(buf, "%*s %d", &ch);
+      sscanf(buf, "%*s %x", &ch);
     }
     if (strcmp(cmd, "BBX") == 0) {
       sscanf(buf, "%*s %d %d %d %d", &bm_bbx[0], &bm_bbx[1], &bm_bbx[2], &bm_bbx[3]);
     }
     if (strcmp(cmd, "ENDCHAR") == 0) {
-      if (ch >= 0 && ch < 256) {
-        create((uint32_t)ch, bm_bbx, bm, bm_idx);
+      if (ch < 256) {
+        create(ch, bm_bbx, bm, bm_idx);
       }
       in_bitmap = false;
-      ch = -1;
+      ch = '\0';
     } else if (strcmp(cmd, "BITMAP") == 0) {
       in_bitmap = true;
       bm_idx = 0;
@@ -61,16 +57,9 @@ BDF_Font::BDF_Font(const char *fname) {
       int idx = 0;
       bm[bm_idx] = 0;
       for (const char *p = buf; *p != '\n'; p ++) {
-        int val = -1;
-        if (*p >= '0' && *p <= '9') {
-          val = *p - '0';
-        } else if (*p >= 'A' && *p <= 'F') {
-          val = *p - 'A' + 10;
-        } else if (*p >= 'a' && *p <= 'f') {
-          val = *p - 'a' + 10;
-        } else {
-          continue;
-        }
+        int val;
+        if (*p >= '0' && *p <= '9') val = *p - '0';
+        else val = *p - 'A' + 10;
         for (int i = 0; i < 4; i ++) {
           if ((val >> (3 - i)) & 1) {
             bm[bm_idx] |= 1 << idx;
