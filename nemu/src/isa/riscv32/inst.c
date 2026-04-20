@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "cpu/difftest.h"
+#include "debug.h"
 #include "isa-def.h"
 #include "isa.h"
 #include "local-include/reg.h"
@@ -162,8 +163,8 @@ static inline uint32_t *get_csr(uint32_t csr_num){
     case 0x342: return &cpu.csr.mcause;   break;
     case 0x180: return &cpu.csr.satp;     break;
     default:
-      printf("[error] a undefined csr num %d\n", csr_num);
-      assert(0);
+      // printf("[error] a undefined csr num %d\n", csr_num);
+      panic("[error] a undefined csr num %d\n", csr_num);
   }
 }
 
