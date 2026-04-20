@@ -38,9 +38,10 @@ int mm_brk(uintptr_t brk) {
   }
 
   // Treat brk as the last address that may be touched by user space in this
-  // lab setup. Map newly covered pages, avoid remapping the old boundary page.
+  // lab setup. Some user-space allocators may probe/write metadata around the
+  // heap top on page boundaries, so keep one extra page mapped as a guard.
   uintptr_t va = ROUNDUP(current->max_brk + 1, PGSIZE);
-  uintptr_t brk_end = ROUNDUP(brk + 1, PGSIZE);
+  uintptr_t brk_end = ROUNDUP(brk + PGSIZE + 1, PGSIZE);
   for (; va < brk_end; va += PGSIZE) {
     void *pa = new_page(1);
     Log("mm_brk: map va=%p -> pa=%p", (void *)va, pa);
