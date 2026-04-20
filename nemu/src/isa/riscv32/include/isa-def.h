@@ -27,6 +27,8 @@ typedef struct {
   uint32_t mscratch;
   uint32_t satp;
 
+  uint32_t medeleg;
+
   uint32_t mhartid;
 } riscv32_CPU_csr;
 
