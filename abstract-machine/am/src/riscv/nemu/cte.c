@@ -7,8 +7,8 @@ static Context *(*user_handler)(Event, Context *) = NULL;
 void __am_get_cur_as(Context *c);
 void __am_switch(Context *c);
 
-#define MSTATUS_SIE   (1u << 1)
-#define MSTATUS_MPIE  (1u << 7)
+#define MSTATUS_SIE (1u << 1)
+#define MSTATUS_MPIE (1u << 7)
 #define MSTATUS_MPP_M (3u << 11)
 
 static inline uintptr_t kcontext_mstatus(void) {
@@ -25,7 +25,7 @@ __attribute__((unused)) static void dump_context(const char *tag, Context *c) {
 }
 
 Context *__am_irq_handle(Context *c) {
-  // printf("into am irq handle, mcause is %d\n", c->mcause);
+  printf("into am irq handle, mcause is %d\n", c->mcause);
   __am_get_cur_as(c);
   // dump_context("trap-enter", c);
   if (user_handler) {
