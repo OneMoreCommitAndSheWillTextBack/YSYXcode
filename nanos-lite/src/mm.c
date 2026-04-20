@@ -38,7 +38,7 @@ int mm_brk(uintptr_t brk) {
   }
 
   uintptr_t va = ROUNDUP(current->max_brk, PGSIZE);
-  uintptr_t brk_end = ROUNDUP(brk, PGSIZE);
+  uintptr_t brk_end = ROUNDUP(brk + 1, PGSIZE);
   for (; va < brk_end; va += PGSIZE) {
     void *pa = new_page(1);
     Log("mm_brk: map va=%p -> pa=%p", (void *)va, pa);
