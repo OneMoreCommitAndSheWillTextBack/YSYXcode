@@ -40,7 +40,7 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   current_cpu_priv = M_MODE;
   cpu.csr.mepc = epc;
   cpu.csr.mcause = NO;
-  printf("[DEBUG] mcause set to %d | %08x", cpu.csr.mcause, cpu.csr.mcause);
+  printf("[DEBUG] mcause set to %d | %08x\n", cpu.csr.mcause, cpu.csr.mcause);
 
   return cpu.csr.mtvec;
 }
