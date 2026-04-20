@@ -25,7 +25,7 @@ __attribute__((unused)) static void dump_context(const char *tag, Context *c) {
 }
 
 Context *__am_irq_handle(Context *c) {
-  // printf("into am irq handle, mcause is %d | %08x\n", c->mcause, c->mcause);
+  printf("into am irq handle, mcause is %d | %08x\n", c->mcause, c->mcause);
   __am_get_cur_as(c);
   // dump_context("trap-enter", c);
   if (user_handler) {
