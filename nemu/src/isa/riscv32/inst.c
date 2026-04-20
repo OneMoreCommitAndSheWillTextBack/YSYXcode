@@ -162,7 +162,7 @@ static inline uint32_t *get_csr(uint32_t csr_num){
     case 0x342: return &cpu.csr.mcause;   break;
     case 0x180: return &cpu.csr.satp;     break;
     default:
-      printf("[error] a undefined csr num\n");
+      printf("[error] a undefined csr num %d\n", csr_num);
       assert(0);
   }
 }
