@@ -217,11 +217,14 @@ static word_t mret_inst() {
   return cpu.csr.mepc; 
 }
 
+#define CSR_MAST 0xfff
 static uint32_t csr_read(uint32_t csr_num) {
+  csr_num &= CSR_MAST;
   return *(get_csr(csr_num));
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
+  csr_num &= CSR_MAST;
   *(get_csr(csr_num)) = data;
   return;
 }
