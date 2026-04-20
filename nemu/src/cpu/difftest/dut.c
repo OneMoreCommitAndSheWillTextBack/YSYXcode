@@ -26,6 +26,8 @@ void (*ref_difftest_memcpy)(paddr_t addr, void *buf, size_t n, bool direction) =
 void (*ref_difftest_regcpy)(void *dut, bool direction) = NULL;
 void (*ref_difftest_exec)(uint64_t n) = NULL;
 void (*ref_difftest_raise_intr)(uint64_t NO) = NULL;
+void (*ref_difftest_probe_mem)(vaddr_t addr, difftest_mem_probe_t *result,
+                               size_t n) = NULL;
 
 #ifdef CONFIG_DIFFTEST
 
@@ -33,11 +35,15 @@ static bool is_skip_ref = false;
 static int skip_dut_nr_inst = 0;
 
 #ifdef CONFIG_ISA_riscv
+extern CPU_MODE current_cpu_priv;
+RISCV_GPR_TYPE difftest_ref_priv = DIFFTEST_RISCV_PRIV_M;
+
 static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state) {
   for (int i = 0; i < RISCV_GPR_NUM; i++) {
     ctx->gpr[i] = state->gpr[i];
   }
   ctx->pc = state->pc;
+  ctx->priv = current_cpu_priv;
   ctx->csr.mepc = state->csr.mepc;
   ctx->csr.mstatus = state->csr.mstatus;
   ctx->csr.mcause = state->csr.mcause;
@@ -52,6 +58,7 @@ static void unpack_difftest_ctx(CPU_state *state,
     state->gpr[i] = ctx->gpr[i];
   }
   state->pc = ctx->pc;
+  current_cpu_priv = ctx->priv;
   state->csr.mepc = ctx->csr.mepc;
   state->csr.mstatus = ctx->csr.mstatus;
   state->csr.mcause = ctx->csr.mcause;
@@ -69,6 +76,7 @@ static void difftest_regcpy_to_ref(const CPU_state *state) {
 static void difftest_regcpy_to_dut(CPU_state *state) {
   riscv_difftest_ctx_t ctx = {};
   ref_difftest_regcpy(&ctx, DIFFTEST_TO_DUT);
+  difftest_ref_priv = ctx.priv;
   unpack_difftest_ctx(state, &ctx);
 }
 #else
@@ -127,6 +135,8 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
 
   ref_difftest_raise_intr = dlsym(handle, "difftest_raise_intr");
   assert(ref_difftest_raise_intr);
+
+  ref_difftest_probe_mem = dlsym(handle, "difftest_probe_mem");
 
   void (*ref_difftest_init)(int) = dlsym(handle, "difftest_init");
   assert(ref_difftest_init);

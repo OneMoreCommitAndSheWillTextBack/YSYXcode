@@ -16,8 +16,8 @@ static Context* ev_handler(Event e, Context *c) {
       }
       c = *(Context **)global_to;
       break;
+    case EVENT_IRQ_TIMER:
     break;
-		case 5:
 			break;
     default: printf("Unhandled event ID = %d\n", e.event); assert(0);
   }

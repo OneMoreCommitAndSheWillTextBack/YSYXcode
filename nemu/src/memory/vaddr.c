@@ -45,6 +45,24 @@ word_t vaddr_read(vaddr_t addr, int len) {
   return paddr_read(paddr, len);
 }
 
+bool vaddr_read_safe(vaddr_t addr, int len, word_t *data, word_t *cause) {
+  paddr_t paddr = 0;
+  if (!isa_mmu_translate_safe(addr, len, MEM_TYPE_READ, &paddr, cause)) {
+    if (data != NULL) {
+      *data = 0;
+    }
+    return false;
+  }
+
+  if (data != NULL) {
+    *data = paddr_read(paddr, len);
+  }
+  if (cause != NULL) {
+    *cause = 0;
+  }
+  return true;
+}
+
 void vaddr_write(vaddr_t addr, int len, word_t data) {
   paddr_t paddr;
   int mmu_check = isa_mmu_check(addr, len, MEM_TYPE_WRITE);

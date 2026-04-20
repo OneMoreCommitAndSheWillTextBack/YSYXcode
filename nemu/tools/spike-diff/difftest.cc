@@ -43,6 +43,28 @@ static state_t *state = NULL;
 
 static inline auto mscratch_csr() { return state->csrmap.at(CSR_MSCRATCH); }
 
+static inline RISCV_GPR_TYPE spike_priv_to_ctx(reg_t prv) {
+  switch (prv) {
+  case PRV_U:
+    return DIFFTEST_RISCV_PRIV_U;
+  case PRV_S:
+    return DIFFTEST_RISCV_PRIV_S;
+  default:
+    return DIFFTEST_RISCV_PRIV_M;
+  }
+}
+
+static inline reg_t ctx_priv_to_spike(RISCV_GPR_TYPE prv) {
+  switch (prv) {
+  case DIFFTEST_RISCV_PRIV_U:
+    return PRV_U;
+  case DIFFTEST_RISCV_PRIV_S:
+    return PRV_S;
+  default:
+    return PRV_M;
+  }
+}
+
 void sim_t::diff_init(int port) {
   p = get_core("0");
   state = p->get_state();
@@ -56,6 +78,7 @@ void sim_t::diff_get_regs(void *diff_context) {
     ctx->gpr[i] = state->XPR[i];
   }
   ctx->pc = state->pc;
+  ctx->priv = spike_priv_to_ctx(state->prv);
 
   // get csr from spike
   ctx->csr.mcause = state->mcause->read();
@@ -73,6 +96,7 @@ void sim_t::diff_set_regs(void *diff_context) {
     state->XPR.write(i, (int32_t)ctx->gpr[i]);
   }
   state->pc = ctx->pc;
+  p->set_privilege(ctx_priv_to_spike(ctx->priv));
   rv32_csr_syn(mstatus);
   rv32_csr_syn(mcause);
   rv32_csr_syn(mepc);
@@ -103,6 +127,25 @@ __EXPORT void difftest_memcpy(uint32_t addr, void *buf, size_t n,
     s->diff_memcpy_to_ref(addr, buf, n);
   } else if (direction == DIFFTEST_TO_DUT) {
     s->diff_memcpy_to_dut(addr, buf, n);
+  }
+}
+
+__EXPORT void difftest_probe_mem(uint32_t addr, difftest_mem_probe_t *result,
+                                 size_t n) {
+  *result = {};
+  if (n > sizeof(result->data)) {
+    n = sizeof(result->data);
+  }
+
+  try {
+    mmu_t *mmu = p->get_mmu();
+    for (size_t i = 0; i < n; i++) {
+      *((uint8_t *)&result->data + i) = mmu->load<uint8_t>(addr + i);
+    }
+    result->success = 1;
+  } catch (trap_t &t) {
+    result->success = 0;
+    result->cause = t.cause();
   }
 }
 

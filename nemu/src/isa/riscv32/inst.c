@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "cpu/difftest.h"
+#include "debug.h"
 #include "isa-def.h"
 #include "isa.h"
 #include "local-include/reg.h"
@@ -53,6 +54,7 @@ enum {
 
 static uint32_t csr_read(uint32_t csr_num);
 static void csr_write(uint32_t csr_num, uint32_t data);
+static void readonly_recover();
 
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
   uint32_t i = s->isa.inst.val;
@@ -144,6 +146,7 @@ static int decode_exec(Decode *s) {
   INSTPAT_END();
 
   R(0) = 0; // reset $zero to 0
+  readonly_recover();
 
   return 0;
 }
@@ -153,40 +156,35 @@ int isa_exec_once(Decode *s) {
   return decode_exec(s);
 }
 
+static void readonly_recover() {
+  cpu.csr.mhartid = 0; // mhartid is a readonly csr 
+}
+
 static inline uint32_t *get_csr(uint32_t csr_num){
   switch(csr_num){
     case 0x300: return &cpu.csr.mstatus;  break;
+    case 0x302: return &cpu.csr.medeleg;  break;
+    case 0x303: return &cpu.csr.mideleg;  break;
     case 0x305: return &cpu.csr.mtvec;    break;
     case 0x340: return &cpu.csr.mscratch; break;
     case 0x341: return &cpu.csr.mepc;     break;
     case 0x342: return &cpu.csr.mcause;   break;
     case 0x180: return &cpu.csr.satp;     break;
+    case 0x104: return &cpu.csr.sie;      break;
+    case 0x144: return &cpu.csr.sip;      break;
+    case 0xf14: return &cpu.csr.mhartid;  break;
     default:
-      printf("[error] a undefined csr num\n");
-      assert(0);
+      // printf("[error] a undefined csr num %d\n", csr_num);
+      panic("[error] a undefined csr num %x\n", csr_num);
   }
 }
 
 static word_t ecall_inst() {
   if (current_cpu_priv == M_MODE) {
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_M;
-    // MSTATUS_MIE -> MSTATUS_MPIE
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
-                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
     return isa_raise_intr(11, cpu.pc);
   } else if (current_cpu_priv == S_MODE) {
-    current_cpu_priv = M_MODE;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_S;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
-                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE));
     return isa_raise_intr(9, cpu.pc);
   } else if(current_cpu_priv == U_MODE) {
-    current_cpu_priv = M_MODE;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPP_MASK)) | MSTATUS_MPP_U;
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MPIE)) |
-                      ((cpu.csr.mstatus & (MSTATUS_MIE)) << 4);
-    cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE));
     return isa_raise_intr(8, cpu.pc);
   } else {
     assert(false && "invalid current_cpu_priv");
@@ -216,11 +214,14 @@ static word_t mret_inst() {
   return cpu.csr.mepc; 
 }
 
+#define CSR_MAST 0xfff
 static uint32_t csr_read(uint32_t csr_num) {
+  csr_num &= CSR_MAST;
   return *(get_csr(csr_num));
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
+  csr_num &= CSR_MAST;
   *(get_csr(csr_num)) = data;
   return;
 }

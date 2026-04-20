@@ -18,7 +18,12 @@
 #include <difftest-def.h>
 #include <isa.h>
 #include <memory/paddr.h>
+#include <memory/vaddr.h>
 #include <stdint.h>
+
+#ifdef CONFIG_ISA_riscv
+extern CPU_MODE current_cpu_priv;
+#endif
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
   if (direction == DIFFTEST_TO_REF) {
@@ -42,6 +47,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
     for (int i = 0; i < RISCV_GPR_NUM; i++) {
       cpu.gpr[i] = ctx->gpr[i];
     }
+    current_cpu_priv = ctx->priv;
     cpu.csr.mcause = ctx->csr.mcause;
     cpu.csr.mepc = ctx->csr.mepc;
     cpu.csr.mstatus = ctx->csr.mstatus;
@@ -58,6 +64,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
     for (int i = 0; i < RISCV_GPR_NUM; i++) {
       ctx->gpr[i] = cpu.gpr[i];
     }
+    ctx->priv = current_cpu_priv;
     ctx->csr.mepc = cpu.csr.mepc;
     ctx->csr.mtvec = cpu.csr.mtvec;
     ctx->csr.mstatus = cpu.csr.mstatus;
@@ -73,6 +80,18 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
 
 __EXPORT uint32_t difftest_get_mem(uint32_t addr) {
   return paddr_read(addr, 4);
+}
+
+__EXPORT void difftest_probe_mem(vaddr_t addr, difftest_mem_probe_t *result,
+                                 size_t n) {
+  word_t data = 0;
+  word_t cause = 0;
+  assert(result != NULL);
+  assert(n <= sizeof(result->data));
+
+  result->success = vaddr_read_safe(addr, n, &data, &cause);
+  result->data = (uint32_t)data;
+  result->cause = (uint32_t)cause;
 }
 
 __EXPORT void difftest_exec(uint64_t n) { cpu_exec(n); }

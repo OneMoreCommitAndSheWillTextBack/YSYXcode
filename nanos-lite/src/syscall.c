@@ -41,14 +41,12 @@ bool do_syscall(Context *c) {
   case SYS_write: {
     size_t res = fs_write(a[1], (void *)a[2], a[3]);
     c->GPRx = res;
-    need_schedule = fs_should_schedule(a[1], true);
     break;
   }
 
   case SYS_read: {
     size_t res = fs_read(a[1], (void *)a[2], a[3]);
     c->GPRx = res;
-    need_schedule = fs_should_schedule(a[1], false);
     break;
   }
 

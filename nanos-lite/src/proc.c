@@ -20,7 +20,7 @@ void switch_boot_pcb() {
 void hello_fun(void *arg) {
   int j = 1;
   while (1) {
-    if (j % 10000 == 0)
+    if (j % 100 == 0)
       Log("Hello World from Nanos-lite with arg '%s' for the %dth time!",
           (char *)arg, j);
     j++;
@@ -182,10 +182,14 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   Area stack = {.end = (void *)ptr_array_pa};
 #endif
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
+  // INFO: 其实在这里我的实现有问题，我走远了，这里应该保存的是虚拟地址
+  // 这样 在上下文切换的时候 a0会得到正确的stack的起始地址，然后传递给sp
   p->cp = ucontext(&p->as, stack, (void *)entry);
 #ifdef HAS_VME
   // _start copies a0 into sp before calling call_main, so keep both registers
   // pointing at the argc/argv/envp block.
+  // INFO: 这个实际上确实起到了作用，但是相应的使用mscratch寄存器
+  // 这个实现可以正常运行，但是也确实存在问题
   p->cp->GPRx = ptr_array_va;
   p->cp->gpr[2] = ptr_array_va;
 #endif
