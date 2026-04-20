@@ -37,10 +37,10 @@ int mm_brk(uintptr_t brk) {
     return 0;
   }
 
-  // Heap range is [old_brk, brk). Map newly covered pages in
-  // [ROUNDUP(old_brk), ROUNDUP(brk)).
-  uintptr_t va = ROUNDUP(current->max_brk, PGSIZE);
-  uintptr_t brk_end = ROUNDUP(brk, PGSIZE);
+  // Treat brk as the last address that may be touched by user space in this
+  // lab setup. Map newly covered pages, avoid remapping the old boundary page.
+  uintptr_t va = ROUNDUP(current->max_brk + 1, PGSIZE);
+  uintptr_t brk_end = ROUNDUP(brk + 1, PGSIZE);
   for (; va < brk_end; va += PGSIZE) {
     void *pa = new_page(1);
     Log("mm_brk: map va=%p -> pa=%p", (void *)va, pa);
