@@ -7,6 +7,14 @@
 
 void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
                      SDL_Rect *dstrect) {
+  if (src == NULL || dst == NULL || src->format == NULL || dst->format == NULL ||
+      src->pixels == NULL || dst->pixels == NULL) {
+    return;
+  }
+  if (src->w <= 0 || src->h <= 0 || dst->w <= 0 || dst->h <= 0) {
+    return;
+  }
+
   int src_rect_x = (srcrect == NULL ? 0 : srcrect->x);
   int src_rect_y = (srcrect == NULL ? 0 : srcrect->y);
   int src_rect_w = (srcrect == NULL ? src->w : srcrect->w);
@@ -60,25 +68,30 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
   }
 
   if (src->format->BytesPerPixel == 4 && dst->format->BytesPerPixel == 4) {
+    if (src->pitch < src->w * 4 || dst->pitch < dst->w * 4) {
+      return;
+    }
     uint32_t *dst_pix = (uint32_t *)dst->pixels;
     uint32_t *src_pix = (uint32_t *)src->pixels;
+    int src_pitch = src->pitch / 4;
+    int dst_pitch = dst->pitch / 4;
 
     for (int i = 0; i < copy_h; i++) {
-      for (int j = 0; j < copy_w; j++) {
-        dst_pix[(dst_rect_y + i) * dst->w + dst_rect_x + j] =
-            src_pix[(src_rect_y + i) * src->w + src_rect_x + j];
-      }
+      memcpy(dst_pix + (dst_rect_y + i) * dst_pitch + dst_rect_x,
+             src_pix + (src_rect_y + i) * src_pitch + src_rect_x,
+             sizeof(uint32_t) * copy_w);
     }
   } else if (src->format->BytesPerPixel == 1 &&
              dst->format->BytesPerPixel == 1) {
+    if (src->pitch < src->w || dst->pitch < dst->w) {
+      return;
+    }
     uint8_t *dst_pix = dst->pixels;
     uint8_t *src_pix = src->pixels;
 
     for (int i = 0; i < copy_h; i++) {
-      for (int j = 0; j < copy_w; j++) {
-        dst_pix[(dst_rect_y + i) * dst->pitch + dst_rect_x + j] =
-            src_pix[(src_rect_y + i) * src->pitch + src_rect_x + j];
-      }
+      memcpy(dst_pix + (dst_rect_y + i) * dst->pitch + dst_rect_x,
+             src_pix + (src_rect_y + i) * src->pitch + src_rect_x, copy_w);
     }
   } else {
     assert(0);
