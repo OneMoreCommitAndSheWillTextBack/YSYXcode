@@ -26,12 +26,20 @@ typedef struct {
   uint32_t mtvec;
   uint32_t mscratch;
   uint32_t satp;
+
+  uint32_t sie;
+  uint32_t sip;
+  uint32_t medeleg;
+  uint32_t mideleg;
+
+  uint32_t mhartid;
 } riscv32_CPU_csr;
 
 typedef struct {
   word_t gpr[MUXDEF(CONFIG_RVE, 16, 32)];
   vaddr_t pc;
   riscv32_CPU_csr csr;
+  bool INTR;
 } MUXDEF(CONFIG_RV64, riscv64_CPU_state, riscv32_CPU_state);
 
 typedef enum { S_MODE, M_MODE, U_MODE } CPU_MODE;

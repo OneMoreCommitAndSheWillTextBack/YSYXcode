@@ -13,6 +13,8 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "common.h"
+#include "isa.h"
 #include "macro.h"
 #include "utils.h"
 #include <cpu/cpu.h>
@@ -103,6 +105,10 @@ static void execute(uint64_t n) {
   for (; n > 0; n--) {
     exec_once(&s, cpu.pc);
     g_nr_guest_inst++;
+    word_t intr = isa_query_intr();
+    if (intr != INTR_EMPTY && isa_enable_intr()) {
+      cpu.pc = isa_raise_intr(intr, cpu.pc);
+    }
     trace_and_difftest(&s, cpu.pc);
     if (nemu_state.state != NEMU_RUNNING)
       break;

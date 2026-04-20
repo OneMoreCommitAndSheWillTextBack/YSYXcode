@@ -45,12 +45,15 @@ enum { MEM_RET_OK, MEM_RET_FAIL, MEM_RET_CROSS_PAGE };
 int isa_mmu_check(vaddr_t vaddr, int len, int type);
 #endif
 paddr_t isa_mmu_translate(vaddr_t vaddr, int len, int type);
+bool isa_mmu_translate_safe(vaddr_t vaddr, int len, int type, paddr_t *paddr,
+                            word_t *cause);
 word_t paddr_read(paddr_t addr, int len);
 
 // interrupt/exception
 vaddr_t isa_raise_intr(word_t NO, vaddr_t epc);
 #define INTR_EMPTY ((word_t) - 1)
 word_t isa_query_intr();
+bool isa_enable_intr();
 
 // difftest
 bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc);
