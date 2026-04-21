@@ -71,10 +71,16 @@ save_context:
   STORE t1, OFFSET_STATUS(sp)
   STORE t2, OFFSET_EPC(sp)
 
-  # set mstatus.MPRV to pass difftest
+  # Only enable MPRV when the trapped context was already privileged.
+  # If we came from U-mode, MPRV would make C code access the kernel stack
+  # with U permission and fault under Sv32.
+  li t0, MSTATUS_MPP
+  and t0, t1, t0
+  beqz t0, 1f
   li t0, (1 << 17)
   or t1, t1, t0
   csrw mstatus, t1
+1:
 
   mv a0, sp
   jal __am_irq_handle
