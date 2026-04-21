@@ -10,6 +10,7 @@ static int vme_enable = 0;
 
 #define MSTATUS_SIE (1u << 1)
 #define MSTATUS_MPIE (1u << 7)
+#define MSTATUS_MPP (3u << 11)
 
 static inline uintptr_t ucontext_mstatus(void) {
   // Keep interrupts off during trap unwinding and let mret restore MIE from
@@ -71,7 +72,17 @@ void protect(AddrSpace *as) {
 void unprotect(AddrSpace *as) {}
 
 void __am_get_cur_as(Context *c) {
-  c->pdir = (vme_enable ? (void *)get_satp() : NULL);
+  if (!vme_enable) {
+    c->pdir = NULL;
+    return;
+  }
+  // Only preserve satp for user contexts. Kernel contexts should keep pdir=NULL
+  // so trap exit won't try to switch to an uninitialized/random page table.
+  if ((c->mstatus & MSTATUS_MPP) == 0) {
+    c->pdir = (void *)get_satp();
+  } else {
+    c->pdir = NULL;
+  }
 }
 
 void __am_switch(Context *c) {
@@ -116,6 +127,7 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
   Context *context = (Context *)kstack.end - 1;
+  memset(context, 0, sizeof(*context));
   context->mstatus = ucontext_mstatus();
   context->mepc = (uintptr_t)entry;
   context->pdir = as->ptr;
