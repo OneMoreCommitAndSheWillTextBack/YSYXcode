@@ -27,7 +27,6 @@ static void *pg_alloc(int n) {
 void free_page(void *p) { panic("not implement yet"); }
 
 int mm_brk(uintptr_t brk) {
-  Log("mm_brk: request=0x%x current_max_brk=0x%x", brk, current->max_brk);
   if (brk < current->max_brk)
     return 0;
 
