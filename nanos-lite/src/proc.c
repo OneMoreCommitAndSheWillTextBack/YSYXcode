@@ -39,6 +39,13 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg) {
 
 #define MAXARG 32
 #define MAXENVP 32
+
+static inline uintptr_t user_stack_pa_to_va(uintptr_t stack_top_pa,
+                                            uintptr_t stack_top_va,
+                                            uintptr_t pa) {
+  return stack_top_va - (stack_top_pa - pa);
+}
+
 static char *allocate_string(char *current_pos, const char *source,
                              size_t len) {
   current_pos -= len;
@@ -47,10 +54,12 @@ static char *allocate_string(char *current_pos, const char *source,
   return current_pos;
 }
 
-uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
-                        char *envp[]) {
-  char *argv_re[MAXARG];
-  char *envp_re[MAXENVP];
+uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
+                        const char *filename, char *argv[], char *envp[]) {
+  char *argv_pa[MAXARG];
+  char *envp_pa[MAXENVP];
+  uintptr_t argv_re[MAXARG];
+  uintptr_t envp_re[MAXENVP];
 
   if (argv != NULL) {
     for (int i = 0; argv[i] != NULL; i++) {
@@ -59,17 +68,19 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   }
 
   // 让stack_top向下4字节对齐
-  stack_top = stack_top & ~0x3;
+  stack_top_pa = stack_top_pa & ~0x3;
 
   // string area
-  char *string_area_cur = (char *)stack_top;
+  char *string_area_cur = (char *)stack_top_pa;
   int envp_count = 0;
   if (envp != NULL) {
     while (envp[envp_count] != NULL) {
       size_t len = strlen(envp[envp_count]) + 1;
       string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);
       assert(envp_count < MAXENVP);
-      envp_re[envp_count] = string_area_cur;
+      envp_pa[envp_count] = string_area_cur;
+      envp_re[envp_count] =
+          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
       envp_count++;
     }
   }
@@ -80,7 +91,9 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
       size_t len = strlen(argv[argv_count]) + 1;
       string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);
       assert(argv_count < MAXARG);
-      argv_re[argv_count] = string_area_cur;
+      argv_pa[argv_count] = string_area_cur;
+      argv_re[argv_count] =
+          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
       argv_count++;
     }
   }
@@ -124,10 +137,10 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   Log("argdeal_uload: ptr_array_base = %p, argc = %d", ptr_array_base,
       (int)argc_val);
   for (int i = 0; i < argv_count; i++) {
-    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv_re[i]);
+    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv_pa[i]);
   }
   for (int i = 0; i < envp_count; i++) {
-    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp_re[i]);
+    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp_pa[i]);
   }
   Log("  ptr_array content: [0]=%u [1]=%u [2]=%p [3]=%p ...", ptr_array_base[0],
       ptr_array_base[1], (void *)ptr_array_base[2], (void *)ptr_array_base[3]);
@@ -162,7 +175,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
 
   uintptr_t ptr_array_pa =
-      argdeal_uload((uintptr_t)alloc_end, filename, argv, envp);
+      argdeal_uload((uintptr_t)alloc_end, (uintptr_t)p->as.area.end, filename,
+                    argv, envp);
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
