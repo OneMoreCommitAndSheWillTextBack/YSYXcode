@@ -72,17 +72,7 @@ void protect(AddrSpace *as) {
 void unprotect(AddrSpace *as) {}
 
 void __am_get_cur_as(Context *c) {
-  if (!vme_enable) {
-    c->pdir = NULL;
-    return;
-  }
-  // Only preserve satp for user contexts. Kernel contexts should keep pdir=NULL
-  // so trap exit won't try to switch to an uninitialized/random page table.
-  if ((c->mstatus & MSTATUS_MPP) == 0) {
-    c->pdir = (void *)get_satp();
-  } else {
-    c->pdir = NULL;
-  }
+  c->pdir = (vme_enable ? (void *)get_satp() : NULL);
 }
 
 void __am_switch(Context *c) {
@@ -127,7 +117,6 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
   Context *context = (Context *)kstack.end - 1;
-  memset(context, 0, sizeof(*context));
   context->mstatus = ucontext_mstatus();
   context->mepc = (uintptr_t)entry;
   context->pdir = as->ptr;
