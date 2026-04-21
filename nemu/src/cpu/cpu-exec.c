@@ -108,6 +108,9 @@ static void execute(uint64_t n) {
     word_t intr = isa_query_intr();
     if (intr != INTR_EMPTY && isa_enable_intr()) {
       cpu.pc = isa_raise_intr(intr, cpu.pc);
+      IFDEF(
+          CONFIG_DIFFTEST,
+          if (isa_difftest_is_attach()) { difftest_skip_ref(); })
     }
     trace_and_difftest(&s, cpu.pc);
     if (nemu_state.state != NEMU_RUNNING)
