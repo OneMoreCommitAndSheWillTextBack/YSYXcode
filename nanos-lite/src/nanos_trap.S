@@ -70,8 +70,19 @@ __am_asm_nanos_trap:
   STORE t1, OFFSET_STATUS(sp)
   STORE t2, OFFSET_EPC(sp)
 
+  # Use a temporary working mstatus while running C code in the trap handler.
+  # Always enable MPRV so kernel data accesses go through page translation.
+  # If the trap came from U-mode (saved MPP=U), temporarily use S privilege
+  # for those data accesses so the kernel can touch both kernel pages and
+  # user pages under SUM/MXR.
   li t0, (1 << 17)
   or t1, t1, t0
+  li t0, MSTATUS_MPP
+  and t0, t1, t0
+  bnez t0, 1f
+  li t0, (1 << 11)
+  or t1, t1, t0
+1:
   csrw mstatus, t1
 
   mv a0, sp
