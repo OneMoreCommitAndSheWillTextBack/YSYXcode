@@ -15,7 +15,7 @@ static int vme_enable = 0;
 static inline uintptr_t ucontext_mstatus(void) {
   // Keep interrupts off during trap unwinding and let mret restore MIE from
   // MPIE so the user context returns with interrupts enabled.
-  return MSTATUS_MPIE | MSTATUS_SIE;
+  return MSTATUS_MPIE | MSTATUS_SIE | MSTATUS_SUM | MSTATUS_MXR;
 }
 
 static Area segments[] = { // Kernel memory mappings
