@@ -105,6 +105,8 @@ static void execute(uint64_t n) {
   for (; n > 0; n--) {
     exec_once(&s, cpu.pc);
     g_nr_guest_inst++;
+    // INFO: 先让difftest同步运行一下，然后同步syn
+    trace_and_difftest(&s, cpu.pc);
     word_t intr = isa_query_intr();
     if (intr != INTR_EMPTY && isa_enable_intr()) {
       cpu.pc = isa_raise_intr(intr, cpu.pc);
@@ -114,7 +116,6 @@ static void execute(uint64_t n) {
             Log("syn interuption");
           })
     }
-    trace_and_difftest(&s, cpu.pc);
     if (nemu_state.state != NEMU_RUNNING)
       break;
     IFDEF(CONFIG_DEVICE, device_update());
