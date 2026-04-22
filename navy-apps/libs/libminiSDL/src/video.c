@@ -7,6 +7,14 @@
 
 void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
                      SDL_Rect *dstrect) {
+  if (src == NULL || dst == NULL || src->format == NULL || dst->format == NULL ||
+      src->pixels == NULL || dst->pixels == NULL) {
+    return;
+  }
+  if (src->w <= 0 || src->h <= 0 || dst->w <= 0 || dst->h <= 0) {
+    return;
+  }
+
   int src_rect_x = (srcrect == NULL ? 0 : srcrect->x);
   int src_rect_y = (srcrect == NULL ? 0 : srcrect->y);
   int src_rect_w = (srcrect == NULL ? src->w : srcrect->w);
@@ -14,27 +22,92 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst,
 
   int dst_rect_x = (dstrect == NULL ? 0 : dstrect->x);
   int dst_rect_y = (dstrect == NULL ? 0 : dstrect->y);
+  int copy_w = src_rect_w;
+  int copy_h = src_rect_h;
+
+  if (copy_w <= 0 || copy_h <= 0) {
+    return;
+  }
+
+  if (src_rect_x < 0) {
+    int shift = -src_rect_x;
+    src_rect_x = 0;
+    dst_rect_x += shift;
+    copy_w -= shift;
+  }
+  if (src_rect_y < 0) {
+    int shift = -src_rect_y;
+    src_rect_y = 0;
+    dst_rect_y += shift;
+    copy_h -= shift;
+  }
+  if (dst_rect_x < 0) {
+    int shift = -dst_rect_x;
+    dst_rect_x = 0;
+    src_rect_x += shift;
+    copy_w -= shift;
+  }
+  if (dst_rect_y < 0) {
+    int shift = -dst_rect_y;
+    dst_rect_y = 0;
+    src_rect_y += shift;
+    copy_h -= shift;
+  }
+
+  if (src_rect_x + copy_w > src->w)
+    copy_w = src->w - src_rect_x;
+  if (src_rect_y + copy_h > src->h)
+    copy_h = src->h - src_rect_y;
+  if (dst_rect_x + copy_w > dst->w)
+    copy_w = dst->w - dst_rect_x;
+  if (dst_rect_y + copy_h > dst->h)
+    copy_h = dst->h - dst_rect_y;
+
+  if (copy_w <= 0 || copy_h <= 0) {
+    return;
+  }
 
   if (src->format->BytesPerPixel == 4 && dst->format->BytesPerPixel == 4) {
+    if (src->pitch < src->w * 4 || dst->pitch < dst->w * 4) {
+      return;
+    }
     uint32_t *dst_pix = (uint32_t *)dst->pixels;
     uint32_t *src_pix = (uint32_t *)src->pixels;
-
-    for (int i = 0; i < src_rect_h; i++) {
-      for (int j = 0; j < src_rect_w; j++) {
-        dst_pix[(dst_rect_y + i) * dst->w + dst_rect_x + j] =
-            src_pix[(src_rect_y + i) * src->w + src_rect_x + j];
-      }
+    int src_pitch = src->pitch / 4;
+    int dst_pitch = dst->pitch / 4;
+    int step = 1;
+    int start = 0;
+    int end = copy_h;
+    if (src == dst && dst_rect_y > src_rect_y) {
+      // Overlapped blit on the same surface must copy bottom-up.
+      step = -1;
+      start = copy_h - 1;
+      end = -1;
+    }
+    for (int i = start; i != end; i += step) {
+      memmove(dst_pix + (dst_rect_y + i) * dst_pitch + dst_rect_x,
+              src_pix + (src_rect_y + i) * src_pitch + src_rect_x,
+              sizeof(uint32_t) * copy_w);
     }
   } else if (src->format->BytesPerPixel == 1 &&
              dst->format->BytesPerPixel == 1) {
+    if (src->pitch < src->w || dst->pitch < dst->w) {
+      return;
+    }
     uint8_t *dst_pix = dst->pixels;
     uint8_t *src_pix = src->pixels;
-
-    for (int i = 0; i < src_rect_h; i++) {
-      for (int j = 0; j < src_rect_w; j++) {
-        dst_pix[(dst_rect_y + i) * dst->pitch + dst_rect_x + j] =
-            src_pix[(src_rect_y + i) * src->pitch + src_rect_x + j];
-      }
+    int step = 1;
+    int start = 0;
+    int end = copy_h;
+    if (src == dst && dst_rect_y > src_rect_y) {
+      // Overlapped blit on the same surface must copy bottom-up.
+      step = -1;
+      start = copy_h - 1;
+      end = -1;
+    }
+    for (int i = start; i != end; i += step) {
+      memmove(dst_pix + (dst_rect_y + i) * dst->pitch + dst_rect_x,
+              src_pix + (src_rect_y + i) * src->pitch + src_rect_x, copy_w);
     }
   } else {
     assert(0);
@@ -59,12 +132,34 @@ void SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color) {
 }
 
 void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
+  if (s == NULL || s->format == NULL || s->pixels == NULL) {
+    return;
+  }
+  if (s->w <= 0 || s->h <= 0) {
+    return;
+  }
+
+  int update_x = (x < 0 ? 0 : x);
+  int update_y = (y < 0 ? 0 : y);
+  if (update_x >= s->w || update_y >= s->h) {
+    return;
+  }
+
+  int update_w = (w <= 0 ? s->w - update_x : w);
+  int update_h = (h <= 0 ? s->h - update_y : h);
+  if (update_w > s->w - update_x)
+    update_w = s->w - update_x;
+  if (update_h > s->h - update_y)
+    update_h = s->h - update_y;
+  if (update_w <= 0 || update_h <= 0) {
+    return;
+  }
+
   if (s->format->BytesPerPixel == 1) {
-    // 确定更新区域
-    int update_x = (x < 0 ? 0 : x);
-    int update_y = (y < 0 ? 0 : y);
-    int update_w = (w <= 0 || update_x + w > s->w ? s->w - update_x : w);
-    int update_h = (h <= 0 || update_y + h > s->h ? s->h - update_y : h);
+    if (s->pitch < s->w || s->format->palette == NULL ||
+        s->format->palette->colors == NULL) {
+      return;
+    }
     uint8_t *pixels_8 = s->pixels;
 
     // 分配32位像素缓冲区
@@ -84,25 +179,23 @@ void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
 
     free(pixels_32);
   } else if (s->format->BytesPerPixel == 4) {
-    int update_x = (x < 0 ? 0 : x);
-    int update_y = (y < 0 ? 0 : y);
-    int update_w = (w <= 0 || update_x + w > s->w ? s->w - update_x : w);
-    int update_h = (h <= 0 || update_y + h > s->h ? s->h - update_y : h);
-    if (update_w > 0 && update_h > 0) {
-      uint32_t *pixels = (uint32_t *)s->pixels;
-      int pitch_pixels = s->pitch / 4;
-      if (update_x == 0 && update_y == 0 && update_w == s->w && update_h == s->h) {
-        NDL_DrawRect(pixels, 0, 0, update_w, update_h);
-      } else {
-        uint32_t *region = malloc(sizeof(uint32_t) * update_w * update_h);
-        for (int i = 0; i < update_h; i++) {
-          memcpy(region + i * update_w,
-                 pixels + (update_y + i) * pitch_pixels + update_x,
-                 sizeof(uint32_t) * update_w);
-        }
-        NDL_DrawRect(region, update_x, update_y, update_w, update_h);
-        free(region);
+    if (s->pitch < s->w * 4) {
+      return;
+    }
+    uint32_t *pixels = (uint32_t *)s->pixels;
+    int pitch_pixels = s->pitch / 4;
+    if (update_x == 0 && update_y == 0 && update_w == s->w && update_h == s->h) {
+      NDL_DrawRect(pixels, 0, 0, update_w, update_h);
+    } else {
+      uint32_t *region = malloc(sizeof(uint32_t) * update_w * update_h);
+      assert(region);
+      for (int i = 0; i < update_h; i++) {
+        memcpy(region + i * update_w,
+               pixels + (update_y + i) * pitch_pixels + update_x,
+               sizeof(uint32_t) * update_w);
       }
+      NDL_DrawRect(region, update_x, update_y, update_w, update_h);
+      free(region);
     }
   } else {
     printf("invalid s->format->BytesPerPixel");

@@ -8,13 +8,14 @@ static void *(*pgalloc_usr)(int) = NULL;
 static void (*pgfree_usr)(void *) = NULL;
 static int vme_enable = 0;
 
-#define MSTATUS_SIE  (1u << 1)
+#define MSTATUS_SIE (1u << 1)
 #define MSTATUS_MPIE (1u << 7)
+#define MSTATUS_MPP (3u << 11)
 
 static inline uintptr_t ucontext_mstatus(void) {
   // Keep interrupts off during trap unwinding and let mret restore MIE from
   // MPIE so the user context returns with interrupts enabled.
-  return MSTATUS_MPIE | MSTATUS_SIE;
+  return MSTATUS_MPIE | MSTATUS_SIE | MSTATUS_SUM | MSTATUS_MXR;
 }
 
 static Area segments[] = { // Kernel memory mappings
@@ -46,7 +47,7 @@ bool vme_init(void *(*pgalloc_f)(int), void (*pgfree_f)(void *)) {
   for (i = 0; i < LENGTH(segments); i++) {
     void *va = segments[i].start;
     for (; va < segments[i].end; va += PGSIZE) {
-      map(&kas, va, va, PTE_R | PTE_W | PTE_X | PTE_A);
+      map(&kas, va, va, PTE_R | PTE_W | PTE_X | PTE_A | PTE_D);
     }
   }
 
@@ -75,7 +76,7 @@ void __am_get_cur_as(Context *c) {
 }
 
 void __am_switch(Context *c) {
-  asm volatile("csrw mscratch, %0" : : "r"(c));
+  (void)c;
   // Delay the satp switch until the trap assembly is about to mret. When this
   // function is reached from a user syscall, C is still running on the user's
   // stack, so switching page tables here would unmap that stack frame before
@@ -97,8 +98,9 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
     assert(pgt0_start != NULL);
     pgt1_start[pte1_idx] =
         (((uint32_t)(uintptr_t)pgt0_start >> 2) & PPN_MASK) | PTE_V;
-    printf("[vme] map: alloc l0 pgt base=%p for l1_idx=%d (va=%p), l1_base=%p\n",
-           pgt0_start, pte1_idx, va, pgt1_start);
+    printf(
+        "[vme] map: alloc l0 pgt base=%p for l1_idx=%d (va=%p), l1_base=%p\n",
+        pgt0_start, pte1_idx, va, pgt1_start);
   } else {
     pgt0_start = (PTE *)((pte1 & PPN_MASK) << 2);
   }
@@ -117,8 +119,6 @@ Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
   Context *context = (Context *)kstack.end - 1;
   context->mstatus = ucontext_mstatus();
   context->mepc = (uintptr_t)entry;
-  context->mscratch = (uintptr_t)context;
   context->pdir = as->ptr;
-  context->GPRx = (uintptr_t)((uint32_t *)kstack.end + 1);
   return context;
 }

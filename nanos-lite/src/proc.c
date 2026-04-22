@@ -14,7 +14,7 @@ PCB *current = NULL;
 
 void switch_boot_pcb() {
   current = &pcb_boot;
-  asm volatile("csrw mscratch, %0" : : "r"(&pcb_boot));
+  asm volatile("csrw mscratch, zero");
 }
 
 void hello_fun(void *arg) {
@@ -31,22 +31,21 @@ void hello_fun(void *arg) {
 void context_kload(PCB *p, void (*entry)(void *), void *arg) {
   protect(&p->as);
   uint8_t *kstack_high = p->stack + STACK_SIZE;
-#ifdef HAS_VME
-  // Keep the saved context off the live kernel stack: nanos_trap.S calls into C
-  // without switching sp, so the trapframe must live in a separate page.
-  uint8_t *trapframe = trapframe_alloc();
-  Area kstack = {.end = trapframe + PGSIZE};
-#else
   Area kstack = {.end = kstack_high};
-#endif
   p->cp = kcontext(kstack, entry, arg);
-  p->cp->mscratch = (uintptr_t)p->cp;
   p->cp->gpr[2] = (uintptr_t)kstack_high;
   pcb_num++;
 }
 
 #define MAXARG 32
 #define MAXENVP 32
+
+static inline uintptr_t user_stack_pa_to_va(uintptr_t stack_top_pa,
+                                            uintptr_t stack_top_va,
+                                            uintptr_t pa) {
+  return stack_top_va - (stack_top_pa - pa);
+}
+
 static char *allocate_string(char *current_pos, const char *source,
                              size_t len) {
   current_pos -= len;
@@ -55,10 +54,12 @@ static char *allocate_string(char *current_pos, const char *source,
   return current_pos;
 }
 
-uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
-                        char *envp[]) {
-  char *argv_re[MAXARG];
-  char *envp_re[MAXENVP];
+uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
+                        const char *filename, char *argv[], char *envp[]) {
+  char *argv_pa[MAXARG];
+  char *envp_pa[MAXENVP];
+  uintptr_t argv_re[MAXARG];
+  uintptr_t envp_re[MAXENVP];
 
   if (argv != NULL) {
     for (int i = 0; argv[i] != NULL; i++) {
@@ -67,17 +68,19 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   }
 
   // 让stack_top向下4字节对齐
-  stack_top = stack_top & ~0x3;
+  stack_top_pa = stack_top_pa & ~0x3;
 
   // string area
-  char *string_area_cur = (char *)stack_top;
+  char *string_area_cur = (char *)stack_top_pa;
   int envp_count = 0;
   if (envp != NULL) {
     while (envp[envp_count] != NULL) {
       size_t len = strlen(envp[envp_count]) + 1;
       string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);
       assert(envp_count < MAXENVP);
-      envp_re[envp_count] = string_area_cur;
+      envp_pa[envp_count] = string_area_cur;
+      envp_re[envp_count] =
+          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
       envp_count++;
     }
   }
@@ -88,7 +91,9 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
       size_t len = strlen(argv[argv_count]) + 1;
       string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);
       assert(argv_count < MAXARG);
-      argv_re[argv_count] = string_area_cur;
+      argv_pa[argv_count] = string_area_cur;
+      argv_re[argv_count] =
+          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
       argv_count++;
     }
   }
@@ -132,10 +137,10 @@ uintptr_t argdeal_uload(uintptr_t stack_top, const char *filename, char *argv[],
   Log("argdeal_uload: ptr_array_base = %p, argc = %d", ptr_array_base,
       (int)argc_val);
   for (int i = 0; i < argv_count; i++) {
-    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv_re[i]);
+    Log("  argv_re[%d] = %p -> \"%s\"", i, (void *)argv_re[i], argv_pa[i]);
   }
   for (int i = 0; i < envp_count; i++) {
-    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp_re[i]);
+    Log("  envp_re[%d] = %p -> \"%s\"", i, (void *)envp_re[i], envp_pa[i]);
   }
   Log("  ptr_array content: [0]=%u [1]=%u [2]=%p [3]=%p ...", ptr_array_base[0],
       ptr_array_base[1], (void *)ptr_array_base[2], (void *)ptr_array_base[3]);
@@ -149,6 +154,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
     pcb_num++;
   }
   protect(&p->as);
+  uint8_t *kstack_high = p->stack + STACK_SIZE;
   void *new_alloc = new_page(8);
   uint8_t *alloc_end = (uint8_t *)new_alloc + 8 * PGSIZE;
 
@@ -169,41 +175,30 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
 
   uintptr_t ptr_array_pa =
-      argdeal_uload((uintptr_t)alloc_end, filename, argv, envp);
+      argdeal_uload((uintptr_t)alloc_end, (uintptr_t)p->as.area.end, filename,
+                    argv, envp);
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
   Log("user program entry %p", entry);
-#ifdef HAS_VME
-  void *trapframe = trapframe_alloc();
-  map(&p->as, trapframe, trapframe, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
-  Area stack = {.end = (uint8_t *)trapframe + PGSIZE};
-#else
-  Area stack = {.end = (void *)ptr_array_pa};
-#endif
+  Area stack = {.end = kstack_high};
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   // INFO: 其实在这里我的实现有问题，我走远了，这里应该保存的是虚拟地址
   // 这样 在上下文切换的时候 a0会得到正确的stack的起始地址，然后传递给sp
   p->cp = ucontext(&p->as, stack, (void *)entry);
-#ifdef HAS_VME
   // _start copies a0 into sp before calling call_main, so keep both registers
   // pointing at the argc/argv/envp block.
-  // INFO: 这个实际上确实起到了作用，但是相应的使用mscratch寄存器
-  // 这个实现可以正常运行，但是也确实存在问题
   p->cp->GPRx = ptr_array_va;
   p->cp->gpr[2] = ptr_array_va;
-#endif
 }
 
 void context_kload_wrapper(PCB *p, void (*entry)(void *), void *arg) {
   context_kload(p, entry, arg);
-  p->cp->mscratch = (uintptr_t)p->cp;
 }
 
 void context_uload_wrapper(PCB *p, const char *filename, char *argv[],
                            char *envp[]) {
   context_uload(p, filename, argv, envp);
-  p->cp->mscratch = (uintptr_t)p->cp;
   switch_boot_pcb();
   Log("switch to user process");
 }

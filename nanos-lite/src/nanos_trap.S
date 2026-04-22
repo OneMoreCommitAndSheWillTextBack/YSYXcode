@@ -13,8 +13,8 @@
 #endif
 
 #define REGS_LO16(f) \
-      f( 1) f( 2) f( 3) f( 4) f( 5) f( 6) f( 7) f( 8) f( 9) \
-f(11) f(12) f(13) f(14) f(15)
+      f( 1) f( 3) f( 4) f( 5) f( 6) f( 7) f( 8) f( 9) \
+f(10) f(11) f(12) f(13) f(14) f(15)
 #ifndef __riscv_e
 #define REGS_HI16(f) \
                                     f(16) f(17) f(18) f(19) \
@@ -28,8 +28,8 @@ f(30) f(31)
 
 #define REGS(f) REGS_LO16(f) REGS_HI16(f)
 
-#define PUSH(n) STORE concat(x, n), (n * XLEN)(a0);
-#define POP(n)  LOAD  concat(x, n), (n * XLEN)(a0);
+#define PUSH(n) STORE concat(x, n), (n * XLEN)(sp);
+#define POP(n)  LOAD  concat(x, n), (n * XLEN)(sp);
 
 #define CONTEXT_SIZE  ((NR_REGS + 5) * XLEN)
 #define OFFSET_SP     ( 2 * XLEN)
@@ -38,6 +38,7 @@ f(30) f(31)
 #define OFFSET_CAUSE  ((NR_REGS + 2) * XLEN)
 #define OFFSET_STATUS ((NR_REGS + 3) * XLEN)
 #define OFFSET_EPC    ((NR_REGS + 4) * XLEN)
+#define MSTATUS_MPP   (3 << 11)
 
 #if __riscv_xlen == 32
 #define SATP_MODE 0x80000000
@@ -49,51 +50,71 @@ f(30) f(31)
 .align 3
 .globl __am_asm_nanos_trap
 __am_asm_nanos_trap:
-  # Swap user a0 and mscratch:
-  #   a0 <- trap context ptr, mscratch <- user a0
-  csrrw a0, mscratch, a0
+  csrrw sp, mscratch, sp
+  bnez sp, 1f
+  csrr sp, mscratch
+1:
+  addi sp, sp, -CONTEXT_SIZE
+  csrr t0, mscratch
+  STORE t0, OFFSET_SP(sp)
+  STORE x0, OFFSET_SCRATCH(sp)
+  csrw mscratch, x0
 
   MAP(REGS, PUSH)
-  
-  # Save original user a0 into gpr[10]
-  csrr t0, mscratch
-  STORE t0, (10 * XLEN)(a0)
-  # Keep mscratch as trapframe pointer to support nested traps in kernel
-  csrw mscratch, a0
 
   csrr t0, mcause
   csrr t1, mstatus
   csrr t2, mepc
 
-  STORE t0, OFFSET_CAUSE(a0)
-  STORE t1, OFFSET_STATUS(a0)
-  STORE t2, OFFSET_EPC(a0)
+  STORE t0, OFFSET_CAUSE(sp)
+  STORE t1, OFFSET_STATUS(sp)
+  STORE t2, OFFSET_EPC(sp)
 
-  # set mstatus.MPRV to pass difftest
+  # Use a temporary working mstatus while running C code in the trap handler.
+  # Always enable MPRV so kernel data accesses go through page translation.
+  # If the trap came from U-mode (saved MPP=U), temporarily use S privilege
+  # for those data accesses so the kernel can touch both kernel pages and
+  # user pages under SUM/MXR.
   li t0, (1 << 17)
   or t1, t1, t0
+  li t0, MSTATUS_MPP
+  and t0, t1, t0
+  bnez t0, 1f
+  li t0, (1 << 11)
+  or t1, t1, t0
+1:
   csrw mstatus, t1
 
+  mv a0, sp
   jal __am_irq_handle
   // a0 is the return value of __am_irq_handle 
   // according to the abi manual
+  mv sp, a0
 
-  LOAD t1, OFFSET_STATUS(a0)
-  LOAD t2, OFFSET_EPC(a0)
+  LOAD t1, OFFSET_STATUS(sp)
+  LOAD t2, OFFSET_EPC(sp)
+  LOAD t0, OFFSET_PDIR(sp)
+
+  beqz t0, 2f
+  srli t0, t0, 12
+  li t3, SATP_MODE
+  or t0, t0, t3
+  csrw satp, t0
+2:
+  li t3, MSTATUS_MPP
+  and t0, t1, t3
+  bnez t0, 3f
+  addi t0, sp, CONTEXT_SIZE
+  csrw mscratch, t0
+  j 4f
+3:
+  csrw mscratch, x0
+4:
   csrw mstatus, t1
   csrw mepc, t2
 
-  csrw mscratch, a0
-
-  LOAD t0, OFFSET_PDIR(a0)
-  beqz t0, 1f
-  srli t0, t0, 12
-  li t1, SATP_MODE
-  or t0, t0, t1
-  csrw satp, t0
-1:
-
   MAP(REGS, POP)
-  LOAD a0, (10 * XLEN)(a0)
+
+  LOAD sp, OFFSET_SP(sp)
 
   mret

@@ -22,36 +22,32 @@ static void *pg_alloc(int n) {
   memset(alloc_ptr, 0, PGSIZE * pages);
   return alloc_ptr;
 }
-
-void *trapframe_alloc(void) {
-  return pg_alloc(1);
-}
 #endif
 
 void free_page(void *p) { panic("not implement yet"); }
 
-/* The brk() system call handler. */
-static bool has_init = false;
 int mm_brk(uintptr_t brk) {
-  // Log("mm_brk: request=0x%x current_max_brk=0x%x", brk, current->max_brk);
   if (brk < current->max_brk)
     return 0;
 
-  if (has_init == false) {
-    // Log("first init, set max_brk=0x%x", brk);
+  if (current->max_brk == 0) {
     current->max_brk = brk;
-    has_init = true;
+    Log("mm_brk: initialize current_max_brk=0x%x", current->max_brk);
     return 0;
   }
 
-  void *va = (void *)current->max_brk;
-  for (; (uintptr_t)va < brk; va += PGSIZE) {
+  // Treat brk as the last address that may be touched by user space in this
+  // lab setup. Some user-space allocators may probe/write metadata around the
+  // heap top on page boundaries, so keep one extra page mapped as a guard.
+  uintptr_t va = ROUNDUP(current->max_brk + 1, PGSIZE);
+  uintptr_t brk_end = ROUNDUP(brk + PGSIZE + 1, PGSIZE);
+  for (; va < brk_end; va += PGSIZE) {
     void *pa = new_page(1);
-    // Log("mm_brk: map va=%p -> pa=%p (R|W|V)", va, pa);
-    map(&current->as, va, pa, PTE_R | PTE_W | PTE_V);
+    Log("mm_brk: map va=%p -> pa=%p", (void *)va, pa);
+    map(&current->as, (void *)va, pa, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
   }
-  current->max_brk = (uintptr_t)va;
-  // Log("mm_brk: updated max_brk=0x%x", current->max_brk);
+  current->max_brk = brk;
+  Log("mm_brk: updated current_max_brk=0x%x", current->max_brk);
 
   return 0;
 }

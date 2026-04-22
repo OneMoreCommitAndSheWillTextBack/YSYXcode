@@ -118,8 +118,19 @@ static bool isa_mmu_permission_check(uint32_t pte, int type,
   //   return false;
   // }
 
+  if (effective_priv == S_MODE && (pte & PTE_U)) {
+    if (type == MEM_TYPE_IFETCH) {
+      return false;
+    }
+    if (!(cpu.csr.mstatus & MSTATUS_SUM)) {
+      return false;
+    }
+  }
+
   if (type == MEM_TYPE_READ) {
-    if (!(pte & PTE_R)) {
+    bool can_read = (pte & PTE_R) ||
+                    ((cpu.csr.mstatus & MSTATUS_MXR) && (pte & PTE_X));
+    if (!can_read) {
       return false;
     }
   } else if (type == MEM_TYPE_IFETCH) {
