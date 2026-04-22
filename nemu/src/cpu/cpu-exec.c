@@ -110,7 +110,7 @@ static void execute(uint64_t n) {
       cpu.pc = isa_raise_intr(intr, cpu.pc);
       IFDEF(
           CONFIG_DIFFTEST,
-          if (isa_difftest_is_attach()) { difftest_skip_ref(); })
+          if (isa_difftest_is_attach()) { ref_difftest_raise_intr(intr); })
     }
     trace_and_difftest(&s, cpu.pc);
     if (nemu_state.state != NEMU_RUNNING)
