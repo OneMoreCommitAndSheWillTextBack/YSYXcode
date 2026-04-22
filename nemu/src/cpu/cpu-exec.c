@@ -113,7 +113,7 @@ static void execute(uint64_t n) {
       IFDEF(
           CONFIG_DIFFTEST, if (isa_difftest_is_attach()) {
             ref_difftest_raise_intr(intr);
-            Log("syn interuption");
+            // Log("syn interuption");
           })
     }
     if (nemu_state.state != NEMU_RUNNING)
