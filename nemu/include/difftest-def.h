@@ -37,18 +37,18 @@ typedef struct {
 #elif defined(CONFIG_ISA_riscv)
 #define RISCV_GPR_TYPE MUXDEF(CONFIG_RV64, uint64_t, uint32_t)
 #define RISCV_GPR_NUM MUXDEF(CONFIG_RVE, 16, 32)
+
+#include "isa-def.h"
+
 enum {
   DIFFTEST_RISCV_PRIV_S = 0,
   DIFFTEST_RISCV_PRIV_M = 1,
   DIFFTEST_RISCV_PRIV_U = 2,
 };
 typedef struct {
-  RISCV_GPR_TYPE mepc;
-  RISCV_GPR_TYPE mstatus;
-  RISCV_GPR_TYPE mcause;
-  RISCV_GPR_TYPE mtvec;
-  RISCV_GPR_TYPE mscratch;
-  RISCV_GPR_TYPE satp;
+#define DEFINE_CSR_MEMBER(name, idx) uint32_t name;
+  EACH_CSR(DEFINE_CSR_MEMBER)
+#undef DEFINE_CSR_MEMBER
 } riscv_difftest_csr_t;
 
 typedef struct {
@@ -60,6 +60,7 @@ typedef struct {
 
 #define DIFFTEST_REG_SIZE                                                      \
   (sizeof(RISCV_GPR_TYPE) * (RISCV_GPR_NUM + 1)) // GPRs + pc
+                                                 //
 #elif defined(CONFIG_ISA_loongarch32r)
 #define DIFFTEST_REG_SIZE (sizeof(uint32_t) * 33) // GPRs + pc
 #else

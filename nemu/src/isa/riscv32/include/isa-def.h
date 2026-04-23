@@ -19,20 +19,25 @@
 #include <common.h>
 #include <stdint.h>
 
+// 定义 CSR 表格
+#define EACH_CSR(_)                                                            \
+  _(mepc, 0x341)                                                               \
+  _(mstatus, 0x300)                                                            \
+  _(mcause, 0x342)                                                             \
+  _(mtvec, 0x305)                                                              \
+  _(mscratch, 0x340)                                                           \
+  _(satp, 0x180)                                                               \
+  _(sie, 0x104)                                                                \
+  _(sip, 0x144)                                                                \
+  _(medeleg, 0x302)                                                            \
+  _(mideleg, 0x303)                                                            \
+  _(mhartid, 0xf14)
+
+// 定义结构体
 typedef struct {
-  uint32_t mepc;
-  uint32_t mstatus;
-  uint32_t mcause;
-  uint32_t mtvec;
-  uint32_t mscratch;
-  uint32_t satp;
-
-  uint32_t sie;
-  uint32_t sip;
-  uint32_t medeleg;
-  uint32_t mideleg;
-
-  uint32_t mhartid;
+#define DEFINE_CSR_MEMBER(name, idx) uint32_t name;
+  EACH_CSR(DEFINE_CSR_MEMBER)
+#undef DEFINE_CSR_MEMBER
 } riscv32_CPU_csr;
 
 typedef struct {
