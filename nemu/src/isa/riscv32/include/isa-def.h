@@ -19,20 +19,13 @@
 #include <common.h>
 #include <stdint.h>
 
+#include "csr-xmacro.h"
+
+// 定义结构体
 typedef struct {
-  uint32_t mepc;
-  uint32_t mstatus;
-  uint32_t mcause;
-  uint32_t mtvec;
-  uint32_t mscratch;
-  uint32_t satp;
-
-  uint32_t sie;
-  uint32_t sip;
-  uint32_t medeleg;
-  uint32_t mideleg;
-
-  uint32_t mhartid;
+#define DEFINE_CSR_MEMBER(name, idx) uint32_t name;
+  EACH_CSR(DEFINE_CSR_MEMBER)
+#undef DEFINE_CSR_MEMBER
 } riscv32_CPU_csr;
 
 typedef struct {
