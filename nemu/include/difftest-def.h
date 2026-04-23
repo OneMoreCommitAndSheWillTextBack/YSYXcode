@@ -38,6 +38,7 @@ typedef struct {
 #define RISCV_GPR_TYPE MUXDEF(CONFIG_RV64, uint64_t, uint32_t)
 #define RISCV_GPR_NUM MUXDEF(CONFIG_RVE, 16, 32)
 
+// located at src/isa/$(guest_isa)/include/isa-def.h
 #include <isa-def.h>
 
 enum {
