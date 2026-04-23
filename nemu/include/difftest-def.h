@@ -38,14 +38,14 @@ typedef struct {
 #define RISCV_GPR_TYPE MUXDEF(CONFIG_RV64, uint64_t, uint32_t)
 #define RISCV_GPR_NUM MUXDEF(CONFIG_RVE, 16, 32)
 
-// located at src/isa/$(guest_isa)/include/isa-def.h
-#include <isa-def.h>
+#include "csr-xmacro.h"
 
 enum {
   DIFFTEST_RISCV_PRIV_S = 0,
   DIFFTEST_RISCV_PRIV_M = 1,
   DIFFTEST_RISCV_PRIV_U = 2,
 };
+
 typedef struct {
 #define DEFINE_CSR_MEMBER(name, idx) uint32_t name;
   EACH_CSR(DEFINE_CSR_MEMBER)
@@ -61,7 +61,6 @@ typedef struct {
 
 #define DIFFTEST_REG_SIZE                                                      \
   (sizeof(RISCV_GPR_TYPE) * (RISCV_GPR_NUM + 1)) // GPRs + pc
-                                                 //
 #elif defined(CONFIG_ISA_loongarch32r)
 #define DIFFTEST_REG_SIZE (sizeof(uint32_t) * 33) // GPRs + pc
 #else
