@@ -151,4 +151,8 @@ config SDCARD_IMG_PATH
 endif # HAS_SDCARD
 endif
 
+menuconfig HAS_PLIC
+  bool "Enable plic"
+  default n
+
 endif # DEVICE
