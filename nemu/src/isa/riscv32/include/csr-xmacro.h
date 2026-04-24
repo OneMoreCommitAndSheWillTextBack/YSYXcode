@@ -13,6 +13,8 @@
   _(sip, 0x144)                                                                \
   _(medeleg, 0x302)                                                            \
   _(mideleg, 0x303)                                                            \
-  _(mhartid, 0xf14)
+  _(mhartid, 0xf14)                                                            \
+  _(pmpaddr0, 0x3b0)                                                           \
+  _(pmpaddr1, 0x3b1)
 
 #endif
