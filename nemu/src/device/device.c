@@ -14,8 +14,9 @@
 ***************************************************************************************/
 
 #include <common.h>
-#include <utils.h>
 #include <device/alarm.h>
+#include <device/plic.h>
+#include <utils.h>
 #ifndef CONFIG_TARGET_AM
 #include <SDL2/SDL.h>
 #endif
@@ -76,6 +77,7 @@ void sdl_clear_event_queue() {
 void init_device() {
   IFDEF(CONFIG_TARGET_AM, ioe_init());
   init_map();
+  init_plic();
 
   IFDEF(CONFIG_HAS_SERIAL, init_serial());
   IFDEF(CONFIG_HAS_TIMER, init_timer());
