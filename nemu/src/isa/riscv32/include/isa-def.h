@@ -24,7 +24,7 @@
 // 定义结构体
 typedef struct {
 #define DEFINE_CSR_MEMBER(name, idx) uint32_t name;
-  EACH_CSR(DEFINE_CSR_MEMBER)
+  EACH_RAW_CSR(DEFINE_CSR_MEMBER)
 #undef DEFINE_CSR_MEMBER
 } riscv32_CPU_csr;
 

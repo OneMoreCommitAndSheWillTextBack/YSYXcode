@@ -9,13 +9,13 @@
     return &cpu.csr.name;                                                      \
     break;
 
-static inline uint32_t *get_csr(uint32_t csr_num) {
+static inline uint32_t *get_raw_csr(uint32_t csr_num) {
   switch (csr_num) {
     // Use X macro to generate all cases
-    EACH_CSR(CSR_CASE)
+    EACH_RAW_CSR(CSR_CASE)
 
   default:
-    panic("[error] a undefined csr num %x\n", csr_num);
+    return NULL;
   }
 }
 

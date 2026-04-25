@@ -197,11 +197,22 @@ static word_t mret_inst() {
 #define CSR_MAST 0xfff
 static uint32_t csr_read(uint32_t csr_num) {
   csr_num &= CSR_MAST;
-  return *(get_csr(csr_num));
+  uint32_t *csr = get_raw_csr(csr_num);
+  if(csr == NULL) {
+    // TODO: its virtual csr, fall back
+    panic("not implement yet");
+  }
+  return *csr;
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
   csr_num &= CSR_MAST;
-  *(get_csr(csr_num)) = data;
+  uint32_t *csr = get_raw_csr(csr_num);
+  if(csr == NULL) {
+    // TODO: its virtual csr, fall back
+    panic("not implement yet");
+  } else {
+    *csr = data;
+  }
   return;
 }
