@@ -47,18 +47,6 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   return cpu.csr.mtvec;
 }
 
-#define IRQ_TIMER 0x80000007
-word_t isa_query_intr() {
-  bool mglobal_intr_enable = cpu.csr.mstatus & MSTATUS_MIE;
-  bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
-  if (cpu.INTR == true && mglobal_intr_enable && m_timer_intr_enable) {
-    cpu.INTR = false;
-    return IRQ_TIMER;
-  }
-
-  return INTR_EMPTY;
-}
-
 bool isa_enable_intr() {
   switch (current_cpu_priv) {
   case M_MODE:
@@ -71,4 +59,19 @@ bool isa_enable_intr() {
     assert(0 && "invalid current_cpu_priv");
     return false;
   }
+}
+
+#define IRQ_TIMER 0x80000007
+word_t isa_query_intr() {
+  bool global_intr_enable = isa_enable_intr();
+  if (!global_intr_enable)
+    return INTR_EMPTY;
+
+  bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
+  if (cpu.INTR == true && m_timer_intr_enable) {
+    cpu.INTR = false;
+    return IRQ_TIMER;
+  }
+
+  panic("should not reach here");
 }
