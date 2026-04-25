@@ -32,4 +32,8 @@
 // code is migrated to the raw/virtual split.
 #define EACH_CSR(_) CSR_LIST(_, _)
 
+#define DECLARE_VIRTUAL_CSR_HANDLER(name, idx)                                 \
+  uint32_t virt_csr_##name##_read(void);                                       \
+  void virt_csr_##name##_write(uint32_t data);
+
 #endif
