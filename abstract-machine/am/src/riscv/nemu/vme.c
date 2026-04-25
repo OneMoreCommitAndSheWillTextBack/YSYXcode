@@ -64,6 +64,11 @@ void protect(AddrSpace *as) {
   as->pgsize = PGSIZE;
   printf("[vme] protect: new user pdir base=%p\n", updir);
   // map kernel space
+  // INFO: 这里应该是仅仅复制了一级页表，并没有同步页表的内部
+  // 我对于这里是否是自己的实现还是框架代码已经记不太清了
+  // 如果是我自己的实现，那么这里的实现是存在问题的
+  // 应该对内部也进行同步，否则在后面设置了MPRV位之后
+  // 会出现用户进程无法同步kernel代码的问题
   memcpy(updir, kas.ptr, PGSIZE);
   printf("[vme] protect: copied kernel mappings from kas=%p to user pdir=%p\n",
          kas.ptr, updir);
