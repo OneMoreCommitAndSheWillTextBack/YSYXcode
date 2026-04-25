@@ -1,6 +1,9 @@
 #ifndef CSR_XMACRO__H_
 #define CSR_XMACRO__H_
 
+#include "debug.h"
+#include "stdint.h"
+
 // clang-format off
 // Master CSR list. Raw CSRs have dedicated backing storage; virtual CSRs are
 // views/projections that will be handled by semantic read/write logic later.
@@ -35,5 +38,19 @@
 #define DECLARE_VIRTUAL_CSR_HANDLER(name, idx)                                 \
   uint32_t virt_csr_##name##_read(void);                                       \
   void virt_csr_##name##_write(uint32_t data);
+
+EACH_VIRTUAL_CSR(DECLARE_VIRTUAL_CSR_HANDLER)
+
+#define DEFINE_VIRTUAL_CSR_DEFAULT(name, idx)                                  \
+  __attribute__((weak)) uint32_t virt_csr_##name##_read(void) {                \
+    panic("virtual csr 0x%03x (%s) read is not implemented", idx, #name);      \
+    return 0;                                                                  \
+  }                                                                            \
+  __attribute__((weak)) void virt_csr_##name##_write(uint32_t data) {          \
+    panic("virtual csr 0x%03x (%s) write is not implemented: 0x%08x", idx,     \
+          #name, data);                                                        \
+  }
+
+EACH_VIRTUAL_CSR(DEFINE_VIRTUAL_CSR_DEFAULT)
 
 #endif
