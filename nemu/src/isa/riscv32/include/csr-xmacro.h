@@ -16,6 +16,8 @@
   _(mhartid, 0xf14)                                                            \
   _(pmpaddr0, 0x3b0)                                                           \
   _(pmpaddr1, 0x3b1)                                                           \
-  _(pmpcfg0, 0x3a0)
+  _(pmpcfg0, 0x3a0)                                                            \
+  _(mie, 0x304)                                                                \
+  _(mip, 0x344)
 
 #endif

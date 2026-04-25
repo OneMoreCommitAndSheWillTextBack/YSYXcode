@@ -37,6 +37,7 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   cpu.csr.mstatus =
       (mstatus & ~(MSTATUS_MPP_MASK | MSTATUS_MPIE | MSTATUS_MIE)) |
       encode_mpp(current_cpu_priv) | ((mstatus & MSTATUS_MIE) << 4);
+  // TODO: if the cause is delegated to S-mode, then switch to the S-mode
   current_cpu_priv = M_MODE;
   cpu.csr.mepc = epc;
   cpu.csr.mcause = NO;
@@ -48,7 +49,9 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
 
 #define IRQ_TIMER 0x80000007
 word_t isa_query_intr() {
-  if (cpu.INTR == true) {
+  bool mglobal_intr_enable = cpu.csr.mstatus & MSTATUS_MIE;
+  bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
+  if (cpu.INTR == true && mglobal_intr_enable && m_timer_intr_enable) {
     cpu.INTR = false;
     return IRQ_TIMER;
   }

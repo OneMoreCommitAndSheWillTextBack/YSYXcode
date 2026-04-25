@@ -89,5 +89,8 @@ void init_device() {
   IFDEF(CONFIG_HAS_SDCARD, init_sdcard());
 
   IFNDEF(CONFIG_TARGET_AM, init_alarm());
+
+#ifdef CONFIG_ISA_riscv
   IFDEF(CONIFG_HAS_PLIC, init_plic());
+#endif
 }
