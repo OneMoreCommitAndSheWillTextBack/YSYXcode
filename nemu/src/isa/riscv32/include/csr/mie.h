@@ -1,7 +1,0 @@
-#define MIE_SSIE (1 << 0)
-#define MIE_MSIE (1 << 1)
-#define MIE_STIE (1 << 3)
-#define MIE_MTIE (1 << 5)
-#define MIE_SEIE (1 << 7)
-#define MIE_MEIE (1 << 9)
-#define MIE_LCOFIE (1 << 11)

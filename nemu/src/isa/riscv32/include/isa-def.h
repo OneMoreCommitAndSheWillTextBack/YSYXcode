@@ -61,7 +61,7 @@ typedef struct {
 } MUXDEF(CONFIG_RV64, riscv64_ISADecodeInfo, riscv32_ISADecodeInfo);
 
 // #define isa_mmu_check(vaddr, len, type) (MMU_DIRECT)
-#include "csr/mie.h"
+#include "csr/csr-irq.h"
 #include "csr/mstatus.h"
 
 #endif

@@ -199,18 +199,25 @@ static uint32_t csr_read(uint32_t csr_num) {
   csr_num &= CSR_MAST;
   uint32_t *csr = get_raw_csr(csr_num);
   if(csr == NULL) {
-    // TODO: its virtual csr, fall back
-    panic("not implement yet");
+    virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
+    if (virt_csr_handler == NULL) {
+      panic("invalid csr num %d\n", csr_num);
+    }
+    return virt_csr_handler->read();
+  } else {
+    return *csr;
   }
-  return *csr;
 }
 
 static void csr_write(uint32_t csr_num, uint32_t data) {
   csr_num &= CSR_MAST;
   uint32_t *csr = get_raw_csr(csr_num);
   if(csr == NULL) {
-    // TODO: its virtual csr, fall back
-    panic("not implement yet");
+    virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
+    if (virt_csr_handler == NULL) {
+      panic("invalid csr num %d\n", csr_num);
+    }
+    virt_csr_handler->write(data);
   } else {
     *csr = data;
   }
