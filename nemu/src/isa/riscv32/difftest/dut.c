@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include "../local-include/reg.h"
+#include "isa-def.h"
 #include <cpu/difftest.h>
 #include <isa.h>
 #include <stdio.h>
@@ -44,6 +45,7 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
     riscv_check_csr(mstatus);
     riscv_check_csr(mtvec);
     riscv_check_csr(satp);
+    riscv_check_csr(mie);
   }
 
   if (difftest_ref_priv != current_cpu_priv) {
