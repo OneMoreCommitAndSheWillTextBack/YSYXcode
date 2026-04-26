@@ -66,6 +66,7 @@ static void unpack_difftest_ctx(CPU_state *state,
   state->csr.mtvec = ctx->csr.mtvec;
   state->csr.mscratch = ctx->csr.mscratch;
   state->csr.satp = ctx->csr.satp;
+  state->csr.mie = ctx->csr.mie;
 }
 
 static void difftest_regcpy_to_ref(const CPU_state *state) {
