@@ -73,5 +73,5 @@ word_t isa_query_intr() {
     return IRQ_TIMER;
   }
 
-  panic("should not reach here");
+  return INTR_EMPTY;
 }
