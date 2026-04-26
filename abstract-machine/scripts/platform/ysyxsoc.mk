@@ -6,7 +6,7 @@ AM_SRCS := riscv/ysyxsoc/start.S \
 		   riscv/ysyxsoc/gpu.c \
 		   riscv/ysyxsoc/timer.c \
 		   riscv/ysyxsoc/cte.c \
-           riscv/nemu/trap.S \
+           riscv/ysyxsoc/trap.S \
            riscv/ysyxsoc/mpe.c \
            riscv/ysyxsoc/vme.c
 
