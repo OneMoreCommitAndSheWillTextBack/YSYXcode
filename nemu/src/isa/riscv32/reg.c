@@ -21,17 +21,32 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
                       "a6", "a7", "s2",  "s3",  "s4", "s5", "s6", "s7",
                       "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
-const char *csr[] = {"mstatus", "mcause", "mepc", "mtvec", "satp", "mscratch"};
+#define DIFF_CSR_LIST                                                          \
+  X(mstatus) X(mcause) X(mepc) X(mtvec) X(satp) X(mscratch) X(mie)
+
+const char *csr[] = {
+#define X(name) #name,
+    DIFF_CSR_LIST
+#undef X
+};
+
+// 生成枚举索引
+typedef enum {
+#define X(name) CSR_IDX_##name,
+  DIFF_CSR_LIST
+#undef X
+      CSR_IDX_COUNT
+} csr_index_t;
 
 static uint32_t get_csr_val(CPU_state *state, int idx) {
   switch (idx) {
-    case 0: return state->csr.mstatus;
-    case 1: return state->csr.mcause;
-    case 2: return state->csr.mepc;
-    case 3: return state->csr.mtvec;
-    case 4: return state->csr.satp;
-    case 5: return state->csr.mscratch;
-    default: assert(false && "invalid csr idx");
+#define X(name)                                                                \
+  case CSR_IDX_##name:                                                         \
+    return state->csr.name;
+    DIFF_CSR_LIST
+#undef X
+  default:
+    assert(false && "invalid csr idx");
   }
 }
 
@@ -47,8 +62,8 @@ void isa_reg_display(CPU_state *ref) {
     // 只打印本机寄存器
     printf("%s  %-*s %-12s %-12s%s\n", C_HDR, NAME_W, "reg", "hex", "dec",
            C_RESET);
-    printf("  %s%-*s %-12s %-12s%s\n", C_HDR, NAME_W, "========",
-           "============", "============", C_RESET);
+    printf("  %s%-*s %-12s %-12s%s\n", C_HDR, NAME_W,
+           "========", "============", "============", C_RESET);
     for (int i = 0; i < 32; i++) {
       uint32_t val = cpu.gpr[i];
       printf("  %s%-*s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, NAME_W, regs[i],
@@ -65,8 +80,8 @@ void isa_reg_display(CPU_state *ref) {
     // 对比 DUT 和 REF 寄存器
     printf("%s  %-*s %-12s %-12s %-8s%s\n", C_HDR, NAME_W, "reg", "DUT", "REF",
            "diff", C_RESET);
-    printf("  %s%-*s %-12s %-12s %-8s%s\n", C_HDR, NAME_W, "========",
-           "============", "============", "========", C_RESET);
+    printf("  %s%-*s %-12s %-12s %-8s%s\n", C_HDR, NAME_W,
+           "========", "============", "============", "========", C_RESET);
     for (int i = 0; i < 32; i++) {
       uint32_t d = cpu.gpr[i];
       uint32_t r = ref->gpr[i];
@@ -75,7 +90,7 @@ void isa_reg_display(CPU_state *ref) {
              regs[i], C_RESET, c, d, C_RESET, c, r, C_RESET, c,
              (int32_t)d - (int32_t)r, C_RESET);
     }
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
       uint32_t d = get_csr_val(&cpu, i);
       uint32_t r = get_csr_val(ref, i);
       const char *c = (d == r) ? C_VAL : C_DIFF;
