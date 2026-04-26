@@ -236,6 +236,10 @@ void init(int argc, char *argv[]) {
   #endif
 
   npc->top->reset = 0;
+  // Dump reset deassertion in its own timestep so synchronous state updates
+  // do not look level-sensitive in the VCD.
+  npc->top->eval();
+  demp_wave();
 }
 
 bool batch_mode() { return batch_mode_on; }

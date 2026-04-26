@@ -1586,6 +1586,9 @@ module ysyx_24100007_ifu(
 
   wire [31:0] pcbridge;
   wire infetch_req = is_jmp | (ready & valid); // update pc
+  // Keep the PC register clock-enabled during reset so a synthesized
+  // clock-gate cannot block the synchronous reset value from loading.
+  wire pcreg_en = infetch_req | rst;
   wire [31:0] pc_add_4 = pc + 32'd4;
   wire [31:0] npc = (is_jmp) ? exu_npc : pc_add_4;
 
@@ -1595,7 +1598,7 @@ module ysyx_24100007_ifu(
     .rst(rst),
     .npc(npc),
     .pcout(pcbridge),
-    .ready_from(infetch_req)
+    .ready_from(pcreg_en)
   );
 
   // ------------------------------------
@@ -3706,4 +3709,3 @@ module ysyx_24100007_pipline_tracer(
   end
 endmodule
 // synopsys translate_on
-
