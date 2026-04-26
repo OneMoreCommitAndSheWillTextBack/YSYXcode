@@ -24,6 +24,16 @@ static inline uint32_t *get_raw_csr(uint32_t csr_num) {
     return &cpu.virt_csr.name;                                                 \
     break;
 
+#define VIRT_CSR_INIT_ENTRY(name, idx)                                         \
+  cpu.virt_csr.name = (virt_csr_entry_t){                                      \
+      .csr_num = idx, .read = virt_csr_##name##_read,                          \
+      .write = virt_csr_##name##_write};
+
+#define VIRT_CSR_INIT_TABLE()                                                  \
+  do {                                                                         \
+    EACH_VIRTUAL_CSR(VIRT_CSR_INIT_ENTRY)                                      \
+  } while (0)
+
 static inline virt_csr_entry_t *get_virt_csr(uint32_t csr_num) {
   switch (csr_num) {
     EACH_VIRTUAL_CSR(VIRT_CSR_CASE)
