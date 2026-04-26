@@ -50,6 +50,7 @@ static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state)
   ctx->csr.mtvec = state->csr.mtvec;
   ctx->csr.mscratch = state->csr.mscratch;
   ctx->csr.satp = state->csr.satp;
+  ctx->csr.mie = state->csr.mie;
 }
 
 static void unpack_difftest_ctx(CPU_state *state,
