@@ -196,10 +196,13 @@ BIN_NETLIST = $(BUILDDIR_NETLIST)/npc
 $(shell mkdir -p $(BUILDDIR_NETLIST))
 
 sim-verilator-netlist: $(BIN_NETLIST) $(IMG)
+	@if [ -z "$(IMG)" ]; then echo "Error: IMG=xxx.bin required"; exit 1; fi
 	$(BIN_NETLIST) $(ARGS) -f $(IMG)
 
 $(BIN_NETLIST): $(NETLIST) $(CSRC) $(HEADFILE)
 	@if [ -z "$(NETLIST)" ]; then echo "Error: NETLIST=path/to/netlist.v required"; exit 1; fi
+	rm -rf $(OBJDIR_NETLIST)
+	mkdir -p $(OBJDIR_NETLIST)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Wno-UNOPTFLAT -fno-inline \
 		$(CELLS_V) \
 		$(NETLIST) \

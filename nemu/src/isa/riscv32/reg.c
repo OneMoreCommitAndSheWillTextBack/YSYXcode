@@ -23,6 +23,7 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
 
 #define DIFF_CSR_LIST                                                          \
   X(mstatus) X(mcause) X(mepc) X(mtvec) X(satp) X(mscratch) X(mie)
+#define DIFF_CSR_NUM 7
 
 const char *csr[] = {
 #define X(name) #name,
@@ -69,7 +70,7 @@ void isa_reg_display(CPU_state *ref) {
       printf("  %s%-*s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, NAME_W, regs[i],
              C_RESET, C_VAL, val, C_RESET, C_VAL, (int32_t)val, C_RESET);
     }
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < DIFF_CSR_NUM; i++) {
       uint32_t val = get_csr_val(&cpu, i);
       printf("  %s%-*s%s %s0x%08x%s   %s%-12d%s\n", C_NAME, NAME_W, csr[i],
              C_RESET, C_VAL, val, C_RESET, C_VAL, (int32_t)val, C_RESET);
@@ -90,7 +91,7 @@ void isa_reg_display(CPU_state *ref) {
              regs[i], C_RESET, c, d, C_RESET, c, r, C_RESET, c,
              (int32_t)d - (int32_t)r, C_RESET);
     }
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < DIFF_CSR_NUM; i++) {
       uint32_t d = get_csr_val(&cpu, i);
       uint32_t r = get_csr_val(ref, i);
       const char *c = (d == r) ? C_VAL : C_DIFF;
@@ -114,7 +115,7 @@ word_t isa_reg_str2val(const char *s, bool *success) {
       return cpu.gpr[i];
     }
   }
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < DIFF_CSR_NUM; i++) {
     if (strcmp(csr[i], s + 1) == 0) {
       return get_csr_val(&cpu, i);
     }
