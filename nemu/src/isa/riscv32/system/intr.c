@@ -13,6 +13,8 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "../local-include/csr-table.h"
+#include "isa-def.h"
 #include <isa.h>
 #include <stdint.h>
 
@@ -64,12 +66,22 @@ bool isa_enable_intr() {
 #define IRQ_TIMER 0x80000007
 word_t isa_query_intr() {
   bool global_intr_enable = isa_enable_intr();
+  virt_csr_entry_t *mip = get_virt_csr(0x344);
   if (!global_intr_enable)
     return INTR_EMPTY;
 
   bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
-  if (cpu.INTR == true && m_timer_intr_enable) {
+  if (cpu.INTR && m_timer_intr_enable) {
     cpu.INTR = false;
+    return IRQ_TIMER;
+  }
+
+  if (mip->read() & MIP_MTIP && m_timer_intr_enable) {
+    // TODO: implement the write at bit
+    // this left here for replace the
+    // logic above
+    panic("should not reach here");
+    mip->write(0);
     return IRQ_TIMER;
   }
 
