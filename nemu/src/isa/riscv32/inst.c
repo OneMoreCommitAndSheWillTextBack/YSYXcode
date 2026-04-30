@@ -216,7 +216,6 @@ static void csr_write(uint32_t csr_num, uint32_t data) {
     virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
     if (virt_csr_handler == NULL) {
       panic("invalid csr num %x(%d)\n", csr_num, csr_num);
-
     }
     virt_csr_handler->write(data);
   } else {
