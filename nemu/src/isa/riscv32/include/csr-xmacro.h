@@ -23,7 +23,8 @@
   raw(mie, 0x304)                                                              \
   virt(sie, 0x104)                                                             \
   virt(sip, 0x144)                                                             \
-  virt(mip, 0x344)
+  virt(mip, 0x344)                                                             \
+  virt(sstatus, 0x100)
 // clang-format on
 
 #define IGNORE_CSR(name, idx)
