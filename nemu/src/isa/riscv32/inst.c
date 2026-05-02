@@ -214,6 +214,7 @@ static int decode_exec_c(Decode *s) {
   }
   INSTPAT_START();
   INSTPAT("1000 0 ????? ????? 10", c.mv, CR, R(rd) = src1; printf("the the src %08x", src1));
+  INSTPAT("???? ????? ????? ??", inv, C_N, INV(s->pc));
   INSTPAT_END();
 
   R(0) = 0;
