@@ -110,7 +110,7 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
     case TYPE_CS:       *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i)); *imm = C_IMM_LW(i); break;
     case TYPE_CSS:      *src1 = R(2); *src2 = R(C_RS2(i)); *imm = C_IMM_SWSP(i);        break;
     case TYPE_CR:       *rd = C_RD(i); *src1 = R(C_RS1(i)); *src2 = R(C_RS2(i));        break;
-    case TYPE_CA:       *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i));    break;
+    case TYPE_CA:       *rd = C_RS1P(i); *src2 = R(C_RS2P(i));                               break;
     case TYPE_CB:       *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_CB(i);           break;
     case TYPE_CJ:       *imm = C_IMM_CJ(i);                                                       break;
   }
@@ -213,7 +213,7 @@ static int decode_exec_c(Decode *s) {
   __VA_ARGS__ ; \
   }
   INSTPAT_START();
-  INSTPAT("1000 0 ????? ????? 10", c.mv, CR, R(rd) = src1; printf("the the src %08x", src1));
+  INSTPAT("100 0 ????? ????? 10", c.mv, CR, R(rd) = src2);
   INSTPAT("???? ????? ????? ??", inv, C_N, INV(s->pc));
   INSTPAT_END();
 
