@@ -15,6 +15,7 @@
 // clang-format off
 
 #include "common.h"
+#include "debug.h"
 #include "isa-def.h"
 #include "isa.h"
 #include "local-include/reg.h"
@@ -136,9 +137,6 @@ static int decode_exec(Decode *s) {
   INSTPAT("00001?? ????? ????? 010 ????? 01011 11", amoswap.w, R, R(rd) = Mr(src1, 4);      \
                                                                        Mw(src1, 4, src2));
 
-  // c extension -- do not forget call dnpc + 2
-  // INSTPAT("??????")
-
   INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, uint32_t t=csr_read(imm);csr_write(imm, src1);R(rd)=t);
   INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, uint32_t t=csr_read(imm);csr_write(imm, t|src1);R(rd)=t);
   INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , I, ECALL);
@@ -157,8 +155,19 @@ static int decode_exec(Decode *s) {
   return 0;
 }
 
+
+static int decode_exec_c(Decode *s) {
+  TODO();
+}
+
 int isa_exec_once(Decode *s) {
-  s->isa.inst.val = inst_fetch(&s->snpc, 4);
+  uint32_t mask = s->snpc & 0b11;
+  int len = 4 - mask;
+  s->isa.inst.val = inst_fetch(&s->snpc, len);
+  if((s->isa.inst.val & 0b11 )!= 3) {
+    s->snpc = cpu.pc + 2;
+    return decode_exec_c(s);
+  }
   return decode_exec(s);
 }
 
@@ -198,7 +207,7 @@ static word_t mret_inst() {
   cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE)) | (mpie >> 4);
   cpu.csr.mstatus = cpu.csr.mstatus | MSTATUS_MPIE;
 
-  return cpu.csr.mepc; 
+  return cpu.csr.mepc;
 }
 
 #define CSR_MAST 0xfff
