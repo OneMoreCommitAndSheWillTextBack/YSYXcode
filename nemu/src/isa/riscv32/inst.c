@@ -101,18 +101,18 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
   uint32_t i = s->isa.inst.val & 0xffff;
 
   switch (type) {
-    case TYPE_CI: *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_IMM_CI(i); break;
-    case TYPE_CI_SHAMT: *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_SHAMT(i); break;
-    case TYPE_CI16SP: *rd = 2; *src1 = R(2); *imm = C_IMM_ADDI16SP(i); break;
-    case TYPE_C_LUI: *rd = C_RD(i); *imm = C_IMM_LUI(i); break;
-    case TYPE_CIW: *rd = C_RDP(i); *src1 = R(2); *imm = C_IMM_ADDI4SPN(i); break;
-    case TYPE_CL: *rd = C_RDP(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_LW(i); break;
-    case TYPE_CS: *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i)); *imm = C_IMM_LW(i); break;
-    case TYPE_CSS: *src1 = R(2); *src2 = R(C_RS2(i)); *imm = C_IMM_SWSP(i); break;
-    case TYPE_CR: *rd = C_RD(i); *src1 = R(C_RS1(i)); *src2 = R(C_RS2(i)); break;
-    case TYPE_CA: *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i)); break;
-    case TYPE_CB: *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_CB(i); break;
-    case TYPE_CJ: *imm = C_IMM_CJ(i); break;
+    case TYPE_CI:       *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_IMM_CI(i);              break;
+    case TYPE_CI_SHAMT: *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_SHAMT(i);               break;
+    case TYPE_CI16SP:   *rd = 2; *src1 = R(2); *imm = C_IMM_ADDI16SP(i);                     break;
+    case TYPE_C_LUI:    *rd = C_RD(i); *imm = C_IMM_LUI(i);                                       break;
+    case TYPE_CIW:      *rd = C_RDP(i); *src1 = R(2); *imm = C_IMM_ADDI4SPN(i);              break;
+    case TYPE_CL:       *rd = C_RDP(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_LW(i);            break;
+    case TYPE_CS:       *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i)); *imm = C_IMM_LW(i); break;
+    case TYPE_CSS:      *src1 = R(2); *src2 = R(C_RS2(i)); *imm = C_IMM_SWSP(i);        break;
+    case TYPE_CR:       *rd = C_RD(i); *src1 = R(C_RS1(i)); *src2 = R(C_RS2(i));        break;
+    case TYPE_CA:       *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i));    break;
+    case TYPE_CB:       *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_CB(i);           break;
+    case TYPE_CJ:       *imm = C_IMM_CJ(i);                                                       break;
   }
 }
 
@@ -213,7 +213,7 @@ static int decode_exec_c(Decode *s) {
   __VA_ARGS__ ; \
   }
   INSTPAT_START();
-  INSTPAT("1000 0 ????? ????? 10", c.mv, CR, R(rd) = src1);
+  INSTPAT("1000 0 ????? ????? 10", c.mv, CR, R(rd) = src1; printf("the the src %08x", src1));
   INSTPAT_END();
 
   R(0) = 0;
