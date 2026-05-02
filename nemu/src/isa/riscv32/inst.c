@@ -44,6 +44,13 @@ enum {
   TYPE_B, 
 };
 
+enum {
+  TYPE_C_N,
+  TYPE_CI, TYPE_CI_SHAMT, TYPE_CI16SP, TYPE_C_LUI,
+  TYPE_CIW, TYPE_CL, TYPE_CS, TYPE_CSS,
+  TYPE_CR, TYPE_CA, TYPE_CB, TYPE_CJ,
+};
+
 #define src1R() do { *src1 = R(rs1); } while (0)
 #define src2R() do { *src2 = R(rs2); } while (0)
 #define immI() do { *imm = SEXT(BITS(i, 31, 20), 12); } while(0)
@@ -51,6 +58,24 @@ enum {
 #define immS() do { *imm = (SEXT(BITS(i, 31, 25), 7) << 5) | BITS(i, 11, 7); } while(0)
 #define immJ() do { *imm = SEXT(BITS(i, 31, 31), 1) << 20 | BITS(i, 30, 21) << 1 | BITS(i, 20, 20) << 11 | BITS(i, 19, 12) << 12; } while(0)
 #define immB() do { *imm = SEXT(BITS(i, 31, 31), 1) << 12 | BITS(i, 30, 25) << 5 | BITS(i, 11, 8) << 1 | BITS(i, 7, 7) << 11; } while(0)
+
+#define C_BIT(i, n) BITS(i, n, n)
+#define C_RD(i) BITS(i, 11, 7)
+#define C_RS1(i) BITS(i, 11, 7)
+#define C_RS2(i) BITS(i, 6, 2)
+#define C_RDP(i) (8 + BITS(i, 4, 2))
+#define C_RS1P(i) (8 + BITS(i, 9, 7))
+#define C_RS2P(i) (8 + BITS(i, 4, 2))
+#define C_IMM_CI(i) SEXT((C_BIT(i, 12) << 5) | BITS(i, 6, 2), 6)
+#define C_SHAMT(i) ((C_BIT(i, 12) << 5) | BITS(i, 6, 2))
+#define C_IMM_ADDI4SPN(i) ((BITS(i, 10, 7) << 6) | (BITS(i, 12, 11) << 4) | (C_BIT(i, 5) << 3) | (C_BIT(i, 6) << 2))
+#define C_IMM_LW(i) ((C_BIT(i, 5) << 6) | (BITS(i, 12, 10) << 3) | (C_BIT(i, 6) << 2))
+#define C_IMM_LWSP(i) ((BITS(i, 3, 2) << 6) | (C_BIT(i, 12) << 5) | (BITS(i, 6, 4) << 2))
+#define C_IMM_SWSP(i) ((BITS(i, 8, 7) << 6) | (BITS(i, 12, 9) << 2))
+#define C_IMM_ADDI16SP(i) SEXT((C_BIT(i, 12) << 9) | (BITS(i, 4, 3) << 7) | (C_BIT(i, 5) << 6) | (C_BIT(i, 2) << 5) | (C_BIT(i, 6) << 4), 10)
+#define C_IMM_LUI(i) (SEXT((C_BIT(i, 12) << 5) | BITS(i, 6, 2), 6) << 12)
+#define C_IMM_CB(i) SEXT((C_BIT(i, 12) << 8) | (BITS(i, 6, 5) << 6) | (C_BIT(i, 2) << 5) | (BITS(i, 11, 10) << 3) | (BITS(i, 4, 3) << 1), 9)
+#define C_IMM_CJ(i) SEXT((C_BIT(i, 12) << 11) | (C_BIT(i, 8) << 10) | (BITS(i, 10, 9) << 8) | (C_BIT(i, 6) << 7) | (C_BIT(i, 7) << 6) | (C_BIT(i, 2) << 5) | (C_BIT(i, 11) << 4) | (BITS(i, 5, 3) << 1), 12)
 
 static uint32_t csr_read(uint32_t csr_num);
 static void csr_write(uint32_t csr_num, uint32_t data);
@@ -68,6 +93,26 @@ static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_
     case TYPE_J:                   immJ(); break;
     case TYPE_R: src1R(); src2R();         break;
     case TYPE_B: src1R(); src2R(); immB(); break;
+  }
+}
+
+static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
+                             word_t *imm, int type) {
+  uint32_t i = s->isa.inst.val & 0xffff;
+
+  switch (type) {
+    case TYPE_CI: *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_IMM_CI(i); break;
+    case TYPE_CI_SHAMT: *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_SHAMT(i); break;
+    case TYPE_CI16SP: *rd = 2; *src1 = R(2); *imm = C_IMM_ADDI16SP(i); break;
+    case TYPE_C_LUI: *rd = C_RD(i); *imm = C_IMM_LUI(i); break;
+    case TYPE_CIW: *rd = C_RDP(i); *src1 = R(2); *imm = C_IMM_ADDI4SPN(i); break;
+    case TYPE_CL: *rd = C_RDP(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_LW(i); break;
+    case TYPE_CS: *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i)); *imm = C_IMM_LW(i); break;
+    case TYPE_CSS: *src1 = R(2); *src2 = R(C_RS2(i)); *imm = C_IMM_SWSP(i); break;
+    case TYPE_CR: *rd = C_RD(i); *src1 = R(C_RS1(i)); *src2 = R(C_RS2(i)); break;
+    case TYPE_CA: *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *src2 = R(C_RS2P(i)); break;
+    case TYPE_CB: *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_CB(i); break;
+    case TYPE_CJ: *imm = C_IMM_CJ(i); break;
   }
 }
 
@@ -154,17 +199,33 @@ static int decode_exec(Decode *s) {
 
   return 0;
 }
-
+#undef INSTPAT_MATCH
+#undef INSTPAT_INST
 
 static int decode_exec_c(Decode *s) {
-  TODO();
+  int rd = 0;
+  word_t src1 = 0, src2 = 0, imm = 0;
+  s->dnpc = s->snpc;
+
+  #define INSTPAT_INST(s) ((s)->isa.inst.val)
+  #define INSTPAT_MATCH(s, name, type, ... /* execute body */ ) { \
+  decode_operand_c(s, &rd, &src1, &src2, &imm, concat(TYPE_, type)); \
+  __VA_ARGS__ ; \
+  }
+  INSTPAT_START();
+  INSTPAT("1000 0 ????? ????? 10", c.mv, CR, R(rd) = src1);
+  INSTPAT_END();
+
+  R(0) = 0;
+  readonly_recover();
+  return 0;
 }
 
 int isa_exec_once(Decode *s) {
   uint32_t mask = s->snpc & 0b11;
   int len = 4 - mask;
   s->isa.inst.val = inst_fetch(&s->snpc, len);
-  if((s->isa.inst.val & 0b11 )!= 3) {
+  if((s->isa.inst.val & 0b11 ) != 3) {
     s->snpc = cpu.pc + 2;
     return decode_exec_c(s);
   }
