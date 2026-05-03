@@ -234,17 +234,18 @@ static int decode_exec_c(Decode *s) {
   decode_operand_c(s, &rd, &src1, &src2, &imm, &uimm, concat(TYPE_, type)); \
   __VA_ARGS__ ; \
   }
-  INSTPAT_START();
+  INSTPAT_START(c_extern);
   INSTPAT("100 0 ????? 00000 10" , c.jr  , CR  , s->dnpc = src1);
   INSTPAT("100 0 ????? ????? 10" , c.mv  , CR  , R(rd) = src2);
+  INSTPAT("000 ? ????? ????? 10" , c.slli, CI  , R(rd) = R(rd) << uimm);
+
   INSTPAT("001 ??????????? 01"   , c.jal , CJ  , R(1) = s->pc+2;s->dnpc=s->pc+imm);
   INSTPAT("010 ? ????? ????? 01" , c.li  , CI  , R(rd) = imm);
   INSTPAT("110 ??????????? 01"   , c.beqz, CB  , if(src1 == 0) s->dnpc = s->pc + imm);
-  INSTPAT("000 ? ????? ????? 10" , c.slli, CI  , R(rd) = R(rd) << uimm);
   INSTPAT("100 ? 00 ??? ????? 01", c.srli, CB  , R(rd) = R(rd) >> uimm);
 
   INSTPAT("???? ????? ????? ??"  , inv   , C_N , INV(s->pc));
-  INSTPAT_END();
+  INSTPAT_END(c_extern);
 
   R(0) = 0;
   readonly_recover();
