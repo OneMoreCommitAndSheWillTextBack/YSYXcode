@@ -67,15 +67,31 @@ enum {
 #define C_RS1P(i) (8 + BITS(i, 9, 7))
 #define C_RS2P(i) (8 + BITS(i, 4, 2))
 #define C_IMM_CI(i) SEXT((C_BIT(i, 12) << 5) | BITS(i, 6, 2), 6)
+#define C_UIMM_CI(i) ((C_BIT(i, 12) << 5) | BITS(i, 6, 2))
 #define C_SHAMT(i) ((C_BIT(i, 12) << 5) | BITS(i, 6, 2))
-#define C_IMM_ADDI4SPN(i) ((BITS(i, 10, 7) << 6) | (BITS(i, 12, 11) << 4) | (C_BIT(i, 5) << 3) | (C_BIT(i, 6) << 2))
-#define C_IMM_LW(i) ((C_BIT(i, 5) << 6) | (BITS(i, 12, 10) << 3) | (C_BIT(i, 6) << 2))
-#define C_IMM_LWSP(i) ((BITS(i, 3, 2) << 6) | (C_BIT(i, 12) << 5) | (BITS(i, 6, 4) << 2))
+
+#define C_IMM_ADDI4SPN(i)                                                      \
+  ((BITS(i, 10, 7) << 6) | (BITS(i, 12, 11) << 4) | (C_BIT(i, 5) << 3) |       \
+   (C_BIT(i, 6) << 2))
+#define C_IMM_LW(i)                                                            \
+  ((C_BIT(i, 5) << 6) | (BITS(i, 12, 10) << 3) | (C_BIT(i, 6) << 2))
+#define C_IMM_LWSP(i)                                                          \
+  ((BITS(i, 3, 2) << 6) | (C_BIT(i, 12) << 5) | (BITS(i, 6, 4) << 2))
 #define C_IMM_SWSP(i) ((BITS(i, 8, 7) << 6) | (BITS(i, 12, 9) << 2))
-#define C_IMM_ADDI16SP(i) SEXT((C_BIT(i, 12) << 9) | (BITS(i, 4, 3) << 7) | (C_BIT(i, 5) << 6) | (C_BIT(i, 2) << 5) | (C_BIT(i, 6) << 4), 10)
+#define C_IMM_ADDI16SP(i)                                                      \
+  SEXT((C_BIT(i, 12) << 9) | (BITS(i, 4, 3) << 7) | (C_BIT(i, 5) << 6) |       \
+           (C_BIT(i, 2) << 5) | (C_BIT(i, 6) << 4),                            \
+       10)
 #define C_IMM_LUI(i) (SEXT((C_BIT(i, 12) << 5) | BITS(i, 6, 2), 6) << 12)
-#define C_IMM_CB(i) SEXT((C_BIT(i, 12) << 8) | (BITS(i, 6, 5) << 6) | (C_BIT(i, 2) << 5) | (BITS(i, 11, 10) << 3) | (BITS(i, 4, 3) << 1), 9)
-#define C_IMM_CJ(i) SEXT((C_BIT(i, 12) << 11) | (C_BIT(i, 8) << 10) | (BITS(i, 10, 9) << 8) | (C_BIT(i, 6) << 7) | (C_BIT(i, 7) << 6) | (C_BIT(i, 2) << 5) | (C_BIT(i, 11) << 4) | (BITS(i, 5, 3) << 1), 12)
+#define C_IMM_CB(i)                                                            \
+  SEXT((C_BIT(i, 12) << 8) | (BITS(i, 6, 5) << 6) | (C_BIT(i, 2) << 5) |       \
+           (BITS(i, 11, 10) << 3) | (BITS(i, 4, 3) << 1),                      \
+       9)
+#define C_IMM_CJ(i)                                                            \
+  SEXT((C_BIT(i, 12) << 11) | (C_BIT(i, 8) << 10) | (BITS(i, 10, 9) << 8) |    \
+           (C_BIT(i, 6) << 7) | (C_BIT(i, 7) << 6) | (C_BIT(i, 2) << 5) |      \
+           (C_BIT(i, 11) << 4) | (BITS(i, 5, 3) << 1),                         \
+       12)
 
 static uint32_t csr_read(uint32_t csr_num);
 static void csr_write(uint32_t csr_num, uint32_t data);
@@ -97,11 +113,11 @@ static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_
 }
 
 static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
-                             word_t *imm, int type) {
+                             word_t *imm, word_t *uimm, int type) {
   uint32_t i = s->isa.inst.val & 0xffff;
 
   switch (type) {
-    case TYPE_CI:       *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_IMM_CI(i);              break;
+    case TYPE_CI:       *rd = C_RD(i); *imm = C_IMM_CI(i); *uimm = C_UIMM_CI(i);                  break;
     case TYPE_CI_SHAMT: *rd = C_RD(i); *src1 = R(C_RS1(i)); *imm = C_SHAMT(i);               break;
     case TYPE_CI16SP:   *rd = 2; *src1 = R(2); *imm = C_IMM_ADDI16SP(i);                     break;
     case TYPE_C_LUI:    *rd = C_RD(i); *imm = C_IMM_LUI(i);                                       break;
@@ -204,12 +220,12 @@ static int decode_exec(Decode *s) {
 
 static int decode_exec_c(Decode *s) {
   int rd = 0;
-  word_t src1 = 0, src2 = 0, imm = 0;
+  word_t src1 = 0, src2 = 0, imm = 0, uimm = 0;
   s->dnpc = s->snpc;
 
   #define INSTPAT_INST(s) ((s)->isa.inst.val)
   #define INSTPAT_MATCH(s, name, type, ... /* execute body */ ) { \
-  decode_operand_c(s, &rd, &src1, &src2, &imm, concat(TYPE_, type)); \
+  decode_operand_c(s, &rd, &src1, &src2, &imm, &uimm, concat(TYPE_, type)); \
   __VA_ARGS__ ; \
   }
   INSTPAT_START();
@@ -217,6 +233,7 @@ static int decode_exec_c(Decode *s) {
   INSTPAT("001 ??????????? 01"   , c.jal , CJ  , R(1) = s->pc+2;s->dnpc=s->pc+imm);
   INSTPAT("010 ? ????? ????? 01" , c.li  , CI  , R(rd) = imm);
   INSTPAT("110 ??????????? 01"   , c.beqz, CB  , if(src1 == 0) s->dnpc = s->pc + imm);
+  INSTPAT("000 ? ????? ????? 10" , c.slli, CI  , R(rd) = R(rd) << uimm);
 
   INSTPAT("???? ????? ????? ??"  , inv   , C_N , INV(s->pc));
   INSTPAT_END();
@@ -228,7 +245,6 @@ static int decode_exec_c(Decode *s) {
 
 int isa_exec_once(Decode *s) {
   s->isa.inst.val = inst_fetch(&s->snpc, 2);
-  printf("get inst %08x\n", s->isa.inst.val);
   if((s->isa.inst.val & 0b11 ) != 3) {
     return decode_exec_c(s);
   }
