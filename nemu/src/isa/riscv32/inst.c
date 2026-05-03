@@ -229,7 +229,6 @@ static int decode_exec_c(Decode *s) {
 int isa_exec_once(Decode *s) {
   s->isa.inst.val = inst_fetch(&s->snpc, 2);
   if((s->isa.inst.val & 0b11 ) != 3) {
-    s->snpc = cpu.pc + 2;
     return decode_exec_c(s);
   }
 
