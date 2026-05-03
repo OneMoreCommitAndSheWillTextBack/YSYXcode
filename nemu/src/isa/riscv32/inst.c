@@ -228,11 +228,13 @@ static int decode_exec_c(Decode *s) {
 
 int isa_exec_once(Decode *s) {
   s->isa.inst.val = inst_fetch(&s->snpc, 2);
+  printf("get inst %08x\n", s->isa.inst.val);
   if((s->isa.inst.val & 0b11 ) != 3) {
     return decode_exec_c(s);
   }
 
   s->isa.inst.val = inst_fetch(&s->snpc, 2);
+  printf("get inst %08x\n", s->isa.inst.val);
   return decode_exec(s);
 }
 
