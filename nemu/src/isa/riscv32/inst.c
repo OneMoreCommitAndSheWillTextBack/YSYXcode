@@ -233,8 +233,7 @@ int isa_exec_once(Decode *s) {
     return decode_exec_c(s);
   }
 
-  s->isa.inst.val = inst_fetch(&s->snpc, 2);
-  printf("get inst %08x\n", s->isa.inst.val);
+  s->isa.inst.val |= (inst_fetch(&s->snpc, 2) << 16);
   return decode_exec(s);
 }
 
