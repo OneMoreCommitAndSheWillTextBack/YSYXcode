@@ -70,6 +70,7 @@ enum {
 #define C_UIMM_CI(i) ((C_BIT(i, 12) << 5) | BITS(i, 6, 2))
 #define C_SHAMT(i) ((C_BIT(i, 12) << 5) | BITS(i, 6, 2))
 
+// clang-format on
 #define C_IMM_ADDI4SPN(i)                                                      \
   ((BITS(i, 10, 7) << 6) | (BITS(i, 12, 11) << 4) | (C_BIT(i, 5) << 3) |       \
    (C_BIT(i, 6) << 2))
@@ -87,11 +88,16 @@ enum {
   SEXT((C_BIT(i, 12) << 8) | (BITS(i, 6, 5) << 6) | (C_BIT(i, 2) << 5) |       \
            (BITS(i, 11, 10) << 3) | (BITS(i, 4, 3) << 1),                      \
        9)
+#define C_UIMM_CB(i)                                                           \
+  (C_BIT(i, 12) << 8) | (BITS(i, 6, 5) << 6) | (C_BIT(i, 2) << 5) |            \
+      (BITS(i, 11, 10) << 3) | (BITS(i, 4, 3) << 1)
+
 #define C_IMM_CJ(i)                                                            \
   SEXT((C_BIT(i, 12) << 11) | (C_BIT(i, 8) << 10) | (BITS(i, 10, 9) << 8) |    \
            (C_BIT(i, 6) << 7) | (C_BIT(i, 7) << 6) | (C_BIT(i, 2) << 5) |      \
            (C_BIT(i, 11) << 4) | (BITS(i, 5, 3) << 1),                         \
        12)
+// clang-format off
 
 static uint32_t csr_read(uint32_t csr_num);
 static void csr_write(uint32_t csr_num, uint32_t data);
@@ -127,7 +133,7 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
     case TYPE_CSS:      *src1 = R(2); *src2 = R(C_RS2(i)); *imm = C_IMM_SWSP(i);        break;
     case TYPE_CR:       *rd = C_RD(i); *src1 = R(C_RS1(i)); *src2 = R(C_RS2(i));        break;
     case TYPE_CA:       *rd = C_RS1P(i); *src2 = R(C_RS2P(i));                               break;
-    case TYPE_CB:       *rd = C_RS1P(i); *src1 = R(C_RS1P(i)); *imm = C_IMM_CB(i);           break;
+    case TYPE_CB:       *rd = C_RS1P(i);  *imm = C_IMM_CB(i); *uimm = C_UIMM_CB(i);               break;
     case TYPE_CJ:       *imm = C_IMM_CJ(i);                                                       break;
   }
 }
@@ -234,7 +240,7 @@ static int decode_exec_c(Decode *s) {
   INSTPAT("010 ? ????? ????? 01" , c.li  , CI  , R(rd) = imm);
   INSTPAT("110 ??????????? 01"   , c.beqz, CB  , if(src1 == 0) s->dnpc = s->pc + imm);
   INSTPAT("000 ? ????? ????? 10" , c.slli, CI  , R(rd) = R(rd) << uimm);
-  // INSTPAT("")
+  INSTPAT("100 ? 00 ??? ????? 01", c.srli, CB  , R(rd) = R(rd) >> uimm);
 
   INSTPAT("???? ????? ????? ??"  , inv   , C_N , INV(s->pc));
   INSTPAT_END();
