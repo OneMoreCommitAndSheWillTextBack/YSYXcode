@@ -233,7 +233,7 @@ int isa_exec_once(Decode *s) {
     return decode_exec_c(s);
   }
 
-  s->isa.inst.val = inst_fetch(&s->snpc, 4);
+  s->isa.inst.val = inst_fetch(&s->snpc, 2);
   return decode_exec(s);
 }
 
