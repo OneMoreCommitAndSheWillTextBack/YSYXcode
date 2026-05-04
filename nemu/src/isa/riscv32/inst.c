@@ -88,10 +88,6 @@ enum {
   SEXT((C_BIT(i, 12) << 8) | (BITS(i, 6, 5) << 6) | (C_BIT(i, 2) << 5) |       \
            (BITS(i, 11, 10) << 3) | (BITS(i, 4, 3) << 1),                      \
        9)
-#define C_UIMM_CB(i)                                                           \
-  (C_BIT(i, 12) << 8) | (BITS(i, 6, 5) << 6) | (C_BIT(i, 2) << 5) |            \
-      (BITS(i, 11, 10) << 3) | (BITS(i, 4, 3) << 1)
-
 #define C_IMM_CJ(i)                                                            \
   SEXT((C_BIT(i, 12) << 11) | (C_BIT(i, 8) << 10) | (BITS(i, 10, 9) << 8) |    \
            (C_BIT(i, 6) << 7) | (C_BIT(i, 7) << 6) | (C_BIT(i, 2) << 5) |      \
@@ -176,7 +172,7 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
     *rd = C_RS1P(i);
     *src1 = R(C_RS1P(i));
     *imm = C_IMM_CB(i);
-    *uimm = C_UIMM_CB(i);
+    *uimm = C_SHAMT(i);
     break;
   case TYPE_CJ:
     *imm = C_IMM_CJ(i);
@@ -289,7 +285,7 @@ static int decode_exec_c(Decode *s) {
   INSTPAT("001 ??????????? 01"   , c.jal , CJ  , R(1) = s->pc+2;s->dnpc=s->pc+imm);
   INSTPAT("010 ? ????? ????? 01" , c.li  , CI  , R(rd) = imm);
   INSTPAT("110 ??????????? 01"   , c.beqz, CB  , if(src1 == 0) s->dnpc = s->pc + imm);
-  INSTPAT("100 ? 00 ??? ????? 01", c.srli, CB  , R(rd) = R(rd) >> imm);
+  INSTPAT("100 ? 00 ??? ????? 01", c.srli, CB  , R(rd) = R(rd) >> uimm);
 
   INSTPAT("???? ????? ????? ??"  , inv   , C_N , INV(s->pc));
   INSTPAT_END(c_extern);
