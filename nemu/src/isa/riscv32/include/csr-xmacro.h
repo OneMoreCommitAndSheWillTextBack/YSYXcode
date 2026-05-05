@@ -20,6 +20,7 @@
   raw(pmpaddr0, 0x3b0)                                                         \
   raw(pmpaddr1, 0x3b1)                                                         \
   raw(pmpcfg0, 0x3a0)                                                          \
+  raw(scause, 0x142)                                                           \
   raw(mie, 0x304)                                                              \
   virt(sie, 0x104)                                                             \
   virt(sip, 0x144)                                                             \

@@ -46,6 +46,7 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
     riscv_check_csr(mtvec);
     riscv_check_csr(satp);
     riscv_check_csr(mie);
+    riscv_check_csr(scause);
   }
 
   if (difftest_ref_priv != current_cpu_priv) {

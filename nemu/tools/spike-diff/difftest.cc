@@ -89,6 +89,7 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->csr.mscratch = mscratch_csr()->read();
   ctx->csr.satp = state->satp->read();
   ctx->csr.mie = mie_csr()->read();
+  ctx->csr.scause = state->scause->read();
 }
 
 #define rv32_csr_syn(csrname) state->csrname->write(ctx->csr.csrname)
@@ -106,6 +107,7 @@ void sim_t::diff_set_regs(void *diff_context) {
   mscratch_csr()->write(ctx->csr.mscratch);
   rv32_csr_syn(mie);
   rv32_csr_syn(satp);
+  rv32_csr_syn(scause);
 }
 
 void sim_t::diff_memcpy_to_ref(reg_t dest, void *src, size_t n) {
