@@ -1,4 +1,4 @@
-// mstatus 寄存器位定义 (RV32)
+// mstats 寄存器位定义 (RV32)
 #define MSTATUS_UIE (1 << 0)         // User Interrupt Enable
 #define MSTATUS_SIE (1 << 1)         // Supervisor Interrupt Enable
 #define MSTATUS_MIE (1 << 3)         // Machine Interrupt Enable
@@ -24,5 +24,3 @@
 #define MSTATUS_TVM (1 << 20)        // Trap Virtual Memory
 #define MSTATUS_TW (1 << 21)         // Timeout Wait
 #define MSTATUS_TSR (1 << 22)        // Trap SRET
-#define MSTATUS_UXL (3 << 32)        // User XLEN (RV32 中保留)
-#define MSTATUS_SXL (3 << 34)        // Supervisor XLEN (RV32 中保留)

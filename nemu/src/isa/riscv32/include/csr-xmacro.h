@@ -9,6 +9,7 @@
 // views/projections that will be handled by semantic read/write logic later.
 #define CSR_LIST(raw, virt)                                                    \
   raw(mepc, 0x341)                                                             \
+  raw(sepc, 0x141)                                                             \
   raw(mstatus, 0x300)                                                          \
   raw(mcause, 0x342)                                                           \
   raw(mtvec, 0x305)                                                            \
@@ -21,6 +22,7 @@
   raw(pmpaddr1, 0x3b1)                                                         \
   raw(pmpcfg0, 0x3a0)                                                          \
   raw(scause, 0x142)                                                           \
+  raw(stvec, 0x105)                                                            \
   raw(mie, 0x304)                                                              \
   virt(sie, 0x104)                                                             \
   virt(sip, 0x144)                                                             \
