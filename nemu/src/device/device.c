@@ -91,6 +91,6 @@ void init_device() {
   IFNDEF(CONFIG_TARGET_AM, init_alarm());
 
 #ifdef CONFIG_ISA_riscv
-  IFDEF(CONIFG_HAS_PLIC, init_plic());
+  IFDEF(CONFIG_HAS_PLIC, init_plic());
 #endif
 }
