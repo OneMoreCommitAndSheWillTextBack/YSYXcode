@@ -32,11 +32,13 @@
 
 static word_t ecall_inst();
 static word_t mret_inst();
+static word_t sret_inst();
 
 CPU_MODE current_cpu_priv = M_MODE;
 
 #define ECALL s->dnpc = ecall_inst()
 #define MRET s->dnpc = mret_inst()
+#define SRET s->dnpc = sret_inst()
 
 enum {
   TYPE_I, TYPE_U, TYPE_S,
@@ -251,6 +253,7 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, uint32_t t=csr_read(imm);csr_write(imm, t|src1);R(rd)=t);
   INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , I, ECALL);
   INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , I, MRET);
+  INSTPAT("0001000 00010 00000 000 00000 11100 11", sret   , I, SRET);
 
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
   INSTPAT("0000000 00000 00000 001 00000 00011 11", fence.i, I, );
@@ -344,8 +347,32 @@ static word_t mret_inst() {
   uint32_t mpie = cpu.csr.mstatus & MSTATUS_MPIE;
   cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE)) | (mpie >> 4);
   cpu.csr.mstatus = cpu.csr.mstatus | MSTATUS_MPIE;
+  if (current_cpu_priv != M_MODE) {
+    cpu.csr.mstatus = cpu.csr.mstatus & ~MSTATUS_MPRV;
+  }
 
   return cpu.csr.mepc;
+}
+
+static word_t sret_inst() {
+  if (current_cpu_priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
+    return isa_raise_intr(2, cpu.pc);
+  }
+  assert(current_cpu_priv == S_MODE || current_cpu_priv == M_MODE);
+  uint32_t spp = cpu.csr.mstatus & MSTATUS_SPP;
+  if(spp == 0){
+    current_cpu_priv = U_MODE;
+  } else {
+    current_cpu_priv = S_MODE;
+  }
+  cpu.csr.mstatus = cpu.csr.mstatus & ~MSTATUS_SPP;
+
+  uint32_t spie = cpu.csr.mstatus & MSTATUS_SPIE;
+  cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_SIE)) | (spie >> 4);
+  cpu.csr.mstatus = cpu.csr.mstatus | MSTATUS_SPIE;
+  cpu.csr.mstatus = cpu.csr.mstatus & ~MSTATUS_MPRV;
+
+  return cpu.csr.sepc;
 }
 
 #define CSR_MAST 0xfff
