@@ -55,6 +55,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
     cpu.csr.mtvec = ctx->csr.mtvec;
     cpu.csr.mscratch = ctx->csr.mscratch;
     cpu.csr.satp = ctx->csr.satp;
+    cpu.csr.stval = ctx->csr.stval;
     cpu.pc = ctx->pc;
 #else
     assert(0);
@@ -73,6 +74,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
     ctx->csr.mcause = cpu.csr.mcause;
     ctx->csr.mscratch = cpu.csr.mscratch;
     ctx->csr.satp = cpu.csr.satp;
+    ctx->csr.stval = cpu.csr.stval;
     ctx->pc = cpu.pc;
 #else
     assert(0);
