@@ -56,10 +56,12 @@ typedef union {
 
 static disk_mmio_t disk_mmio = {};
 static FILE *img_fd = NULL;
-static const char *diskimg_path = CONFIG_DISK_IMG_PATH;
+static const char *diskimg_path = NULL;
 static bool disk_present = false;
 static bool disk_ready = false;
 static uint32_t disk_blkcnt = 0;
+
+void set_diskimg_path(const char *filepath) { diskimg_path = filepath; }
 
 static void disk_update_state(void) {
   disk_mmio.state.present = disk_present;
@@ -137,16 +139,16 @@ static void disk_submit_request(void) {
   }
 
   switch (cmd) {
-    case DISK_CMD_NONE:
-      break;
-    case DISK_CMD_WRITE:
-      disk_do_io(true, buf, blkno, blkcnt);
-      break;
-    case DISK_CMD_READ:
-      disk_do_io(false, buf, blkno, blkcnt);
-      break;
-    default:
-      panic("invalid disk cmd = " FMT_WORD, cmd);
+  case DISK_CMD_NONE:
+    break;
+  case DISK_CMD_WRITE:
+    disk_do_io(true, buf, blkno, blkcnt);
+    break;
+  case DISK_CMD_READ:
+    disk_do_io(false, buf, blkno, blkcnt);
+    break;
+  default:
+    panic("invalid disk cmd = " FMT_WORD, cmd);
   }
 
   disk_mmio.req.cmd = DISK_CMD_NONE;
@@ -181,7 +183,8 @@ void init_disk() {
       Assert(img_size >= 0, "get disk image size failed");
       rewind(img_fd);
 
-      disk_blkcnt = ((uint64_t)img_size + DISK_BLOCK_SIZE - 1) / DISK_BLOCK_SIZE;
+      disk_blkcnt =
+          ((uint64_t)img_size + DISK_BLOCK_SIZE - 1) / DISK_BLOCK_SIZE;
       disk_present = true;
       disk_ready = true;
       Log("disk init successfully, img path: %s, blocks: " FMT_WORD,

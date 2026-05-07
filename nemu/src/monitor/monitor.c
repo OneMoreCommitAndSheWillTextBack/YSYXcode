@@ -44,6 +44,7 @@ static void welcome() {
 
 void sdb_set_batch_mode();
 void set_dbg_port(int port);
+void set_diskimg_path(const char *filepath);
 
 static char *log_file = NULL;
 static char *diff_so_file = NULL;
@@ -86,10 +87,11 @@ static int parse_args(int argc, char *argv[]) {
       {"ftrace", required_argument, NULL, 'f'},
       {"dbg-port", required_argument, NULL, 'g'},
       {"detach-diff", no_argument, NULL, 'k'},
+      {"disk-path", required_argument, NULL, 'q'},
       {0, 0, NULL, 0},
   };
   int o;
-  while ((o = getopt_long(argc, argv, "-bhl:d:p:f:g:k", table, NULL)) != -1) {
+  while ((o = getopt_long(argc, argv, "-bhl:d:p:f:g:kq:", table, NULL)) != -1) {
     switch (o) {
     case 'g':
       dbg_port = 0;
@@ -104,6 +106,9 @@ static int parse_args(int argc, char *argv[]) {
       break;
     case 'b':
       sdb_set_batch_mode();
+      break;
+    case 'q':
+      set_diskimg_path(optarg);
       break;
     case 'p':
       sscanf(optarg, "%d", &difftest_port);
