@@ -7,11 +7,13 @@
  * Date           Author       Notes
  */
 
-#include <rtdevice.h>
-#include <rtthread.h>
+#include "amdev.h"
+#include "klib-macros.h"
 #include <am.h>
 #include <klib.h>
-#include "klib-macros.h"
+#include <rtdevice.h>
+#include <rtthread.h>
+#include <stdbool.h>
 
 #define UART_DEFAULT_BAUDRATE 115200
 
@@ -20,15 +22,18 @@ struct device_uart {
   rt_uint32_t irqno;
 };
 
-static void *uart0_base = (void*)0x10000000;
+static void *uart0_base = (void *)0x10000000;
+static bool has_uart = true;
 static struct rt_serial_device serial0;
 static struct device_uart uart0;
 
-static rt_err_t _uart_configure(struct rt_serial_device *serial, struct serial_configure *cfg) {
+static rt_err_t _uart_configure(struct rt_serial_device *serial,
+                                struct serial_configure *cfg) {
   return (RT_EOK);
 }
 
-static rt_err_t _uart_control(struct rt_serial_device *serial, int cmd, void *arg) {
+static rt_err_t _uart_control(struct rt_serial_device *serial, int cmd,
+                              void *arg) {
   return (RT_EOK);
 }
 
@@ -38,16 +43,19 @@ static int _uart_putc(struct rt_serial_device *serial, char c) {
 }
 
 static int _uart_getc(struct rt_serial_device *serial) {
-  return io_read(AM_UART_RX).data;
+  static const char *p = "help\ndate\nversion\nfree\nps\npwd\nls\nmemtrace\nmem"
+                         "check\nutest_list\nam_hello\n";
+  if (has_uart)
+    return io_read(AM_UART_RX).data;
+  else {
+    return (*p != '\0' ? *(p++) : -1);
+  }
 }
 
-const struct rt_uart_ops _uart_ops = {
-  _uart_configure,
-  _uart_control,
-  _uart_putc,
-  _uart_getc,
-  // TODO: add DMA support
-  RT_NULL};
+const struct rt_uart_ops _uart_ops = {_uart_configure, _uart_control,
+                                      _uart_putc, _uart_getc,
+                                      // TODO: add DMA support
+                                      RT_NULL};
 
 /*
  * UART Initiation
@@ -60,20 +68,20 @@ int rt_hw_uart_init(void) {
   serial = &serial0;
   uart = &uart0;
 
+  has_uart = io_read(AM_UART_CONFIG).present;
+
   serial->ops = &_uart_ops;
   serial->config = config;
   serial->config.baud_rate = UART_DEFAULT_BAUDRATE;
   uart->hw_base = (rt_ubase_t)uart0_base;
   uart->irqno = 0x0a;
 
-  rt_hw_serial_register(serial,
-      RT_CONSOLE_DEVICE_NAME,
-      RT_DEVICE_FLAG_STREAM | RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX,
-      uart);
+  rt_hw_serial_register(serial, RT_CONSOLE_DEVICE_NAME,
+                        RT_DEVICE_FLAG_STREAM | RT_DEVICE_FLAG_RDWR |
+                            RT_DEVICE_FLAG_INT_RX,
+                        uart);
   return 0;
 }
 
 /* WEAK for SDK 0.5.6 */
-rt_weak void uart_debug_init(int uart_channel)
-{
-}
+rt_weak void uart_debug_init(int uart_channel) {}

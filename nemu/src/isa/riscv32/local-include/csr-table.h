@@ -1,51 +1,45 @@
 #ifndef CSR_TABLE__H_
 #define CSR_TABLE__H_
 
+#include "csr-xmacro.h"
 #include <cpu/cpu.h>
 
-#define CSR(name, idx)                                                         \
+#define CSR_CASE(name, idx)                                                    \
   case idx:                                                                    \
     return &cpu.csr.name;                                                      \
     break;
 
-static inline uint32_t *get_csr(uint32_t csr_num) {
+static inline uint32_t *get_raw_csr(uint32_t csr_num) {
   switch (csr_num) {
-  case 0x300:
-    return &cpu.csr.mstatus;
-    break;
-  case 0x302:
-    return &cpu.csr.medeleg;
-    break;
-  case 0x303:
-    return &cpu.csr.mideleg;
-    break;
-  case 0x305:
-    return &cpu.csr.mtvec;
-    break;
-  case 0x340:
-    return &cpu.csr.mscratch;
-    break;
-  case 0x341:
-    return &cpu.csr.mepc;
-    break;
-  case 0x342:
-    return &cpu.csr.mcause;
-    break;
-  case 0x180:
-    return &cpu.csr.satp;
-    break;
-  case 0x104:
-    return &cpu.csr.sie;
-    break;
-  case 0x144:
-    return &cpu.csr.sip;
-    break;
-  case 0xf14:
-    return &cpu.csr.mhartid;
-    break;
+    // Use X macro to generate all cases
+    EACH_RAW_CSR(CSR_CASE)
+
   default:
-    // printf("[error] a undefined csr num %d\n", csr_num);
-    panic("[error] a undefined csr num %x\n", csr_num);
+    return NULL;
+  }
+}
+
+#define VIRT_CSR_CASE(name, idx)                                               \
+  case idx:                                                                    \
+    return &cpu.virt_csr.name;                                                 \
+    break;
+
+#define VIRT_CSR_INIT_ENTRY(name, idx)                                         \
+  cpu.virt_csr.name = (virt_csr_entry_t){                                      \
+      .csr_num = idx, .read = virt_csr_##name##_read,                          \
+      .write = virt_csr_##name##_write};
+
+#define VIRT_CSR_INIT_TABLE()                                                  \
+  do {                                                                         \
+    EACH_VIRTUAL_CSR(VIRT_CSR_INIT_ENTRY)                                      \
+  } while (0)
+
+static inline virt_csr_entry_t *get_virt_csr(uint32_t csr_num) {
+  switch (csr_num) {
+    EACH_VIRTUAL_CSR(VIRT_CSR_CASE)
+
+  default:
+    return NULL;
   }
 }
 

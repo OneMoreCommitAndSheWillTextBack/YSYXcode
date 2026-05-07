@@ -1,18 +1,49 @@
 #ifndef CSR_XMACRO__H_
 #define CSR_XMACRO__H_
 
-// 定义 CSR 表格
-#define EACH_CSR(_)                                                            \
-  _(mepc, 0x341)                                                               \
-  _(mstatus, 0x300)                                                            \
-  _(mcause, 0x342)                                                             \
-  _(mtvec, 0x305)                                                              \
-  _(mscratch, 0x340)                                                           \
-  _(satp, 0x180)                                                               \
-  _(sie, 0x104)                                                                \
-  _(sip, 0x144)                                                                \
-  _(medeleg, 0x302)                                                            \
-  _(mideleg, 0x303)                                                            \
-  _(mhartid, 0xf14)
+#include "debug.h"
+#include "stdint.h"
 
+// clang-format off
+// Master CSR list. Raw CSRs have dedicated backing storage; virtual CSRs are
+// views/projections that will be handled by semantic read/write logic later.
+#define CSR_LIST(raw, virt)                                                    \
+  raw(mepc, 0x341)                                                             \
+  raw(sepc, 0x141)                                                             \
+  raw(mstatus, 0x300)                                                          \
+  raw(mcause, 0x342)                                                           \
+  raw(mtvec, 0x305)                                                            \
+  raw(mscratch, 0x340)                                                         \
+  raw(satp, 0x180)                                                             \
+  raw(medeleg, 0x302)                                                          \
+  raw(mideleg, 0x303)                                                          \
+  raw(mhartid, 0xf14)                                                          \
+  raw(pmpaddr0, 0x3b0)                                                         \
+  raw(pmpaddr1, 0x3b1)                                                         \
+  raw(pmpcfg0, 0x3a0)                                                          \
+  raw(scause, 0x142)                                                           \
+  raw(stval, 0x143)                                                            \
+  raw(sscratch, 0x140)                                                         \
+  raw(stvec, 0x105)                                                            \
+  raw(mie, 0x304)                                                              \
+  virt(sie, 0x104)                                                             \
+  virt(sip, 0x144)                                                             \
+  virt(mip, 0x344)                                                             \
+  virt(sstatus, 0x100)
+// clang-format on
+
+#define IGNORE_CSR(name, idx)
+
+#define EACH_RAW_CSR(_) CSR_LIST(_, IGNORE_CSR)
+#define EACH_VIRTUAL_CSR(_) CSR_LIST(IGNORE_CSR, _)
+
+// Compatibility macro: keep current users working until the rest of the CSR
+// code is migrated to the raw/virtual split.
+#define EACH_CSR(_) CSR_LIST(_, _)
+
+#define DECLARE_VIRTUAL_CSR_HANDLER(name, idx)                                 \
+  uint32_t virt_csr_##name##_read(void);                                       \
+  void virt_csr_##name##_write(uint32_t data);
+
+EACH_VIRTUAL_CSR(DECLARE_VIRTUAL_CSR_HANDLER)
 #endif

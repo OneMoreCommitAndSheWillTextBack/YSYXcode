@@ -108,7 +108,7 @@ static void execute(uint64_t n) {
     // INFO: 先让difftest同步运行一下，然后同步syn
     trace_and_difftest(&s, cpu.pc);
     word_t intr = isa_query_intr();
-    if (intr != INTR_EMPTY && isa_enable_intr()) {
+    if (intr != INTR_EMPTY) {
       cpu.pc = isa_raise_intr(intr, cpu.pc);
       IFDEF(
           CONFIG_DIFFTEST, if (isa_difftest_is_attach()) {

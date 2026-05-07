@@ -42,6 +42,9 @@ static processor_t *p = NULL;
 static state_t *state = NULL;
 
 static inline auto mscratch_csr() { return state->csrmap.at(CSR_MSCRATCH); }
+static inline auto mie_csr() { return state->mie; }
+static inline auto sepc_csr() { return state->csrmap.at(CSR_SEPC); }
+static inline auto stval_csr() { return state->csrmap.at(CSR_STVAL); }
 
 static inline RISCV_GPR_TYPE spike_priv_to_ctx(reg_t prv) {
   switch (prv) {
@@ -83,10 +86,14 @@ void sim_t::diff_get_regs(void *diff_context) {
   // get csr from spike
   ctx->csr.mcause = state->mcause->read();
   ctx->csr.mepc = state->mepc->read();
+  ctx->csr.sepc = sepc_csr()->read();
   ctx->csr.mstatus = state->mstatus->read();
   ctx->csr.mtvec = state->mtvec->read();
   ctx->csr.mscratch = mscratch_csr()->read();
   ctx->csr.satp = state->satp->read();
+  ctx->csr.mie = mie_csr()->read();
+  ctx->csr.scause = state->scause->read();
+  ctx->csr.stval = stval_csr()->read();
 }
 
 #define rv32_csr_syn(csrname) state->csrname->write(ctx->csr.csrname)
@@ -97,12 +104,16 @@ void sim_t::diff_set_regs(void *diff_context) {
   }
   state->pc = ctx->pc;
   p->set_privilege(ctx_priv_to_spike(ctx->priv));
+  sepc_csr()->write(ctx->csr.sepc);
   rv32_csr_syn(mstatus);
   rv32_csr_syn(mcause);
   rv32_csr_syn(mepc);
   rv32_csr_syn(mtvec);
   mscratch_csr()->write(ctx->csr.mscratch);
+  rv32_csr_syn(mie);
   rv32_csr_syn(satp);
+  rv32_csr_syn(scause);
+  stval_csr()->write(ctx->csr.stval);
 }
 
 void sim_t::diff_memcpy_to_ref(reg_t dest, void *src, size_t n) {

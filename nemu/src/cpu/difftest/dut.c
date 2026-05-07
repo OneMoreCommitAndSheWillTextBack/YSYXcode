@@ -45,11 +45,15 @@ static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state)
   ctx->pc = state->pc;
   ctx->priv = current_cpu_priv;
   ctx->csr.mepc = state->csr.mepc;
+  ctx->csr.sepc = state->csr.sepc;
   ctx->csr.mstatus = state->csr.mstatus;
   ctx->csr.mcause = state->csr.mcause;
   ctx->csr.mtvec = state->csr.mtvec;
   ctx->csr.mscratch = state->csr.mscratch;
   ctx->csr.satp = state->csr.satp;
+  ctx->csr.mie = state->csr.mie;
+  ctx->csr.scause = state->csr.scause;
+  ctx->csr.stval = state->csr.stval;
 }
 
 static void unpack_difftest_ctx(CPU_state *state,
@@ -60,11 +64,15 @@ static void unpack_difftest_ctx(CPU_state *state,
   state->pc = ctx->pc;
   current_cpu_priv = ctx->priv;
   state->csr.mepc = ctx->csr.mepc;
+  state->csr.sepc = ctx->csr.sepc;
   state->csr.mstatus = ctx->csr.mstatus;
   state->csr.mcause = ctx->csr.mcause;
   state->csr.mtvec = ctx->csr.mtvec;
   state->csr.mscratch = ctx->csr.mscratch;
   state->csr.satp = ctx->csr.satp;
+  state->csr.mie = ctx->csr.mie;
+  state->csr.scause = ctx->csr.scause;
+  state->csr.stval = ctx->csr.stval;
 }
 
 static void difftest_regcpy_to_ref(const CPU_state *state) {

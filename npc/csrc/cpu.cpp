@@ -85,7 +85,7 @@ void demp_wave() {
 #endif
 }
 
-static int same_inst_cyc = 0;
+static uint32_t same_inst_cyc = 0;
 static unsigned int pre_inst = 0;
 static bool itrace_valid = false;
 static void exe_once() {

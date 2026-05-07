@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include "isa-def.h"
+#include "local-include/csr-table.h"
 #include <isa.h>
 #include <memory/paddr.h>
 
@@ -40,5 +41,6 @@ void init_isa() {
   memcpy(guest_to_host(RESET_VECTOR), img, sizeof(img));
 
   /* Initialize this virtual computer system. */
+  VIRT_CSR_INIT_TABLE();
   restart();
 }

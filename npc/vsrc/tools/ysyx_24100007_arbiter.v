@@ -88,12 +88,14 @@ module ysyx_24100007_arbiter #(
         ST_IDLE: begin
           if (has_req) begin
             state <= SLAVE_SELECT;
+            // Lock the target slave as soon as a transaction starts so the
+            // first ready/valid handshake is routed back to the requester.
+            slave_owner_one_hot <= selected_slave;
           end
         end
 
         SLAVE_SELECT: begin
           state <= ST_BUSY;
-          slave_owner_one_hot <= selected_slave;
         end
 
         ST_BUSY: begin
