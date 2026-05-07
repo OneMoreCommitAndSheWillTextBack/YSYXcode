@@ -124,6 +124,13 @@ static void disk_do_io(bool is_write, uint32_t buf_addr, uint32_t blkno,
   } else {
     size_t nread = fread(buf, len, 1, img_fd);
     Assert(nread == 1, "read disk image failed");
+#ifdef CONFIG_DIFFTEST
+    if (ref_difftest_memcpy != NULL) {
+      ref_difftest_memcpy((paddr_t)buf_addr, buf, len, DIFFTEST_TO_REF);
+    } else {
+      Assert(false, "should not reach here");
+    }
+#endif
   }
   disk_ready = true;
 }
