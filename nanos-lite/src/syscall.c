@@ -16,7 +16,7 @@ static char *sys_table[20] = {
     [SYS_gettimeofday] = "sys_gettimeofday",
 };
 
-static bool strace_on = false;
+static bool strace_on = true;
 
 bool do_syscall(Context *c) {
   uintptr_t a[4];
