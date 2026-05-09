@@ -14,9 +14,17 @@ static char *sys_table[20] = {
     [SYS_lseek] = "sys_lseek",
     [SYS_execve] = "sys_execve",
     [SYS_gettimeofday] = "sys_gettimeofday",
+    [SYS_brk] = "sys_brk",
 };
 
 static bool strace_on = true;
+
+static const char *syscall_name(uintptr_t id) {
+  if (id < LENGTH(sys_table) && sys_table[id] != NULL) {
+    return sys_table[id];
+  }
+  return "unknown";
+}
 
 bool do_syscall(Context *c) {
   uintptr_t a[4];
@@ -26,8 +34,11 @@ bool do_syscall(Context *c) {
   a[2] = c->GPR3;
   a[3] = c->GPR4;
 
-  if (strace_on && sys_table[a[0]] != NULL)
-    Log("[strace] syscall %s, args1 %d, args %d, args %d", sys_table[a[0]]);
+  if (strace_on) {
+    Log("[strace] syscall %s(%d), a0=%p, a1=%p, a2=%p, mepc=%p",
+        syscall_name(a[0]), (int)a[0], (void *)a[1], (void *)a[2],
+        (void *)a[3], (void *)c->mepc);
+  }
 
   switch (a[0]) {
   case SYS_exit:

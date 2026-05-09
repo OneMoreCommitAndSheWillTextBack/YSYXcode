@@ -184,6 +184,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   // INFO: 其实在这里我的实现有问题，我走远了，这里应该保存的是虚拟地址
   // 这样 在上下文切换的时候 a0会得到正确的stack的起始地址，然后传递给sp
+  memset((Context *)stack.end - 1, 0, sizeof(Context));
   p->cp = ucontext(&p->as, stack, (void *)entry);
   // _start copies a0 into sp before calling call_main, so keep both registers
   // pointing at the argc/argv/envp block.
