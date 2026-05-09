@@ -121,6 +121,7 @@ word_t isa_query_intr() {
 
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
+      Log("get to here");
       cpu.INTR = false;
       return IRQ_TIMER;
     }
