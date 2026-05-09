@@ -79,8 +79,8 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
       string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);
       assert(envp_count < MAXENVP);
       envp_pa[envp_count] = string_area_cur;
-      envp_re[envp_count] =
-          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
+      envp_re[envp_count] = user_stack_pa_to_va(stack_top_pa, stack_top_va,
+                                                (uintptr_t)string_area_cur);
       envp_count++;
     }
   }
@@ -92,8 +92,8 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
       string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);
       assert(argv_count < MAXARG);
       argv_pa[argv_count] = string_area_cur;
-      argv_re[argv_count] =
-          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
+      argv_re[argv_count] = user_stack_pa_to_va(stack_top_pa, stack_top_va,
+                                                (uintptr_t)string_area_cur);
       argv_count++;
     }
   }
@@ -174,9 +174,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
 
-  uintptr_t ptr_array_pa =
-      argdeal_uload((uintptr_t)alloc_end, (uintptr_t)p->as.area.end, filename,
-                    argv, envp);
+  uintptr_t ptr_array_pa = argdeal_uload(
+      (uintptr_t)alloc_end, (uintptr_t)p->as.area.end, filename, argv, envp);
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
@@ -239,6 +238,6 @@ Context *schedule(Context *prev) {
   }
   // Log("schedule: from %p to %p", prev, pcb[next].cp);
   current = &pcb[next];
-  // Log("schedule decide to switch to pcb[%d]", next);
+  Log("schedule decide to switch to pcb[%d]", next);
   return current->cp;
 }
