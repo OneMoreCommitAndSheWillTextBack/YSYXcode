@@ -177,7 +177,7 @@ void disk_io_handler(uint32_t offset, int len, bool is_write) {
 }
 
 void init_disk() {
-  if (diskimg_path[0] == '\0') {
+  if (diskimg_path == NULL || diskimg_path[0] == '\0') {
     Log("no disk image specified, expose an empty disk controller");
   } else {
     img_fd = fopen(diskimg_path, "r+b");
