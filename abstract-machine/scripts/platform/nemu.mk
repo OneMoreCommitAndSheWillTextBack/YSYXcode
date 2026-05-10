@@ -30,3 +30,6 @@ run: image
 
 gdb: image
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
+
+perf: image
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) perf ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin

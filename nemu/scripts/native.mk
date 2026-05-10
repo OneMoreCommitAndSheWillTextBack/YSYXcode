@@ -43,10 +43,21 @@ gdb: run-env
 	$(call git_commit, "gdb NEMU")
 	gdb -s $(BINARY) --args $(NEMU_EXEC)
 
+PERF_DIR = $(BUILD_DIR)/profile
+PERF_DATA = $(PERF_DIR)/perf.data
+
+perf: run-env
+	@mkdir -p $(PERF_DIR)
+	perf record -g -F 999 --call-graph dwarf -o $(PERF_DATA) $(BINARY) -b $(ARGS) $(IMG)
+
+perf-report: $(PERF_DATA)
+	perf report -i ./build/profile/perf.data --stdio --sort=overhead > ./build/profile/perf_res
+	perf report -i $(PERF_DATA)
+
 clean-tools = $(dir $(shell find ./tools -maxdepth 2 -mindepth 2 -name "Makefile"))
 $(clean-tools):
 	$(MAKE) -s -C $@ clean
 clean-tools: $(clean-tools)
 clean-all: clean distclean clean-tools
 
-.PHONY: run gdb run-env clean-tools clean-all $(clean-tools)
+.PHONY: run gdb run-env perf perf-report clean-tools clean-all $(clean-tools)
