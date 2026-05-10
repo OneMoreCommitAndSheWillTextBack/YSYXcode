@@ -79,8 +79,8 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
       string_area_cur = allocate_string(string_area_cur, envp[envp_count], len);
       assert(envp_count < MAXENVP);
       envp_pa[envp_count] = string_area_cur;
-      envp_re[envp_count] =
-          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
+      envp_re[envp_count] = user_stack_pa_to_va(stack_top_pa, stack_top_va,
+                                                (uintptr_t)string_area_cur);
       envp_count++;
     }
   }
@@ -92,8 +92,8 @@ uintptr_t argdeal_uload(uintptr_t stack_top_pa, uintptr_t stack_top_va,
       string_area_cur = allocate_string(string_area_cur, argv[argv_count], len);
       assert(argv_count < MAXARG);
       argv_pa[argv_count] = string_area_cur;
-      argv_re[argv_count] =
-          user_stack_pa_to_va(stack_top_pa, stack_top_va, (uintptr_t)string_area_cur);
+      argv_re[argv_count] = user_stack_pa_to_va(stack_top_pa, stack_top_va,
+                                                (uintptr_t)string_area_cur);
       argv_count++;
     }
   }
@@ -174,9 +174,8 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
 
   Log("areaspace: start = %p, end = %p", p->as.area.start, p->as.area.end);
 
-  uintptr_t ptr_array_pa =
-      argdeal_uload((uintptr_t)alloc_end, (uintptr_t)p->as.area.end, filename,
-                    argv, envp);
+  uintptr_t ptr_array_pa = argdeal_uload(
+      (uintptr_t)alloc_end, (uintptr_t)p->as.area.end, filename, argv, envp);
   uintptr_t ptr_array_va =
       (uintptr_t)p->as.area.end - ((uintptr_t)alloc_end - ptr_array_pa);
   uintptr_t entry = uload(p, filename);
@@ -185,6 +184,7 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   Log("context_uload: stack.end = %p, entry = %p", stack.end, (void *)entry);
   // INFO: 其实在这里我的实现有问题，我走远了，这里应该保存的是虚拟地址
   // 这样 在上下文切换的时候 a0会得到正确的stack的起始地址，然后传递给sp
+  memset((Context *)stack.end - 1, 0, sizeof(Context));
   p->cp = ucontext(&p->as, stack, (void *)entry);
   // _start copies a0 into sp before calling call_main, so keep both registers
   // pointing at the argc/argv/envp block.
