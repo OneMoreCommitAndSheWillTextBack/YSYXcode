@@ -15,8 +15,6 @@ LDFLAGS   += --gc-sections -e _start
 CFLAGS += -DMAINARGS=\"$(mainargs)\"
 .PHONY: $(AM_HOME)/am/src/riscv/npc/trm.c
 
-NPC_HOME = /home/ysyx/project/ysyx-workbench/npc
-
 ARGS = -f$(IMAGE).bin
 ARGS += -b
 # ARGS += -e
