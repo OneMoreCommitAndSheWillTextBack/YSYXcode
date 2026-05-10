@@ -15,4 +15,4 @@
 
 #include <isa.h>
 
-void dev_raise_intr() { cpu.INTR = false; }
+void dev_raise_intr() { cpu.INTR = true; }
