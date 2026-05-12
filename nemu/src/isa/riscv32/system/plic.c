@@ -3,6 +3,8 @@
 #include <isa.h>
 #include <utils.h>
 
+#ifdef CONFIG_HAS_PLIC
+
 static uint8_t *plic_space = NULL;
 static plic_intr_complete_t intr_complete[PLIC_NR_SOURCES] = {};
 static uint32_t intr_signum = 1;
@@ -223,3 +225,5 @@ bool query_plic_intr(int *idx) {
 }
 
 void compl_intr(int idx) { plic_complete_irq(0, (uint32_t)idx); }
+
+#endif
