@@ -168,6 +168,10 @@ word_t isa_query_intr() {
       return INTR_EMPTY;
     }
 
+    // FIXME: 这里好像还要检查一下啊mie的情况
+    // 如果时钟中断整体没有被启用，那么这里应该
+    // 返回一个empty
+
     global_intr_enable = true;
     if (cpu.INTR)
       return IRQ_TIMER;

@@ -13,8 +13,10 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "macro.h"
 #include <common.h>
 #include <device/alarm.h>
+#include <device/clint.h>
 #include <device/plic.h>
 #include <utils.h>
 #ifndef CONFIG_TARGET_AM
@@ -43,6 +45,8 @@ void device_update() {
   last = now;
 
   IFDEF(CONFIG_HAS_VGA, vga_update_screen());
+
+  IFDEF(CONFIG_ISA_riscv, IFDEF(CONFIG_HAS_CLINT, clint_update_mtime());)
 
 #ifndef CONFIG_TARGET_AM
   SDL_Event event;
@@ -92,5 +96,6 @@ void init_device() {
 
 #ifdef CONFIG_ISA_riscv
   IFDEF(CONFIG_HAS_PLIC, init_plic());
+  IFDEF(CONFIG_HAS_CLINT, init_clint());
 #endif
 }

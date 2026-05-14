@@ -11,6 +11,21 @@ bool query_plic_intr(int *idx);
 void compl_intr(int idx);
 void init_plic(void);
 
+/* ===== plic mapping map =====
+ *
+ *  base + 0x0                        reserve
+ *  base + 0x4 ~ base + 0xffc         priority
+ *  base + 0x1000 ~ base + 0x107c     interrupt pending
+ *
+ * ===== Enable Registers (for each context, up to 15872 contexts) =====
+ * Each context has 32 x 32-bit registers (1024 bits total)
+ * Context n offset: base + 0x002000 + (n * 0x80)
+ *   +0x0000  Enable bits [31:0]   (sources 0-31)
+ *   +0x0004  Enable bits [63:32]  (sources 32-63)
+ *   ...
+ *   +0x007C  Enable bits [1023:992] (sources 992-1023)
+ * */
+
 #define PLIC_BASE 0x0c000000u
 
 #define PLIC_MAX_SOURCE_ID 1023u
