@@ -110,6 +110,7 @@ bool isa_enable_intr() {
 }
 
 #define IRQ_TIMER 0x80000007
+#define IRQ_S_SOFTWARE 0x80000001
 #define IRQ_S_TIMER 0x80000005
 word_t isa_query_intr() {
   bool global_intr_enable = false;
@@ -145,6 +146,17 @@ word_t isa_query_intr() {
     }
 
     virt_csr_entry_t *mip = get_virt_csr(0x344);
+    bool s_software_delegated = is_deleg(IRQ_S_SOFTWARE);
+    bool s_software_intr_enable = cpu.csr.mie & MIE_SSIE;
+    if (s_software_intr_enable && (mip->read() & MIP_SSIP)) {
+      if (s_software_delegated) {
+        global_intr_enable = (cpu.csr.mstatus & MSTATUS_SIE) != 0;
+        if (!global_intr_enable)
+          return INTR_EMPTY;
+      }
+      return IRQ_S_SOFTWARE;
+    }
+
     bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
     if (s_timer_intr_enable && (mip->read() & MIP_STIP)) {
       if (s_timer_delegated) {
@@ -162,6 +174,11 @@ word_t isa_query_intr() {
     }
 
     virt_csr_entry_t *mip = get_virt_csr(0x344);
+    bool s_software_intr_enable = cpu.csr.mie & MIE_SSIE;
+    if (s_software_intr_enable && (mip->read() & MIP_SSIP)) {
+      return IRQ_S_SOFTWARE;
+    }
+
     bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
     if (s_timer_intr_enable && (mip->read() & MIP_STIP)) {
       return IRQ_S_TIMER;
