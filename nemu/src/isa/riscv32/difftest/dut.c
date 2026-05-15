@@ -51,12 +51,14 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
     riscv_check_csr(stval);
   }
 
+#ifdef CONFIG_DIFFTEST
   if (difftest_ref_priv != current_cpu_priv) {
     printf("the difftest encounter a error at pc:%x\n", pc);
     printf("nemu[priv] %08x spike[priv] %08x \n", current_cpu_priv,
            (uint32_t)difftest_ref_priv);
     return false;
   }
+#endif
   return true;
 }
 
