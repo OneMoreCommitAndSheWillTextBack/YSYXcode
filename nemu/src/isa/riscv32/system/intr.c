@@ -127,54 +127,45 @@ word_t isa_query_intr() {
 
     virt_csr_entry_t *mip = get_virt_csr(0x344);
     if (mip->read() & MIP_MTIP && m_timer_intr_enable) {
-      panic("should not reach here");
       mip->write(0);
       return IRQ_TIMER;
+    }
+
+    bool s_timer_delegated = is_deleg(IRQ_S_TIMER);
+    bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
+    if (!s_timer_delegated && s_timer_intr_enable && (mip->read() & MIP_STIP)) {
+      return IRQ_S_TIMER;
     }
   } else if (current_cpu_priv == S_MODE) {
     bool s_timer_delegated = is_deleg(IRQ_S_TIMER);
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
-    if (cpu.INTR && !s_timer_delegated && m_timer_intr_enable &&
-        (cpu.csr.mstatus & MSTATUS_MIE)) {
+    if (cpu.INTR && m_timer_intr_enable) {
       cpu.INTR = false;
       return IRQ_TIMER;
     }
 
-    global_intr_enable = (cpu.csr.mstatus & MSTATUS_SIE) != 0;
-    if (!global_intr_enable)
-      return INTR_EMPTY;
-
-    bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
     virt_csr_entry_t *mip = get_virt_csr(0x344);
-    if (s_timer_delegated && s_timer_intr_enable &&
-        (cpu.INTR || (mip->read() & MIP_STIP))) {
-      cpu.INTR = false;
+    bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
+    if (s_timer_intr_enable && (mip->read() & MIP_STIP)) {
+      if (s_timer_delegated) {
+        global_intr_enable = (cpu.csr.mstatus & MSTATUS_SIE) != 0;
+        if (!global_intr_enable)
+          return INTR_EMPTY;
+      }
       return IRQ_S_TIMER;
     }
   } else {
-    bool s_timer_delegated = is_deleg(IRQ_S_TIMER);
-    if (s_timer_delegated) {
-      global_intr_enable = (cpu.csr.mstatus & MSTATUS_SIE) != 0;
-      if (!global_intr_enable)
-        return INTR_EMPTY;
-
-      bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
-      virt_csr_entry_t *mip = get_virt_csr(0x344);
-      if (s_timer_intr_enable && (cpu.INTR || (mip->read() & MIP_STIP))) {
-        cpu.INTR = false;
-        return IRQ_S_TIMER;
-      }
-
-      return INTR_EMPTY;
+    bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
+    if (cpu.INTR && m_timer_intr_enable) {
+      cpu.INTR = false;
+      return IRQ_TIMER;
     }
 
-    // FIXME: 这里好像还要检查一下啊mie的情况
-    // 如果时钟中断整体没有被启用，那么这里应该
-    // 返回一个empty
-
-    global_intr_enable = true;
-    if (cpu.INTR)
-      return IRQ_TIMER;
+    virt_csr_entry_t *mip = get_virt_csr(0x344);
+    bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
+    if (s_timer_intr_enable && (mip->read() & MIP_STIP)) {
+      return IRQ_S_TIMER;
+    }
   }
 
   return INTR_EMPTY;

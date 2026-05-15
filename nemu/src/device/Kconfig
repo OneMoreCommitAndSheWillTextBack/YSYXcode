@@ -142,14 +142,15 @@ config SDCARD_CTL_MMIO
   hex "MMIO address of the sdcard controller"
   default 0xa3000000
 
-config SDCARD_IMG_PATH
-  string "The path of sdcard image"
-  default ""
 endif # HAS_SDCARD
 endif
 
 menuconfig HAS_PLIC
   bool "Enable plic"
+  default n
+
+menuconfig HAS_CLINT
+  bool "Enable clint"
   default n
 
 endif # DEVICE

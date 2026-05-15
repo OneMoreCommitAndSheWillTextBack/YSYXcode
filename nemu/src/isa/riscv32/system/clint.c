@@ -3,13 +3,12 @@
 #include <isa.h>
 #include <utils.h>
 
-#define CONFIG_HAS_CLINT
 #ifdef CONFIG_HAS_CLINT
 
 #include "../local-include/csr-table.h"
 
 #ifndef STANDARD_MTIME
-#define STANDARD_MTIME 0
+#define STANDARD_MTIME 1
 #endif
 
 static uint8_t *clint_space = NULL;
@@ -109,6 +108,8 @@ static void clint_sync_mtimecmp(uint32_t offset, bool is_write) {
       clint_update_timer_pending();
     }
 #else
+    // INFO: in order to keep compatibility
+    // leave a simple mode of clint
     if (hart == clint_current_hart()) {
       clint_set_mip_pending(hart, MIP_MTIP, false);
     }

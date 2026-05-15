@@ -46,7 +46,8 @@ void device_update() {
 
   IFDEF(CONFIG_HAS_VGA, vga_update_screen());
 
-  IFDEF(CONFIG_ISA_riscv, IFDEF(CONFIG_HAS_CLINT, clint_update_mtime());)
+  IFDEF(CONFIG_ISA_riscv,
+        IFDEF(CONFIG_HAS_CLINT, clint_update_mtime(get_time()));)
 
 #ifndef CONFIG_TARGET_AM
   SDL_Event event;
