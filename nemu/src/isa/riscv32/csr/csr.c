@@ -3,6 +3,9 @@
 #include "isa-def.h"
 #include <isa.h>
 #include <stdint.h>
+#ifdef CONFIG_HAS_PLIC
+#include <device/plic.h>
+#endif
 
 static uint32_t software_mip_pending = 0;
 
@@ -18,7 +21,13 @@ static inline uint32_t sstatus_mask(void) {
 }
 
 static inline uint32_t mip_value(void) {
-  return software_mip_pending & mip_writable_mask();
+  uint32_t value = software_mip_pending & mip_writable_mask();
+#ifdef CONFIG_HAS_PLIC
+  if (query_plic_intr(NULL)) {
+    value |= MIP_MEIP;
+  }
+#endif
+  return value;
 }
 
 uint32_t virt_csr_mip_read(void) { return mip_value(); }
