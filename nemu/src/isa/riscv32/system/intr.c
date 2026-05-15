@@ -112,6 +112,7 @@ bool isa_enable_intr() {
 #define IRQ_TIMER 0x80000007
 #define IRQ_S_SOFTWARE 0x80000001
 #define IRQ_S_TIMER 0x80000005
+#define IRQ_S_EXTERNAL 0x80000009
 #ifdef CONFIG_HAS_PLIC
 #define IRQ_M_EXTERNAL 0x8000000b
 #endif
@@ -127,11 +128,16 @@ word_t isa_query_intr() {
     virt_csr_entry_t *mip = get_virt_csr(0x344);
     uint32_t mip_val = mip->read();
 #ifdef CONFIG_HAS_PLIC
-    if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE) &&
-        (cpu.csr.mstatus & MSTATUS_MIE)) {
+    if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE)) {
       return IRQ_M_EXTERNAL;
     }
 #endif
+    bool s_external_delegated = is_deleg(IRQ_S_EXTERNAL);
+    bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
+    if (!s_external_delegated && s_external_intr_enable &&
+        (mip_val & MIP_SEIP)) {
+      return IRQ_S_EXTERNAL;
+    }
 
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
@@ -153,11 +159,21 @@ word_t isa_query_intr() {
     virt_csr_entry_t *mip = get_virt_csr(0x344);
     uint32_t mip_val = mip->read();
 #ifdef CONFIG_HAS_PLIC
-    if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE) &&
-        (cpu.csr.mstatus & MSTATUS_MIE)) {
+    if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE)) {
       return IRQ_M_EXTERNAL;
     }
 #endif
+    bool s_external_delegated = is_deleg(IRQ_S_EXTERNAL);
+    bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
+    if (s_external_intr_enable && (mip_val & MIP_SEIP)) {
+      if (s_external_delegated) {
+        global_intr_enable = (cpu.csr.mstatus & MSTATUS_SIE) != 0;
+        if (!global_intr_enable)
+          return INTR_EMPTY;
+      }
+      return IRQ_S_EXTERNAL;
+    }
+
     bool s_timer_delegated = is_deleg(IRQ_S_TIMER);
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
@@ -189,11 +205,15 @@ word_t isa_query_intr() {
     virt_csr_entry_t *mip = get_virt_csr(0x344);
     uint32_t mip_val = mip->read();
 #ifdef CONFIG_HAS_PLIC
-    if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE) &&
-        (cpu.csr.mstatus & MSTATUS_MIE)) {
+    if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE)) {
       return IRQ_M_EXTERNAL;
     }
 #endif
+    bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
+    if (s_external_intr_enable && (mip_val & MIP_SEIP)) {
+      return IRQ_S_EXTERNAL;
+    }
+
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
       cpu.INTR = false;

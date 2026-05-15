@@ -23,8 +23,11 @@ static inline uint32_t sstatus_mask(void) {
 static inline uint32_t mip_value(void) {
   uint32_t value = software_mip_pending & mip_writable_mask();
 #ifdef CONFIG_HAS_PLIC
-  if (query_plic_intr(NULL)) {
+  if (query_plic_intr_ctx(0, NULL)) {
     value |= MIP_MEIP;
+  }
+  if (query_plic_intr_ctx(1, NULL)) {
+    value |= MIP_SEIP;
   }
 #endif
   return value;

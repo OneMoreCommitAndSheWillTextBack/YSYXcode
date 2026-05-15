@@ -7,7 +7,10 @@ typedef void (*plic_intr_complete_t)(void);
 
 int add_intr_source(plic_intr_complete_t compl);
 void plic_raise_intr(uint32_t source);
+// context 0 -> M-mode, context 1 -> S-mode
+bool query_plic_intr_ctx(uint32_t context, int *idx);
 bool query_plic_intr(int *idx);
+void compl_intr_ctx(uint32_t context, int idx);
 void compl_intr(int idx);
 void init_plic(void);
 
