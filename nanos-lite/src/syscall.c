@@ -17,7 +17,7 @@ static char *sys_table[20] = {
     [SYS_brk] = "sys_brk",
 };
 
-static bool strace_on = true;
+static bool strace_on = false;
 
 static const char *syscall_name(uintptr_t id) {
   if (id < LENGTH(sys_table) && sys_table[id] != NULL) {
@@ -36,8 +36,8 @@ bool do_syscall(Context *c) {
 
   if (strace_on) {
     Log("[strace] syscall %s(%d), a0=%p, a1=%p, a2=%p, mepc=%p",
-        syscall_name(a[0]), (int)a[0], (void *)a[1], (void *)a[2],
-        (void *)a[3], (void *)c->mepc);
+        syscall_name(a[0]), (int)a[0], (void *)a[1], (void *)a[2], (void *)a[3],
+        (void *)c->mepc);
   }
 
   switch (a[0]) {
