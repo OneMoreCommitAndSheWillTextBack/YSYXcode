@@ -13,7 +13,11 @@ static inline uint32_t sie_mask(void) { return MIE_SSIE | MIE_STIE | MIE_SEIE; }
 static inline uint32_t sip_mask(void) { return MIP_SSIP | MIP_STIP | MIP_SEIP; }
 
 static inline uint32_t mip_writable_mask(void) {
-  return MIP_MSIP | MIP_MTIP | MIP_SSIP | MIP_STIP | MIP_SEIP;
+  return MIP_MSIP | MIP_MTIP | MIP_SSIP | MIP_STIP;
+}
+
+static inline uint32_t sip_writable_mask(void) {
+  return MIP_SSIP;
 }
 
 static inline uint32_t sstatus_mask(void) {
@@ -47,7 +51,7 @@ uint32_t virt_csr_sip_read(void) {
 }
 
 void virt_csr_sip_write(uint32_t data) {
-  uint32_t mask = sip_mask() & cpu.csr.mideleg & mip_writable_mask();
+  uint32_t mask = sip_mask() & cpu.csr.mideleg & sip_writable_mask();
   software_mip_pending = (software_mip_pending & ~mask) | (data & mask);
 }
 

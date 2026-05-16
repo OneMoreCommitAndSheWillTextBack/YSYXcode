@@ -132,13 +132,6 @@ word_t isa_query_intr() {
       return IRQ_M_EXTERNAL;
     }
 #endif
-    bool s_external_delegated = is_deleg(IRQ_S_EXTERNAL);
-    bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
-    if (!s_external_delegated && s_external_intr_enable &&
-        (mip_val & MIP_SEIP)) {
-      return IRQ_S_EXTERNAL;
-    }
-
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
       cpu.INTR = false;
@@ -148,6 +141,13 @@ word_t isa_query_intr() {
     if (mip_val & MIP_MTIP && m_timer_intr_enable) {
       mip->write(0);
       return IRQ_TIMER;
+    }
+
+    bool s_external_delegated = is_deleg(IRQ_S_EXTERNAL);
+    bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
+    if (!s_external_delegated && s_external_intr_enable &&
+        (mip_val & MIP_SEIP)) {
+      return IRQ_S_EXTERNAL;
     }
 
     bool s_timer_delegated = is_deleg(IRQ_S_TIMER);
@@ -163,6 +163,12 @@ word_t isa_query_intr() {
       return IRQ_M_EXTERNAL;
     }
 #endif
+    bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
+    if (cpu.INTR && m_timer_intr_enable) {
+      cpu.INTR = false;
+      return IRQ_TIMER;
+    }
+
     bool s_external_delegated = is_deleg(IRQ_S_EXTERNAL);
     bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
     if (s_external_intr_enable && (mip_val & MIP_SEIP)) {
@@ -172,13 +178,6 @@ word_t isa_query_intr() {
           return INTR_EMPTY;
       }
       return IRQ_S_EXTERNAL;
-    }
-
-    bool s_timer_delegated = is_deleg(IRQ_S_TIMER);
-    bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
-    if (cpu.INTR && m_timer_intr_enable) {
-      cpu.INTR = false;
-      return IRQ_TIMER;
     }
 
     bool s_software_delegated = is_deleg(IRQ_S_SOFTWARE);
@@ -192,6 +191,7 @@ word_t isa_query_intr() {
       return IRQ_S_SOFTWARE;
     }
 
+    bool s_timer_delegated = is_deleg(IRQ_S_TIMER);
     bool s_timer_intr_enable = cpu.csr.mie & MIE_STIE;
     if (s_timer_intr_enable && (mip_val & MIP_STIP)) {
       if (s_timer_delegated) {
@@ -209,15 +209,15 @@ word_t isa_query_intr() {
       return IRQ_M_EXTERNAL;
     }
 #endif
-    bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
-    if (s_external_intr_enable && (mip_val & MIP_SEIP)) {
-      return IRQ_S_EXTERNAL;
-    }
-
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
       cpu.INTR = false;
       return IRQ_TIMER;
+    }
+
+    bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
+    if (s_external_intr_enable && (mip_val & MIP_SEIP)) {
+      return IRQ_S_EXTERNAL;
     }
 
     bool s_software_intr_enable = cpu.csr.mie & MIE_SSIE;
