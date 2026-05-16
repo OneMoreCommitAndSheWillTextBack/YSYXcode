@@ -24,6 +24,7 @@
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
 #include <cpu/decode.h>
+#include <cpu/difftest.h>
 #include <stdint.h>
 
 #define R(i) gpr(i)
@@ -97,8 +98,16 @@ enum {
        12)
 // clang-format off
 
-static uint32_t csr_read(uint32_t csr_num);
-static void csr_write(uint32_t csr_num, uint32_t data);
+static bool csr_read(Decode *s, uint32_t csr_num, uint32_t *data);
+static bool csr_write(Decode *s, uint32_t csr_num, uint32_t data);
+static bool csr_check_access(Decode *s, uint32_t csr_num, bool write,
+                             const char *op);
+static void csrrw_inst(Decode *s, int rd, uint32_t csr_num, uint32_t data);
+static void csrrs_inst(Decode *s, int rd, uint32_t csr_num, uint32_t data);
+static void csrrc_inst(Decode *s, int rd, uint32_t csr_num, uint32_t data);
+static void csrrwi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
+static void csrrsi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
+static void csrrci_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void readonly_recover();
 
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
@@ -249,8 +258,12 @@ static int decode_exec(Decode *s) {
   INSTPAT("00001?? ????? ????? 010 ????? 01011 11", amoswap.w, R, R(rd) = Mr(src1, 4);      \
                                                                        Mw(src1, 4, src2));
 
-  INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, uint32_t t=csr_read(imm);csr_write(imm, src1);R(rd)=t);
-  INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, uint32_t t=csr_read(imm);csr_write(imm, t|src1);R(rd)=t);
+  INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, csrrw_inst(s, rd, imm, src1));
+  INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, csrrs_inst(s, rd, imm, src1));
+  INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc  , I, csrrc_inst(s, rd, imm, src1));
+  INSTPAT("??????? ????? ????? 101 ????? 11100 11", csrrwi , I, csrrwi_inst(s, rd, imm, BITS(s->isa.inst.val, 19, 15)));
+  INSTPAT("??????? ????? ????? 110 ????? 11100 11", csrrsi , I, csrrsi_inst(s, rd, imm, BITS(s->isa.inst.val, 19, 15)));
+  INSTPAT("??????? ????? ????? 111 ????? 11100 11", csrrci , I, csrrci_inst(s, rd, imm, BITS(s->isa.inst.val, 19, 15)));
   INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , I, ECALL);
   INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , I, MRET);
   INSTPAT("0001000 00010 00000 000 00000 11100 11", sret   , I, SRET);
@@ -375,32 +388,173 @@ static word_t sret_inst() {
   return cpu.csr.sepc;
 }
 
-#define CSR_MAST 0xfff
-static uint32_t csr_read(uint32_t csr_num) {
-  csr_num &= CSR_MAST;
-  uint32_t *csr = get_raw_csr(csr_num);
-  if(csr == NULL) {
-    virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
-    if (virt_csr_handler == NULL) {
-      panic("invalid csr num %x(%d)\n", csr_num, csr_num);
-    }
-    return virt_csr_handler->read();
-  } else {
-    return *csr;
+#define CSR_MASK 0xfff
+#define EX_II 2
+
+static uint32_t current_cpu_priv_level() {
+  switch (current_cpu_priv) {
+  case U_MODE:
+    return 0;
+  case S_MODE:
+    return 1;
+  case M_MODE:
+    return 3;
+  default:
+    assert(false && "invalid current_cpu_priv");
+    return 0;
   }
 }
 
-static void csr_write(uint32_t csr_num, uint32_t data) {
-  csr_num &= CSR_MAST;
+static void raise_illegal_csr_access(Decode *s, uint32_t csr_num,
+                                     const char *op, const char *reason,
+                                     bool skip_ref) {
+  csr_num &= CSR_MASK;
+  Log("illegal CSR access: %s, CSR 0x%03x in %s at pc = " FMT_WORD
+      ", raise illegal instruction for firmware trap handler",
+      reason, csr_num, op, s->pc);
+  if (current_cpu_priv != M_MODE && ((cpu.csr.medeleg >> EX_II) & 1)) {
+    cpu.csr.stval = s->isa.inst.val;
+  } else {
+    cpu.csr.mtval = s->isa.inst.val;
+  }
+  s->dnpc = isa_raise_intr(EX_II, s->pc);
+#ifdef CONFIG_DIFFTEST
+  // WARN: 我不太确定这里是否是这样实现
+  // 还是对于spike来说直接注入一个 illegal inst
+  // 我不太确定这个对于spike来说有没有副作用
+  if (skip_ref) {
+    difftest_skip_ref();
+  }
+#endif
+}
+
+static bool csr_check_access(Decode *s, uint32_t csr_num, bool write,
+                             const char *op) {
+  csr_num &= CSR_MASK;
+  uint32_t csr_priv = BITS(csr_num, 9, 8);
+  uint32_t csr_rw = BITS(csr_num, 11, 10);
+
+  if (current_cpu_priv_level() < csr_priv) {
+    raise_illegal_csr_access(s, csr_num, op, "insufficient privilege", false);
+    return false;
+  }
+
+  if (write && csr_rw == 3) {
+    raise_illegal_csr_access(s, csr_num, op, "write read-only CSR", false);
+    return false;
+  }
+
+  return true;
+}
+
+static bool csr_read(Decode *s, uint32_t csr_num, uint32_t *data) {
+  csr_num &= CSR_MASK;
+  if (!csr_check_access(s, csr_num, false, "read")) {
+    return false;
+  }
   uint32_t *csr = get_raw_csr(csr_num);
   if(csr == NULL) {
     virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
     if (virt_csr_handler == NULL) {
-      panic("invalid csr num %x(%d)\n", csr_num, csr_num);
+      raise_illegal_csr_access(s, csr_num, "read", "unsupported CSR", true);
+      return false;
+    }
+    *data = virt_csr_handler->read();
+  } else {
+    *data = *csr;
+  }
+  return true;
+}
+
+static bool csr_write(Decode *s, uint32_t csr_num, uint32_t data) {
+  csr_num &= CSR_MASK;
+  if (!csr_check_access(s, csr_num, true, "write")) {
+    return false;
+  }
+  uint32_t *csr = get_raw_csr(csr_num);
+  if(csr == NULL) {
+    virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
+    if (virt_csr_handler == NULL) {
+      raise_illegal_csr_access(s, csr_num, "write", "unsupported CSR", true);
+      return false;
     }
     virt_csr_handler->write(data);
   } else {
     *csr = data;
   }
-  return;
+  return true;
+}
+
+static void csrrw_inst(Decode *s, int rd, uint32_t csr_num, uint32_t data) {
+  uint32_t old = 0;
+  if (rd != 0) {
+    if (!csr_read(s, csr_num, &old)) {
+      return;
+    }
+  }
+  if (!csr_write(s, csr_num, data)) {
+    return;
+  }
+  if (rd != 0) {
+    R(rd) = old;
+  }
+}
+
+static void csrrs_inst(Decode *s, int rd, uint32_t csr_num, uint32_t data) {
+  uint32_t old = 0;
+  if (!csr_read(s, csr_num, &old)) {
+    return;
+  }
+  if (BITS(s->isa.inst.val, 19, 15) != 0 && !csr_write(s, csr_num, old | data)) {
+    return;
+  }
+  R(rd) = old;
+}
+
+static void csrrc_inst(Decode *s, int rd, uint32_t csr_num, uint32_t data) {
+  uint32_t old = 0;
+  if (!csr_read(s, csr_num, &old)) {
+    return;
+  }
+  if (BITS(s->isa.inst.val, 19, 15) != 0 && !csr_write(s, csr_num, old & ~data)) {
+    return;
+  }
+  R(rd) = old;
+}
+
+static void csrrwi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm) {
+  uint32_t old = 0;
+  if (rd != 0) {
+    if (!csr_read(s, csr_num, &old)) {
+      return;
+    }
+  }
+  if (!csr_write(s, csr_num, zimm)) {
+    return;
+  }
+  if (rd != 0) {
+    R(rd) = old;
+  }
+}
+
+static void csrrsi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm) {
+  uint32_t old = 0;
+  if (!csr_read(s, csr_num, &old)) {
+    return;
+  }
+  if (zimm != 0 && !csr_write(s, csr_num, old | zimm)) {
+    return;
+  }
+  R(rd) = old;
+}
+
+static void csrrci_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm) {
+  uint32_t old = 0;
+  if (!csr_read(s, csr_num, &old)) {
+    return;
+  }
+  if (zimm != 0 && !csr_write(s, csr_num, old & ~zimm)) {
+    return;
+  }
+  R(rd) = old;
 }

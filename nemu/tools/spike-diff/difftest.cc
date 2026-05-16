@@ -88,6 +88,7 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->csr.mepc = state->mepc->read();
   ctx->csr.sepc = sepc_csr()->read();
   ctx->csr.mstatus = state->mstatus->read();
+  ctx->csr.mtval = state->mtval->read();
   ctx->csr.mtvec = state->mtvec->read();
   ctx->csr.mscratch = mscratch_csr()->read();
   ctx->csr.satp = state->satp->read();
@@ -108,6 +109,7 @@ void sim_t::diff_set_regs(void *diff_context) {
   rv32_csr_syn(mstatus);
   rv32_csr_syn(mcause);
   rv32_csr_syn(mepc);
+  rv32_csr_syn(mtval);
   rv32_csr_syn(mtvec);
   mscratch_csr()->write(ctx->csr.mscratch);
   rv32_csr_syn(mie);

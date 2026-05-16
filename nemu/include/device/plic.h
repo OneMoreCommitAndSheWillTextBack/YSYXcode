@@ -7,9 +7,27 @@ typedef void (*plic_intr_complete_t)(void);
 
 int add_intr_source(plic_intr_complete_t compl);
 void plic_raise_intr(uint32_t source);
+// context 0 -> M-mode, context 1 -> S-mode
+bool query_plic_intr_ctx(uint32_t context, int *idx);
 bool query_plic_intr(int *idx);
+void compl_intr_ctx(uint32_t context, int idx);
 void compl_intr(int idx);
 void init_plic(void);
+
+/* ===== plic mapping map =====
+ *
+ *  base + 0x0                        reserve
+ *  base + 0x4 ~ base + 0xffc         priority
+ *  base + 0x1000 ~ base + 0x107c     interrupt pending
+ *
+ * ===== Enable Registers (for each context, up to 15872 contexts) =====
+ * Each context has 32 x 32-bit registers (1024 bits total)
+ * Context n offset: base + 0x002000 + (n * 0x80)
+ *   +0x0000  Enable bits [31:0]   (sources 0-31)
+ *   +0x0004  Enable bits [63:32]  (sources 32-63)
+ *   ...
+ *   +0x007C  Enable bits [1023:992] (sources 992-1023)
+ * */
 
 #define PLIC_BASE 0x0c000000u
 

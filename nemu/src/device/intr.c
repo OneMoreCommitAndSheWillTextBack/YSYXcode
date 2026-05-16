@@ -15,4 +15,15 @@
 
 #include <isa.h>
 
-void dev_raise_intr() { cpu.INTR = true; }
+#ifdef CONFIG_ISA_riscv
+#include <device/clint.h>
+#include <utils.h>
+#endif
+
+void dev_raise_intr() {
+#if defined(CONFIG_ISA_riscv) && defined(CONFIG_HAS_CLINT)
+  clint_update_mtime(get_time());
+#else
+  cpu.INTR = true;
+#endif
+}

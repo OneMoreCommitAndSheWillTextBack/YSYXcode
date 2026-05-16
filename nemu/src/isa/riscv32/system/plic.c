@@ -3,6 +3,8 @@
 #include <isa.h>
 #include <utils.h>
 
+#ifdef CONFIG_HAS_PLIC
+
 static uint8_t *plic_space = NULL;
 static plic_intr_complete_t intr_complete[PLIC_NR_SOURCES] = {};
 static uint32_t intr_signum = 1;
@@ -39,6 +41,10 @@ static inline uint32_t plic_get_enable(uint32_t context, uint32_t source) {
 }
 
 static uint32_t plic_pick_irq(uint32_t context) {
+  if (!PLIC_CONTEXT_VALID(context)) {
+    return 0;
+  }
+
   uint32_t best_source = 0;
   uint32_t best_prio = 0;
   uint32_t threshold = threshold_regs[context];
@@ -102,6 +108,16 @@ void plic_raise_intr(uint32_t source) {
 
   plic_set_pending(source, true);
 }
+
+bool query_plic_intr_ctx(uint32_t context, int *idx) {
+  uint32_t source = plic_pick_irq(context);
+  if (idx != NULL) {
+    *idx = (int)source;
+  }
+  return source != 0;
+}
+
+bool query_plic_intr(int *idx) { return query_plic_intr_ctx(0, idx); }
 
 static void plic_sync_priority(uint32_t offset, bool is_write) {
   uint32_t source = PLIC_PRIORITY_ID(offset);
@@ -214,12 +230,10 @@ void init_plic() {
   add_mmio_map("plic", PLIC_BASE, plic_space, PLIC_SIZE, plic_io_handler);
 }
 
-bool query_plic_intr(int *idx) {
-  uint32_t source = plic_pick_irq(0);
-  if (idx != NULL) {
-    *idx = (int)source;
-  }
-  return source != 0;
+void compl_intr_ctx(uint32_t context, int idx) {
+  plic_complete_irq(context, (uint32_t)idx);
 }
 
-void compl_intr(int idx) { plic_complete_irq(0, (uint32_t)idx); }
+void compl_intr(int idx) { compl_intr_ctx(0, idx); }
+
+#endif

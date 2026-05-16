@@ -16,6 +16,9 @@
 
 #include <device/map.h>
 #include <utils.h>
+#ifdef CONFIG_HAS_PLIC
+#include <device/plic.h>
+#endif
 
 #define KEYDOWN_MASK 0x8000
 
@@ -51,6 +54,22 @@ static int key_queue[KEY_QUEUE_LEN] = {};
 static int key_f = 0, key_r = 0;
 // key queue first and rear
 
+#ifdef CONFIG_HAS_PLIC
+static int i8042_irq_source = -1;
+
+static void i8042_raise_irq(void) {
+  if (i8042_irq_source > 0) {
+    plic_raise_intr((uint32_t)i8042_irq_source);
+  }
+}
+
+static void i8042_intr_complete(void) {
+  if (key_f != key_r) {
+    i8042_raise_irq();
+  }
+}
+#endif
+
 static void key_enqueue(uint32_t am_scancode) {
   key_queue[key_r] = am_scancode;
   key_r = (key_r + 1) % KEY_QUEUE_LEN;
@@ -70,6 +89,9 @@ void send_key(uint8_t scancode, bool is_keydown) {
   if (nemu_state.state == NEMU_RUNNING && keymap[scancode] != NEMU_KEY_NONE) {
     uint32_t am_scancode = keymap[scancode] | (is_keydown ? KEYDOWN_MASK : 0);
     key_enqueue(am_scancode);
+#ifdef CONFIG_HAS_PLIC
+    i8042_raise_irq();
+#endif
   }
 }
 #else // !CONFIG_TARGET_AM
@@ -93,6 +115,10 @@ static void i8042_data_io_handler(uint32_t offset, int len, bool is_write) {
 void init_i8042() {
   i8042_data_port_base = (uint32_t *)new_space(4);
   i8042_data_port_base[0] = NEMU_KEY_NONE;
+#if defined(CONFIG_HAS_PLIC) && !defined(CONFIG_TARGET_AM)
+  i8042_irq_source = add_intr_source(i8042_intr_complete);
+  assert(i8042_irq_source > 0);
+#endif
 #ifdef CONFIG_HAS_PORT_IO
   add_pio_map ("keyboard", CONFIG_I8042_DATA_PORT, i8042_data_port_base, 4, i8042_data_io_handler);
 #else
