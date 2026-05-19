@@ -15,6 +15,7 @@
 
 #include "common.h"
 #include "cpu/cpu.h"
+#include "../local-include/exception.h"
 #include <isa.h>
 #include <memory/paddr.h>
 #include <memory/vaddr.h>
@@ -188,54 +189,13 @@ static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
 }
 
 static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
-  paddr_t pgt1_start = (cpu.csr.satp & 0x3FFFFF) << 12;
-  CPU_MODE effective_priv = isa_mmu_effective_priv(type);
+  paddr_t addr_res = 0;
+  word_t cause = 0;
 
-  int vpn1_idx = (vaddr >> VPN1_SHIFT) & 0x3FF;
-  int vpn0_idx = (vaddr >> VPN0_SHIFT) & 0x3FF;
-  int offset = vaddr & OFFSET_MASK;
-
-  paddr_t pte1_addr = pgt1_start + 4 * vpn1_idx;
-  uint32_t pte1 = paddr_read(pte1_addr, 4);
-
-  if (!(pte1 & PTE_V)) {
-    panic("MMU PTE1 invalid: vaddr=0x%08x type=%s vpn1_idx=%d "
-          "pte1_addr=0x%08x pte1=0x%08x (V=%d) at pc = " FMT_WORD,
-          vaddr,
-          type == MEM_TYPE_IFETCH ? "IFETCH"
-          : type == MEM_TYPE_READ ? "READ"
-                                  : "WRITE",
-          vpn1_idx, pte1_addr, pte1, !!(pte1 & PTE_V), cpu.pc);
+  if (!isa_mmu_pagewalk_safe(vaddr, type, &addr_res, &cause)) {
+    cpu_throw_exception(cause, vaddr);
   }
 
-  // For Sv32 two-level page walk in this project:
-  // level-1 PTE is expected to be non-leaf (R/W/X all zero),
-  // and only the level-0 PTE carries access permissions.
-  if (pte1 & (PTE_R | PTE_W | PTE_X)) {
-    panic("MMU PTE1 leaf(superpage) is not supported: vaddr=0x%08x "
-          "pte1_addr=0x%08x pte1=0x%08x at pc = " FMT_WORD,
-          vaddr, pte1_addr, pte1, cpu.pc);
-  }
-
-  isa_mmu_update_pte(pte1_addr, pte1, type);
-
-  paddr_t pgt0_start = PTE_PPN(pte1) << 2;
-  paddr_t pte0_addr = pgt0_start + 4 * vpn0_idx;
-  uint32_t pte0 = paddr_read(pte0_addr, 4);
-
-  if (isa_mmu_permission_check(pte0, type, effective_priv) == false) {
-    panic("MMU PTE0 check failed: vaddr=0x%08x type=%s vpn0_idx=%d "
-          "pte0_addr=0x%08x pte0=0x%08x (V=%d) at pc = " FMT_WORD,
-          vaddr,
-          type == MEM_TYPE_IFETCH ? "IFETCH"
-          : type == MEM_TYPE_READ ? "READ"
-                                  : "WRITE",
-          vpn0_idx, pte0_addr, pte0, !!(pte0 & PTE_V), cpu.pc);
-  }
-
-  isa_mmu_update_pte(pte0_addr, pte0, type);
-
-  paddr_t addr_res = (PTE_PPN(pte0) << 2) | offset;
   return addr_res;
 }
 

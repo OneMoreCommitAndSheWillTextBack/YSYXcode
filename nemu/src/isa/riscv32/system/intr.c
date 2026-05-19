@@ -68,7 +68,7 @@ inline static word_t get_trap_pc(word_t NO, word_t tvec) {
   }
 }
 
-word_t isa_raise_intr(word_t NO, vaddr_t epc) {
+static word_t raise_intr(word_t NO, vaddr_t epc, word_t tval, bool sync) {
   uint32_t trap_pc = 0;
 
   if (current_cpu_priv != M_MODE && is_deleg(NO)) {
@@ -80,6 +80,9 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
                       (previous_priv == S_MODE ? SSTATUS_SPP : 0);
     cpu.csr.sepc = epc;
     cpu.csr.scause = NO;
+    if (sync) {
+      cpu.csr.stval = tval;
+    }
     trap_pc = get_trap_pc(NO, cpu.csr.stvec);
   } else {
     uint32_t mstatus = cpu.csr.mstatus;
@@ -89,10 +92,21 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
     current_cpu_priv = M_MODE;
     cpu.csr.mepc = epc;
     cpu.csr.mcause = NO;
+    if (sync) {
+      cpu.csr.mtval = tval;
+    }
     trap_pc = get_trap_pc(NO, cpu.csr.mtvec);
   }
 
   return trap_pc;
+}
+
+word_t isa_raise_intr(word_t NO, vaddr_t epc) {
+  return raise_intr(NO, epc, 0, false);
+}
+
+word_t isa_raise_sync_intr(word_t NO, vaddr_t epc, word_t tval) {
+  return raise_intr(NO, epc, tval, true);
 }
 
 bool isa_enable_intr() {
