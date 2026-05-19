@@ -11,6 +11,7 @@ static uint32_t intr_signum = 1;
 
 static uint32_t priority_regs[PLIC_NR_SOURCES] = {};
 static uint32_t pending_regs[PLIC_NR_PENDING_WORDS] = {};
+static uint32_t pending_count = 0;
 static uint32_t enable_regs[PLIC_MAX_CONTEXTS][PLIC_NR_PENDING_WORDS] = {};
 static uint32_t threshold_regs[PLIC_MAX_CONTEXTS] = {};
 
@@ -18,19 +19,20 @@ static inline uint32_t *plic_reg(uint32_t offset) {
   return (uint32_t *)(plic_space + PLIC_WORD_OFFSET(offset));
 }
 
-static inline uint32_t plic_get_pending(uint32_t source) {
-  uint32_t word = source >> 5;
-  uint32_t bit = source & 0x1f;
-  return (pending_regs[word] >> bit) & 1u;
-}
-
 static inline void plic_set_pending(uint32_t source, bool pending) {
   uint32_t word = source >> 5;
   uint32_t bit = source & 0x1f;
+  uint32_t mask = 1u << bit;
+  bool was_pending = (pending_regs[word] & mask) != 0;
+
   if (pending) {
-    pending_regs[word] |= (1u << bit);
-  } else {
-    pending_regs[word] &= ~(1u << bit);
+    if (!was_pending) {
+      pending_regs[word] |= mask;
+      pending_count++;
+    }
+  } else if (was_pending) {
+    pending_regs[word] &= ~mask;
+    pending_count--;
   }
 }
 
@@ -41,7 +43,7 @@ static inline uint32_t plic_get_enable(uint32_t context, uint32_t source) {
 }
 
 static uint32_t plic_pick_irq(uint32_t context) {
-  if (!PLIC_CONTEXT_VALID(context)) {
+  if (!PLIC_CONTEXT_VALID(context) || pending_count == 0) {
     return 0;
   }
 
@@ -49,20 +51,23 @@ static uint32_t plic_pick_irq(uint32_t context) {
   uint32_t best_prio = 0;
   uint32_t threshold = threshold_regs[context];
 
-  for (uint32_t source = 1; source <= PLIC_MAX_SOURCE_ID; source++) {
-    uint32_t prio = priority_regs[source];
-    if (!plic_get_pending(source) || !plic_get_enable(context, source)) {
-      continue;
+  for (uint32_t word = 0; word < PLIC_NR_PENDING_WORDS; word++) {
+    uint32_t candidates = pending_regs[word] & enable_regs[context][word];
+    if (word == 0) {
+      candidates &= ~1u;
     }
 
-    if (prio <= threshold) {
-      continue;
-    }
+    while (candidates != 0) {
+      uint32_t bit = __builtin_ctz(candidates);
+      uint32_t source = (word << 5) + bit;
+      uint32_t prio = priority_regs[source];
 
-    if (best_source == 0 || prio > best_prio ||
-        (prio == best_prio && source < best_source)) {
-      best_source = source;
-      best_prio = prio;
+      if (prio > threshold && prio > best_prio) {
+        best_source = source;
+        best_prio = prio;
+      }
+
+      candidates &= candidates - 1;
     }
   }
 
