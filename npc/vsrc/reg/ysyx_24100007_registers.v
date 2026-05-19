@@ -19,11 +19,29 @@ module ysyx_24100007_registers(
 );
   
   reg [31:0] gr [15:1];
-  reg [31:0] csr [5:0];
+  reg [31:0] csr_mstatus;
+  reg [31:0] csr_mtvec;
+  reg [31:0] csr_mepc;
+  reg [31:0] csr_mcause;
+  reg [31:0] csr_mvendorid;
+  reg [31:0] csr_marchid;
 
   wire [3:0] reg_addr = addr[3:0];
+  reg [31:0] csr_rdata;
 
   // write op
+  always @(*) begin
+    case (csr_choose)
+      3'b000: csr_rdata = csr_mstatus;
+      3'b001: csr_rdata = csr_mtvec;
+      3'b010: csr_rdata = csr_mepc;
+      3'b011: csr_rdata = csr_mcause;
+      3'b100: csr_rdata = csr_mvendorid;
+      3'b101: csr_rdata = csr_marchid;
+      default: csr_rdata = 32'b0;
+    endcase
+  end
+
   always @(posedge clk) begin 
     if(rst) begin
       gr[1] <= 0;
@@ -42,27 +60,46 @@ module ysyx_24100007_registers(
       gr[14] <= 0;
       gr[15] <= 0;
 
-      csr[0] <= 0;
-      csr[1] <= 0;
-      csr[2] <= 0;
-      csr[3] <= 0;
-      csr[4] <= 32'h79737978;
-      csr[5] <= 32'h016FBCA7;
+      csr_mstatus <= 0;
+      csr_mtvec <= 0;
+      csr_mepc <= 0;
+      csr_mcause <= 0;
+      csr_mvendorid <= 32'h79737978;
+      csr_marchid <= 32'h016FBCA7;
     end else begin
-
-      // 使用互斥的条件，避免多驱动
       if(csrrw) begin
-        // $display("csrrw: writing data 0x%08x to csr[%0d], addr=%0d, gr[%0d]", data, csr_choose, addr, addr);
-        {gr[reg_addr], csr[csr_choose]} <= {csr[csr_choose], data};
+        if(reg_addr != 4'b0) begin
+          gr[reg_addr] <= csr_rdata;
+        end
+        case (csr_choose)
+          3'b000: csr_mstatus <= data;
+          3'b001: csr_mtvec <= data;
+          3'b010: csr_mepc <= data;
+          3'b011: csr_mcause <= data;
+          3'b100: csr_mvendorid <= data;
+          3'b101: csr_marchid <= data;
+          default: ;
+        endcase
       end else if(csrrs) begin
-        {gr[reg_addr], csr[csr_choose]} <= {csr[csr_choose], data|csr[csr_choose]};
+        if(reg_addr != 4'b0) begin
+          gr[reg_addr] <= csr_rdata;
+        end
+        case (csr_choose)
+          3'b000: csr_mstatus <= data | csr_mstatus;
+          3'b001: csr_mtvec <= data | csr_mtvec;
+          3'b010: csr_mepc <= data | csr_mepc;
+          3'b011: csr_mcause <= data | csr_mcause;
+          3'b100: csr_mvendorid <= data | csr_mvendorid;
+          3'b101: csr_marchid <= data | csr_marchid;
+          default: ;
+        endcase
       end else if(ew && reg_addr != 4'b0) begin
         gr[reg_addr] <= data;
       end
 
       if(ecall) begin
-        csr[2] <= data;
-        csr[3] <= 1;
+        csr_mepc <= data;
+        csr_mcause <= 32'd1;
       end
     end
   end
@@ -77,7 +114,12 @@ module ysyx_24100007_registers(
     end
 
     for(i=0;i<4;i++) begin
-      host_get_csr(csr[i], i);
+      case (i)
+        0: host_get_csr(csr_mstatus, i);
+        1: host_get_csr(csr_mtvec, i);
+        2: host_get_csr(csr_mepc, i);
+        3: host_get_csr(csr_mcause, i);
+      endcase
     end
   end
   `endif
@@ -90,11 +132,11 @@ module ysyx_24100007_registers(
     end
   endgenerate
 
-  genvar ci;
-  generate
-    for (ci = 0; ci < 6; ci = ci + 1) begin: PACK_CSR
-      assign csr_flat[ci*32 +: 32] = csr[ci];
-    end
-  endgenerate
+  assign csr_flat[0*32 +: 32] = csr_mstatus;
+  assign csr_flat[1*32 +: 32] = csr_mtvec;
+  assign csr_flat[2*32 +: 32] = csr_mepc;
+  assign csr_flat[3*32 +: 32] = csr_mcause;
+  assign csr_flat[4*32 +: 32] = csr_mvendorid;
+  assign csr_flat[5*32 +: 32] = csr_marchid;
 
 endmodule
