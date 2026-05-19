@@ -123,10 +123,11 @@ bool isa_enable_intr() {
   }
 }
 
-#define IRQ_TIMER 0x80000007
+#define IRQ_M_TIMER 0x80000007
 #define IRQ_S_SOFTWARE 0x80000001
 #define IRQ_S_TIMER 0x80000005
 #define IRQ_S_EXTERNAL 0x80000009
+
 #ifdef CONFIG_HAS_PLIC
 #define IRQ_M_EXTERNAL 0x8000000b
 #endif
@@ -149,12 +150,12 @@ word_t isa_query_intr() {
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
       cpu.INTR = false;
-      return IRQ_TIMER;
+      return IRQ_M_TIMER;
     }
 
     if (mip_val & MIP_MTIP && m_timer_intr_enable) {
       mip->write(0);
-      return IRQ_TIMER;
+      return IRQ_M_TIMER;
     }
 
     bool s_external_delegated = is_deleg(IRQ_S_EXTERNAL);
@@ -180,7 +181,7 @@ word_t isa_query_intr() {
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
       cpu.INTR = false;
-      return IRQ_TIMER;
+      return IRQ_M_TIMER;
     }
 
     bool s_external_delegated = is_deleg(IRQ_S_EXTERNAL);
@@ -226,7 +227,7 @@ word_t isa_query_intr() {
     bool m_timer_intr_enable = cpu.csr.mie & MIE_MTIE;
     if (cpu.INTR && m_timer_intr_enable) {
       cpu.INTR = false;
-      return IRQ_TIMER;
+      return IRQ_M_TIMER;
     }
 
     bool s_external_intr_enable = cpu.csr.mie & MIE_SEIE;
