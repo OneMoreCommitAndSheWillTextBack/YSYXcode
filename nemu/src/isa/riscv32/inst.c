@@ -18,6 +18,7 @@
 #include "debug.h"
 #include "isa-def.h"
 #include "isa.h"
+#include "local-include/exception.h"
 #include "local-include/reg.h"
 #include "local-include/csr-table.h"
 #include "macro.h"
@@ -32,14 +33,14 @@
 #define Mw vaddr_write
 
 static word_t ecall_inst();
-static word_t mret_inst();
-static word_t sret_inst();
+static word_t mret_inst(Decode *s);
+static word_t sret_inst(Decode *s);
 
 CPU_MODE current_cpu_priv = M_MODE;
 
-#define ECALL s->dnpc = ecall_inst()
-#define MRET s->dnpc = mret_inst()
-#define SRET s->dnpc = sret_inst()
+#define ECALL cpu_throw_exception(ecall_inst(), 0)
+#define MRET s->dnpc = mret_inst(s)
+#define SRET s->dnpc = sret_inst(s)
 
 enum {
   TYPE_I, TYPE_U, TYPE_S,
@@ -109,6 +110,25 @@ static void csrrwi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void csrrsi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void csrrci_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void readonly_recover();
+word_t isa_raise_sync_intr(word_t NO, vaddr_t epc, word_t tval);
+
+#define EX_II 2
+
+#define HANDLE_EXCEPTION(s)                                                    \
+  CPU_state cpu_backup = cpu;                                                  \
+  CPU_MODE priv_backup = current_cpu_priv;                                     \
+  cpu_exception_begin();                                                       \
+  if (setjmp(cpu_exception_env) != 0) {                                        \
+    cpu_exception_t exception = *cpu_exception_current();                       \
+    cpu_exception_end();                                                       \
+    cpu = cpu_backup;                                                          \
+    current_cpu_priv = priv_backup;                                            \
+    (s)->dnpc =                                                               \
+        isa_raise_sync_intr(exception.cause, exception.epc, exception.tval);   \
+    return -1;                                                                \
+  }
+
+#define END_EXCEPTION() cpu_exception_end()
 
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
   uint32_t i = s->isa.inst.val;
@@ -316,13 +336,19 @@ static int decode_exec_c(Decode *s) {
 }
 
 int isa_exec_once(Decode *s) {
+  HANDLE_EXCEPTION(s);
+
   s->isa.inst.val = inst_fetch(&s->snpc, 2);
   if((s->isa.inst.val & 0b11 ) != 3) {
-    return decode_exec_c(s);
+    int ret = decode_exec_c(s);
+    END_EXCEPTION();
+    return ret;
   }
 
   s->isa.inst.val |= (inst_fetch(&s->snpc, 2) << 16);
-  return decode_exec(s);
+  int ret = decode_exec(s);
+  END_EXCEPTION();
+  return ret;
 }
 
 static void readonly_recover() {
@@ -331,18 +357,21 @@ static void readonly_recover() {
 
 static word_t ecall_inst() {
   if (current_cpu_priv == M_MODE) {
-    return isa_raise_intr(11, cpu.pc);
+    return 11;
   } else if (current_cpu_priv == S_MODE) {
-    return isa_raise_intr(9, cpu.pc);
+    return 9;
   } else if(current_cpu_priv == U_MODE) {
-    return isa_raise_intr(8, cpu.pc);
+    return 8;
   } else {
     assert(false && "invalid current_cpu_priv");
   }
+  return 0;
 }
 
-static word_t mret_inst() { 
-  assert(current_cpu_priv == M_MODE);
+static word_t mret_inst(Decode *s) {
+  if (current_cpu_priv != M_MODE) {
+    cpu_throw_exception(EX_II, s->isa.inst.val);
+  }
   uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
   if(mpp == MSTATUS_MPP_M) {
     current_cpu_priv = M_MODE;
@@ -367,11 +396,13 @@ static word_t mret_inst() {
   return cpu.csr.mepc;
 }
 
-static word_t sret_inst() {
-  if (current_cpu_priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
-    return isa_raise_intr(2, cpu.pc);
+static word_t sret_inst(Decode *s) {
+  if (current_cpu_priv != S_MODE && current_cpu_priv != M_MODE) {
+    cpu_throw_exception(EX_II, s->isa.inst.val);
   }
-  assert(current_cpu_priv == S_MODE || current_cpu_priv == M_MODE);
+  if (current_cpu_priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
+    cpu_throw_exception(2, s->isa.inst.val);
+  }
   uint32_t spp = cpu.csr.mstatus & MSTATUS_SPP;
   if(spp == 0){
     current_cpu_priv = U_MODE;
@@ -389,7 +420,6 @@ static word_t sret_inst() {
 }
 
 #define CSR_MASK 0xfff
-#define EX_II 2
 
 static uint32_t current_cpu_priv_level() {
   switch (current_cpu_priv) {
@@ -412,12 +442,6 @@ static void raise_illegal_csr_access(Decode *s, uint32_t csr_num,
   Log("illegal CSR access: %s, CSR 0x%03x in %s at pc = " FMT_WORD
       ", raise illegal instruction for firmware trap handler",
       reason, csr_num, op, s->pc);
-  if (current_cpu_priv != M_MODE && ((cpu.csr.medeleg >> EX_II) & 1)) {
-    cpu.csr.stval = s->isa.inst.val;
-  } else {
-    cpu.csr.mtval = s->isa.inst.val;
-  }
-  s->dnpc = isa_raise_intr(EX_II, s->pc);
 #ifdef CONFIG_DIFFTEST
   // WARN: 我不太确定这里是否是这样实现
   // 还是对于spike来说直接注入一个 illegal inst
@@ -426,6 +450,7 @@ static void raise_illegal_csr_access(Decode *s, uint32_t csr_num,
     difftest_skip_ref();
   }
 #endif
+  cpu_throw_exception(EX_II, s->isa.inst.val);
 }
 
 static bool csr_check_access(Decode *s, uint32_t csr_num, bool write,
