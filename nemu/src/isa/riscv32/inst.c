@@ -291,6 +291,7 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
   INSTPAT("0000000 00000 00000 001 00000 00011 11", fence.i, I, );
   INSTPAT("0000??? ????? 00000 000 00000 00011 11", fence  , I, );
+  INSTPAT("0001000 00101 00000 000 00000 11100 11", wfi    , R, );
   INSTPAT("0001001 ????? ????? 000 00000 11100 11", sfence.vma, R, );
 
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
