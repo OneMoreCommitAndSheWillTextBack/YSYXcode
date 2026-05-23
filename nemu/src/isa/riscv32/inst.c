@@ -443,14 +443,9 @@ static void raise_illegal_csr_access(Decode *s, uint32_t csr_num,
   Log("illegal CSR access: %s, CSR 0x%03x in %s at pc = " FMT_WORD
       ", raise illegal instruction for firmware trap handler",
       reason, csr_num, op, s->pc);
-#ifdef CONFIG_DIFFTEST
-  // WARN: 我不太确定这里是否是这样实现
-  // 还是对于spike来说直接注入一个 illegal inst
-  // 我不太确定这个对于spike来说有没有副作用
-  if (skip_ref) {
-    difftest_skip_ref();
-  }
-#endif
+  IFDEF(CONFIG_DIFFTEST, if (skip_ref && difftest_is_attach()) {
+    difftest_raise_sync_exception(EX_II, s->isa.inst.val);
+  });
   cpu_throw_exception(EX_II, s->isa.inst.val);
 }
 

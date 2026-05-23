@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 // clang-format off
+#include "debug.h"
 #include <dlfcn.h>
 
 #include <isa.h>
@@ -26,6 +27,7 @@ void (*ref_difftest_memcpy)(paddr_t addr, void *buf, size_t n, bool direction) =
 void (*ref_difftest_regcpy)(void *dut, bool direction) = NULL;
 void (*ref_difftest_exec)(uint64_t n) = NULL;
 void (*ref_difftest_raise_intr)(uint64_t NO) = NULL;
+void (*ref_difftest_raise_sync_exception)(uint64_t cause, uint64_t tval) = NULL;
 void (*ref_difftest_probe_mem)(vaddr_t addr, difftest_mem_probe_t *result,
                                size_t n) = NULL;
 
@@ -113,6 +115,11 @@ void difftest_skip_ref() {
   skip_dut_nr_inst = 0;
 }
 
+void difftest_raise_sync_exception(uint64_t cause, uint64_t tval) {
+  assert(ref_difftest_raise_sync_exception);
+  ref_difftest_raise_sync_exception(cause, tval);
+}
+
 // this is used to deal with instruction packing in QEMU.
 // Sometimes letting QEMU step once will execute multiple instructions.
 // We should skip checking until NEMU's pc catches up with QEMU's pc.
@@ -145,6 +152,9 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
 
   ref_difftest_raise_intr = dlsym(handle, "difftest_raise_intr");
   assert(ref_difftest_raise_intr);
+
+  ref_difftest_raise_sync_exception =
+      dlsym(handle, "difftest_raise_sync_exception");
 
   ref_difftest_probe_mem = dlsym(handle, "difftest_probe_mem");
 

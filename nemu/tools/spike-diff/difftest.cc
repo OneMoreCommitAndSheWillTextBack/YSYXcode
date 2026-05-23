@@ -14,9 +14,13 @@
  ***************************************************************************************/
 
 // #include "../../include/common.h"
+#include "encoding.h"
 #include "mmu.h"
 #include "sim.h"
+#include <cinttypes>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <difftest-def.h>
 
 #define NR_GPR RISCV_GPR_NUM
@@ -171,6 +175,21 @@ __EXPORT void difftest_regcpy(void *dut, int direction) {
 }
 
 __EXPORT void difftest_exec(uint64_t n) { s->diff_step(n); }
+
+__EXPORT void difftest_raise_sync_exception(uint64_t cause, uint64_t tval) {
+  switch (cause) {
+  case CAUSE_ILLEGAL_INSTRUCTION:
+    (void)tval;
+    p->set_difftest_illegal_instruction();
+    break;
+  default:
+    fprintf(stderr,
+            "spike: unsupported synchronous exception cause %" PRIu64
+            ", tval 0x%" PRIx64 "\n",
+            cause, tval);
+    abort();
+  }
+}
 
 __EXPORT void difftest_init(int port) {
   difftest_htif_args.push_back("");
