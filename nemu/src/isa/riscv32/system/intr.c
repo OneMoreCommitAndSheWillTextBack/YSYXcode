@@ -131,7 +131,9 @@ bool isa_enable_intr() {
 #ifdef CONFIG_HAS_PLIC
 #define IRQ_M_EXTERNAL 0x8000000b
 #endif
-
+// TODO:
+// here need to be optimized
+// classic copy-paste
 word_t isa_query_intr() {
   bool global_intr_enable = false;
 
