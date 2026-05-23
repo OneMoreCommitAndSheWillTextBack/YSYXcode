@@ -11,6 +11,7 @@
   raw(mepc, 0x341)                                                             \
   raw(sepc, 0x141)                                                             \
   raw(mstatus, 0x300)                                                          \
+  raw(mstatush, 0x310)                                                         \
   raw(mcause, 0x342)                                                           \
   raw(mtval, 0x343)                                                            \
   raw(mtvec, 0x305)                                                            \
