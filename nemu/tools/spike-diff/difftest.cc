@@ -14,9 +14,13 @@
  ***************************************************************************************/
 
 // #include "../../include/common.h"
+#include "encoding.h"
 #include "mmu.h"
 #include "sim.h"
+#include <cinttypes>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <difftest-def.h>
 
 #define NR_GPR RISCV_GPR_NUM
@@ -45,6 +49,12 @@ static inline auto mscratch_csr() { return state->csrmap.at(CSR_MSCRATCH); }
 static inline auto mie_csr() { return state->mie; }
 static inline auto sepc_csr() { return state->csrmap.at(CSR_SEPC); }
 static inline auto stval_csr() { return state->csrmap.at(CSR_STVAL); }
+static inline auto mvendorid_csr() { return state->csrmap.at(CSR_MVENDORID); }
+static inline auto marchid_csr() { return state->csrmap.at(CSR_MARCHID); }
+
+static inline void set_const_csr(reg_t csr_num, reg_t value) {
+  state->csrmap[csr_num] = std::make_shared<const_csr_t>(p, csr_num, value);
+}
 
 static inline RISCV_GPR_TYPE spike_priv_to_ctx(reg_t prv) {
   switch (prv) {
@@ -84,6 +94,10 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->priv = spike_priv_to_ctx(state->prv);
 
   // get csr from spike
+  ctx->csr.mvendorid = mvendorid_csr()->read();
+  ctx->csr.marchid = marchid_csr()->read();
+  ctx->csr.misa = state->misa->read();
+  ctx->csr.medeleg = state->medeleg->read();
   ctx->csr.mcause = state->mcause->read();
   ctx->csr.mepc = state->mepc->read();
   ctx->csr.sepc = sepc_csr()->read();
@@ -105,6 +119,10 @@ void sim_t::diff_set_regs(void *diff_context) {
   }
   state->pc = ctx->pc;
   p->set_privilege(ctx_priv_to_spike(ctx->priv));
+  set_const_csr(CSR_MVENDORID, ctx->csr.mvendorid);
+  set_const_csr(CSR_MARCHID, ctx->csr.marchid);
+  state->misa->write(ctx->csr.misa);
+  rv32_csr_syn(medeleg);
   sepc_csr()->write(ctx->csr.sepc);
   rv32_csr_syn(mstatus);
   rv32_csr_syn(mcause);
@@ -171,6 +189,21 @@ __EXPORT void difftest_regcpy(void *dut, int direction) {
 }
 
 __EXPORT void difftest_exec(uint64_t n) { s->diff_step(n); }
+
+__EXPORT void difftest_raise_sync_exception(uint64_t cause, uint64_t tval) {
+  switch (cause) {
+  case CAUSE_ILLEGAL_INSTRUCTION:
+    (void)tval;
+    p->set_difftest_illegal_instruction();
+    break;
+  default:
+    fprintf(stderr,
+            "spike: unsupported synchronous exception cause %" PRIu64
+            ", tval 0x%" PRIx64 "\n",
+            cause, tval);
+    abort();
+  }
+}
 
 __EXPORT void difftest_init(int port) {
   difftest_htif_args.push_back("");

@@ -13,6 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 // clang-format off
+#include "debug.h"
 #include <dlfcn.h>
 
 #include <isa.h>
@@ -26,6 +27,7 @@ void (*ref_difftest_memcpy)(paddr_t addr, void *buf, size_t n, bool direction) =
 void (*ref_difftest_regcpy)(void *dut, bool direction) = NULL;
 void (*ref_difftest_exec)(uint64_t n) = NULL;
 void (*ref_difftest_raise_intr)(uint64_t NO) = NULL;
+void (*ref_difftest_raise_sync_exception)(uint64_t cause, uint64_t tval) = NULL;
 void (*ref_difftest_probe_mem)(vaddr_t addr, difftest_mem_probe_t *result,
                                size_t n) = NULL;
 
@@ -44,6 +46,10 @@ static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state)
   }
   ctx->pc = state->pc;
   ctx->priv = current_cpu_priv;
+  ctx->csr.mvendorid = state->csr.mvendorid;
+  ctx->csr.marchid = state->csr.marchid;
+  ctx->csr.misa = state->csr.misa;
+  ctx->csr.medeleg = state->csr.medeleg;
   ctx->csr.mepc = state->csr.mepc;
   ctx->csr.sepc = state->csr.sepc;
   ctx->csr.mstatus = state->csr.mstatus;
@@ -64,6 +70,10 @@ static void unpack_difftest_ctx(CPU_state *state,
   }
   state->pc = ctx->pc;
   current_cpu_priv = ctx->priv;
+  state->csr.mvendorid = ctx->csr.mvendorid;
+  state->csr.marchid = ctx->csr.marchid;
+  state->csr.misa = ctx->csr.misa;
+  state->csr.medeleg = ctx->csr.medeleg;
   state->csr.mepc = ctx->csr.mepc;
   state->csr.sepc = ctx->csr.sepc;
   state->csr.mstatus = ctx->csr.mstatus;
@@ -113,6 +123,11 @@ void difftest_skip_ref() {
   skip_dut_nr_inst = 0;
 }
 
+void difftest_raise_sync_exception(uint64_t cause, uint64_t tval) {
+  assert(ref_difftest_raise_sync_exception);
+  ref_difftest_raise_sync_exception(cause, tval);
+}
+
 // this is used to deal with instruction packing in QEMU.
 // Sometimes letting QEMU step once will execute multiple instructions.
 // We should skip checking until NEMU's pc catches up with QEMU's pc.
@@ -145,6 +160,9 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
 
   ref_difftest_raise_intr = dlsym(handle, "difftest_raise_intr");
   assert(ref_difftest_raise_intr);
+
+  ref_difftest_raise_sync_exception =
+      dlsym(handle, "difftest_raise_sync_exception");
 
   ref_difftest_probe_mem = dlsym(handle, "difftest_probe_mem");
 
