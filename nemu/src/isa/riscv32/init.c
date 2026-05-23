@@ -14,7 +14,7 @@
  ***************************************************************************************/
 
 #include "isa-def.h"
-#include "local-include/csr-table.h"
+#include "local-include/csr.h"
 #include <isa.h>
 #include <memory/paddr.h>
 
@@ -34,10 +34,6 @@ static void restart() {
 
   /* The zero register is always 0. */
   cpu.gpr[0] = 0;
-
-  cpu.csr.misa = MISA_RV32_IMAC_SU;
-  cpu.csr.mvendorid = MVENDORID_YSYX;
-  cpu.csr.marchid = MARCHID_YSYX;
 }
 
 void init_isa() {
@@ -45,6 +41,6 @@ void init_isa() {
   memcpy(guest_to_host(RESET_VECTOR), img, sizeof(img));
 
   /* Initialize this virtual computer system. */
-  VIRT_CSR_INIT_TABLE();
+  riscv_csr_reset();
   restart();
 }

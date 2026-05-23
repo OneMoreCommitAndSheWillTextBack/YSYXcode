@@ -98,6 +98,7 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->csr.marchid = marchid_csr()->read();
   ctx->csr.misa = state->misa->read();
   ctx->csr.medeleg = state->medeleg->read();
+  ctx->csr.mideleg = state->mideleg->read();
   ctx->csr.mcause = state->mcause->read();
   ctx->csr.mepc = state->mepc->read();
   ctx->csr.sepc = sepc_csr()->read();
@@ -123,6 +124,7 @@ void sim_t::diff_set_regs(void *diff_context) {
   set_const_csr(CSR_MARCHID, ctx->csr.marchid);
   state->misa->write(ctx->csr.misa);
   rv32_csr_syn(medeleg);
+  rv32_csr_syn(mideleg);
   sepc_csr()->write(ctx->csr.sepc);
   rv32_csr_syn(mstatus);
   rv32_csr_syn(mcause);

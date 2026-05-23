@@ -48,19 +48,9 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
       cpu.gpr[i] = ctx->gpr[i];
     }
     current_cpu_priv = ctx->priv;
-    cpu.csr.mvendorid = ctx->csr.mvendorid;
-    cpu.csr.marchid = ctx->csr.marchid;
-    cpu.csr.misa = ctx->csr.misa;
-    cpu.csr.medeleg = ctx->csr.medeleg;
-    cpu.csr.mcause = ctx->csr.mcause;
-    cpu.csr.mepc = ctx->csr.mepc;
-    cpu.csr.sepc = ctx->csr.sepc;
-    cpu.csr.mstatus = ctx->csr.mstatus;
-    cpu.csr.mtval = ctx->csr.mtval;
-    cpu.csr.mtvec = ctx->csr.mtvec;
-    cpu.csr.mscratch = ctx->csr.mscratch;
-    cpu.csr.satp = ctx->csr.satp;
-    cpu.csr.stval = ctx->csr.stval;
+#define UNPACK_DIFFTEST_CSR(name) cpu.csr.name = ctx->csr.name;
+    EACH_DIFFTEST_CSR(UNPACK_DIFFTEST_CSR)
+#undef UNPACK_DIFFTEST_CSR
     cpu.pc = ctx->pc;
 #else
     assert(0);
@@ -72,19 +62,9 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
       ctx->gpr[i] = cpu.gpr[i];
     }
     ctx->priv = current_cpu_priv;
-    ctx->csr.mvendorid = cpu.csr.mvendorid;
-    ctx->csr.marchid = cpu.csr.marchid;
-    ctx->csr.misa = cpu.csr.misa;
-    ctx->csr.medeleg = cpu.csr.medeleg;
-    ctx->csr.mepc = cpu.csr.mepc;
-    ctx->csr.sepc = cpu.csr.sepc;
-    ctx->csr.mtvec = cpu.csr.mtvec;
-    ctx->csr.mstatus = cpu.csr.mstatus;
-    ctx->csr.mcause = cpu.csr.mcause;
-    ctx->csr.mtval = cpu.csr.mtval;
-    ctx->csr.mscratch = cpu.csr.mscratch;
-    ctx->csr.satp = cpu.csr.satp;
-    ctx->csr.stval = cpu.csr.stval;
+#define PACK_DIFFTEST_CSR(name) ctx->csr.name = cpu.csr.name;
+    EACH_DIFFTEST_CSR(PACK_DIFFTEST_CSR)
+#undef PACK_DIFFTEST_CSR
     ctx->pc = cpu.pc;
 #else
     assert(0);

@@ -20,7 +20,7 @@
 #include "isa.h"
 #include "local-include/exception.h"
 #include "local-include/reg.h"
-#include "local-include/csr-table.h"
+#include "local-include/csr.h"
 #include "macro.h"
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
@@ -109,7 +109,6 @@ static void csrrc_inst(Decode *s, int rd, uint32_t csr_num, uint32_t data);
 static void csrrwi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void csrrsi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void csrrci_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
-static void readonly_recover();
 word_t isa_raise_sync_intr(word_t NO, vaddr_t epc, word_t tval);
 
 #define EX_II 2
@@ -301,7 +300,6 @@ static int decode_exec(Decode *s) {
   INSTPAT_END();
 
   R(0) = 0; // reset $zero to 0
-  readonly_recover();
 
   return 0;
 }
@@ -335,7 +333,6 @@ static int decode_exec_c(Decode *s) {
   INSTPAT_END(c_extern);
 
   R(0) = 0;
-  readonly_recover();
   return 0;
 }
 
@@ -353,12 +350,6 @@ int isa_exec_once(Decode *s) {
   int ret = decode_exec(s);
   END_EXCEPTION();
   return ret;
-}
-
-static void readonly_recover() {
-  cpu.csr.mvendorid = MVENDORID_YSYX;
-  cpu.csr.marchid = MARCHID_YSYX;
-  cpu.csr.mhartid = 0; // mhartid is a readonly csr 
 }
 
 static word_t ecall_inst() {
@@ -478,16 +469,9 @@ static bool csr_read(Decode *s, uint32_t csr_num, uint32_t *data) {
   if (!csr_check_access(s, csr_num, false, "read")) {
     return false;
   }
-  uint32_t *csr = get_raw_csr(csr_num);
-  if(csr == NULL) {
-    virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
-    if (virt_csr_handler == NULL) {
-      raise_illegal_csr_access(s, csr_num, "read", "unsupported CSR", true);
-      return false;
-    }
-    *data = virt_csr_handler->read();
-  } else {
-    *data = *csr;
+  if (!riscv_csr_read(csr_num, data)) {
+    raise_illegal_csr_access(s, csr_num, "read", "unsupported CSR", true);
+    return false;
   }
   return true;
 }
@@ -497,16 +481,9 @@ static bool csr_write(Decode *s, uint32_t csr_num, uint32_t data) {
   if (!csr_check_access(s, csr_num, true, "write")) {
     return false;
   }
-  uint32_t *csr = get_raw_csr(csr_num);
-  if(csr == NULL) {
-    virt_csr_entry_t *virt_csr_handler = get_virt_csr(csr_num);
-    if (virt_csr_handler == NULL) {
-      raise_illegal_csr_access(s, csr_num, "write", "unsupported CSR", true);
-      return false;
-    }
-    virt_csr_handler->write(data);
-  } else {
-    *csr = data;
+  if (!riscv_csr_write(csr_num, data)) {
+    raise_illegal_csr_access(s, csr_num, "write", "unsupported CSR", true);
+    return false;
   }
   return true;
 }
