@@ -356,6 +356,8 @@ int isa_exec_once(Decode *s) {
 }
 
 static void readonly_recover() {
+  cpu.csr.mvendorid = MVENDORID_YSYX;
+  cpu.csr.marchid = MARCHID_YSYX;
   cpu.csr.mhartid = 0; // mhartid is a readonly csr 
 }
 

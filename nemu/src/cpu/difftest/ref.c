@@ -48,6 +48,9 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
       cpu.gpr[i] = ctx->gpr[i];
     }
     current_cpu_priv = ctx->priv;
+    cpu.csr.mvendorid = ctx->csr.mvendorid;
+    cpu.csr.marchid = ctx->csr.marchid;
+    cpu.csr.misa = ctx->csr.misa;
     cpu.csr.mcause = ctx->csr.mcause;
     cpu.csr.mepc = ctx->csr.mepc;
     cpu.csr.sepc = ctx->csr.sepc;
@@ -68,6 +71,9 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
       ctx->gpr[i] = cpu.gpr[i];
     }
     ctx->priv = current_cpu_priv;
+    ctx->csr.mvendorid = cpu.csr.mvendorid;
+    ctx->csr.marchid = cpu.csr.marchid;
+    ctx->csr.misa = cpu.csr.misa;
     ctx->csr.mepc = cpu.csr.mepc;
     ctx->csr.sepc = cpu.csr.sepc;
     ctx->csr.mtvec = cpu.csr.mtvec;

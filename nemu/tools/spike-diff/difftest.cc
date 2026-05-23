@@ -49,6 +49,12 @@ static inline auto mscratch_csr() { return state->csrmap.at(CSR_MSCRATCH); }
 static inline auto mie_csr() { return state->mie; }
 static inline auto sepc_csr() { return state->csrmap.at(CSR_SEPC); }
 static inline auto stval_csr() { return state->csrmap.at(CSR_STVAL); }
+static inline auto mvendorid_csr() { return state->csrmap.at(CSR_MVENDORID); }
+static inline auto marchid_csr() { return state->csrmap.at(CSR_MARCHID); }
+
+static inline void set_const_csr(reg_t csr_num, reg_t value) {
+  state->csrmap[csr_num] = std::make_shared<const_csr_t>(p, csr_num, value);
+}
 
 static inline RISCV_GPR_TYPE spike_priv_to_ctx(reg_t prv) {
   switch (prv) {
@@ -88,6 +94,8 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->priv = spike_priv_to_ctx(state->prv);
 
   // get csr from spike
+  ctx->csr.mvendorid = mvendorid_csr()->read();
+  ctx->csr.marchid = marchid_csr()->read();
   ctx->csr.misa = state->misa->read();
   ctx->csr.mcause = state->mcause->read();
   ctx->csr.mepc = state->mepc->read();
@@ -110,6 +118,8 @@ void sim_t::diff_set_regs(void *diff_context) {
   }
   state->pc = ctx->pc;
   p->set_privilege(ctx_priv_to_spike(ctx->priv));
+  set_const_csr(CSR_MVENDORID, ctx->csr.mvendorid);
+  set_const_csr(CSR_MARCHID, ctx->csr.marchid);
   state->misa->write(ctx->csr.misa);
   sepc_csr()->write(ctx->csr.sepc);
   rv32_csr_syn(mstatus);

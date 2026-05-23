@@ -20,6 +20,8 @@
   raw(satp, 0x180)                                                             \
   raw(medeleg, 0x302)                                                          \
   raw(mideleg, 0x303)                                                          \
+  raw(mvendorid, 0xf11)                                                        \
+  raw(marchid, 0xf12)                                                          \
   raw(mhartid, 0xf14)                                                          \
   raw(pmpaddr0, 0x3b0)                                                         \
   raw(pmpaddr1, 0x3b1)                                                         \
