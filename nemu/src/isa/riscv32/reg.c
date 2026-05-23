@@ -22,9 +22,9 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
                       "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
 #define DIFF_CSR_LIST                                                          \
-  X(mstatus) X(mcause) X(mepc) X(sepc) X(mtval) X(mtvec) X(satp)              \
-      X(mscratch) X(mie) X(scause)
-#define DIFF_CSR_NUM 10
+  X(mvendorid) X(marchid) X(mstatus) X(misa) X(medeleg) X(mcause) X(mepc)     \
+      X(sepc) X(mtval) X(mtvec) X(satp) X(mscratch) X(mie) X(scause)
+#define DIFF_CSR_NUM 14
 
 const char *csr[] = {
 #define X(name) #name,

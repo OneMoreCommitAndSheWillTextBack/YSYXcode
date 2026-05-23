@@ -24,3 +24,11 @@
 #define MSTATUS_TVM (1 << 20)        // Trap Virtual Memory
 #define MSTATUS_TW (1 << 21)         // Timeout Wait
 #define MSTATUS_TSR (1 << 22)        // Trap SRET
+
+// mstatush 仅包含 mstatus 的 bits 32-63 的高位字段
+#define MSTATUSH_SBE                                                           \
+  (1 << 4) // Supervisor Big-Endian (bits 36:35 in full mstatus)
+#define MSTATUSH_MBE (1 << 5) // Machine Big-Endian (bits 37:36 in full mstatus)
+#define MSTATUSH_MPV (1 << 7) // Machine Previous Virtualization mode (bit 39)
+#define MSTATUSH_GVA (1 << 8) // Guest Virtual Address (bit 40)
+#define MSTATUSH_MPELP (1 << 9) // Machine Previous Endianness and Label Pointer
