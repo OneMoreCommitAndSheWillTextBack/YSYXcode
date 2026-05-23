@@ -10,6 +10,7 @@
 #define CSR_LIST(raw, virt)                                                    \
   raw(mepc, 0x341)                                                             \
   raw(sepc, 0x141)                                                             \
+  raw(misa, 0x301)                                                             \
   raw(mstatus, 0x300)                                                          \
   raw(mstatush, 0x310)                                                         \
   raw(mcause, 0x342)                                                           \

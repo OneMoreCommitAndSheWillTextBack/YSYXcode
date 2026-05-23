@@ -43,6 +43,7 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
     riscv_check_csr(mcause);
     riscv_check_csr(mepc);
     riscv_check_csr(sepc);
+    riscv_check_csr(misa);
     riscv_check_csr(mstatus);
     riscv_check_csr(mtvec);
     riscv_check_csr(satp);

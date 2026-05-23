@@ -88,6 +88,7 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->priv = spike_priv_to_ctx(state->prv);
 
   // get csr from spike
+  ctx->csr.misa = state->misa->read();
   ctx->csr.mcause = state->mcause->read();
   ctx->csr.mepc = state->mepc->read();
   ctx->csr.sepc = sepc_csr()->read();
@@ -109,6 +110,7 @@ void sim_t::diff_set_regs(void *diff_context) {
   }
   state->pc = ctx->pc;
   p->set_privilege(ctx_priv_to_spike(ctx->priv));
+  state->misa->write(ctx->csr.misa);
   sepc_csr()->write(ctx->csr.sepc);
   rv32_csr_syn(mstatus);
   rv32_csr_syn(mcause);

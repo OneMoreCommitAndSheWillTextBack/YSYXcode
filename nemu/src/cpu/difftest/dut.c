@@ -46,6 +46,7 @@ static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state)
   }
   ctx->pc = state->pc;
   ctx->priv = current_cpu_priv;
+  ctx->csr.misa = state->csr.misa;
   ctx->csr.mepc = state->csr.mepc;
   ctx->csr.sepc = state->csr.sepc;
   ctx->csr.mstatus = state->csr.mstatus;
@@ -66,6 +67,7 @@ static void unpack_difftest_ctx(CPU_state *state,
   }
   state->pc = ctx->pc;
   current_cpu_priv = ctx->priv;
+  state->csr.misa = ctx->csr.misa;
   state->csr.mepc = ctx->csr.mepc;
   state->csr.sepc = ctx->csr.sepc;
   state->csr.mstatus = ctx->csr.mstatus;

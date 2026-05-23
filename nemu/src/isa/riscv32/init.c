@@ -34,6 +34,8 @@ static void restart() {
 
   /* The zero register is always 0. */
   cpu.gpr[0] = 0;
+
+  cpu.csr.misa = MISA_RV32_IMAC_SU;
 }
 
 void init_isa() {
