@@ -13,9 +13,10 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
+#include "../local-include/exception.h"
+#include "../local-include/trap-cause.h"
 #include "common.h"
 #include "cpu/cpu.h"
-#include "../local-include/exception.h"
 #include <isa.h>
 #include <memory/paddr.h>
 #include <memory/vaddr.h>
@@ -64,12 +65,6 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
 #define PTE_A 0x40
 #define PTE_D 0x80
 
-enum {
-  RISCV_CAUSE_FETCH_PAGE_FAULT = 12,
-  RISCV_CAUSE_LOAD_PAGE_FAULT = 13,
-  RISCV_CAUSE_STORE_PAGE_FAULT = 15,
-};
-
 static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
   // In Sv32, A/D bits are meaningful for leaf PTEs only.
   // Non-leaf PTEs should keep software/reserved bits unchanged.
@@ -101,11 +96,11 @@ static void isa_mmu_update_pte(paddr_t pte_addr, uint32_t pte, int type) {
 static word_t isa_mmu_fault_cause(int type) {
   switch (type) {
   case MEM_TYPE_IFETCH:
-    return RISCV_CAUSE_FETCH_PAGE_FAULT;
+    return EXC_INST_PAGE_FAULT;
   case MEM_TYPE_WRITE:
-    return RISCV_CAUSE_STORE_PAGE_FAULT;
+    return EXC_STORE_PAGE_FAULT;
   default:
-    return RISCV_CAUSE_LOAD_PAGE_FAULT;
+    return EXC_LOAD_PAGE_FAULT;
   }
 }
 
@@ -129,8 +124,8 @@ static bool isa_mmu_permission_check(uint32_t pte, int type,
   }
 
   if (type == MEM_TYPE_READ) {
-    bool can_read = (pte & PTE_R) ||
-                    ((cpu.csr.mstatus & MSTATUS_MXR) && (pte & PTE_X));
+    bool can_read =
+        (pte & PTE_R) || ((cpu.csr.mstatus & MSTATUS_MXR) && (pte & PTE_X));
     if (!can_read) {
       return false;
     }
@@ -160,6 +155,7 @@ static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
   uint32_t pte1 = paddr_read(pte1_addr, 4);
 
   if (!(pte1 & PTE_V) || (pte1 & (PTE_R | PTE_W | PTE_X))) {
+    // if pte is not a leaf, r/w/x should been set to zero
     if (cause != NULL) {
       *cause = isa_mmu_fault_cause(type);
     }

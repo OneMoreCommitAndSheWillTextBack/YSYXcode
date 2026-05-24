@@ -1,8 +1,8 @@
 #include "csr-xmacro.h"
 #include "debug.h"
 #include "isa-def.h"
-#include "../local-include/csr-table.h"
 #include "../local-include/csr.h"
+#include "../local-include/trap-cause.h"
 #include <isa.h>
 #include <stdint.h>
 #ifdef CONFIG_HAS_PLIC
@@ -12,22 +12,6 @@
 static uint32_t software_mip_pending = 0;
 
 #define CSR_BIT(n) (1u << (n))
-
-enum {
-  EXC_INST_ADDR_MISALIGNED = 0,
-  EXC_INST_ACCESS_FAULT = 1,
-  EXC_ILLEGAL_INST = 2,
-  EXC_BREAKPOINT = 3,
-  EXC_LOAD_ADDR_MISALIGNED = 4,
-  EXC_LOAD_ACCESS_FAULT = 5,
-  EXC_STORE_ADDR_MISALIGNED = 6,
-  EXC_STORE_ACCESS_FAULT = 7,
-  EXC_U_ECALL = 8,
-  EXC_S_ECALL = 9,
-  EXC_INST_PAGE_FAULT = 12,
-  EXC_LOAD_PAGE_FAULT = 13,
-  EXC_STORE_PAGE_FAULT = 15,
-};
 
 #define MEDELEG_WRITABLE_MASK                                                  \
   (CSR_BIT(EXC_INST_ADDR_MISALIGNED) | CSR_BIT(EXC_INST_ACCESS_FAULT) |       \
@@ -45,6 +29,7 @@ typedef struct {
   const char *name;
   uint16_t csr_num;
   uint32_t reset;
+  uint32_t *raw;
   csr_read_fn read;
   csr_write_fn write;
 } csr_desc_t;
@@ -87,10 +72,14 @@ EACH_VIRTUAL_CSR(DECLARE_VIRTUAL_CSR_HANDLER)
 #undef DECLARE_VIRTUAL_CSR_HANDLER
 
 static const csr_desc_t csr_descs[] = {
-#define CSR_DESC_INIT(name, addr, reset, read, write)                          \
-  {#name, addr, reset, read, write},
+#define CSR_DESC_RAW_PTR_RAW(name) &cpu.csr.name
+#define CSR_DESC_RAW_PTR_VIRT(name) NULL
+#define CSR_DESC_INIT(kind, name, addr, reset, read, write)                    \
+  {#name, addr, reset, CSR_DESC_RAW_PTR_##kind(name), read, write},
     EACH_CSR_DESC(CSR_DESC_INIT)
 #undef CSR_DESC_INIT
+#undef CSR_DESC_RAW_PTR_RAW
+#undef CSR_DESC_RAW_PTR_VIRT
 };
 
 static const csr_desc_t *csr_lookup(uint32_t csr_num) {
@@ -103,14 +92,9 @@ static const csr_desc_t *csr_lookup(uint32_t csr_num) {
 }
 
 void riscv_csr_reset(void) {
-#define RESET_RAW_CSR(name, idx) cpu.csr.name = 0;
-  EACH_RAW_CSR(RESET_RAW_CSR)
-#undef RESET_RAW_CSR
-
   for (int i = 0; i < ARRLEN(csr_descs); i++) {
-    uint32_t *raw = get_raw_csr(csr_descs[i].csr_num);
-    if (raw != NULL) {
-      *raw = csr_descs[i].reset;
+    if (csr_descs[i].raw != NULL) {
+      *csr_descs[i].raw = csr_descs[i].reset;
     }
   }
 
@@ -129,11 +113,10 @@ bool riscv_csr_read(uint32_t csr_num, uint32_t *data) {
     return true;
   }
 
-  uint32_t *raw = get_raw_csr(desc->csr_num);
-  if (raw == NULL) {
+  if (desc->raw == NULL) {
     return false;
   }
-  *data = *raw;
+  *data = *desc->raw;
   return true;
 }
 
@@ -148,11 +131,10 @@ bool riscv_csr_write(uint32_t csr_num, uint32_t data) {
     return true;
   }
 
-  uint32_t *raw = get_raw_csr(desc->csr_num);
-  if (raw == NULL) {
+  if (desc->raw == NULL) {
     return false;
   }
-  *raw = data;
+  *desc->raw = data;
   return true;
 }
 

@@ -64,7 +64,7 @@
 #define CSR_EMIT_DIFF_NODIFF(emit, name)
 
 #define CSR_EMIT_DESC(emit, kind, name, addr, reset, read, write, diff)        \
-  emit(name, addr, reset, read, write)
+  emit(kind, name, addr, reset, read, write)
 
 #define EACH_RAW_CSR(_) CSR_TABLE(CSR_EMIT_RAW, _)
 #define EACH_VIRTUAL_CSR(_) CSR_TABLE(CSR_EMIT_VIRT, _)
