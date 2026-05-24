@@ -40,19 +40,9 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
       return false;
     }
 
-    riscv_check_csr(mvendorid);
-    riscv_check_csr(marchid);
-    riscv_check_csr(medeleg);
-    riscv_check_csr(mcause);
-    riscv_check_csr(mepc);
-    riscv_check_csr(sepc);
-    riscv_check_csr(misa);
-    riscv_check_csr(mstatus);
-    riscv_check_csr(mtvec);
-    riscv_check_csr(satp);
-    riscv_check_csr(mie);
-    riscv_check_csr(scause);
-    riscv_check_csr(stval);
+#define CHECK_DIFFTEST_CSR(name) riscv_check_csr(name)
+    EACH_DIFFTEST_CSR(CHECK_DIFFTEST_CSR)
+#undef CHECK_DIFFTEST_CSR
   }
 
 #ifdef CONFIG_DIFFTEST
