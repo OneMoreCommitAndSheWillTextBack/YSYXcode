@@ -21,6 +21,7 @@
 #include "local-include/exception.h"
 #include "local-include/reg.h"
 #include "local-include/csr-table.h"
+#include "local-include/trap-cause.h"
 #include "macro.h"
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
@@ -111,8 +112,6 @@ static void csrrsi_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void csrrci_inst(Decode *s, int rd, uint32_t csr_num, uint32_t zimm);
 static void readonly_recover();
 word_t isa_raise_sync_intr(word_t NO, vaddr_t epc, word_t tval);
-
-#define EX_II 2
 
 #define HANDLE_EXCEPTION(s)                                                    \
   CPU_state cpu_backup = cpu;                                                  \
@@ -363,11 +362,11 @@ static void readonly_recover() {
 
 static word_t ecall_inst() {
   if (current_cpu_priv == M_MODE) {
-    return 11;
+    return EXC_M_ECALL;
   } else if (current_cpu_priv == S_MODE) {
-    return 9;
+    return EXC_S_ECALL;
   } else if(current_cpu_priv == U_MODE) {
-    return 8;
+    return EXC_U_ECALL;
   } else {
     assert(false && "invalid current_cpu_priv");
   }
@@ -376,7 +375,7 @@ static word_t ecall_inst() {
 
 static word_t mret_inst(Decode *s) {
   if (current_cpu_priv != M_MODE) {
-    cpu_throw_exception(EX_II, s->isa.inst.val);
+    cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
   uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
   if(mpp == MSTATUS_MPP_M) {
@@ -404,10 +403,10 @@ static word_t mret_inst(Decode *s) {
 
 static word_t sret_inst(Decode *s) {
   if (current_cpu_priv != S_MODE && current_cpu_priv != M_MODE) {
-    cpu_throw_exception(EX_II, s->isa.inst.val);
+    cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
   if (current_cpu_priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
-    cpu_throw_exception(2, s->isa.inst.val);
+    cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
   uint32_t spp = cpu.csr.mstatus & MSTATUS_SPP;
   if(spp == 0){
@@ -449,9 +448,9 @@ static void raise_illegal_csr_access(Decode *s, uint32_t csr_num,
       ", raise illegal instruction for firmware trap handler",
       reason, csr_num, op, s->pc);
   IFDEF(CONFIG_DIFFTEST, if (skip_ref && difftest_is_attach()) {
-    difftest_raise_sync_exception(EX_II, s->isa.inst.val);
+    difftest_raise_sync_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   });
-  cpu_throw_exception(EX_II, s->isa.inst.val);
+  cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
 }
 
 static bool csr_check_access(Decode *s, uint32_t csr_num, bool write,

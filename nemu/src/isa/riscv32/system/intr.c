@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include "../local-include/csr-table.h"
+#include "../local-include/trap-cause.h"
 #include "common.h"
 #include "debug.h"
 #include "isa-def.h"
@@ -37,8 +38,8 @@ static inline uint32_t encode_mpp(CPU_MODE priv) {
 }
 
 inline static bool is_deleg(word_t NO) {
-  bool is_intr = (NO & (1u << 31)) != 0;
-  uint32_t cause = NO & ~(1u << 31);
+  bool is_intr = (NO & TRAP_CAUSE_INT_BIT) != 0;
+  uint32_t cause = NO & ~TRAP_CAUSE_INT_BIT;
 
   if (is_intr) {
     return (cpu.csr.mideleg >> cause) & 1;
@@ -51,9 +52,8 @@ inline static word_t get_trap_pc(word_t NO, word_t tvec) {
   uint32_t mode = tvec & 0x3u;
   uint32_t base = tvec & ~0x3u;
 
-  uint32_t intr_bit = 1u << 31;
-  bool is_intr = (NO & intr_bit) != 0;
-  uint32_t cause = NO & ~intr_bit;
+  bool is_intr = (NO & TRAP_CAUSE_INT_BIT) != 0;
+  uint32_t cause = NO & ~TRAP_CAUSE_INT_BIT;
 
   if (mode == 0) {
     return base;
@@ -123,14 +123,6 @@ bool isa_enable_intr() {
   }
 }
 
-#define IRQ_M_TIMER 0x80000007
-#define IRQ_S_SOFTWARE 0x80000001
-#define IRQ_S_TIMER 0x80000005
-#define IRQ_S_EXTERNAL 0x80000009
-
-#ifdef CONFIG_HAS_PLIC
-#define IRQ_M_EXTERNAL 0x8000000b
-#endif
 // TODO:
 // here need to be optimized
 // classic copy-paste
