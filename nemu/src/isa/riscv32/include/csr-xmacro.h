@@ -33,7 +33,14 @@
   M(arg, RAW,  mhartid,   0xf14, 0,                 NULL,                    disable_write,           NODIFF) \
   M(arg, RAW,  pmpaddr0,  0x3b0, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  pmpaddr1,  0x3b1, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  pmpaddr2,  0x3b2, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  pmpaddr3,  0x3b3, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  pmpaddr4,  0x3b4, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  pmpaddr5,  0x3b5, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  pmpaddr6,  0x3b6, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  pmpaddr7,  0x3b7, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  pmpcfg0,   0x3a0, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  pmpcfg1,   0x3a1, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  scause,    0x142, 0,                 NULL,                    NULL,                    DIFF)   \
   M(arg, RAW,  stval,     0x143, 0,                 NULL,                    NULL,                    DIFF)   \
   M(arg, RAW,  sscratch,  0x140, 0,                 NULL,                    NULL,                    NODIFF) \
