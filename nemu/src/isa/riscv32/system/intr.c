@@ -13,7 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
-#include "../local-include/csr-table.h"
+#include "../local-include/csr.h"
 #include "../local-include/trap-cause.h"
 #include "common.h"
 #include "debug.h"
@@ -134,8 +134,7 @@ word_t isa_query_intr() {
     if (!global_intr_enable)
       return INTR_EMPTY;
 
-    virt_csr_entry_t *mip = get_virt_csr(0x344);
-    uint32_t mip_val = mip->read();
+    uint32_t mip_val = riscv_csr_mip_value();
 #ifdef CONFIG_HAS_PLIC
     if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE)) {
       return IRQ_M_EXTERNAL;
@@ -148,7 +147,7 @@ word_t isa_query_intr() {
     }
 
     if (mip_val & MIP_MTIP && m_timer_intr_enable) {
-      mip->write(0);
+      riscv_csr_set_mip_pending(MIP_MTIP, false);
       return IRQ_M_TIMER;
     }
 
@@ -165,8 +164,7 @@ word_t isa_query_intr() {
       return IRQ_S_TIMER;
     }
   } else if (current_cpu_priv == S_MODE) {
-    virt_csr_entry_t *mip = get_virt_csr(0x344);
-    uint32_t mip_val = mip->read();
+    uint32_t mip_val = riscv_csr_mip_value();
 #ifdef CONFIG_HAS_PLIC
     if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE)) {
       return IRQ_M_EXTERNAL;
@@ -211,8 +209,7 @@ word_t isa_query_intr() {
       return IRQ_S_TIMER;
     }
   } else {
-    virt_csr_entry_t *mip = get_virt_csr(0x344);
-    uint32_t mip_val = mip->read();
+    uint32_t mip_val = riscv_csr_mip_value();
 #ifdef CONFIG_HAS_PLIC
     if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE)) {
       return IRQ_M_EXTERNAL;

@@ -21,32 +21,33 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
                       "a6", "a7", "s2",  "s3",  "s4", "s5", "s6", "s7",
                       "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
-#define DIFF_CSR_LIST                                                          \
-  X(mvendorid) X(marchid) X(mstatus) X(misa) X(medeleg) X(mcause) X(mepc)     \
-      X(sepc) X(mtval) X(mtvec) X(satp) X(mscratch) X(mie) X(scause)
-#define DIFF_CSR_NUM 14
+enum {
+#define COUNT_DIFFTEST_CSR(name) +1
+  DIFF_CSR_NUM = 0 EACH_DIFFTEST_CSR(COUNT_DIFFTEST_CSR)
+#undef COUNT_DIFFTEST_CSR
+};
 
 const char *csr[] = {
-#define X(name) #name,
-    DIFF_CSR_LIST
-#undef X
+#define CSR_NAME(name) #name,
+    EACH_DIFFTEST_CSR(CSR_NAME)
+#undef CSR_NAME
 };
 
 // 生成枚举索引
 typedef enum {
-#define X(name) CSR_IDX_##name,
-  DIFF_CSR_LIST
-#undef X
+#define CSR_INDEX(name) CSR_IDX_##name,
+  EACH_DIFFTEST_CSR(CSR_INDEX)
+#undef CSR_INDEX
       CSR_IDX_COUNT
 } csr_index_t;
 
 static uint32_t get_csr_val(CPU_state *state, int idx) {
   switch (idx) {
-#define X(name)                                                                \
+#define CSR_VALUE(name)                                                        \
   case CSR_IDX_##name:                                                         \
     return state->csr.name;
-    DIFF_CSR_LIST
-#undef X
+    EACH_DIFFTEST_CSR(CSR_VALUE)
+#undef CSR_VALUE
   default:
     assert(false && "invalid csr idx");
   }

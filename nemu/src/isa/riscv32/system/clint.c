@@ -5,7 +5,7 @@
 
 #ifdef CONFIG_HAS_CLINT
 
-#include "../local-include/csr-table.h"
+#include "../local-include/csr.h"
 
 #ifndef STANDARD_MTIME
 #define STANDARD_MTIME 1
@@ -32,31 +32,12 @@ static void clint_store_u64(uint32_t offset, uint64_t data) {
   memcpy(clint_space + CLINT_DWORD_OFFSET(offset), &data, sizeof(data));
 }
 
-static virt_csr_entry_t *clint_mip_csr(void) {
-  virt_csr_entry_t *mip = get_virt_csr(0x344);
-  if (mip == NULL || mip->read == NULL || mip->write == NULL) {
-    return NULL;
-  }
-  return mip;
-}
-
 static void clint_set_mip_pending(uint32_t hart, uint32_t bit, bool pending) {
   if (hart != clint_current_hart()) {
     return;
   }
 
-  virt_csr_entry_t *mip = clint_mip_csr();
-  if (mip == NULL) {
-    return;
-  }
-
-  uint32_t value = mip->read();
-  if (pending) {
-    value |= bit;
-  } else {
-    value &= ~bit;
-  }
-  mip->write(value);
+  riscv_csr_set_mip_pending(bit, pending);
 }
 
 static void clint_update_timer_pending() {
