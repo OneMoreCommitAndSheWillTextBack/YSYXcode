@@ -14,7 +14,6 @@
  ***************************************************************************************/
 
 #include <isa.h>
-#include <memory/consistency.h>
 #include <memory/paddr.h>
 
 // clang-format off
@@ -29,7 +28,7 @@ word_t vaddr_ifetch(vaddr_t addr, int len) {
     assert(false && "should not reach here");
   }
 
-  return consistency_read(paddr, len);
+  return paddr_read(paddr, len);
 }
 
 word_t vaddr_read(vaddr_t addr, int len) {
@@ -43,7 +42,7 @@ word_t vaddr_read(vaddr_t addr, int len) {
     assert(false && "should not reach here");
   }
 
-  return consistency_read(paddr, len);
+  return paddr_read(paddr, len);
 }
 
 bool vaddr_read_safe(vaddr_t addr, int len, word_t *data, word_t *cause) {
@@ -56,7 +55,7 @@ bool vaddr_read_safe(vaddr_t addr, int len, word_t *data, word_t *cause) {
   }
 
   if (data != NULL) {
-    *data = consistency_read(paddr, len);
+    *data = paddr_read(paddr, len);
   }
   if (cause != NULL) {
     *cause = 0;
@@ -75,5 +74,5 @@ void vaddr_write(vaddr_t addr, int len, word_t data) {
     assert(false && "should not reach here");
   }
 
-  consistency_write(paddr, len, data);
+  paddr_write(paddr, len, data);
 }
