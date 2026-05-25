@@ -16,6 +16,7 @@
 #include "macro.h"
 #include <device/mmio.h>
 #include <isa.h>
+#include <memory/consistency.h>
 #include <memory/host.h>
 #include <memory/paddr.h>
 
@@ -101,11 +102,12 @@ word_t paddr_read(paddr_t addr, int len) {
 
 void paddr_write(paddr_t addr, int len, word_t data) {
   if (likely(in_pmem(addr))) {
+    consistency_invalidate(addr, len);
     pmem_write(addr, len, data);
     return;
   }
-  IFDEF(CONFIG_DEVICE, mmio_write(addr, len, data); return);
-  IFDEF(CONFIG_TARGET_SHARE, soc_write(addr, len, data); return);
-  IFDEF(CONFIG_YSYXSOC_EMU, soc_write(addr, len, data); return);
+  IFDEF(CONFIG_DEVICE, consistency_invalidate(addr, len); mmio_write(addr, len, data); return);
+  IFDEF(CONFIG_TARGET_SHARE, consistency_invalidate(addr, len); soc_write(addr, len, data); return);
+  IFDEF(CONFIG_YSYXSOC_EMU, consistency_invalidate(addr, len); soc_write(addr, len, data); return);
   out_of_bound(addr);
 }
