@@ -164,7 +164,7 @@ static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
 
   if ((pte1 & (PTE_R | PTE_W | PTE_X))) {
     // INFO: if leaf r/w/x is not zero，meaning a 4 MiB megapage
-    *addr_res = (PTE_PPN(pte1)) | (vaddr & 0x3fffff);
+    *addr_res = (PTE_PPN(pte1) << 2) | (vaddr & 0x3fffff);
     return true;
   }
 
