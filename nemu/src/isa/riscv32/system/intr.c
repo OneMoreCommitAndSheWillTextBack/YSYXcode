@@ -80,9 +80,7 @@ static word_t raise_intr(word_t NO, vaddr_t epc, word_t tval, bool sync) {
                       (previous_priv == S_MODE ? SSTATUS_SPP : 0);
     cpu.csr.sepc = epc;
     cpu.csr.scause = NO;
-    if (sync) {
-      cpu.csr.stval = tval;
-    }
+    cpu.csr.stval = sync ? tval : 0;
     trap_pc = get_trap_pc(NO, cpu.csr.stvec);
   } else {
     uint32_t mstatus = cpu.csr.mstatus;
@@ -92,9 +90,7 @@ static word_t raise_intr(word_t NO, vaddr_t epc, word_t tval, bool sync) {
     current_cpu_priv = M_MODE;
     cpu.csr.mepc = epc;
     cpu.csr.mcause = NO;
-    if (sync) {
-      cpu.csr.mtval = tval;
-    }
+    cpu.csr.mtval = sync ? tval : 0;
     trap_pc = get_trap_pc(NO, cpu.csr.mtvec);
   }
 
