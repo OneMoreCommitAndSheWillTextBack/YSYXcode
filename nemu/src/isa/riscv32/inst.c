@@ -27,15 +27,36 @@
 #include <cpu/ifetch.h>
 #include <cpu/decode.h>
 #include <cpu/difftest.h>
+#include <memory/lrsc.h>
 #include <stdint.h>
 
 #define R(i) gpr(i)
 #define Mr vaddr_read
 #define Mw vaddr_write
 
+static lrsc_reservation_t lrsc_reservation = {};
+
 static word_t ecall_inst();
 static word_t mret_inst(Decode *s);
 static word_t sret_inst(Decode *s);
+
+static inline word_t lr_w_inst(vaddr_t addr) {
+  if ((addr & 0x3) != 0) {
+    cpu_throw_exception(EXC_LOAD_ADDR_MISALIGNED, addr);
+  }
+
+  paddr_t paddr = isa_mmu_translate(addr, 4, MEM_TYPE_READ);
+  return lrsc_load_reserved(&lrsc_reservation, paddr, 4);
+}
+
+static inline word_t sc_w_inst(vaddr_t addr, word_t data) {
+  if ((addr & 0x3) != 0) {
+    cpu_throw_exception(EXC_STORE_ADDR_MISALIGNED, addr);
+  }
+
+  paddr_t paddr = isa_mmu_translate(addr, 4, MEM_TYPE_WRITE);
+  return lrsc_store_conditional(&lrsc_reservation, paddr, 4, data) ? 0 : 1;
+}
 
 CPU_MODE current_cpu_priv = M_MODE;
 
@@ -278,6 +299,15 @@ static int decode_exec(Decode *s) {
   INSTPAT("00000?? ????? ????? 010 ????? 01011 11", amoadd.w , R, uint32_t t = Mr(src1, 4);      \
                                                                        R(rd) = t;                           \
                                                                        Mw(src1, 4, src2 + t));
+  INSTPAT("01000?? ????? ????? 010 ????? 01011 11", amoor.w  , R, uint32_t t = Mr(src1, 4);      \
+                                                                       R(rd) = t;                           \
+                                                                       Mw(src1, 4, t | src2));
+  INSTPAT("01100?? ????? ????? 010 ????? 01011 11", amoand.w , R, uint32_t t = Mr(src1, 4);      \
+                                                                       R(rd) = t;                           \
+                                                                       Mw(src1, 4, t & src2));
+
+  INSTPAT("00010?? 00000 ????? 010 ????? 01011 11", lr.w     , R, R(rd) = lr_w_inst(src1));
+  INSTPAT("00011?? ????? ????? 010 ????? 01011 11", sc.w     , R, R(rd) = sc_w_inst(src1, src2));
 
   INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, csrrw_inst(s, rd, imm, src1));
   INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, csrrs_inst(s, rd, imm, src1));
