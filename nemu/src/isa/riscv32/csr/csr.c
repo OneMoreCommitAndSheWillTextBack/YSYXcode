@@ -1,8 +1,9 @@
+#include "../local-include/csr.h"
+#include "../local-include/trap-cause.h"
 #include "csr-xmacro.h"
 #include "debug.h"
 #include "isa-def.h"
-#include "../local-include/csr.h"
-#include "../local-include/trap-cause.h"
+#include <device/clint.h>
 #include <isa.h>
 #include <stdint.h>
 #ifdef CONFIG_HAS_PLIC
@@ -14,11 +15,11 @@ static uint32_t software_mip_pending = 0;
 #define CSR_BIT(n) (1u << (n))
 
 #define MEDELEG_WRITABLE_MASK                                                  \
-  (CSR_BIT(EXC_INST_ADDR_MISALIGNED) | CSR_BIT(EXC_INST_ACCESS_FAULT) |       \
-   CSR_BIT(EXC_ILLEGAL_INST) | CSR_BIT(EXC_BREAKPOINT) |                      \
+  (CSR_BIT(EXC_INST_ADDR_MISALIGNED) | CSR_BIT(EXC_INST_ACCESS_FAULT) |        \
+   CSR_BIT(EXC_ILLEGAL_INST) | CSR_BIT(EXC_BREAKPOINT) |                       \
    CSR_BIT(EXC_LOAD_ADDR_MISALIGNED) | CSR_BIT(EXC_LOAD_ACCESS_FAULT) |        \
    CSR_BIT(EXC_STORE_ADDR_MISALIGNED) | CSR_BIT(EXC_STORE_ACCESS_FAULT) |      \
-   CSR_BIT(EXC_U_ECALL) | CSR_BIT(EXC_S_ECALL) |                              \
+   CSR_BIT(EXC_U_ECALL) | CSR_BIT(EXC_S_ECALL) |                               \
    CSR_BIT(EXC_INST_PAGE_FAULT) | CSR_BIT(EXC_LOAD_PAGE_FAULT) |               \
    CSR_BIT(EXC_STORE_PAGE_FAULT))
 
@@ -45,9 +46,7 @@ static inline uint32_t mip_writable_mask(void) {
   return MIP_MSIP | MIP_MTIP | MIP_SSIP | MIP_STIP;
 }
 
-static inline uint32_t sip_writable_mask(void) {
-  return MIP_SSIP;
-}
+static inline uint32_t sip_writable_mask(void) { return MIP_SSIP; }
 
 static inline uint32_t sstatus_mask(void) {
   return SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_MXR | SSTATUS_SUM | SSTATUS_SPP;
@@ -62,7 +61,7 @@ static void csr_write_mideleg(uint32_t data) {
 }
 
 static void disable_write(uint32_t data) {
-  (void)data;
+  panic("should not reach func disable_write");
 }
 
 #define DECLARE_VIRTUAL_CSR_HANDLER(name, idx)                                 \
@@ -162,6 +161,16 @@ void riscv_csr_set_mip_pending(uint32_t mask, bool pending) {
   }
   cpu.INTR = (software_mip_pending & MIP_MTIP) != 0;
 }
+
+static uint32_t virt_csr_time_read(void) { return (uint32_t)clint_get_mtime(); }
+
+static void virt_csr_time_write(uint32_t data) { disable_write(data); }
+
+static uint32_t virt_csr_timeh_read(void) {
+  return (uint32_t)(clint_get_mtime() >> 32);
+}
+
+static void virt_csr_timeh_write(uint32_t data) { disable_write(data); }
 
 static uint32_t virt_csr_mip_read(void) { return mip_value(); }
 

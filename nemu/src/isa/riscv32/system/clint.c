@@ -57,6 +57,8 @@ void clint_update_mtime(uint64_t mtime) {
   clint_update_timer_pending();
 }
 
+uint64_t clint_get_mtime(void) { return mtime_reg; }
+
 static void clint_sync_msip(uint32_t offset, bool is_write) {
   uint32_t hart = CLINT_MSIP_HART_ID(offset);
   uint32_t *reg = clint_u32_reg(offset);
@@ -156,5 +158,9 @@ void init_clint() {
   clint_update_mtime(0);
   add_mmio_map("clint", CLINT_BASE, clint_space, CLINT_SIZE, clint_io_handler);
 }
+
+#else
+
+uint64_t clint_get_mtime(void) { return 0; }
 
 #endif
