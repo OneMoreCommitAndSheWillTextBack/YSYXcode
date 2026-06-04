@@ -31,8 +31,23 @@
 #include <stdint.h>
 
 #define R(i) gpr(i)
-#define Mr vaddr_read
-#define Mw vaddr_write
+
+static inline word_t riscv_vaddr_read(vaddr_t addr, int len) {
+  if ((addr & (len - 1)) != 0) {
+    cpu_throw_exception(EXC_LOAD_ADDR_MISALIGNED, addr);
+  }
+  return vaddr_read(addr, len);
+}
+
+static inline void riscv_vaddr_write(vaddr_t addr, int len, word_t data) {
+  if ((addr & (len - 1)) != 0) {
+    cpu_throw_exception(EXC_STORE_ADDR_MISALIGNED, addr);
+  }
+  vaddr_write(addr, len, data);
+}
+
+#define Mr riscv_vaddr_read
+#define Mw riscv_vaddr_write
 
 static lrsc_reservation_t lrsc_reservation = {};
 
