@@ -31,6 +31,7 @@
   M(arg, RAW,  mvendorid, 0xf11, MVENDORID_YSYX,    NULL,                    disable_write,           DIFF)   \
   M(arg, RAW,  marchid,   0xf12, MARCHID_YSYX,      NULL,                    disable_write,           DIFF)   \
   M(arg, RAW,  mhartid,   0xf14, 0,                 NULL,                    disable_write,           NODIFF) \
+  M(arg, RAW,  mimpid,    0xf13, 0,                 NULL,                    disable_write,           NODIFF) \
   M(arg, RAW,  pmpaddr0,  0x3b0, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  pmpaddr1,  0x3b1, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  pmpaddr2,  0x3b2, 0,                 NULL,                    NULL,                    NODIFF) \
