@@ -5,6 +5,7 @@
 
 void init_clint();
 void clint_update_mtime(uint64_t mtime);
+uint64_t clint_get_mtime(void);
 
 #define CLINT_BASE 0x02000000u
 
