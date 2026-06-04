@@ -162,6 +162,7 @@ void riscv_csr_set_mip_pending(uint32_t mask, bool pending) {
   cpu.INTR = (software_mip_pending & MIP_MTIP) != 0;
 }
 
+#if 0
 static uint32_t virt_csr_time_read(void) { return (uint32_t)clint_get_mtime(); }
 
 static void virt_csr_time_write(uint32_t data) { disable_write(data); }
@@ -171,6 +172,7 @@ static uint32_t virt_csr_timeh_read(void) {
 }
 
 static void virt_csr_timeh_write(uint32_t data) { disable_write(data); }
+#endif
 
 static uint32_t virt_csr_mip_read(void) { return mip_value(); }
 

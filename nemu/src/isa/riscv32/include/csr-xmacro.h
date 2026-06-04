@@ -47,8 +47,8 @@
   M(arg, RAW,  sscratch,  0x140, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  stvec,     0x105, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  mie,       0x304, 0,                 NULL,                    NULL,                    DIFF)   \
-  M(arg, VIRT, time,      0xc01, 0,                 virt_csr_time_read,      virt_csr_time_write,     NODIFF) \
-  M(arg, VIRT, timeh,     0xc81, 0,                 virt_csr_timeh_read,     virt_csr_timeh_write,    NODIFF) \
+  /* M(arg, VIRT, time,      0xc01, 0,                 virt_csr_time_read,      virt_csr_time_write,     NODIFF) */ \
+  /* M(arg, VIRT, timeh,     0xc81, 0,                 virt_csr_timeh_read,     virt_csr_timeh_write,    NODIFF) */ \
   M(arg, VIRT, sie,       0x104, 0,                 virt_csr_sie_read,       virt_csr_sie_write,      NODIFF) \
   M(arg, VIRT, sip,       0x144, 0,                 virt_csr_sip_read,       virt_csr_sip_write,      NODIFF) \
   M(arg, VIRT, mip,       0x344, 0,                 virt_csr_mip_read,       virt_csr_mip_write,      NODIFF) \
