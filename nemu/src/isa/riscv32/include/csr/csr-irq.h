@@ -31,7 +31,7 @@
 #define SSTATUS_SPP (1 << 8)
 #define SSTATUS_VS (3 << 9)
 #define SSTATUS_FS (3 << 13)
-#define SSTATUS_SUM (1 << 17)
+#define SSTATUS_SUM (1 << 18)
 #define SSTATUS_MXR (1 << 19)
 #define SSTATUS_SPELP (1 << 23)
 #define SSTATUS_SDT (1 << 24)
