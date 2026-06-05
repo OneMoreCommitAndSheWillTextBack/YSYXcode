@@ -361,7 +361,7 @@ static int decode_exec(Decode *s) {
   INSTPAT("01100?? ????? ????? 010 ????? 01011 11", amoand.w , R, uint32_t t = Mr(src1, 4);      \
                                                                        R(rd) = t;                           \
                                                                        Mw(src1, 4, t & src2));
-  INSTPAT("00100?? ????? ????? 011 ????? 01011 11", amoxor.w , R, uint32_t t = Mr(src1, 4);      \
+  INSTPAT("00100?? ????? ????? 010 ????? 01011 11", amoxor.w , R, uint32_t t = Mr(src1, 4);      \
                                                                        R(rd) = t;                           \
                                                                        Mw(src1, 4, t ^ src2));
 
