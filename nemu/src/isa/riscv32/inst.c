@@ -244,7 +244,7 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
   case TYPE_CIW:
     *rd = C_RDP(i);
     *src1 = R(2);
-    *imm = C_IMM_ADDI4SPN(i);
+    *uimm = C_IMM_ADDI4SPN(i);
     break;
   case TYPE_CL:
     *rd = C_RDP(i);
