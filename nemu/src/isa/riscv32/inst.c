@@ -127,8 +127,8 @@ enum {
 enum {
   TYPE_C_N,
   TYPE_CI, TYPE_CI_SHAMT, TYPE_CI16SP, TYPE_C_LUI,
-  TYPE_CIW, TYPE_CL, TYPE_CS, TYPE_CSS,
-  TYPE_CR, TYPE_CA, TYPE_CB, TYPE_CJ,
+  TYPE_CILWSP, TYPE_CIW, TYPE_CL, TYPE_CS, TYPE_CSS,
+  TYPE_CR, TYPE_CA, TYPE_CB, TYPE_CB_IMM, TYPE_CJ,
 };
 
 #define src1R() do { *src1 = R(rs1); } while (0)
@@ -241,6 +241,11 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
     *rd = C_RD(i);
     *imm = C_IMM_LUI(i);
     break;
+  case TYPE_CILWSP:
+    *rd = C_RD(i);
+    *src1 = R(2);
+    *imm = C_IMM_LWSP(i);
+    break;
   case TYPE_CIW:
     *rd = C_RDP(i);
     *src1 = R(2);
@@ -274,6 +279,12 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
     *rd = C_RS1P(i);
     *src1 = R(C_RS1P(i));
     *imm = C_IMM_CB(i);
+    *uimm = C_SHAMT(i);
+    break;
+  case TYPE_CB_IMM:
+    *rd = C_RS1P(i);
+    *src1 = R(C_RS1P(i));
+    *imm = C_IMM_CI(i);
     *uimm = C_SHAMT(i);
     break;
   case TYPE_CJ:
@@ -401,22 +412,35 @@ static int decode_exec_c(Decode *s) {
   __VA_ARGS__ ; \
   }
   INSTPAT_START(c_extern);
-  INSTPAT("100 0 ????? 00000 10" , c.jr      , CR  , s->dnpc = src1);
-  INSTPAT("100 0 ????? ????? 10" , c.mv      , CR  , R(rd) = src2);
-  INSTPAT("000 ? ????? ????? 10" , c.slli    , CI  , R(rd) = R(rd) << uimm);
+  INSTPAT("100 0 ????? 00000 10" , c.jr      , CR    , s->dnpc = src1);
+  INSTPAT("100 0 ????? ????? 10" , c.mv      , CR    , R(rd) = src2);
+  INSTPAT("100 1 00000 00000 10" , c.ebreak  , C_N   , NEMUTRAP(s->pc, R(10)));
+  INSTPAT("100 1 ????? 00000 10" , c.jalr    , CR    , R(1) = s->pc + 2; s->dnpc = src1);
+  INSTPAT("100 1 ????? ????? 10" , c.add     , CR    , R(rd) = src1 + src2);
+  INSTPAT("000 ? ????? ????? 10" , c.slli    , CI    , R(rd) = R(rd) << uimm);
 
-  INSTPAT("001 ??????????? 01"   , c.jal     , CJ  , R(1) = s->pc+2;s->dnpc=s->pc+imm);
-  INSTPAT("010 ? ????? ????? 01" , c.li      , CI  , R(rd) = imm);
-  INSTPAT("110 ??????????? 01"   , c.beqz    , CB  , if(src1 == 0) s->dnpc = s->pc + imm);
-  INSTPAT("100 ? 00 ??? ????? 01", c.srli    , CB  , R(rd) = R(rd) >> uimm);
-  INSTPAT("111 ??????????? 01"   , c.bnez    , CB  , if(src1 != 0) s->dnpc = s->pc + imm);
-  INSTPAT("100011 ??? 00 ??? 01" , c.sub     , CA  , R(rd) = R(rd) - src2);
-  INSTPAT("100011 ??? 10 ??? 01" , c.or      , CA  , R(rd) = R(rd) | src2);
-  INSTPAT("101 ??????????? 01"   , c.j       , CJ  , s->dnpc = s->pc + imm);
-  INSTPAT("010 ? ????? ????? 10" , c.lwsp    , CI  , R(rd) = Mr(R(2) + uimm, 4));
-  INSTPAT("000 ???????? ??? 00"  , c.addi4spn, CIW , R(rd) = R(2) + uimm);
+  INSTPAT("001 ??????????? 01"   , c.jal     , CJ    , R(1) = s->pc+2;s->dnpc=s->pc+imm);
+  INSTPAT("000 ? ????? ????? 01" , c.addi    , CI    , R(rd) = R(rd) + imm);
+  INSTPAT("010 ? ????? ????? 01" , c.li      , CI    , R(rd) = imm);
+  INSTPAT("110 ??????????? 01"   , c.beqz    , CB    , if(src1 == 0) s->dnpc = s->pc + imm);
+  INSTPAT("100 ? 00 ??? ????? 01", c.srli    , CB    , R(rd) = R(rd) >> uimm);
+  INSTPAT("100 ? 01 ??? ????? 01", c.srai    , CB    , R(rd) = (int32_t)R(rd) >> uimm);
+  INSTPAT("100 ? 10 ??? ????? 01", c.andi    , CB_IMM, R(rd) = src1 & imm);
+  INSTPAT("111 ??????????? 01"   , c.bnez    , CB    , if(src1 != 0) s->dnpc = s->pc + imm);
+  INSTPAT("100011 ??? 00 ??? 01" , c.sub     , CA    , R(rd) = R(rd) - src2);
+  INSTPAT("100011 ??? 01 ??? 01" , c.xor     , CA    , R(rd) = R(rd) ^ src2);
+  INSTPAT("100011 ??? 10 ??? 01" , c.or      , CA    , R(rd) = R(rd) | src2);
+  INSTPAT("100011 ??? 11 ??? 01" , c.and     , CA    , R(rd) = R(rd) & src2);
+  INSTPAT("101 ??????????? 01"   , c.j       , CJ    , s->dnpc = s->pc + imm);
+  INSTPAT("010 ? ????? ????? 10" , c.lwsp    , CILWSP, R(rd) = Mr(src1 + imm, 4));
+  INSTPAT("000 ???????? ??? 00"  , c.addi4spn, CIW   , R(rd) = R(2) + uimm);
+  INSTPAT("010 ??? ??? ?? ??? 00", c.lw      , CL    , R(rd) = Mr(src1 + imm, 4));
+  INSTPAT("110 ??? ??? ?? ??? 00", c.sw      , CS    , Mw(src1 + imm, 4, src2));
+  INSTPAT("011 ? 00010 ????? 01" , c.addi16sp, CI16SP, R(2) = R(2) + imm);
+  INSTPAT("011 ? ????? ????? 01" , c.lui     , C_LUI , R(rd) = imm);
+  INSTPAT("110 ?????? ????? 10"  , c.swsp    , CSS   , Mw(src1 + imm, 4, src2));
 
-  INSTPAT("???? ????? ????? ??"  , inv   , C_N , INV(s->pc));
+  INSTPAT("???? ????? ????? ??"  , inv       , C_N   , INV(s->pc));
   INSTPAT_END(c_extern);
 
   R(0) = 0;

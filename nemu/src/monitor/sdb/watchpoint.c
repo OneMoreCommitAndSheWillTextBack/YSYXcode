@@ -22,7 +22,6 @@ typedef struct watchpoint {
   int NO;
   struct watchpoint *next;
 
-  /* TODO: Add more members if necessary */
   char *expr;
   int val;
 } WP;
@@ -41,7 +40,6 @@ void init_wp_pool() {
   free_ = wp_pool;
 }
 
-/* TODO: Implement the functionality of watchpoint */
 void new_wp(char *exp) {
   // move a wp from free_ to head
   size_t expr_len = 0;
@@ -57,7 +55,7 @@ void new_wp(char *exp) {
   }
   WP *tmp = free_;
   if (tmp == NULL) {
-    printf("the num of breakpoint has reached upper limit\n");
+    printf("[Error] the num of breakpoint has reached upper limit\n");
     return;
   }
   WP *head_tmp = head;
@@ -82,7 +80,7 @@ wp_init:
   expr_len = strlen(exp);
   tmp->expr = (char *)malloc(expr_len + 1);
   if (tmp->expr == NULL) {
-    printf("failed to allocate memory for watchpoint expr\n");
+    printf("[Error] failed to allocate memory for watchpoint expr\n");
     tmp->next = free_;
     free_ = tmp;
     return;
@@ -120,14 +118,14 @@ void free_wp(int wp_num) {
       }
       finder = finder->next;
     }
-    printf("can not find that watchpoint\n");
+    printf("[Error] can not find that watchpoint\n");
   }
   return;
 }
 
 void info_wp() {
   if (head == NULL) {
-    printf("there is no any watchpoint\n");
+    printf("[Error] there is no any watchpoint\n");
     return;
   }
   WP *tmp = head;
