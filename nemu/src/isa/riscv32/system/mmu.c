@@ -123,6 +123,13 @@ static bool isa_mmu_permission_check(uint32_t pte, int type,
     }
   }
 
+  if (!(pte & PTE_A)) {
+    return false;
+  }
+  if (type == MEM_TYPE_WRITE && !(pte & PTE_D)) {
+    return false;
+  }
+
   if (type == MEM_TYPE_READ) {
     bool can_read =
         (pte & PTE_R) || ((cpu.csr.mstatus & MSTATUS_MXR) && (pte & PTE_X));
