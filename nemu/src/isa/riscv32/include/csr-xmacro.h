@@ -44,8 +44,8 @@
   M(arg, RAW,  pmpcfg1,   0x3a1, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  scause,    0x142, 0,                 NULL,                    NULL,                    DIFF)   \
   M(arg, RAW,  stval,     0x143, 0,                 NULL,                    NULL,                    DIFF)   \
-  M(arg, RAW,  sscratch,  0x140, 0,                 NULL,                    NULL,                    NODIFF) \
-  M(arg, RAW,  stvec,     0x105, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  sscratch,  0x140, 0,                 NULL,                    NULL,                    DIFF)   \
+  M(arg, RAW,  stvec,     0x105, 0,                 NULL,                    NULL,                    DIFF)   \
   M(arg, RAW,  mie,       0x304, 0,                 NULL,                    NULL,                    DIFF)   \
   M(arg, RAW,  mcounteren, 0x306, 0,                 csr_read_mcounteren,     csr_write_mcounteren,    NODIFF) \
   M(arg, RAW,  scounteren, 0x106, 0,                 csr_read_scounteren,     csr_write_scounteren,    NODIFF) \

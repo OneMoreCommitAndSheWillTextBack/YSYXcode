@@ -49,6 +49,8 @@ static inline auto mscratch_csr() { return state->csrmap.at(CSR_MSCRATCH); }
 static inline auto mie_csr() { return state->mie; }
 static inline auto sepc_csr() { return state->csrmap.at(CSR_SEPC); }
 static inline auto stval_csr() { return state->csrmap.at(CSR_STVAL); }
+static inline auto sscratch_csr() { return state->csrmap.at(CSR_SSCRATCH); }
+static inline auto stvec_csr() { return state->csrmap.at(CSR_STVEC); }
 static inline auto mvendorid_csr() { return state->csrmap.at(CSR_MVENDORID); }
 static inline auto marchid_csr() { return state->csrmap.at(CSR_MARCHID); }
 
@@ -110,6 +112,8 @@ void sim_t::diff_get_regs(void *diff_context) {
   ctx->csr.mie = mie_csr()->read();
   ctx->csr.scause = state->scause->read();
   ctx->csr.stval = stval_csr()->read();
+  ctx->csr.sscratch = sscratch_csr()->read();
+  ctx->csr.stvec = stvec_csr()->read();
 }
 
 #define rv32_csr_syn(csrname) state->csrname->write(ctx->csr.csrname)
@@ -136,6 +140,8 @@ void sim_t::diff_set_regs(void *diff_context) {
   rv32_csr_syn(satp);
   rv32_csr_syn(scause);
   stval_csr()->write(ctx->csr.stval);
+  sscratch_csr()->write(ctx->csr.sscratch);
+  stvec_csr()->write(ctx->csr.stvec);
 }
 
 void sim_t::diff_memcpy_to_ref(reg_t dest, void *src, size_t n) {
