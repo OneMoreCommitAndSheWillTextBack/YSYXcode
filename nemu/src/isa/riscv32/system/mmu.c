@@ -22,10 +22,8 @@
 #include <memory/paddr.h>
 #include <memory/vaddr.h>
 
-extern CPU_MODE current_cpu_priv;
-
 static inline CPU_MODE isa_mmu_effective_priv(int type) {
-  if (type != MEM_TYPE_IFETCH && current_cpu_priv == M_MODE &&
+  if (type != MEM_TYPE_IFETCH && cpu.priv == M_MODE &&
       (cpu.csr.mstatus & MSTATUS_MPRV)) {
     uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
     if (mpp == MSTATUS_MPP_M) {
@@ -37,7 +35,7 @@ static inline CPU_MODE isa_mmu_effective_priv(int type) {
     return U_MODE;
   }
 
-  return current_cpu_priv;
+  return cpu.priv;
 }
 
 int isa_mmu_check(vaddr_t vaddr, int len, int type) {

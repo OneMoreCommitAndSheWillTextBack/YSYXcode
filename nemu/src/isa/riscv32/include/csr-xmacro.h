@@ -44,11 +44,18 @@
   M(arg, RAW,  pmpcfg1,   0x3a1, 0,                 NULL,                    NULL,                    NODIFF) \
   M(arg, RAW,  scause,    0x142, 0,                 NULL,                    NULL,                    DIFF)   \
   M(arg, RAW,  stval,     0x143, 0,                 NULL,                    NULL,                    DIFF)   \
-  M(arg, RAW,  sscratch,  0x140, 0,                 NULL,                    NULL,                    NODIFF) \
-  M(arg, RAW,  stvec,     0x105, 0,                 NULL,                    NULL,                    NODIFF) \
+  M(arg, RAW,  sscratch,  0x140, 0,                 NULL,                    NULL,                    DIFF)   \
+  M(arg, RAW,  stvec,     0x105, 0,                 NULL,                    NULL,                    DIFF)   \
   M(arg, RAW,  mie,       0x304, 0,                 NULL,                    NULL,                    DIFF)   \
+  M(arg, RAW,  mcounteren, 0x306, 0,                 csr_read_mcounteren,     csr_write_mcounteren,    NODIFF) \
+  M(arg, RAW,  scounteren, 0x106, 0,                 csr_read_scounteren,     csr_write_scounteren,    NODIFF) \
+  M(arg, RAW,  mcountinhibit, 0x320, 0,              csr_read_mcountinhibit,  csr_write_mcountinhibit, NODIFF) \
+  M(arg, VIRT, cycle,     0xc00, 0,                 virt_csr_cycle_read,     virt_csr_cycle_write,    NODIFF) \
   M(arg, VIRT, time,      0xc01, 0,                 virt_csr_time_read,      virt_csr_time_write,     NODIFF) \
+  M(arg, VIRT, instret,   0xc02, 0,                 virt_csr_instret_read,   virt_csr_instret_write,  NODIFF) \
+  M(arg, VIRT, cycleh,    0xc80, 0,                 virt_csr_cycleh_read,    virt_csr_cycleh_write,   NODIFF) \
   M(arg, VIRT, timeh,     0xc81, 0,                 virt_csr_timeh_read,     virt_csr_timeh_write,    NODIFF) \
+  M(arg, VIRT, instreth,  0xc82, 0,                 virt_csr_instreth_read,  virt_csr_instreth_write, NODIFF) \
   M(arg, VIRT, sie,       0x104, 0,                 virt_csr_sie_read,       virt_csr_sie_write,      NODIFF) \
   M(arg, VIRT, sip,       0x144, 0,                 virt_csr_sip_read,       virt_csr_sip_write,      NODIFF) \
   M(arg, VIRT, mip,       0x344, 0,                 virt_csr_mip_read,       virt_csr_mip_write,      NODIFF) \

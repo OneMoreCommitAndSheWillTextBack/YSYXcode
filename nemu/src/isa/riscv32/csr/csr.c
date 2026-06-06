@@ -1,6 +1,7 @@
 #include "../local-include/csr.h"
 #include "../local-include/trap-cause.h"
 #include "csr-xmacro.h"
+#include <cpu/difftest.h>
 #include "debug.h"
 #include "isa-def.h"
 #include <device/clint.h>
@@ -11,6 +12,7 @@
 #endif
 
 static uint32_t software_mip_pending = 0;
+extern uint64_t g_nr_guest_inst;
 
 #define CSR_BIT(n) (1u << (n))
 
@@ -63,6 +65,13 @@ static void csr_write_mideleg(uint32_t data) {
 static void disable_write(uint32_t data) {
   panic("should not reach func disable_write");
 }
+
+static uint32_t csr_read_mcounteren(void);
+static void csr_write_mcounteren(uint32_t data);
+static uint32_t csr_read_scounteren(void);
+static void csr_write_scounteren(uint32_t data);
+static uint32_t csr_read_mcountinhibit(void);
+static void csr_write_mcountinhibit(uint32_t data);
 
 #define DECLARE_VIRTUAL_CSR_HANDLER(name, idx)                                 \
   static uint32_t virt_csr_##name##_read(void);                                \
@@ -162,15 +171,84 @@ void riscv_csr_set_mip_pending(uint32_t mask, bool pending) {
   cpu.INTR = (software_mip_pending & MIP_MTIP) != 0;
 }
 
-static uint32_t virt_csr_time_read(void) { return (uint32_t)clint_get_mtime(); }
+#define ZICNTR_COUNTEREN_MASK 0x7u
+#define ZICNTR_MCOUNTINHIBIT_MASK 0x5u
+
+static uint32_t csr_read_mcounteren(void) {
+  difftest_skip_ref();
+  return cpu.csr.mcounteren;
+}
+
+static void csr_write_mcounteren(uint32_t data) {
+  difftest_skip_ref();
+  cpu.csr.mcounteren = data & ZICNTR_COUNTEREN_MASK;
+}
+
+static uint32_t csr_read_scounteren(void) {
+  difftest_skip_ref();
+  return cpu.csr.scounteren;
+}
+
+static void csr_write_scounteren(uint32_t data) {
+  difftest_skip_ref();
+  cpu.csr.scounteren = data & ZICNTR_COUNTEREN_MASK;
+}
+
+static uint32_t csr_read_mcountinhibit(void) {
+  difftest_skip_ref();
+  return cpu.csr.mcountinhibit;
+}
+
+static void csr_write_mcountinhibit(uint32_t data) {
+  difftest_skip_ref();
+  cpu.csr.mcountinhibit = data & ZICNTR_MCOUNTINHIBIT_MASK;
+}
+
+static uint64_t zicntr_inst_counter(void) {
+  return g_nr_guest_inst;
+}
+
+static uint32_t virt_csr_cycle_read(void) {
+  difftest_skip_ref();
+  return (uint32_t)zicntr_inst_counter();
+}
+
+static void virt_csr_cycle_write(uint32_t data) { disable_write(data); }
+
+static uint32_t virt_csr_time_read(void) {
+  difftest_skip_ref();
+  return (uint32_t)clint_get_mtime();
+}
 
 static void virt_csr_time_write(uint32_t data) { disable_write(data); }
 
+static uint32_t virt_csr_instret_read(void) {
+  difftest_skip_ref();
+  return (uint32_t)zicntr_inst_counter();
+}
+
+static void virt_csr_instret_write(uint32_t data) { disable_write(data); }
+
+static uint32_t virt_csr_cycleh_read(void) {
+  difftest_skip_ref();
+  return (uint32_t)(zicntr_inst_counter() >> 32);
+}
+
+static void virt_csr_cycleh_write(uint32_t data) { disable_write(data); }
+
 static uint32_t virt_csr_timeh_read(void) {
+  difftest_skip_ref();
   return (uint32_t)(clint_get_mtime() >> 32);
 }
 
 static void virt_csr_timeh_write(uint32_t data) { disable_write(data); }
+
+static uint32_t virt_csr_instreth_read(void) {
+  difftest_skip_ref();
+  return (uint32_t)(zicntr_inst_counter() >> 32);
+}
+
+static void virt_csr_instreth_write(uint32_t data) { disable_write(data); }
 
 static uint32_t virt_csr_mip_read(void) { return mip_value(); }
 

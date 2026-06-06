@@ -168,7 +168,7 @@ static int cmd_save(char *args) { return snap_store(args); }
 
 static int cmd_load(char *args) {
   int res = snap_load(args);
-  if (isa_difftest_is_attach()) {
+  if (res == 0 && isa_difftest_is_attach()) {
     isa_difftest_detach();
     isa_difftest_attach();
   }

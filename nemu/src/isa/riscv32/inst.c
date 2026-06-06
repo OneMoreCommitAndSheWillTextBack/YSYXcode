@@ -31,14 +31,70 @@
 #include <stdint.h>
 
 #define R(i) gpr(i)
-#define Mr vaddr_read
-#define Mw vaddr_write
+
+static inline word_t riscv_vaddr_read(vaddr_t addr, int len) {
+  if ((addr & (len - 1)) != 0) {
+    cpu_throw_exception(EXC_LOAD_ADDR_MISALIGNED, addr);
+  }
+  return vaddr_read(addr, len);
+}
+
+static inline void riscv_vaddr_write(vaddr_t addr, int len, word_t data) {
+  if ((addr & (len - 1)) != 0) {
+    cpu_throw_exception(EXC_STORE_ADDR_MISALIGNED, addr);
+  }
+  vaddr_write(addr, len, data);
+}
+
+static inline word_t rv32_div(word_t dividend_raw, word_t divisor_raw) {
+  int32_t dividend = (int32_t)dividend_raw;
+  int32_t divisor = (int32_t)divisor_raw;
+
+  if (divisor == 0) {
+    return UINT32_MAX;
+  }
+  if (dividend == INT32_MIN && divisor == -1) {
+    return (uint32_t)dividend;
+  }
+  return (uint32_t)(dividend / divisor);
+}
+
+static inline word_t rv32_divu(word_t dividend, word_t divisor) {
+  if (divisor == 0) {
+    return UINT32_MAX;
+  }
+  return dividend / divisor;
+}
+
+static inline word_t rv32_rem(word_t dividend_raw, word_t divisor_raw) {
+  int32_t dividend = (int32_t)dividend_raw;
+  int32_t divisor = (int32_t)divisor_raw;
+
+  if (divisor == 0) {
+    return dividend_raw;
+  }
+  if (dividend == INT32_MIN && divisor == -1) {
+    return 0;
+  }
+  return (uint32_t)(dividend % divisor);
+}
+
+static inline word_t rv32_remu(word_t dividend, word_t divisor) {
+  if (divisor == 0) {
+    return dividend;
+  }
+  return dividend % divisor;
+}
+
+#define Mr riscv_vaddr_read
+#define Mw riscv_vaddr_write
 
 static lrsc_reservation_t lrsc_reservation = {};
 
 static word_t ecall_inst();
 static word_t mret_inst(Decode *s);
 static word_t sret_inst(Decode *s);
+static void wfi_inst(void);
 
 static inline word_t lr_w_inst(vaddr_t addr) {
   if ((addr & 0x3) != 0) {
@@ -57,8 +113,6 @@ static inline word_t sc_w_inst(vaddr_t addr, word_t data) {
   paddr_t paddr = isa_mmu_translate(addr, 4, MEM_TYPE_WRITE);
   return lrsc_store_conditional(&lrsc_reservation, paddr, 4, data) ? 0 : 1;
 }
-
-CPU_MODE current_cpu_priv = M_MODE;
 
 #define ECALL cpu_throw_exception(ecall_inst(), 0)
 #define MRET s->dnpc = mret_inst(s)
@@ -135,13 +189,11 @@ word_t isa_raise_sync_intr(word_t NO, vaddr_t epc, word_t tval);
 
 #define HANDLE_EXCEPTION(s)                                                    \
   CPU_state cpu_backup = cpu;                                                  \
-  CPU_MODE priv_backup = current_cpu_priv;                                     \
   cpu_exception_begin();                                                       \
   if (setjmp(cpu_exception_env) != 0) {                                        \
     cpu_exception_t exception = *cpu_exception_current();                       \
     cpu_exception_end();                                                       \
     cpu = cpu_backup;                                                          \
-    current_cpu_priv = priv_backup;                                            \
     (s)->dnpc =                                                               \
         isa_raise_sync_intr(exception.cause, exception.epc, exception.tval);   \
     return -1;                                                                \
@@ -192,7 +244,7 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
   case TYPE_CIW:
     *rd = C_RDP(i);
     *src1 = R(2);
-    *imm = C_IMM_ADDI4SPN(i);
+    *uimm = C_IMM_ADDI4SPN(i);
     break;
   case TYPE_CL:
     *rd = C_RDP(i);
@@ -264,7 +316,7 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if(src1 == src2) s->dnpc = s->pc + imm);
   INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if(src1 != src2) s->dnpc = s->pc + imm);
   INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = src1 * src2);
-  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = (int)src1 / (int)src2);
+  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = rv32_div(src1, src2));
   INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if((int)src1 >= (int)src2) s->dnpc = s->pc + imm);
   INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << imm);
   INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, long t1=(int)src1;long t2=(int)src2;R(rd)=(t1*t2)>>32);
@@ -274,7 +326,7 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if((int)src1 < (int)src2) s->dnpc = s->pc + imm);
   INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int)src1 < (int)src2);
   INSTPAT("??????? ????? ????? 111 ????? 00100 11", andi   , I, R(rd) = src1 & imm);
-  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = (int)src1 % (int)src2);
+  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = rv32_rem(src1, src2));
   INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (int)src1 >> imm);
   INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> imm);
   INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int)src1 >> src2);
@@ -286,8 +338,8 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? 100 ????? 00100 11", xori   , I, R(rd) = src1 ^ imm);
   INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, R(rd) = SEXT(Mr(src1 + imm, 2), 16));
   INSTPAT("??????? ????? ????? 101 ????? 00000 11", lhu    , I, R(rd) = Mr(src1 + imm, 2));
-  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = src1 % src2);
-  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = src1 / src2);
+  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = rv32_remu(src1, src2));
+  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = rv32_divu(src1, src2));
   INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if(src1 >= src2) s->dnpc = s->pc + imm);
   INSTPAT("??????? ????? ????? 010 ????? 00100 11", slti   , I, R(rd) = (int)src1 < (int)imm);
   INSTPAT("??????? ????? ????? 110 ????? 00100 11", ori    , I, R(rd) = src1 | imm);
@@ -305,6 +357,9 @@ static int decode_exec(Decode *s) {
   INSTPAT("01100?? ????? ????? 010 ????? 01011 11", amoand.w , R, uint32_t t = Mr(src1, 4);      \
                                                                        R(rd) = t;                           \
                                                                        Mw(src1, 4, t & src2));
+  INSTPAT("00100?? ????? ????? 010 ????? 01011 11", amoxor.w , R, uint32_t t = Mr(src1, 4);      \
+                                                                       R(rd) = t;                           \
+                                                                       Mw(src1, 4, t ^ src2));
 
   INSTPAT("00010?? 00000 ????? 010 ????? 01011 11", lr.w     , R, R(rd) = lr_w_inst(src1));
   INSTPAT("00011?? ????? ????? 010 ????? 01011 11", sc.w     , R, R(rd) = sc_w_inst(src1, src2));
@@ -322,7 +377,7 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
   INSTPAT("0000000 00000 00000 001 00000 00011 11", fence.i, I, );
   INSTPAT("0000??? ????? 00000 000 00000 00011 11", fence  , I, );
-  INSTPAT("0001000 00101 00000 000 00000 11100 11", wfi    , R, );
+  INSTPAT("0001000 00101 00000 000 00000 11100 11", wfi    , R, wfi_inst());
   INSTPAT("0001001 ????? ????? 000 00000 11100 11", sfence.vma, R, );
 
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
@@ -346,17 +401,20 @@ static int decode_exec_c(Decode *s) {
   __VA_ARGS__ ; \
   }
   INSTPAT_START(c_extern);
-  INSTPAT("100 0 ????? 00000 10" , c.jr  , CR  , s->dnpc = src1);
-  INSTPAT("100 0 ????? ????? 10" , c.mv  , CR  , R(rd) = src2);
-  INSTPAT("000 ? ????? ????? 10" , c.slli, CI  , R(rd) = R(rd) << uimm);
+  INSTPAT("100 0 ????? 00000 10" , c.jr      , CR  , s->dnpc = src1);
+  INSTPAT("100 0 ????? ????? 10" , c.mv      , CR  , R(rd) = src2);
+  INSTPAT("000 ? ????? ????? 10" , c.slli    , CI  , R(rd) = R(rd) << uimm);
 
-  INSTPAT("001 ??????????? 01"   , c.jal , CJ  , R(1) = s->pc+2;s->dnpc=s->pc+imm);
-  INSTPAT("010 ? ????? ????? 01" , c.li  , CI  , R(rd) = imm);
-  INSTPAT("110 ??????????? 01"   , c.beqz, CB  , if(src1 == 0) s->dnpc = s->pc + imm);
-  INSTPAT("100 ? 00 ??? ????? 01", c.srli, CB  , R(rd) = R(rd) >> uimm);
-  INSTPAT("111 ??????????? 01"   , c.bnez, CB  , if(src1 != 0) s->dnpc = s->pc + imm);
-  INSTPAT("100011 ??? 00 ??? 01" , c.sub , CA  , R(rd) = R(rd) - src2);
-  INSTPAT("100011 ??? 10 ??? 01" , c.or  , CA  , R(rd) = R(rd) | src2);
+  INSTPAT("001 ??????????? 01"   , c.jal     , CJ  , R(1) = s->pc+2;s->dnpc=s->pc+imm);
+  INSTPAT("010 ? ????? ????? 01" , c.li      , CI  , R(rd) = imm);
+  INSTPAT("110 ??????????? 01"   , c.beqz    , CB  , if(src1 == 0) s->dnpc = s->pc + imm);
+  INSTPAT("100 ? 00 ??? ????? 01", c.srli    , CB  , R(rd) = R(rd) >> uimm);
+  INSTPAT("111 ??????????? 01"   , c.bnez    , CB  , if(src1 != 0) s->dnpc = s->pc + imm);
+  INSTPAT("100011 ??? 00 ??? 01" , c.sub     , CA  , R(rd) = R(rd) - src2);
+  INSTPAT("100011 ??? 10 ??? 01" , c.or      , CA  , R(rd) = R(rd) | src2);
+  INSTPAT("101 ??????????? 01"   , c.j       , CJ  , s->dnpc = s->pc + imm);
+  INSTPAT("010 ? ????? ????? 10" , c.lwsp    , CI  , R(rd) = Mr(R(2) + uimm, 4));
+  INSTPAT("000 ???????? ??? 00"  , c.addi4spn, CIW , R(rd) = R(2) + uimm);
 
   INSTPAT("???? ????? ????? ??"  , inv   , C_N , INV(s->pc));
   INSTPAT_END(c_extern);
@@ -382,29 +440,29 @@ int isa_exec_once(Decode *s) {
 }
 
 static word_t ecall_inst() {
-  if (current_cpu_priv == M_MODE) {
+  if (cpu.priv == M_MODE) {
     return EXC_M_ECALL;
-  } else if (current_cpu_priv == S_MODE) {
+  } else if (cpu.priv == S_MODE) {
     return EXC_S_ECALL;
-  } else if(current_cpu_priv == U_MODE) {
+  } else if(cpu.priv == U_MODE) {
     return EXC_U_ECALL;
   } else {
-    assert(false && "invalid current_cpu_priv");
+    assert(false && "invalid cpu.priv");
   }
   return 0;
 }
 
 static word_t mret_inst(Decode *s) {
-  if (current_cpu_priv != M_MODE) {
+  if (cpu.priv != M_MODE) {
     cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
   uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
   if(mpp == MSTATUS_MPP_M) {
-    current_cpu_priv = M_MODE;
+    cpu.priv = M_MODE;
   } else if(mpp == MSTATUS_MPP_S) {
-    current_cpu_priv = S_MODE;
+    cpu.priv = S_MODE;
   } else if(mpp == MSTATUS_MPP_U) {
-    current_cpu_priv = U_MODE;
+    cpu.priv = U_MODE;
   } else {
     assert(false && "mpp");
   }
@@ -415,7 +473,7 @@ static word_t mret_inst(Decode *s) {
   uint32_t mpie = cpu.csr.mstatus & MSTATUS_MPIE;
   cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE)) | (mpie >> 4);
   cpu.csr.mstatus = cpu.csr.mstatus | MSTATUS_MPIE;
-  if (current_cpu_priv != M_MODE) {
+  if (cpu.priv != M_MODE) {
     cpu.csr.mstatus = cpu.csr.mstatus & ~MSTATUS_MPRV;
   }
 
@@ -423,17 +481,17 @@ static word_t mret_inst(Decode *s) {
 }
 
 static word_t sret_inst(Decode *s) {
-  if (current_cpu_priv != S_MODE && current_cpu_priv != M_MODE) {
+  if (cpu.priv != S_MODE && cpu.priv != M_MODE) {
     cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
-  if (current_cpu_priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
+  if (cpu.priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
     cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
   uint32_t spp = cpu.csr.mstatus & MSTATUS_SPP;
   if(spp == 0){
-    current_cpu_priv = U_MODE;
+    cpu.priv = U_MODE;
   } else {
-    current_cpu_priv = S_MODE;
+    cpu.priv = S_MODE;
   }
   cpu.csr.mstatus = cpu.csr.mstatus & ~MSTATUS_SPP;
 
@@ -445,10 +503,14 @@ static word_t sret_inst(Decode *s) {
   return cpu.csr.sepc;
 }
 
+static void wfi_inst(void) {
+  difftest_skip_ref();
+}
+
 #define CSR_MASK 0xfff
 
-static uint32_t current_cpu_priv_level() {
-  switch (current_cpu_priv) {
+static uint32_t cpu_priv_level() {
+  switch (cpu.priv) {
   case U_MODE:
     return 0;
   case S_MODE:
@@ -456,7 +518,7 @@ static uint32_t current_cpu_priv_level() {
   case M_MODE:
     return 3;
   default:
-    assert(false && "invalid current_cpu_priv");
+    assert(false && "invalid cpu.priv");
     return 0;
   }
 }
@@ -480,7 +542,7 @@ static bool csr_check_access(Decode *s, uint32_t csr_num, bool write,
   uint32_t csr_priv = BITS(csr_num, 9, 8);
   uint32_t csr_rw = BITS(csr_num, 11, 10);
 
-  if (current_cpu_priv_level() < csr_priv) {
+  if (cpu_priv_level() < csr_priv) {
     raise_illegal_csr_access(s, csr_num, op, "insufficient privilege", false);
     return false;
   }

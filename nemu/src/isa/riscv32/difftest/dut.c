@@ -19,8 +19,6 @@
 #include <isa.h>
 #include <stdio.h>
 
-extern CPU_MODE current_cpu_priv;
-
 #define riscv_check_csr(csrname)                                               \
   do {                                                                         \
     if (ref_r->csr.csrname != cpu.csr.csrname) {                               \
@@ -46,9 +44,9 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
   }
 
 #ifdef CONFIG_DIFFTEST
-  if (difftest_ref_priv != current_cpu_priv) {
+  if (difftest_ref_priv != cpu.priv) {
     printf("the difftest encounter a error at pc:%x\n", pc);
-    printf("nemu[priv] %08x spike[priv] %08x \n", current_cpu_priv,
+    printf("nemu[priv] %08x spike[priv] %08x \n", cpu.priv,
            (uint32_t)difftest_ref_priv);
     return false;
   }
