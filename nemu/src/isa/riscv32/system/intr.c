@@ -21,8 +21,6 @@
 #include <isa.h>
 #include <stdint.h>
 
-extern CPU_MODE current_cpu_priv;
-
 static inline uint32_t encode_mpp(CPU_MODE priv) {
   switch (priv) {
   case M_MODE:
@@ -32,7 +30,7 @@ static inline uint32_t encode_mpp(CPU_MODE priv) {
   case U_MODE:
     return MSTATUS_MPP_U;
   default:
-    assert(0 && "invalid current_cpu_priv");
+    assert(0 && "invalid cpu.priv");
     return MSTATUS_MPP_U;
   }
 }
@@ -71,9 +69,9 @@ inline static word_t get_trap_pc(word_t NO, word_t tvec) {
 static word_t raise_intr(word_t NO, vaddr_t epc, word_t tval, bool sync) {
   uint32_t trap_pc = 0;
 
-  if (current_cpu_priv != M_MODE && is_deleg(NO)) {
-    CPU_MODE previous_priv = current_cpu_priv;
-    current_cpu_priv = S_MODE;
+  if (cpu.priv != M_MODE && is_deleg(NO)) {
+    CPU_MODE previous_priv = cpu.priv;
+    cpu.priv = S_MODE;
     uint32_t old = cpu.csr.mstatus;
     cpu.csr.mstatus = (old & ~(SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP)) |
                       ((old & SSTATUS_SIE) << 4) |
@@ -86,8 +84,8 @@ static word_t raise_intr(word_t NO, vaddr_t epc, word_t tval, bool sync) {
     uint32_t mstatus = cpu.csr.mstatus;
     cpu.csr.mstatus =
         (mstatus & ~(MSTATUS_MPP_MASK | MSTATUS_MPIE | MSTATUS_MIE)) |
-        encode_mpp(current_cpu_priv) | ((mstatus & MSTATUS_MIE) << 4);
-    current_cpu_priv = M_MODE;
+        encode_mpp(cpu.priv) | ((mstatus & MSTATUS_MIE) << 4);
+    cpu.priv = M_MODE;
     cpu.csr.mepc = epc;
     cpu.csr.mcause = NO;
     cpu.csr.mtval = sync ? tval : 0;
@@ -106,7 +104,7 @@ word_t isa_raise_sync_intr(word_t NO, vaddr_t epc, word_t tval) {
 }
 
 bool isa_enable_intr() {
-  switch (current_cpu_priv) {
+  switch (cpu.priv) {
   case M_MODE:
     return (cpu.csr.mstatus & MSTATUS_MIE) != 0;
   case S_MODE:
@@ -114,7 +112,7 @@ bool isa_enable_intr() {
   case U_MODE:
     return true;
   default:
-    assert(0 && "invalid current_cpu_priv");
+    assert(0 && "invalid cpu.priv");
     return false;
   }
 }
@@ -125,7 +123,7 @@ bool isa_enable_intr() {
 word_t isa_query_intr() {
   bool global_intr_enable = false;
 
-  if (current_cpu_priv == M_MODE) {
+  if (cpu.priv == M_MODE) {
     global_intr_enable = (cpu.csr.mstatus & MSTATUS_MIE) != 0;
     if (!global_intr_enable)
       return INTR_EMPTY;
@@ -159,7 +157,7 @@ word_t isa_query_intr() {
     if (!s_timer_delegated && s_timer_intr_enable && (mip_val & MIP_STIP)) {
       return IRQ_S_TIMER;
     }
-  } else if (current_cpu_priv == S_MODE) {
+  } else if (cpu.priv == S_MODE) {
     uint32_t mip_val = riscv_csr_mip_value();
 #ifdef CONFIG_HAS_PLIC
     if ((mip_val & MIP_MEIP) && (cpu.csr.mie & MIE_MEIE)) {

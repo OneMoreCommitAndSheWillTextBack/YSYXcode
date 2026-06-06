@@ -37,7 +37,6 @@ static bool is_skip_ref = false;
 static int skip_dut_nr_inst = 0;
 
 #ifdef CONFIG_ISA_riscv
-extern CPU_MODE current_cpu_priv;
 RISCV_GPR_TYPE difftest_ref_priv = DIFFTEST_RISCV_PRIV_M;
 
 static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state) {
@@ -45,7 +44,7 @@ static void pack_difftest_ctx(riscv_difftest_ctx_t *ctx, const CPU_state *state)
     ctx->gpr[i] = state->gpr[i];
   }
   ctx->pc = state->pc;
-  ctx->priv = current_cpu_priv;
+  ctx->priv = state->priv;
 #define PACK_DIFFTEST_CSR(name) ctx->csr.name = state->csr.name;
   EACH_DIFFTEST_CSR(PACK_DIFFTEST_CSR)
 #undef PACK_DIFFTEST_CSR
@@ -57,7 +56,7 @@ static void unpack_difftest_ctx(CPU_state *state,
     state->gpr[i] = ctx->gpr[i];
   }
   state->pc = ctx->pc;
-  current_cpu_priv = ctx->priv;
+  state->priv = ctx->priv;
 #define UNPACK_DIFFTEST_CSR(name) state->csr.name = ctx->csr.name;
   EACH_DIFFTEST_CSR(UNPACK_DIFFTEST_CSR)
 #undef UNPACK_DIFFTEST_CSR

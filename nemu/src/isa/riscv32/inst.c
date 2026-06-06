@@ -114,8 +114,6 @@ static inline word_t sc_w_inst(vaddr_t addr, word_t data) {
   return lrsc_store_conditional(&lrsc_reservation, paddr, 4, data) ? 0 : 1;
 }
 
-CPU_MODE current_cpu_priv = M_MODE;
-
 #define ECALL cpu_throw_exception(ecall_inst(), 0)
 #define MRET s->dnpc = mret_inst(s)
 #define SRET s->dnpc = sret_inst(s)
@@ -191,13 +189,11 @@ word_t isa_raise_sync_intr(word_t NO, vaddr_t epc, word_t tval);
 
 #define HANDLE_EXCEPTION(s)                                                    \
   CPU_state cpu_backup = cpu;                                                  \
-  CPU_MODE priv_backup = current_cpu_priv;                                     \
   cpu_exception_begin();                                                       \
   if (setjmp(cpu_exception_env) != 0) {                                        \
     cpu_exception_t exception = *cpu_exception_current();                       \
     cpu_exception_end();                                                       \
     cpu = cpu_backup;                                                          \
-    current_cpu_priv = priv_backup;                                            \
     (s)->dnpc =                                                               \
         isa_raise_sync_intr(exception.cause, exception.epc, exception.tval);   \
     return -1;                                                                \
@@ -444,29 +440,29 @@ int isa_exec_once(Decode *s) {
 }
 
 static word_t ecall_inst() {
-  if (current_cpu_priv == M_MODE) {
+  if (cpu.priv == M_MODE) {
     return EXC_M_ECALL;
-  } else if (current_cpu_priv == S_MODE) {
+  } else if (cpu.priv == S_MODE) {
     return EXC_S_ECALL;
-  } else if(current_cpu_priv == U_MODE) {
+  } else if(cpu.priv == U_MODE) {
     return EXC_U_ECALL;
   } else {
-    assert(false && "invalid current_cpu_priv");
+    assert(false && "invalid cpu.priv");
   }
   return 0;
 }
 
 static word_t mret_inst(Decode *s) {
-  if (current_cpu_priv != M_MODE) {
+  if (cpu.priv != M_MODE) {
     cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
   uint32_t mpp = cpu.csr.mstatus & MSTATUS_MPP_MASK;
   if(mpp == MSTATUS_MPP_M) {
-    current_cpu_priv = M_MODE;
+    cpu.priv = M_MODE;
   } else if(mpp == MSTATUS_MPP_S) {
-    current_cpu_priv = S_MODE;
+    cpu.priv = S_MODE;
   } else if(mpp == MSTATUS_MPP_U) {
-    current_cpu_priv = U_MODE;
+    cpu.priv = U_MODE;
   } else {
     assert(false && "mpp");
   }
@@ -477,7 +473,7 @@ static word_t mret_inst(Decode *s) {
   uint32_t mpie = cpu.csr.mstatus & MSTATUS_MPIE;
   cpu.csr.mstatus = (cpu.csr.mstatus & ~(MSTATUS_MIE)) | (mpie >> 4);
   cpu.csr.mstatus = cpu.csr.mstatus | MSTATUS_MPIE;
-  if (current_cpu_priv != M_MODE) {
+  if (cpu.priv != M_MODE) {
     cpu.csr.mstatus = cpu.csr.mstatus & ~MSTATUS_MPRV;
   }
 
@@ -485,17 +481,17 @@ static word_t mret_inst(Decode *s) {
 }
 
 static word_t sret_inst(Decode *s) {
-  if (current_cpu_priv != S_MODE && current_cpu_priv != M_MODE) {
+  if (cpu.priv != S_MODE && cpu.priv != M_MODE) {
     cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
-  if (current_cpu_priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
+  if (cpu.priv == S_MODE && (cpu.csr.mstatus & MSTATUS_TSR)) {
     cpu_throw_exception(EXC_ILLEGAL_INST, s->isa.inst.val);
   }
   uint32_t spp = cpu.csr.mstatus & MSTATUS_SPP;
   if(spp == 0){
-    current_cpu_priv = U_MODE;
+    cpu.priv = U_MODE;
   } else {
-    current_cpu_priv = S_MODE;
+    cpu.priv = S_MODE;
   }
   cpu.csr.mstatus = cpu.csr.mstatus & ~MSTATUS_SPP;
 
@@ -513,8 +509,8 @@ static void wfi_inst(void) {
 
 #define CSR_MASK 0xfff
 
-static uint32_t current_cpu_priv_level() {
-  switch (current_cpu_priv) {
+static uint32_t cpu_priv_level() {
+  switch (cpu.priv) {
   case U_MODE:
     return 0;
   case S_MODE:
@@ -522,7 +518,7 @@ static uint32_t current_cpu_priv_level() {
   case M_MODE:
     return 3;
   default:
-    assert(false && "invalid current_cpu_priv");
+    assert(false && "invalid cpu.priv");
     return 0;
   }
 }
@@ -546,7 +542,7 @@ static bool csr_check_access(Decode *s, uint32_t csr_num, bool write,
   uint32_t csr_priv = BITS(csr_num, 9, 8);
   uint32_t csr_rw = BITS(csr_num, 11, 10);
 
-  if (current_cpu_priv_level() < csr_priv) {
+  if (cpu_priv_level() < csr_priv) {
     raise_illegal_csr_access(s, csr_num, op, "insufficient privilege", false);
     return false;
   }
