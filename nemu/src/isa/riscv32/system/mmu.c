@@ -170,7 +170,7 @@ static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
 
   if ((pte1 & (PTE_R | PTE_W | PTE_X))) {
     // INFO: if leaf r/w/x is not zero，meaning a 4 MiB megapage
-    if ((pte1 & PTE_PPN0_MASK) ||
+    if ((pte1 & PTE_PPN0_MASK) || // 4 MiB align
         !isa_mmu_permission_check(pte1, type, effective_priv)) {
       if (cause != NULL) {
         *cause = isa_mmu_fault_cause(type);
