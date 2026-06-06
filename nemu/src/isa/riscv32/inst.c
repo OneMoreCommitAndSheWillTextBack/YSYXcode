@@ -127,7 +127,7 @@ enum {
 enum {
   TYPE_C_N,
   TYPE_CI, TYPE_CI_SHAMT, TYPE_CI16SP, TYPE_C_LUI,
-  TYPE_CIW, TYPE_CL, TYPE_CS, TYPE_CSS,
+  TYPE_CILWSP, TYPE_CIW, TYPE_CL, TYPE_CS, TYPE_CSS,
   TYPE_CR, TYPE_CA, TYPE_CB, TYPE_CB_IMM, TYPE_CJ,
 };
 
@@ -240,6 +240,11 @@ static void decode_operand_c(Decode *s, int *rd, word_t *src1, word_t *src2,
   case TYPE_C_LUI:
     *rd = C_RD(i);
     *imm = C_IMM_LUI(i);
+    break;
+  case TYPE_CILWSP:
+    *rd = C_RD(i);
+    *src1 = R(2);
+    *imm = C_IMM_LWSP(i);
     break;
   case TYPE_CIW:
     *rd = C_RDP(i);
@@ -427,7 +432,7 @@ static int decode_exec_c(Decode *s) {
   INSTPAT("100011 ??? 10 ??? 01" , c.or      , CA    , R(rd) = R(rd) | src2);
   INSTPAT("100011 ??? 11 ??? 01" , c.and     , CA    , R(rd) = R(rd) & src2);
   INSTPAT("101 ??????????? 01"   , c.j       , CJ    , s->dnpc = s->pc + imm);
-  INSTPAT("010 ? ????? ????? 10" , c.lwsp    , CI    , R(rd) = Mr(R(2) + uimm, 4));
+  INSTPAT("010 ? ????? ????? 10" , c.lwsp    , CILWSP, R(rd) = Mr(src1 + imm, 4));
   INSTPAT("000 ???????? ??? 00"  , c.addi4spn, CIW   , R(rd) = R(2) + uimm);
   INSTPAT("010 ??? ??? ?? ??? 00", c.lw      , CL    , R(rd) = Mr(src1 + imm, 4));
   INSTPAT("110 ??? ??? ?? ??? 00", c.sw      , CS    , Mw(src1 + imm, 4, src2));
