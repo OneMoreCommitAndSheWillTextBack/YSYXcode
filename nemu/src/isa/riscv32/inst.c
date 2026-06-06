@@ -33,13 +33,37 @@
 #define R(i) gpr(i)
 
 static inline word_t riscv_vaddr_read(vaddr_t addr, int len) {
+  if ((addr & (len - 1)) == 0) {
+    return vaddr_read(addr, len);
+  }
+
+  word_t data = 0;
+  for (int i = 0; i < len; i++) {
+    data |= (vaddr_read(addr + i, 1) & 0xffu) << (i * 8);
+  }
+  return data;
+}
+
+static inline void riscv_vaddr_write(vaddr_t addr, int len, word_t data) {
+  if ((addr & (len - 1)) == 0) {
+    vaddr_write(addr, len, data);
+    return;
+  }
+
+  for (int i = 0; i < len; i++) {
+    vaddr_write(addr + i, 1, (data >> (i * 8)) & 0xffu);
+  }
+}
+
+static inline word_t riscv_vaddr_read_aligned(vaddr_t addr, int len) {
   if ((addr & (len - 1)) != 0) {
     cpu_throw_exception(EXC_LOAD_ADDR_MISALIGNED, addr);
   }
   return vaddr_read(addr, len);
 }
 
-static inline void riscv_vaddr_write(vaddr_t addr, int len, word_t data) {
+static inline void riscv_vaddr_write_aligned(vaddr_t addr, int len,
+                                             word_t data) {
   if ((addr & (len - 1)) != 0) {
     cpu_throw_exception(EXC_STORE_ADDR_MISALIGNED, addr);
   }
@@ -88,6 +112,8 @@ static inline word_t rv32_remu(word_t dividend, word_t divisor) {
 
 #define Mr riscv_vaddr_read
 #define Mw riscv_vaddr_write
+#define MrAligned riscv_vaddr_read_aligned
+#define MwAligned riscv_vaddr_write_aligned
 
 static lrsc_reservation_t lrsc_reservation = {};
 
@@ -346,20 +372,20 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, uint64_t t = (uint64_t)src1*src2;R(rd) = t >> 32);
   INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = SEXT(Mr(src1 + imm, 1), 8));
 
-  INSTPAT("00001?? ????? ????? 010 ????? 01011 11", amoswap.w, R, R(rd) = Mr(src1, 4);      \
-                                                                       Mw(src1, 4, src2));
-  INSTPAT("00000?? ????? ????? 010 ????? 01011 11", amoadd.w , R, uint32_t t = Mr(src1, 4);      \
+  INSTPAT("00001?? ????? ????? 010 ????? 01011 11", amoswap.w, R, R(rd) = MrAligned(src1, 4);      \
+                                                                       MwAligned(src1, 4, src2));
+  INSTPAT("00000?? ????? ????? 010 ????? 01011 11", amoadd.w , R, uint32_t t = MrAligned(src1, 4);      \
                                                                        R(rd) = t;                           \
-                                                                       Mw(src1, 4, src2 + t));
-  INSTPAT("01000?? ????? ????? 010 ????? 01011 11", amoor.w  , R, uint32_t t = Mr(src1, 4);      \
+                                                                       MwAligned(src1, 4, src2 + t));
+  INSTPAT("01000?? ????? ????? 010 ????? 01011 11", amoor.w  , R, uint32_t t = MrAligned(src1, 4);      \
                                                                        R(rd) = t;                           \
-                                                                       Mw(src1, 4, t | src2));
-  INSTPAT("01100?? ????? ????? 010 ????? 01011 11", amoand.w , R, uint32_t t = Mr(src1, 4);      \
+                                                                       MwAligned(src1, 4, t | src2));
+  INSTPAT("01100?? ????? ????? 010 ????? 01011 11", amoand.w , R, uint32_t t = MrAligned(src1, 4);      \
                                                                        R(rd) = t;                           \
-                                                                       Mw(src1, 4, t & src2));
-  INSTPAT("00100?? ????? ????? 010 ????? 01011 11", amoxor.w , R, uint32_t t = Mr(src1, 4);      \
+                                                                       MwAligned(src1, 4, t & src2));
+  INSTPAT("00100?? ????? ????? 010 ????? 01011 11", amoxor.w , R, uint32_t t = MrAligned(src1, 4);      \
                                                                        R(rd) = t;                           \
-                                                                       Mw(src1, 4, t ^ src2));
+                                                                       MwAligned(src1, 4, t ^ src2));
 
   INSTPAT("00010?? 00000 ????? 010 ????? 01011 11", lr.w     , R, R(rd) = lr_w_inst(src1));
   INSTPAT("00011?? ????? ????? 010 ????? 01011 11", sc.w     , R, R(rd) = sc_w_inst(src1, src2));
@@ -403,6 +429,9 @@ static int decode_exec_c(Decode *s) {
   INSTPAT_START(c_extern);
   INSTPAT("100 0 ????? 00000 10" , c.jr      , CR    , s->dnpc = src1);
   INSTPAT("100 0 ????? ????? 10" , c.mv      , CR    , R(rd) = src2);
+  INSTPAT("100 1 00000 00000 10" , c.ebreak  , C_N   , NEMUTRAP(s->pc, R(10)));
+  INSTPAT("100 1 ????? 00000 10" , c.jalr    , CR    , R(1) = s->pc + 2; s->dnpc = src1);
+  INSTPAT("100 1 ????? ????? 10" , c.add     , CR    , R(rd) = src1 + src2);
   INSTPAT("000 ? ????? ????? 10" , c.slli    , CI    , R(rd) = R(rd) << uimm);
 
   INSTPAT("001 ??????????? 01"   , c.jal     , CJ    , R(1) = s->pc+2;s->dnpc=s->pc+imm);
@@ -416,7 +445,7 @@ static int decode_exec_c(Decode *s) {
   INSTPAT("010 ? ????? ????? 10" , c.lwsp    , CI    , R(rd) = Mr(R(2) + uimm, 4));
   INSTPAT("000 ???????? ??? 00"  , c.addi4spn, CIW   , R(rd) = R(2) + uimm);
   INSTPAT("011 ? 00010 ????? 01" , c.addi16sp, CI16SP, R(2) = R(2) + imm);
-  INSTPAT("110 ?????? ????? 10"  , c.swsp    , CI    , Mw(R(2) + uimm, 4, src2));
+  INSTPAT("110 ?????? ????? 10"  , c.swsp    , CSS   , Mw(src1 + imm, 4, src2));
 
   INSTPAT("???? ????? ????? ??"  , inv       , C_N   , INV(s->pc));
   INSTPAT_END(c_extern);
