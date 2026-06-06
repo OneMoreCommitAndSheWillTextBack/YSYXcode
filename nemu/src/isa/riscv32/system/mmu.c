@@ -55,6 +55,7 @@ int isa_mmu_check(vaddr_t vaddr, int len, int type) {
 
 #define PPN_MASK (0x3FFFFF << 10)
 #define PTE_PPN(pte) (pte & PPN_MASK)
+#define PTE_PPN0_MASK (0x3FF << 10)
 
 #define PTE_V 0x01
 #define PTE_R 0x02
@@ -105,13 +106,13 @@ static word_t isa_mmu_fault_cause(int type) {
 
 static bool isa_mmu_permission_check(uint32_t pte, int type,
                                      CPU_MODE effective_priv) {
-  if (!(pte & PTE_V)) {
+  if (!(pte & PTE_V) || ((pte & PTE_W) && !(pte & PTE_R))) {
     return false;
   }
 
-  // if (effective_priv == U_MODE && !(pte & PTE_U)) {
-  //   return false;
-  // }
+  if (effective_priv == U_MODE && !(pte & PTE_U)) {
+    return false;
+  }
 
   if (effective_priv == S_MODE && (pte & PTE_U)) {
     if (type == MEM_TYPE_IFETCH) {
@@ -162,6 +163,16 @@ static bool isa_mmu_pagewalk_safe(vaddr_t vaddr, int type, paddr_t *addr_res,
 
   if ((pte1 & (PTE_R | PTE_W | PTE_X))) {
     // INFO: if leaf r/w/x is not zero，meaning a 4 MiB megapage
+    if ((pte1 & PTE_PPN0_MASK) ||
+        !isa_mmu_permission_check(pte1, type, effective_priv)) {
+      if (cause != NULL) {
+        *cause = isa_mmu_fault_cause(type);
+      }
+      return false;
+    }
+
+    isa_mmu_update_pte(pte1_addr, pte1, type);
+
     *addr_res = (PTE_PPN(pte1) << 2) | (vaddr & 0x3fffff);
     return true;
   }
