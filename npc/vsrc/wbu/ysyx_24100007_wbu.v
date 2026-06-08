@@ -1,59 +1,59 @@
-module ysyx_24100007_wbu(
-  input clk,
-  input rst,
-  input [31:0] res_in,
-  input [31:0] regout2_in,
-  input memew_in,
-  input memer_in,
-  input [31:0] imm_in,
-  input [31:0] link_addr_in,
-  input [2:0] muxsig_in,
-  input [2:0] func3_in,
-  input regew_control_in,
-  input [4:0] rd_in,
-  input csrrw_in,
-  input csrrs_in,
-  input [11:0] csr_addr_in,
-  input ecallsig_in,
+module ysyx_24100007_wbu (
+    input clk,
+    input rst,
+    input [31:0] res_in,
+    input [31:0] regout2_in,
+    input memew_in,
+    input memer_in,
+    input [31:0] imm_in,
+    input [31:0] link_addr_in,
+    input [2:0] muxsig_in,
+    input [2:0] func3_in,
+    input regew_control_in,
+    input [4:0] rd_in,
+    input csrrw_in,
+    input csrrs_in,
+    input [11:0] csr_addr_in,
+    input ecallsig_in,
 
-  output [31:0] regwrite_out,
-  output regew_out,
-  output [4:0] rd_out,
-  output csrrw_out,
-  output csrrs_out,
-  output [11:0] csr_addr_out,
-  output ecallsig_out,
-  output wbu_write_csr,
+    output [31:0] regwrite_out,
+    output regew_out,
+    output [4:0] rd_out,
+    output csrrw_out,
+    output csrrs_out,
+    output [11:0] csr_addr_out,
+    output ecallsig_out,
+    output wbu_write_csr,
 
-  // wbu is the last model
-  input in_valid,
-  output in_ready,
+    // wbu is the last model
+    input  in_valid,
+    output in_ready,
 
-  output wbu_commit,
+    output wbu_commit,
 
     // LSU handshake
-  output        wbu_read_req,
-  output        wbu_write_req,
-  input         wbu_req_acp,
-  input         wbu_req_finish,
-  output        wbu_req_ready,
-  input  [31:0] wbu_data_read,   // 来自 LSU.data_read[31:0]
+    output        wbu_read_req,
+    output        wbu_write_req,
+    input         wbu_req_acp,
+    input         wbu_req_finish,
+    output        wbu_req_ready,
+    input  [31:0] wbu_data_read,   // 来自 LSU.data_read[31:0]
 
-  // 给 LSU 的访问信号
-  output        lsu_mem_we,
-  output [31:0] lsu_mem_addr,
-  output [31:0] lsu_mem_wdata,
-  output [2:0]  lsu_mem_mask,
-  output        lsu_mem_sext,
+    // 给 LSU 的访问信号
+    output        lsu_mem_we,
+    output [31:0] lsu_mem_addr,
+    output [31:0] lsu_mem_wdata,
+    output [ 2:0] lsu_mem_mask,
+    output        lsu_mem_sext,
 
-  output [4:0] wbu_rd,
-  output wbu_regew,
-  output [31:0] transmit_data,
-  output transmit_data_valid
+    output [4:0] wbu_rd,
+    output wbu_regew,
+    output [31:0] transmit_data,
+    output transmit_data_valid
 );
 
   wire accept = ((wbu_state == WAIT_VALID) || (wbu_state == WRITE_BACK)) && in_valid;
-  assign in_ready = (wbu_state == WAIT_VALID) ;
+  assign in_ready = (wbu_state == WAIT_VALID);
   wire pipline_valid = accept;
   wire flush = ((wbu_state == WRITE_BACK) & !in_valid);
 
@@ -74,92 +74,90 @@ module ysyx_24100007_wbu(
                (func3 == 3'b100) ? 3'b001 :
                (func3 == 3'b101) ? 3'b010 :
                3'b000;
-  wire memsextsig = (func3 == 3'b100) ? 1'b0 :
-                    (func3 == 3'b101) ? 1'b0 :
-                    1'b1;
+  wire memsextsig = (func3 == 3'b100) ? 1'b0 : (func3 == 3'b101) ? 1'b0 : 1'b1;
   wire [4:0] rd;
   wire ecallsig;
   wire csrrs, csrrw;
 
-  wbu_pipline_connect wbu_pipeline_u(
-    .clk(clk),
-    .rst(rst),
+  wbu_pipline_connect wbu_pipeline_u (
+      .clk(clk),
+      .rst(rst),
 
-    .res_in(res_in),
-    .regout2_in(regout2_in),
-    .memew_in(memew_in),
-    .memer_in(memer_in),
-    .imm_in(imm_in),
-    .link_addr_in(link_addr_in),
-    .muxsig_in(muxsig_in),
-    .func3_in(func3_in),
-    .regew_control_in(regew_control_in),
-    .rd_in(rd_in),
-    .csrrw_in(csrrw_in),
-    .csrrs_in(csrrs_in),
-    .csr_addr_in(csr_addr_in),
-    .ecallsig_in(ecallsig_in),
+      .res_in(res_in),
+      .regout2_in(regout2_in),
+      .memew_in(memew_in),
+      .memer_in(memer_in),
+      .imm_in(imm_in),
+      .link_addr_in(link_addr_in),
+      .muxsig_in(muxsig_in),
+      .func3_in(func3_in),
+      .regew_control_in(regew_control_in),
+      .rd_in(rd_in),
+      .csrrw_in(csrrw_in),
+      .csrrs_in(csrrs_in),
+      .csr_addr_in(csr_addr_in),
+      .ecallsig_in(ecallsig_in),
 
-    .res_out(res),
-    .regout2_out(regout2),
-    .memew_out(memew),
-    .memer_out(memer),
-    .imm_out(imm),
-    .link_addr_out(link_addr),
-    .muxsig_out(muxsig),
-    .func3_out(func3),
-    .regew_control_out(regew_control),
-    .rd_out(rd),
-    .csrrw_out(csrrw),
-    .csrrs_out(csrrs),
-    .csr_addr_out(csr_addr_out),
-    .ecallsig_out(ecallsig),
+      .res_out(res),
+      .regout2_out(regout2),
+      .memew_out(memew),
+      .memer_out(memer),
+      .imm_out(imm),
+      .link_addr_out(link_addr),
+      .muxsig_out(muxsig),
+      .func3_out(func3),
+      .regew_control_out(regew_control),
+      .rd_out(rd),
+      .csrrw_out(csrrw),
+      .csrrs_out(csrrs),
+      .csr_addr_out(csr_addr_out),
+      .ecallsig_out(ecallsig),
 
-    .avaliable(avaliable),
-    .pipline_valid(pipline_valid),
-    .flush(flush)
+      .avaliable(avaliable),
+      .pipline_valid(pipline_valid),
+      .flush(flush)
   );
 
   // Memory access state machine
-  localparam [1:0] WAIT_VALID    = 2'd0;
+  localparam [1:0] WAIT_VALID = 2'd0;
   localparam [1:0] BUS_HANDSHAKE = 2'd1;
   localparam [1:0] BUS_TRANSACTION = 2'd2;
-  localparam [1:0] WRITE_BACK    = 2'd3;
+  localparam [1:0] WRITE_BACK = 2'd3;
 
   reg [1:0] wbu_state;
 
   wire mem_access = memew_in | memer_in;
   wire avaliable;
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       wbu_state <= WAIT_VALID;
     end else begin
-      case(wbu_state)
+      case (wbu_state)
         WAIT_VALID: begin
-          if(in_valid & in_ready) begin
-            if(mem_access) begin
+          if (in_valid & in_ready) begin
+            if (mem_access) begin
               wbu_state <= BUS_HANDSHAKE;
             end else begin
               wbu_state <= WRITE_BACK;
             end
-          end 
+          end
         end
 
         BUS_HANDSHAKE: begin
-          if(wbu_req_acp) begin
+          if (wbu_req_acp) begin
             wbu_state <= BUS_TRANSACTION;
           end
         end
 
         BUS_TRANSACTION: begin
-          if(wbu_req_finish && wbu_req_ready) begin
+          if (wbu_req_finish && wbu_req_ready) begin
             wbu_state <= WRITE_BACK;
           end
         end
 
         WRITE_BACK: begin
-          if(in_valid & in_ready) begin
-            if(mem_access) begin
+          if (in_valid & in_ready) begin
+            if (mem_access) begin
               wbu_state <= BUS_HANDSHAKE;
             end else begin
               wbu_state <= WRITE_BACK;
@@ -179,7 +177,7 @@ module ysyx_24100007_wbu(
 
   wire regew;
   assign regew = (wbu_state == WRITE_BACK) & regew_control;
-  reg [31:0] memread_data_q;
+  reg  [31:0] memread_data_q;
   wire [31:0] memread_data_r;
 
   always @(posedge clk) begin
@@ -193,10 +191,10 @@ module ysyx_24100007_wbu(
   reg [31:0] regwrite;
   always @(*) begin
     case (muxsig)
-      3'b000: regwrite = res;
-      3'b001: regwrite = memread_data_q;
-      3'b010: regwrite = imm;
-      3'b100: regwrite = link_addr;
+      3'b000:  regwrite = res;
+      3'b001:  regwrite = memread_data_q;
+      3'b010:  regwrite = imm;
+      3'b100:  regwrite = link_addr;
       default: regwrite = 32'b0;
     endcase
   end
@@ -223,53 +221,53 @@ module ysyx_24100007_wbu(
   assign wbu_req_ready = (wbu_state == BUS_TRANSACTION);
 endmodule
 
-module wbu_pipline_connect(
-  input clk,
-  input rst,
+module wbu_pipline_connect (
+    input clk,
+    input rst,
 
-  input [31:0] res_in,
-  input [31:0] regout2_in,
-  input memew_in,
-  input memer_in,
-  input [31:0] imm_in,
-  input [31:0] link_addr_in,
-  input [2:0] muxsig_in,
-  input [2:0] func3_in,
-  input regew_control_in,
-  input [4:0] rd_in,
-  input csrrw_in,
-  input csrrs_in,
-  input [11:0] csr_addr_in,
-  input ecallsig_in,
+    input [31:0] res_in,
+    input [31:0] regout2_in,
+    input memew_in,
+    input memer_in,
+    input [31:0] imm_in,
+    input [31:0] link_addr_in,
+    input [2:0] muxsig_in,
+    input [2:0] func3_in,
+    input regew_control_in,
+    input [4:0] rd_in,
+    input csrrw_in,
+    input csrrs_in,
+    input [11:0] csr_addr_in,
+    input ecallsig_in,
 
-  output [31:0] res_out,
-  output [31:0] regout2_out,
-  output memew_out,
-  output memer_out,
-  output [31:0] imm_out,
-  output [31:0] link_addr_out,
-  output [2:0] muxsig_out,
-  output [2:0] func3_out,
-  output regew_control_out,
-  output [4:0] rd_out,
-  output csrrw_out,
-  output csrrs_out,
-  output [11:0] csr_addr_out,
-  output ecallsig_out,
+    output [31:0] res_out,
+    output [31:0] regout2_out,
+    output memew_out,
+    output memer_out,
+    output [31:0] imm_out,
+    output [31:0] link_addr_out,
+    output [2:0] muxsig_out,
+    output [2:0] func3_out,
+    output regew_control_out,
+    output [4:0] rd_out,
+    output csrrw_out,
+    output csrrs_out,
+    output [11:0] csr_addr_out,
+    output ecallsig_out,
 
-  output avaliable,
-  input pipline_valid,
-  input flush
+    output avaliable,
+    input  pipline_valid,
+    input  flush
 );
 
   reg avaliable_r;
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       avaliable_r <= 1'b0;
     end else begin
-      if(pipline_valid) begin
+      if (pipline_valid) begin
         avaliable_r <= 1'b1;
-      end else if(flush) begin
+      end else if (flush) begin
         avaliable_r <= 1'b0;
       end
     end
@@ -294,7 +292,7 @@ module wbu_pipline_connect(
   reg ecallsig_r;
 
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       res_r <= 32'b0;
       regout2_r <= 32'b0;
       memew_r <= 1'b0;
@@ -310,7 +308,7 @@ module wbu_pipline_connect(
       csr_addr_r <= 12'b0;
       ecallsig_r <= 1'b0;
     end else begin
-      if(pipline_valid) begin
+      if (pipline_valid) begin
         res_r <= res_in;
         regout2_r <= regout2_in;
         memew_r <= memew_in;
@@ -325,7 +323,7 @@ module wbu_pipline_connect(
         csrrs_r <= csrrs_in;
         csr_addr_r <= csr_addr_in;
         ecallsig_r <= ecallsig_in;
-      end else if(flush) begin
+      end else if (flush) begin
         res_r <= 32'b0;
         regout2_r <= 32'b0;
         memew_r <= 1'b0;
