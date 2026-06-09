@@ -1,28 +1,7 @@
 package top.frontend.ifetch
 
 import chisel3._
-import freechips.rocketchip.rocket.ExpandedInstruction
-import freechips.rocketchip.rocket.RVCDecoder
 import top.frontend.bundle.FetchInst
-
-class RvcExpander(
-  xLen:         Int = 32,
-  fLen:         Int = 0,
-  useAddiForMv: Boolean = false)
-    extends Module {
-  val io = IO(new Bundle {
-    val in  = Input(UInt(32.W))
-    val out = Output(new ExpandedInstruction)
-    val rvc = Output(Bool())
-    val ill = Output(Bool())
-  })
-
-  val decoder = new RVCDecoder(io.in, xLen, fLen, useAddiForMv)
-
-  io.rvc := io.in(1, 0) =/= 3.U
-  io.out := decoder.decode
-  io.ill := decoder.ill
-}
 
 class IFetch extends Module {
   val io = IO(new Bundle {
