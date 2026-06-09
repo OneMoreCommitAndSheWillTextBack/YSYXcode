@@ -7,6 +7,9 @@ import mill.scalalib.TestModule.ScalaTest
 import mill.scalalib._
 
 object playground extends ScalaModule with ScalafmtModule { m =>
+  private val chiselVersion = "7.7.0"
+  private val rocketchipVersion = "1.6-SNAPSHOT"
+
   override def scalaVersion = "2.13.18"
 
   override def scalacOptions = Seq(
@@ -16,8 +19,15 @@ object playground extends ScalaModule with ScalafmtModule { m =>
     "-Xcheckinit"
   )
 
-  override def mvnDeps             = Seq(mvn"org.chipsalliance::chisel:7.7.0")
-  override def scalacPluginMvnDeps = Seq(mvn"org.chipsalliance:::chisel-plugin:7.7.0")
+  override def mvnDeps = Seq(
+    mvn"org.chipsalliance::chisel:$chiselVersion",
+    mvn"org.chipsalliance::cde:$rocketchipVersion",
+    mvn"org.chipsalliance::macros:$rocketchipVersion",
+    mvn"org.chipsalliance::diplomacy:$rocketchipVersion",
+    mvn"org.chipsalliance::hardfloat:$rocketchipVersion",
+    mvn"org.chipsalliance::rocketchip-$chiselVersion:$rocketchipVersion"
+  )
+  override def scalacPluginMvnDeps = Seq(mvn"org.chipsalliance:::chisel-plugin:$chiselVersion")
 
   object test extends ScalaTests with TestModule.ScalaTest with ScalafmtModule {
     override def mvnDeps = Seq(

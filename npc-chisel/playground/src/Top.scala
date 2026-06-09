@@ -38,8 +38,9 @@ final class AxiPort extends Bundle {
   val rid = Input(UInt(4.W))
 }
 
-class Top extends Module {
+class Top(target: Target = Target.Npc) extends Module {
   override def desiredName: String = "ysyx_24100007"
+  private val resetVector = target.resetVector
 
   val io = IO(new Bundle {
     val interrupt = Input(Bool())
