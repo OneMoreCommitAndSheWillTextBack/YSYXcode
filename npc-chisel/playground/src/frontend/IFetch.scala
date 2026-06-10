@@ -9,12 +9,12 @@ class FetchPacket extends Bundle {
   val insts = Vec(2, Valid(new FetchInst))
 }
 
-private class HalfwordEntry extends Bundle {
+class HalfwordEntry extends Bundle {
   val pc   = UInt(32.W)
   val bits = UInt(16.W)
 }
 
-private class HalfwordSplitter(cfg: ICacheConfig) extends Module {
+class HalfwordSplitter(cfg: ICacheConfig) extends Module {
   require(cfg.fetchBytes == 8, "HalfwordSplitter currently assumes a 64-bit ICache fetch block")
 
   private val fetchHalfwords = cfg.fetchBytes / 2
@@ -50,7 +50,7 @@ private class HalfwordSplitter(cfg: ICacheConfig) extends Module {
   }
 }
 
-private class HalfwordBuffer(depth: Int, enqWidth: Int, peekWidth: Int) extends Module {
+class HalfwordBuffer(depth: Int, enqWidth: Int, peekWidth: Int) extends Module {
   require(depth > enqWidth, "HalfwordBuffer must hold at least one full fetch block")
   require(depth > 0 && (depth & (depth - 1)) == 0, "HalfwordBuffer depth must be a power of two")
 
@@ -121,7 +121,7 @@ private class HalfwordBuffer(depth: Int, enqWidth: Int, peekWidth: Int) extends 
   }
 }
 
-private class DualInstAssembler(bufferDepth: Int) extends Module {
+class DualInstAssembler(bufferDepth: Int) extends Module {
   private val peekWidth     = 4
   private val countWidth    = log2Ceil(bufferDepth + 1)
   private val deqCountWidth = log2Ceil(peekWidth + 1)
