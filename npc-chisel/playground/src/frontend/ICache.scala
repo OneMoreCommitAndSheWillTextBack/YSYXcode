@@ -12,41 +12,41 @@ class ICacheIO(cfg: ICacheConfig) extends Bundle {
   val refillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
 }
 
-class ICacheState extends ChiselEnum {
-  val SIdle, SRefillReq, refillResp = Value
+object ICacheState extends ChiselEnum {
+  val SIdle, SRefillReq, SRefillResp = Value
 }
 
 class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   val io = IO(new ICacheIO(cfg))
 
   private def setIndex(addr: UInt): UInt = {
-    if (cfg.setIndex == 0) {
-      0.UInt(cfg.setIndex.W)
+    if (cfg.indexBits == 0) {
+      0.U(cfg.setIdxBits.W)
     } else {
       addr(cfg.offsetBits + cfg.indexBits - 1, cfg.offsetBits)
     }
   }
 
   private def tag(addr: UInt): UInt = {
-    return addr(cfg.addrWidth - 1, cfg.offsetBits + cfg.indexBits)
+    addr(cfg.addrWidth - 1, cfg.offsetBits + cfg.indexBits)
   }
 
   private def nextWay(way: UInt): UInt = {
     if (cfg.ways == 1) {
-      0.U(cfg.wayIndexBits.W)
+      0.U(cfg.wayIdxBits.W)
     } else {
-      Mux(way === (cfg.ways - 1).U, 0.U, 1.U)
+      Mux(way === (cfg.ways - 1).U, 0.U(cfg.wayIdxBits.W), (way + 1.U)(cfg.wayIdxBits - 1, 0))
     }
   }
 
   val validArray = RegInit(VecInit(Seq.fill(cfg.sets)(VecInit(Seq.fill(cfg.ways)(false.B)))))
-  val tagArray   = Reg(Vec(cfg.sets, Vec(cfg.ways, cfg.tagBits.W)))
-  val dataArray  = Reg(Vec(cfg.sets, Vec(cfg.ways, cfg.blockBits.W)))
-  val replaceWay = RegInit(VecInit(Seq.fill(cfg.sets)(0.U(cfg.wayIndexBits.W))))
+  val tagArray   = Reg(Vec(cfg.sets, Vec(cfg.ways, UInt(cfg.tagBits.W))))
+  val dataArray  = Reg(Vec(cfg.sets, Vec(cfg.ways, UInt(cfg.blockBits.W))))
+  val replaceWay = RegInit(VecInit(Seq.fill(cfg.sets)(0.U(cfg.wayIdxBits.W))))
 
   val state = RegInit(ICacheState.SIdle)
 
-  val missReq = Reg(new ICacheReq(cfg.addrWidth, cfg, fetchBytes))
+  val missReq = Reg(new ICacheReq(cfg.addrWidth, cfg.fetchBytes))
   val missSet = Reg(UInt(cfg.setIdxBits.W))
   val missTag = Reg(UInt(cfg.tagBits.W))
   val missWay = Reg(UInt(cfg.wayIdxBits.W))
@@ -78,12 +78,12 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     victimWay := Mux(hasInvalid, PriorityEncoder(invalidWays), replaceWay(reqSet))
   }
 
-  io.req.ready           := state === ICacheState.sIdle && !respValid
+  io.req.ready           := state === ICacheState.SIdle && !respValid
   io.resp.valid          := respValid
   io.resp.bits           := respReg
-  io.refillReq.valid     := state === sRefillReq
+  io.refillReq.valid     := state === ICacheState.SRefillReq
   io.refillReq.bits.addr := missReq.blockAddr
-  io.refillResp.ready    := state === sRefillResp && !respValid
+  io.refillResp.ready    := state === ICacheState.SRefillResp && !respValid
 
   when(io.resp.fire) {
     respValid := false.B
@@ -101,12 +101,12 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
       missSet := reqSet
       missTag := reqTag
       missWay := victimWay
-      state   := sRefillReq
+      state   := ICacheState.SRefillReq
     }
   }
 
   when(io.refillReq.fire) {
-    state := sRefillResp
+    state := ICacheState.SRefillResp
   }
 
   when(io.refillResp.fire) {
@@ -123,6 +123,6 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     respReg.data      := io.refillResp.bits.data
     respReg.hit       := false.B
     respValid         := true.B
-    state             := sIdle
+    state             := ICacheState.SIdle
   }
 }

@@ -13,6 +13,7 @@ final case class ICacheConfig(
   require(isPow2(fetchBytes), "fetchBytes must be a power of two")
   require(isPow2(sets), "sets must be a power of two")
   require(ways > 0, "ways must be positive")
+  require(ways == 1, "not support the group Set-associative")
 
   val offsetBits: Int = log2Ceil(fetchBytes)
   val indexBits:  Int = log2Ceil(sets)

@@ -2,7 +2,7 @@ package top.frontend.pcgen
 
 import chisel3._
 import chisel3.util.MuxCase
-import top.frontend.bundle
+import top.frontend.bundle.PcRedirect
 
 class PCGen(resetVector: BigInt) extends Module {
   val io = IO(new Bundle {
