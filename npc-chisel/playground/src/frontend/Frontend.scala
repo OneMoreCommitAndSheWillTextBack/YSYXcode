@@ -20,6 +20,9 @@ class Frontend(
 
     val pc    = Output(UInt(cfg.addrWidth.W))
     val fetch = Decoupled(new FetchPacket)
+
+    val cacheRefillReq  = Decoupled(new ICacheReq(cfg))
+    val cacheRefillResp = Flipped(Decoupled(new ICacheResp(cfg)))
   })
 
   val pcGen  = Module(new PCGen(resetVector, cfg.addrWidth, cfg.fetchBytes))
@@ -43,5 +46,11 @@ class Frontend(
   ifetch.io.redirect := redirect
   ifetch.io.pc       := pcGen.io.pc
 
+  ifetch.io.icacheReq <> iCache.io.req
+  ifetch.io.icacheResp <> iCache.io.resp
+
   io.pc := pcGen.io.pc
+  io.fetch <> ifetch.io.fetch
+  io.cacheRefillReq <> iCache.io.refillReq
+  io.cacheRefillResp <> iCache.io.refillResp
 }

@@ -197,9 +197,65 @@ class DualInstAssembler(bufferDepth: Int) extends Module {
   )
 }
 
+class InstBuffer(bufferDepth: Int = 8) extends Module {
+  require(bufferDepth > 1, "InstBuffer must have at least two entries")
+  require(bufferDepth > 0 && (bufferDepth & (bufferDepth - 1)) == 0, "InstBuffer depth must be a power of two")
+
+  private val ptrWidth   = log2Ceil(bufferDepth)
+  private val countWidth = log2Ceil(bufferDepth + 1)
+
+  val io = IO(new Bundle {
+    val flush     = Input(Bool())
+    val in        = Flipped(Decoupled(new FetchPacket))
+    val out       = Decoupled(new FetchPacket)
+    val count     = Output(UInt(countWidth.W))
+    val freeCount = Output(UInt(countWidth.W))
+  })
+
+  private def ptrNext(ptr: UInt): UInt =
+    (ptr + 1.U)(ptrWidth - 1, 0)
+
+  val entries  = Reg(Vec(bufferDepth, new FetchPacket))
+  val readPtr  = RegInit(0.U(ptrWidth.W))
+  val writePtr = RegInit(0.U(ptrWidth.W))
+  val count    = RegInit(0.U(countWidth.W))
+
+  val empty = count === 0.U
+  val full  = count === bufferDepth.U
+
+  io.count     := count
+  io.freeCount := bufferDepth.U(countWidth.W) - count
+
+  io.out.valid := !io.flush && !empty
+  io.out.bits  := entries(readPtr)
+
+  io.in.ready := !io.flush && (!full || io.out.ready)
+
+  val enqFire = io.in.fire
+  val deqFire = io.out.fire
+
+  when(io.flush) {
+    readPtr  := 0.U
+    writePtr := 0.U
+    count    := 0.U
+  }.otherwise {
+    when(enqFire) {
+      entries(writePtr) := io.in.bits
+      writePtr          := ptrNext(writePtr)
+    }
+
+    when(deqFire) {
+      readPtr := ptrNext(readPtr)
+    }
+
+    count := count + enqFire.asUInt - deqFire.asUInt
+  }
+}
+
 class IFetch(
   cfg:             ICacheConfig = ICacheConfig(),
-  halfwordEntries: Int = 16)
+  halfwordEntries: Int = 16,
+  instBufferEntries: Int = 8)
     extends Module {
   require(cfg.fetchBytes == 8, "IFetch currently assumes a 64-bit ICache fetch block")
 
@@ -218,6 +274,7 @@ class IFetch(
   val splitter  = Module(new HalfwordSplitter(cfg))
   val buffer    = Module(new HalfwordBuffer(halfwordEntries, fetchHalfwords, peekHalfwords))
   val assembler = Module(new DualInstAssembler(halfwordEntries))
+  val instBuffer = Module(new InstBuffer(instBufferEntries))
 
   val reqOutstanding = RegInit(false.B)
   val dropResp       = RegInit(false.B)
@@ -244,7 +301,10 @@ class IFetch(
   assembler.io.peek  := buffer.io.peek
   assembler.io.count := buffer.io.count
   buffer.io.deq      := assembler.io.deq
-  io.fetch <> assembler.io.out
+
+  instBuffer.io.flush := io.redirect.valid
+  instBuffer.io.in <> assembler.io.out
+  io.fetch <> instBuffer.io.out
 
   when(io.redirect.valid) {
     dropResp       := (dropResp || reqOutstanding) && !io.icacheResp.fire
