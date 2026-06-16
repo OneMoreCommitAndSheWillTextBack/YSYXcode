@@ -22,7 +22,7 @@ class Frontend(
     val fetch = Decoupled(new FetchPacket)
   })
 
-  val pcGen  = Module(new PCGen(resetVector, cfg.addrWidth))
+  val pcGen  = Module(new PCGen(resetVector, cfg.addrWidth, cfg.fetchBytes))
   val ifetch = Module(new IFetch(cfg))
   val iCache = Module(new ICache(cfg))
 
@@ -37,9 +37,8 @@ class Frontend(
     )
   )
 
-  pcGen.io.redirect     := redirect
-  pcGen.io.advance      := ifetch.io.pcAdvance
-  pcGen.io.advanceBytes := cfg.fetchBytes.U(cfg.addrWidth.W)
+  pcGen.io.redirect := redirect
+  pcGen.io.advance  := ifetch.io.pcAdvance
 
   ifetch.io.redirect := redirect
   ifetch.io.pc       := pcGen.io.pc
