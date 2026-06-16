@@ -6,8 +6,8 @@ import top.config.ICacheConfig
 import top.frontend.bundle.{ICacheRefillReq, ICacheRefillResp, ICacheReq, ICacheResp}
 
 class ICacheIO(cfg: ICacheConfig) extends Bundle {
-  val req        = Flipped(Decoupled(new ICacheReq(cfg.addrWidth, cfg.fetchBytes)))
-  val resp       = Decoupled(new ICacheResp(cfg.addrWidth, cfg.fetchBytes))
+  val req        = Flipped(Decoupled(new ICacheReq(cfg)))
+  val resp       = Decoupled(new ICacheResp(cfg))
   val refillReq  = Decoupled(new ICacheRefillReq(cfg.addrWidth))
   val refillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
 }
@@ -31,98 +31,78 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     addr(cfg.addrWidth - 1, cfg.offsetBits + cfg.indexBits)
   }
 
-  private def nextWay(way: UInt): UInt = {
-    if (cfg.ways == 1) {
-      0.U(cfg.wayIdxBits.W)
-    } else {
-      Mux(way === (cfg.ways - 1).U, 0.U(cfg.wayIdxBits.W), (way + 1.U)(cfg.wayIdxBits - 1, 0))
+  val validArray = RegInit(VecInit(Seq.fill(cfg.sets)(false.B)))
+  val tagArray   = Reg(Vec(cfg.sets, UInt(cfg.tagBits.W)))
+  val dataArray  = Reg(Vec(cfg.sets, UInt(cfg.blockBits.W)))
+
+  val state    = RegInit(ICacheState.SIdle)
+  val validReg = RegInit(false.B)
+
+  val missReq = Reg(new ICacheReq(cfg))
+  val missSet = Reg(UInt(cfg.setIdxBits.W))
+  val missTag = Reg(UInt(cfg.tagBits.W))
+
+  val respReg = Reg(new ICacheResp(cfg))
+
+  val reqSet = setIndex(io.req.bits.meta.blockAddr)
+  val reqTag = tag(io.req.bits.meta.blockAddr)
+
+  val wayHits = Wire(Bool())
+  wayHits := validArray(reqSet) && tagArray(reqSet) === reqTag
+
+  val hit     = wayHits.asUInt.orR
+  val hitData = dataArray(reqSet)
+
+  // io.req.ready 实际上是 pcAdvance
+  io.req.ready           := state === ICacheState.SIdle && (!validReg || io.resp.fire)
+  io.resp.valid          := state === ICacheState.SIdle && validReg
+  io.resp.bits           := respReg
+  io.refillReq.valid     := state === ICacheState.SRefillReq
+  io.refillReq.bits.addr := missReq.meta.blockAddr
+  io.refillResp.ready    := state === ICacheState.SRefillResp
+
+  when(state === ICacheState.SIdle) {
+    when(io.req.fire) {
+      when(hit) {
+        validReg := true.B
+      }.otherwise {
+        state    := ICacheState.SRefillReq
+        validReg := false.B
+      }
+    }.elsewhen(io.resp.fire) {
+      validReg := false.B
+    }
+  }.elsewhen(state === ICacheState.SRefillReq) {
+    when(io.refillReq.fire) {
+      state := ICacheState.SRefillResp
+    }
+  }.otherwise {
+    assert(state === ICacheState.SRefillResp)
+    when(io.refillResp.fire) {
+      state    := ICacheState.SIdle
+      validReg := true.B
     }
   }
 
-  val validArray = RegInit(VecInit(Seq.fill(cfg.sets)(VecInit(Seq.fill(cfg.ways)(false.B)))))
-  val tagArray   = Reg(Vec(cfg.sets, Vec(cfg.ways, UInt(cfg.tagBits.W))))
-  val dataArray  = Reg(Vec(cfg.sets, Vec(cfg.ways, UInt(cfg.blockBits.W))))
-  val replaceWay = RegInit(VecInit(Seq.fill(cfg.sets)(0.U(cfg.wayIdxBits.W))))
-
-  val state = RegInit(ICacheState.SIdle)
-
-  val missReq = Reg(new ICacheReq(cfg.addrWidth, cfg.fetchBytes))
-  val missSet = Reg(UInt(cfg.setIdxBits.W))
-  val missTag = Reg(UInt(cfg.tagBits.W))
-  val missWay = Reg(UInt(cfg.wayIdxBits.W))
-
-  val respValid = RegInit(false.B)
-  val respReg   = Reg(new ICacheResp(cfg.addrWidth, cfg.fetchBytes))
-
-  val reqSet = setIndex(io.req.bits.blockAddr)
-  val reqTag = tag(io.req.bits.blockAddr)
-
-  val wayHits = Wire(Vec(cfg.ways, Bool()))
-  for (way <- 0 until cfg.ways) {
-    wayHits(way) := validArray(reqSet)(way) && tagArray(reqSet)(way) === reqTag
-  }
-
-  val hit     = wayHits.asUInt.orR
-  val hitData = Mux1H((0 until cfg.ways).map(way => wayHits(way) -> dataArray(reqSet)(way)))
-
-  val invalidWays = Wire(Vec(cfg.ways, Bool()))
-  for (way <- 0 until cfg.ways) {
-    invalidWays(way) := !validArray(reqSet)(way)
-  }
-
-  val hasInvalid = invalidWays.asUInt.orR
-  val victimWay  = Wire(UInt(cfg.wayIdxBits.W))
-  if (cfg.ways == 1) {
-    victimWay := 0.U
-  } else {
-    victimWay := Mux(hasInvalid, PriorityEncoder(invalidWays), replaceWay(reqSet))
-  }
-
-  io.req.ready           := state === ICacheState.SIdle && !respValid
-  io.resp.valid          := respValid
-  io.resp.bits           := respReg
-  io.refillReq.valid     := state === ICacheState.SRefillReq
-  io.refillReq.bits.addr := missReq.blockAddr
-  io.refillResp.ready    := state === ICacheState.SRefillResp && !respValid
-
-  when(io.resp.fire) {
-    respValid := false.B
-  }
-
-  when(io.req.fire) {
+  when(state === ICacheState.SIdle && io.req.fire) {
     when(hit) {
-      respReg.pc        := io.req.bits.pc
-      respReg.blockAddr := io.req.bits.blockAddr
-      respReg.data      := hitData
-      respReg.hit       := true.B
-      respValid         := true.B
+      respReg.data := hitData
+      respReg.meta := io.req.bits.meta
+      respReg.hit  := true.B
     }.otherwise {
       missReq := io.req.bits
       missSet := reqSet
       missTag := reqTag
-      missWay := victimWay
-      state   := ICacheState.SRefillReq
     }
+  }.elsewhen(state === ICacheState.SRefillResp && io.refillResp.fire) {
+    respReg.data := io.refillResp.bits.data
+    respReg.meta := missReq.meta
+    respReg.hit  := false.B
   }
 
-  when(io.refillReq.fire) {
-    state := ICacheState.SRefillResp
-  }
-
-  when(io.refillResp.fire) {
-    validArray(missSet)(missWay) := true.B
-    tagArray(missSet)(missWay)   := missTag
-    dataArray(missSet)(missWay)  := io.refillResp.bits.data
-
-    if (cfg.ways > 1) {
-      replaceWay(missSet) := nextWay(missWay)
-    }
-
-    respReg.pc        := missReq.pc
-    respReg.blockAddr := missReq.blockAddr
-    respReg.data      := io.refillResp.bits.data
-    respReg.hit       := false.B
-    respValid         := true.B
-    state             := ICacheState.SIdle
+  when(state === ICacheState.SRefillResp && io.refillResp.fire) {
+    validArray(missSet) := true.B
+    tagArray(missSet)   := missTag
+    dataArray(missSet)  := io.refillResp.bits.data
   }
 }

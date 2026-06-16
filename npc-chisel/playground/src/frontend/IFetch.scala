@@ -5,6 +5,9 @@ import chisel3.util._
 import top.config.ICacheConfig
 import top.frontend.bundle.{FetchInst, ICacheReq, ICacheResp, PcRedirect}
 
+// two stage pipline
+// cache block -> 16bits block -> inst buffer
+
 class FetchPacket extends Bundle {
   val insts = Vec(2, Valid(new FetchInst))
 }
@@ -21,7 +24,7 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
   private val countWidth     = log2Ceil(fetchHalfwords + 1)
 
   val io = IO(new Bundle {
-    val resp    = Input(new ICacheResp(cfg.addrWidth, cfg.fetchBytes))
+    val resp    = Input(new ICacheResp(cfg))
     val entries = Output(Vec(fetchHalfwords, new HalfwordEntry))
     val count   = Output(UInt(countWidth.W))
   })
@@ -31,7 +34,7 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
     rawHalfwords(i) := io.resp.data(16 * (i + 1) - 1, 16 * i)
   }
 
-  val startHalfword = io.resp.pc(cfg.offsetBits - 1, 1)
+  val startHalfword = io.resp.meta.pc(cfg.offsetBits - 1, 1)
   val startCount    = Wire(UInt(countWidth.W))
   startCount := startHalfword
 
@@ -42,7 +45,7 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
     val byteOffset = Wire(UInt(cfg.addrWidth.W))
     byteOffset := srcIdx << 1
 
-    io.entries(i).pc   := io.resp.blockAddr +% byteOffset
+    io.entries(i).pc   := io.resp.meta.blockAddr +% byteOffset
     io.entries(i).bits := MuxLookup(
       srcIdx,
       0.U(16.W)
@@ -196,7 +199,6 @@ class DualInstAssembler(bufferDepth: Int) extends Module {
 
 class IFetch(
   cfg:             ICacheConfig = ICacheConfig(),
-  resetVector:     BigInt = BigInt("80000000", 16),
   halfwordEntries: Int = 16)
     extends Module {
   require(cfg.fetchBytes == 8, "IFetch currently assumes a 64-bit ICache fetch block")
@@ -206,8 +208,10 @@ class IFetch(
 
   val io = IO(new Bundle {
     val redirect   = Input(new PcRedirect)
-    val icacheReq  = Decoupled(new ICacheReq(cfg.addrWidth, cfg.fetchBytes))
-    val icacheResp = Flipped(Decoupled(new ICacheResp(cfg.addrWidth, cfg.fetchBytes)))
+    val pc         = Input(UInt(cfg.addrWidth.W))
+    val pcAdvance  = Output(Bool())
+    val icacheReq  = Decoupled(new ICacheReq(cfg))
+    val icacheResp = Flipped(Decoupled(new ICacheResp(cfg)))
     val fetch      = Decoupled(new FetchPacket)
   })
 
@@ -215,16 +219,16 @@ class IFetch(
   val buffer    = Module(new HalfwordBuffer(halfwordEntries, fetchHalfwords, peekHalfwords))
   val assembler = Module(new DualInstAssembler(halfwordEntries))
 
-  val nextReqPc      = RegInit(resetVector.U(cfg.addrWidth.W))
   val reqOutstanding = RegInit(false.B)
   val dropResp       = RegInit(false.B)
 
-  val req                 = ICacheReq.fromPc(nextReqPc, cfg.fetchBytes)
+  val req                 = ICacheReq.fromPc(io.pc, cfg)
   val enoughSpaceForBlock = buffer.io.freeCount >= fetchHalfwords.U
   val canReq              = !reqOutstanding && !dropResp && enoughSpaceForBlock && !io.redirect.valid
 
   io.icacheReq.valid := canReq
   io.icacheReq.bits  := req
+  io.pcAdvance       := io.icacheReq.fire
 
   splitter.io.resp := io.icacheResp.bits
 
@@ -241,12 +245,6 @@ class IFetch(
   assembler.io.count := buffer.io.count
   buffer.io.deq      := assembler.io.deq
   io.fetch <> assembler.io.out
-
-  when(io.redirect.valid) {
-    nextReqPc := io.redirect.value
-  }.elsewhen(io.icacheReq.fire) {
-    nextReqPc := req.blockAddr +% cfg.fetchBytes.U(cfg.addrWidth.W)
-  }
 
   when(io.redirect.valid) {
     dropResp       := (dropResp || reqOutstanding) && !io.icacheResp.fire

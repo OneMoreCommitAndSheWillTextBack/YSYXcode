@@ -1,7 +1,8 @@
 package top.frontend.bundle
 
 import chisel3._
-import chisel3.util.{Cat, log2Ceil}
+import chisel3.util.{log2Ceil, Cat}
+import top.config._
 
 // the bundle cross module in the frontend
 
@@ -22,21 +23,24 @@ class PcRedirect extends Bundle {
   val value = UInt(32.W)
 }
 
-class ICacheReq(addrWidth: Int = 32, fetchBytes: Int = 8) extends Bundle {
-  require(fetchBytes > 0 && (fetchBytes & (fetchBytes - 1)) == 0, "fetchBytes must be a power of two")
-  require(addrWidth > log2Ceil(fetchBytes), "addrWidth must cover the fetch block offset")
-
-  val pc        = UInt(addrWidth.W) // 原始取指 PC，返回 IFetch 时用于指令选择/调试
-  val blockAddr = UInt(addrWidth.W) // 按 fetchBytes 对齐后的 ICache 访问地址
+class IFetchBlockMeta() extends Bundle {
+  val pc        = UInt(32.W)
+  val blockAddr = UInt(32.W)
 }
 
-class ICacheResp(addrWidth: Int = 32, fetchBytes: Int = 8) extends Bundle {
-  require(fetchBytes > 0 && (fetchBytes & (fetchBytes - 1)) == 0, "fetchBytes must be a power of two")
+class ICacheReq(cfg: ICacheConfig) extends Bundle {
+  require(cfg.fetchBytes > 0 && (cfg.fetchBytes & (cfg.fetchBytes - 1)) == 0, "fetchBytes must be a power of two")
+  require(cfg.addrWidth > log2Ceil(cfg.fetchBytes), "addrWidth must cover the fetch block offset")
 
-  val pc        = UInt(addrWidth.W)
-  val blockAddr = UInt(addrWidth.W)
-  val data      = UInt((fetchBytes * 8).W)
-  val hit       = Bool()
+  val meta = new IFetchBlockMeta()
+}
+
+class ICacheResp(cfg: ICacheConfig) extends Bundle {
+  require(cfg.fetchBytes > 0 && (cfg.fetchBytes & (cfg.fetchBytes - 1)) == 0, "fetchBytes must be a power of two")
+
+  val meta = new IFetchBlockMeta()
+  val data = UInt((cfg.fetchBytes * 8).W)
+  val hit  = Bool()
 }
 
 class ICacheRefillReq(addrWidth: Int = 32) extends Bundle {
@@ -50,16 +54,16 @@ class ICacheRefillResp(fetchBytes: Int = 8) extends Bundle {
 }
 
 object ICacheReq {
-  def fromPc(pc: UInt, fetchBytes: Int = 8): ICacheReq = {
+  def fromPc(pc: UInt, cfg: ICacheConfig): ICacheReq = {
     val addrWidth   = pc.getWidth
-    val offsetWidth = log2Ceil(fetchBytes)
-    val req         = Wire(new ICacheReq(addrWidth, fetchBytes))
+    val offsetWidth = log2Ceil(cfg.fetchBytes)
+    val req         = Wire(new ICacheReq(cfg))
 
-    req.pc        := pc
-    req.blockAddr := {
-      if (offsetWidth == 0) pc
-      else Cat(pc(addrWidth - 1, offsetWidth), 0.U(offsetWidth.W))
+    req.meta.pc        := pc
+    req.meta.blockAddr := {
+      Cat(pc(addrWidth - 1, offsetWidth), 0.U(offsetWidth.W))
     }
-    req
+
+    return req
   }
 }
