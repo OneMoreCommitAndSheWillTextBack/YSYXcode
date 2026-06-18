@@ -17,7 +17,7 @@ CFLAGS += -DMAINARGS=\"$(mainargs)\"
 
 ARGS = -f$(IMAGE).bin
 ARGS += -b
-# ARGS += -e
+ARGS += -e
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt

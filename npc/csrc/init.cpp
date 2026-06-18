@@ -14,7 +14,7 @@
 #include <string.h>
 
 #ifdef __NVBOARD__
-  #include "nvboard.h"
+#include "nvboard.h"
 #endif
 
 #include "common.h"
@@ -34,9 +34,9 @@ long init_default() {
 }
 
 #ifdef __NPC__
-  unsigned int load_addr = PSBASE;
+unsigned int load_addr = PSBASE;
 #else
-  unsigned int load_addr = FBASE;
+unsigned int load_addr = FBASE;
 #endif
 
 long init_build(char *filepath) {
@@ -85,10 +85,11 @@ char diff_ref[] = "/home/cinder/Code/project/ysyx-workbench/nemu/build/"
 int port = 0;
 bool batch_mode_on = false;
 
-char itrace_out_file[] = "/home/cinder/Code/project/ysyx-workbench/simulator/itrace-log.txt";
+char itrace_out_file[] =
+    "/home/cinder/Code/project/ysyx-workbench/simulator/itrace-log.txt";
 
 #ifdef __NVBOARD__
-extern void nvboard_bind_all_pins(VysyxSoCFull* top);
+extern void nvboard_bind_all_pins(VysyxSoCFull *top);
 #endif
 
 void parse_args(int argc, char *argv[]) {
@@ -120,19 +121,19 @@ void parse_args(int argc, char *argv[]) {
       die_on_end_on = true;
       break;
     case 'i':
-      #ifdef TRACE
+#ifdef TRACE
       fork_interval = std::strtol(optarg, NULL, 10);
       fork_interval_on = true;
-      #else 
+#else
       printf("fork-interval is only supported in trace mode\n");
-      #endif
+#endif
       break;
     case 'r':
-      #ifdef TRACE
+#ifdef TRACE
       record_after = std::stoul(optarg);
-      #else
+#else
       printf("record-after is only supported in trace mode\n");
-      #endif
+#endif
       break;
     case 'e':
       record_enable = true;
@@ -176,18 +177,23 @@ void init(int argc, char *argv[]) {
   init_disasm("riscv32-pc-linux-gnu");
   itrace_cfg = new (std::nothrow) itrace_cfg_t;
   if (itrace_cfg == nullptr) {
-    printf(COLOR_RED "[ERROR] Failed to allocate memory for itrace_cfg\n" COLOR_RESET);
+    printf(COLOR_RED
+           "[ERROR] Failed to allocate memory for itrace_cfg\n" COLOR_RESET);
     exit(1);
   }
-  
+
   itrace_cfg->itrace_out = fopen(itrace_out_file, "w");
   if (itrace_cfg->itrace_out == nullptr) {
-    printf(COLOR_RED "[ERROR] Failed to open itrace output file: %s\n" COLOR_RESET, itrace_out_file);
-    printf(COLOR_YELLOW "[WARNING] Itrace will be disabled due to file open failure\n" COLOR_RESET);
+    printf(COLOR_RED
+           "[ERROR] Failed to open itrace output file: %s\n" COLOR_RESET,
+           itrace_out_file);
+    printf(COLOR_YELLOW "[WARNING] Itrace will be disabled due to file open "
+                        "failure\n" COLOR_RESET);
     delete itrace_cfg;
     itrace_cfg = nullptr;
   } else {
-    printf(COLOR_GREEN "[INFO] Itrace output file opened: %s\n" COLOR_RESET, itrace_out_file);
+    printf(COLOR_GREEN "[INFO] Itrace output file opened: %s\n" COLOR_RESET,
+           itrace_out_file);
   }
 #endif
   init_regex();
@@ -198,11 +204,11 @@ void init(int argc, char *argv[]) {
   npc = new Npc;
   cpu = new Cpu;
   cpu->con.pc = MBASE - 8;
-  #ifdef __NPC__
+#ifdef __NPC__
   npc->top = new Vnpc;
-  #else 
+#else
   npc->top = new VysyxSoCFull;
-  #endif
+#endif
   npc->cycs = 0;
   npc->timer = 0;
 
@@ -215,7 +221,7 @@ void init(int argc, char *argv[]) {
   npc->state = STOP;
   npc->top->reset = 1;
   init_trace();
-  for (int i=0;i<RESET_TIME-1;i++){
+  for (int i = 0; i < RESET_TIME - 1; i++) {
     npc->top->clock = 1;
     npc->top->eval();
     demp_wave();
@@ -225,15 +231,15 @@ void init(int argc, char *argv[]) {
     npc->timer += 2;
   }
 
-  #ifdef DIFFTEST
+#ifdef DIFFTEST
   init_difftest(diff_ref, img_size, port);
-  #endif
+#endif
 
-  #ifdef __NVBOARD__
+#ifdef __NVBOARD__
   nvboard_bind_all_pins(npc->top);
   nvboard_init();
   nvboard_set_divisor(16);
-  #endif
+#endif
 
   npc->top->reset = 0;
   // Dump reset deassertion in its own timestep so synchronous state updates
@@ -249,12 +255,10 @@ bool fork_interval_is_on() { return fork_interval_on; }
 int fork_interval_val() { return fork_interval; }
 bool record_isenable() { return record_enable; }
 void set_record_enable() { record_enable = true; }
-void set_record_disenable() { record_enable = false;}
+void set_record_disenable() { record_enable = false; }
 unsigned int record_after_val() { return record_after; }
 bool die_on_end_is_on() { return die_on_end_on; }
 unsigned long long die_on_end_val() { return die_on_end; }
 bool record_enable_when_on_val() { return record_enable_when_on; }
-void check_record_enable_when() {
-  return ;
-}
+void check_record_enable_when() { return; }
 #endif
