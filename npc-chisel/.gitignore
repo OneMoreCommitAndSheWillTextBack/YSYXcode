@@ -8,6 +8,7 @@
 !*.v
 !*.cpp
 !*.cc
+!*.rs
 !.gitignore
 !.scalafmt.conf
 !README.md
@@ -18,6 +19,7 @@ build/
 !.mill-version
 out/
 .bsp/
+.metals/
 .idea/
 .idea_modules/
 test_run_dir/
