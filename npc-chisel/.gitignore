@@ -9,6 +9,9 @@
 !*.cpp
 !*.cc
 !*.rs
+!*.vh
+!Cargo.toml
+!Cargo.lock
 !.gitignore
 !.scalafmt.conf
 !README.md

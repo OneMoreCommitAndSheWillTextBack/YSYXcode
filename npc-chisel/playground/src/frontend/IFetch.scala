@@ -47,8 +47,8 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
   val startOH = UIntToOH(startCount, fetchHalfwords)
 
   for (i <- 0 until fetchHalfwords) {
-    io.entries(i).pc   := basePc +% (2 * i).U(cfg.addrWidth.W)
-    io.entries(i).bits := Mux1H((0 until fetchHalfwords).map { s =>
+    io.entries(i).pc        := basePc +% (2 * i).U(cfg.addrWidth.W)
+    io.entries(i).bits      := Mux1H((0 until fetchHalfwords).map { s =>
       val idx  = i + s
       val bits = if (idx < fetchHalfwords) rawHalfwords(idx) else 0.U(16.W)
 
@@ -159,10 +159,10 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val firstReady = io.count >= firstNeed
   val firstRaw   = Mux(firstIsRVC, Cat(0.U(16.W), h0.bits), Cat(h1.bits, h0.bits))
 
-  val secondLow   = Mux(firstIsRVC, h1.bits, h2.bits)
-  val secondHigh  = Mux(firstIsRVC, h2.bits, h3.bits)
-  val secondPc    = Mux(firstIsRVC, h1.pc, h2.pc)
-  val secondPred  = Wire(new FetchPred(cfg))
+  val secondLow  = Mux(firstIsRVC, h1.bits, h2.bits)
+  val secondHigh = Mux(firstIsRVC, h2.bits, h3.bits)
+  val secondPc   = Mux(firstIsRVC, h1.pc, h2.pc)
+  val secondPred = Wire(new FetchPred(cfg))
   secondPred := Mux(firstIsRVC, h1.pred, h2.pred)
   val secondIsRVC = secondLow(1, 0) =/= 3.U
   val secondNeed  = Mux(secondIsRVC, 1.U(deqCountWidth.W), 2.U(deqCountWidth.W))
@@ -173,8 +173,8 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val firstPredHit  = h0.pred.valid && h0.pred.cfiOffset === cfiOffset(h0.pc)
   val secondPredHit = secondPred.valid && secondPred.cfiOffset === cfiOffset(secondPc)
 
-  val firstPredTaken  = firstPredHit && h0.pred.taken
-  val secondPredTaken = secondPredHit && secondPred.taken
+  val firstPredTaken    = firstPredHit && h0.pred.taken
+  val secondPredTaken   = secondPredHit && secondPred.taken
   val firstFallThrough  = h0.pc +% instLen(firstIsRVC)
   val secondFallThrough = secondPc +% instLen(secondIsRVC)
 
