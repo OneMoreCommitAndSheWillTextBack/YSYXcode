@@ -2,8 +2,8 @@ package top.frontend.ifetch
 
 import chisel3._
 import chisel3.util._
-import top.config.ICacheConfig
-import top.frontend.bundle.{FetchInst, ICacheReq, ICacheResp, PcRedirect}
+import top.config.{ICacheConfig, IFetchConfig}
+import top.frontend.bundle.{FetchInst, FetchPred, ICacheReq, ICacheResp, PcRedirect}
 
 // two stage pipline
 // cache block -> 16bits block -> inst buffer
@@ -12,9 +12,11 @@ class FetchPacket extends Bundle {
   val insts = Vec(2, Valid(new FetchInst))
 }
 
-class HalfwordEntry extends Bundle {
-  val pc   = UInt(32.W)
-  val bits = UInt(16.W)
+class HalfwordEntry(cfg: ICacheConfig) extends Bundle {
+  val pc        = UInt(cfg.addrWidth.W)
+  val bits      = UInt(16.W)
+  val blockAddr = UInt(cfg.addrWidth.W)
+  val pred      = new FetchPred(cfg)
 }
 
 class HalfwordSplitter(cfg: ICacheConfig) extends Module {
@@ -25,7 +27,7 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
 
   val io = IO(new Bundle {
     val resp    = Input(new ICacheResp(cfg))
-    val entries = Output(Vec(fetchHalfwords, new HalfwordEntry))
+    val entries = Output(Vec(fetchHalfwords, new HalfwordEntry(cfg)))
     val count   = Output(UInt(countWidth.W))
   })
 
@@ -38,22 +40,26 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
   val startCount    = Wire(UInt(countWidth.W))
   startCount := startHalfword
 
+  val basePc = io.resp.meta.blockAddr +% (startCount << 1)
+
   io.count := fetchHalfwords.U(countWidth.W) - startCount
 
-  for (i <- 0 until fetchHalfwords) {
-    val srcIdx     = startCount + i.U(countWidth.W)
-    val byteOffset = Wire(UInt(cfg.addrWidth.W))
-    byteOffset := srcIdx << 1
+  val startOH = UIntToOH(startCount, fetchHalfwords)
 
-    io.entries(i).pc   := io.resp.meta.blockAddr +% byteOffset
-    io.entries(i).bits := MuxLookup(
-      srcIdx,
-      0.U(16.W)
-    )((0 until fetchHalfwords).map(j => j.U(countWidth.W) -> rawHalfwords(j)))
+  for (i <- 0 until fetchHalfwords) {
+    io.entries(i).pc        := basePc +% (2 * i).U(cfg.addrWidth.W)
+    io.entries(i).bits      := Mux1H((0 until fetchHalfwords).map { s =>
+      val idx  = i + s
+      val bits = if (idx < fetchHalfwords) rawHalfwords(idx) else 0.U(16.W)
+
+      startOH(s) -> bits
+    })
+    io.entries(i).blockAddr := io.resp.meta.blockAddr
+    io.entries(i).pred      := io.resp.meta.pred
   }
 }
 
-class HalfwordBuffer(depth: Int, enqWidth: Int, peekWidth: Int) extends Module {
+class HalfwordBuffer(cfg: ICacheConfig, depth: Int, enqWidth: Int, peekWidth: Int) extends Module {
   require(depth > enqWidth, "HalfwordBuffer must hold at least one full fetch block")
   require(depth > 0 && (depth & (depth - 1)) == 0, "HalfwordBuffer depth must be a power of two")
 
@@ -69,9 +75,9 @@ class HalfwordBuffer(depth: Int, enqWidth: Int, peekWidth: Int) extends Module {
     val enqValid = Input(Bool())
     val enqReady = Output(Bool())
     val enqCount = Input(UInt(enqCountWidth.W))
-    val enqBits  = Input(Vec(enqWidth, new HalfwordEntry))
+    val enqBits  = Input(Vec(enqWidth, new HalfwordEntry(cfg)))
 
-    val peek  = Output(Vec(peekWidth, new HalfwordEntry))
+    val peek  = Output(Vec(peekWidth, new HalfwordEntry(cfg)))
     val count = Output(UInt(countWidth.W))
     val deq   = Input(UInt(deqCountWidth.W))
   })
@@ -79,7 +85,7 @@ class HalfwordBuffer(depth: Int, enqWidth: Int, peekWidth: Int) extends Module {
   private def ptrAdd(ptr: UInt, inc: UInt): UInt =
     (ptr + inc)(ptrWidth - 1, 0)
 
-  val entries  = Reg(Vec(depth, new HalfwordEntry))
+  val entries  = Reg(Vec(depth, new HalfwordEntry(cfg)))
   val readPtr  = RegInit(0.U(ptrWidth.W))
   val writePtr = RegInit(0.U(ptrWidth.W))
   val count    = RegInit(0.U(countWidth.W))
@@ -124,14 +130,14 @@ class HalfwordBuffer(depth: Int, enqWidth: Int, peekWidth: Int) extends Module {
   }
 }
 
-class DualInstAssembler(bufferDepth: Int) extends Module {
+class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   private val peekWidth     = 4
   private val countWidth    = log2Ceil(bufferDepth + 1)
   private val deqCountWidth = log2Ceil(peekWidth + 1)
 
   val io = IO(new Bundle {
     val flush = Input(Bool())
-    val peek  = Input(Vec(peekWidth, new HalfwordEntry))
+    val peek  = Input(Vec(peekWidth, new HalfwordEntry(cfg)))
     val count = Input(UInt(countWidth.W))
     val out   = Decoupled(new FetchPacket)
     val deq   = Output(UInt(deqCountWidth.W))
@@ -139,6 +145,9 @@ class DualInstAssembler(bufferDepth: Int) extends Module {
 
   private def instLen(isRVC: Bool): UInt =
     Mux(isRVC, 2.U(3.W), 4.U(3.W))
+
+  private def cfiOffset(pc: UInt): UInt =
+    pc(cfg.offsetBits - 1, 1)
 
   val h0 = io.peek(0)
   val h1 = io.peek(1)
@@ -150,14 +159,24 @@ class DualInstAssembler(bufferDepth: Int) extends Module {
   val firstReady = io.count >= firstNeed
   val firstRaw   = Mux(firstIsRVC, Cat(0.U(16.W), h0.bits), Cat(h1.bits, h0.bits))
 
-  val secondLow   = Mux(firstIsRVC, h1.bits, h2.bits)
-  val secondHigh  = Mux(firstIsRVC, h2.bits, h3.bits)
-  val secondPc    = Mux(firstIsRVC, h1.pc, h2.pc)
+  val secondLow  = Mux(firstIsRVC, h1.bits, h2.bits)
+  val secondHigh = Mux(firstIsRVC, h2.bits, h3.bits)
+  val secondPc   = Mux(firstIsRVC, h1.pc, h2.pc)
+  val secondPred = Wire(new FetchPred(cfg))
+  secondPred := Mux(firstIsRVC, h1.pred, h2.pred)
   val secondIsRVC = secondLow(1, 0) =/= 3.U
   val secondNeed  = Mux(secondIsRVC, 1.U(deqCountWidth.W), 2.U(deqCountWidth.W))
   val totalNeed   = firstNeed + secondNeed
   val secondReady = firstReady && io.count >= totalNeed
   val secondRaw   = Mux(secondIsRVC, Cat(0.U(16.W), secondLow), Cat(secondHigh, secondLow))
+
+  val firstPredHit  = h0.pred.valid && h0.pred.cfiOffset === cfiOffset(h0.pc)
+  val secondPredHit = secondPred.valid && secondPred.cfiOffset === cfiOffset(secondPc)
+
+  val firstPredTaken    = firstPredHit && h0.pred.taken
+  val secondPredTaken   = secondPredHit && secondPred.taken
+  val firstFallThrough  = h0.pc +% instLen(firstIsRVC)
+  val secondFallThrough = secondPc +% instLen(secondIsRVC)
 
   val firstExpander  = Module(new RvcExpander)
   val secondExpander = Module(new RvcExpander)
@@ -176,19 +195,19 @@ class DualInstAssembler(bufferDepth: Int) extends Module {
   io.out.bits.insts(0).bits.rawInst    := firstRaw
   io.out.bits.insts(0).bits.isRVC      := firstIsRVC
   io.out.bits.insts(0).bits.instLen    := instLen(firstIsRVC)
-  io.out.bits.insts(0).bits.predTaken  := false.B
-  io.out.bits.insts(0).bits.predNpc    := 0.U
-  io.out.bits.insts(0).bits.predTarget := 0.U
+  io.out.bits.insts(0).bits.predTaken  := firstPredTaken
+  io.out.bits.insts(0).bits.predNpc    := Mux(firstPredTaken, h0.pred.target, firstFallThrough)
+  io.out.bits.insts(0).bits.predTarget := Mux(firstPredHit, h0.pred.target, 0.U)
 
-  io.out.bits.insts(1).valid           := secondOutValid
+  io.out.bits.insts(1).valid           := secondOutValid && !firstPredTaken
   io.out.bits.insts(1).bits.pc         := secondPc
   io.out.bits.insts(1).bits.inst       := secondExpander.io.out.bits
   io.out.bits.insts(1).bits.rawInst    := secondRaw
   io.out.bits.insts(1).bits.isRVC      := secondIsRVC
   io.out.bits.insts(1).bits.instLen    := instLen(secondIsRVC)
-  io.out.bits.insts(1).bits.predTaken  := false.B
-  io.out.bits.insts(1).bits.predNpc    := 0.U
-  io.out.bits.insts(1).bits.predTarget := 0.U
+  io.out.bits.insts(1).bits.predTaken  := secondPredTaken
+  io.out.bits.insts(1).bits.predNpc    := Mux(secondPredTaken, secondPred.target, secondFallThrough)
+  io.out.bits.insts(1).bits.predTarget := Mux(secondPredHit, secondPred.target, 0.U)
 
   io.deq := Mux(
     io.out.fire,
@@ -253,34 +272,34 @@ class InstBuffer(bufferDepth: Int = 8) extends Module {
 }
 
 class IFetch(
-  cfg:             ICacheConfig = ICacheConfig(),
-  halfwordEntries: Int = 16,
-  instBufferEntries: Int = 8)
+  cacheCfg: ICacheConfig = ICacheConfig(),
+  cfg:      IFetchConfig = IFetchConfig())
     extends Module {
-  require(cfg.fetchBytes == 8, "IFetch currently assumes a 64-bit ICache fetch block")
+  require(cacheCfg.fetchBytes == 8, "IFetch currently assumes a 64-bit ICache fetch block")
 
-  private val fetchHalfwords = cfg.fetchBytes / 2
+  private val fetchHalfwords = cacheCfg.fetchBytes / 2
   private val peekHalfwords  = 4
 
   val io = IO(new Bundle {
     val redirect   = Input(new PcRedirect)
-    val pc         = Input(UInt(cfg.addrWidth.W))
+    val pc         = Input(UInt(cacheCfg.addrWidth.W))
+    val pred       = Input(new FetchPred(cacheCfg))
     val pcAdvance  = Output(Bool())
-    val icacheReq  = Decoupled(new ICacheReq(cfg))
-    val icacheResp = Flipped(Decoupled(new ICacheResp(cfg)))
+    val icacheReq  = Decoupled(new ICacheReq(cacheCfg))
+    val icacheResp = Flipped(Decoupled(new ICacheResp(cacheCfg)))
     val fetch      = Decoupled(new FetchPacket)
   })
 
-  val splitter  = Module(new HalfwordSplitter(cfg))
-  val buffer    = Module(new HalfwordBuffer(halfwordEntries, fetchHalfwords, peekHalfwords))
-  val assembler = Module(new DualInstAssembler(halfwordEntries))
-  val instBuffer = Module(new InstBuffer(instBufferEntries))
+  val splitter       = Module(new HalfwordSplitter(cacheCfg))
+  val halfwordBuffer = Module(new HalfwordBuffer(cacheCfg, cfg.halfwordEntries, fetchHalfwords, peekHalfwords))
+  val assembler      = Module(new DualInstAssembler(cacheCfg, cfg.halfwordEntries))
+  val instBuffer     = Module(new InstBuffer(cfg.instBufferEntries))
 
   val reqOutstanding = RegInit(false.B)
   val dropResp       = RegInit(false.B)
 
-  val req                 = ICacheReq.fromPc(io.pc, cfg)
-  val enoughSpaceForBlock = buffer.io.freeCount >= fetchHalfwords.U
+  val req                 = ICacheReq.fromPc(io.pc, cacheCfg, io.pred)
+  val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
   val canReq              = !reqOutstanding && !dropResp && enoughSpaceForBlock && !io.redirect.valid
 
   io.icacheReq.valid := canReq
@@ -290,17 +309,17 @@ class IFetch(
   splitter.io.resp := io.icacheResp.bits
 
   val discardResp = dropResp || io.redirect.valid
-  buffer.io.flush    := io.redirect.valid
-  buffer.io.enqValid := io.icacheResp.fire && !discardResp
-  buffer.io.enqCount := splitter.io.count
-  buffer.io.enqBits  := splitter.io.entries
+  halfwordBuffer.io.flush    := io.redirect.valid
+  halfwordBuffer.io.enqValid := io.icacheResp.fire && !discardResp
+  halfwordBuffer.io.enqCount := splitter.io.count
+  halfwordBuffer.io.enqBits  := splitter.io.entries
 
-  io.icacheResp.ready := discardResp || buffer.io.enqReady
+  io.icacheResp.ready := discardResp || halfwordBuffer.io.enqReady
 
-  assembler.io.flush := io.redirect.valid
-  assembler.io.peek  := buffer.io.peek
-  assembler.io.count := buffer.io.count
-  buffer.io.deq      := assembler.io.deq
+  assembler.io.flush    := io.redirect.valid
+  assembler.io.peek     := halfwordBuffer.io.peek
+  assembler.io.count    := halfwordBuffer.io.count
+  halfwordBuffer.io.deq := assembler.io.deq
 
   instBuffer.io.flush := io.redirect.valid
   instBuffer.io.in <> assembler.io.out
