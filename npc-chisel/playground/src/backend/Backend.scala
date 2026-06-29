@@ -5,6 +5,9 @@ import chisel3.util.{Decoupled, Valid}
 import top.bundle._
 import top.config.BackendConfig
 
+import top.backend.regfile._
+import top.backend.decoder._
+
 class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
     val frontend = Flipped(Decoupled(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
@@ -15,6 +18,9 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
 
     val commit = Output(Vec(cfg.issueWidth, Valid(new CommitPayload(cfg.addrWidth))))
   })
+
+  val gpr     = Module(new RegFile(cfg))
+  val decoder = Module(new Decoder(cfg))
 
   io.frontend.ready := true.B
   io.redirect       := 0.U.asTypeOf(new BackendToFrontend(cfg.addrWidth))

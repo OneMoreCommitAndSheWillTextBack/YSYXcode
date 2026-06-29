@@ -17,8 +17,8 @@ class Mem(cfg: MemConfig = MemConfig()) extends Module {
     val axi = new AxiPort
   })
 
-  val refill    = Module(new AxiReadRefill(cfg))
-  val axiMaster = Module(new AxiMaster(cfg))
+  val refill     = Module(new AxiReadRefill(cfg))
+  val axiMaster  = Module(new AxiMaster(cfg))
   val dataAccess = Module(new AxiDataAccess(cfg))
 
   refill.io.req <> io.imemReq
@@ -31,8 +31,8 @@ class Mem(cfg: MemConfig = MemConfig()) extends Module {
   val instReadSelected =
     !dataReadSelected && !dataAccess.io.axiWriteReq.valid && refill.io.axiReadReq.valid
 
-  axiMaster.io.readReq.valid := dataReadSelected || instReadSelected
-  axiMaster.io.readReq.bits := Mux(
+  axiMaster.io.readReq.valid     := dataReadSelected || instReadSelected
+  axiMaster.io.readReq.bits      := Mux(
     dataReadSelected,
     dataAccess.io.axiReadReq.bits,
     refill.io.axiReadReq.bits
@@ -49,7 +49,7 @@ class Mem(cfg: MemConfig = MemConfig()) extends Module {
   dataAccess.io.axiReadResp.bits  := axiMaster.io.readResp.bits
   refill.io.axiReadResp.valid     := axiMaster.io.readResp.valid && !readRespToData
   refill.io.axiReadResp.bits      := axiMaster.io.readResp.bits
-  axiMaster.io.readResp.ready := Mux(
+  axiMaster.io.readResp.ready     := Mux(
     readRespToData,
     dataAccess.io.axiReadResp.ready,
     refill.io.axiReadResp.ready

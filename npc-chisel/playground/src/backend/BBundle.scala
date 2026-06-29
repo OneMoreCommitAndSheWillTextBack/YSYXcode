@@ -1,47 +1,9 @@
 package top.backend.bundle
 
 import chisel3._
+import top.backend.decoder.{FuOp, FuType, SrcType}
 import top.bundle.FetchInstPayload
-
-object SrcType {
-  val width = 2
-
-  val none = 0.U(width.W)
-  val reg  = 1.U(width.W)
-  val imm  = 2.U(width.W)
-  val pc   = 3.U(width.W)
-}
-
-object ImmSel {
-  val width = 3
-
-  val none = 0.U(width.W)
-  val i    = 1.U(width.W)
-  val s    = 2.U(width.W)
-  val b    = 3.U(width.W)
-  val j    = 4.U(width.W)
-}
-
-object FuType {
-  val width = 3
-
-  val none = 0.U(width.W)
-  val alu  = 1.U(width.W)
-  val lsu  = 2.U(width.W)
-  val bru  = 3.U(width.W)
-  val jmp  = 4.U(width.W)
-}
-
-object FuOp {
-  val width = 4
-
-  val none = 0.U(width.W)
-  val add  = 1.U(width.W)
-  val lw   = 2.U(width.W)
-  val sw   = 3.U(width.W)
-  val beq  = 4.U(width.W)
-  val jal  = 5.U(width.W)
-}
+import top.config.BackendConfig
 
 class DecodePacket(addrWidth: Int = 32) extends Bundle {
   val fetch       = new FetchInstPayload(addrWidth)
@@ -52,7 +14,6 @@ class DecodePacket(addrWidth: Int = 32) extends Bundle {
   val imm         = UInt(32.W)
   val src1Type    = UInt(SrcType.width.W)
   val src2Type    = UInt(SrcType.width.W)
-  val immSel      = UInt(ImmSel.width.W)
   val fuType      = UInt(FuType.width.W)
   val fuOp        = UInt(FuOp.width.W)
   val rfWen       = Bool()
@@ -62,6 +23,74 @@ class DecodePacket(addrWidth: Int = 32) extends Bundle {
   val isJal       = Bool()
   val memSize     = UInt(3.W)
   val memUnsigned = Bool()
+}
+
+class IssueControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val request = Input(Vec(cfg.issueQueueEntries, Bool()))
+  val robIdx  = Input(Vec(cfg.issueQueueEntries, UInt(cfg.robIdxWidth.W)))
+  val robHead = Input(UInt(cfg.robIdxWidth.W))
+  val grantOH = Output(Vec(cfg.issueQueueEntries, Bool()))
+}
+
+class IssueFuReady extends Bundle {
+  val alu   = Bool()
+  val lsu   = Bool()
+  val bru   = Bool()
+  val jmp   = Bool()
+  val csr   = Bool()
+  val fence = Bool()
+}
+
+class IssueWakeup(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+  val data   = UInt(cfg.dataWidth.W)
+}
+
+class IssueOperand(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val data  = UInt(cfg.dataWidth.W)
+  val ready = Bool()
+  val tag   = UInt(cfg.robIdxWidth.W)
+}
+
+class IssuePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val fetch       = new FetchInstPayload(cfg.addrWidth)
+  val legal       = Bool()
+  val robIdx      = UInt(cfg.robIdxWidth.W)
+  val rd          = UInt(5.W)
+  val imm         = UInt(32.W)
+  val src1        = new IssueOperand(cfg)
+  val src2        = new IssueOperand(cfg)
+  val fuType      = UInt(FuType.width.W)
+  val fuOp        = UInt(FuOp.width.W)
+  val rfWen       = Bool()
+  val isLoad      = Bool()
+  val isStore     = Bool()
+  val isBranch    = Bool()
+  val isJal       = Bool()
+  val memSize     = UInt(3.W)
+  val memUnsigned = Bool()
+}
+
+class ScoreboardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid    = Input(Bool())
+  val rs       = Input(UInt(5.W))
+  val ready    = Output(Bool())
+  val producer = Output(UInt(cfg.robIdxWidth.W))
+}
+
+class ScoreboardAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val rd     = UInt(5.W)
+  val rfWen  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class ScoreboardCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val rd     = UInt(5.W)
+  val rfWen  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
 }
 
 class ExecutePacket(addrWidth: Int = 32, dataWidth: Int = 32) extends Bundle {
@@ -88,12 +117,12 @@ class RegFileReadPort(dataWidth: Int = 32) extends Bundle {
 
 class RegFileWritePort(dataWidth: Int = 32) extends Bundle {
   val enable = Input(Bool())
-  val addr   = Input(UInt())
+  val addr   = Input(UInt(5.W))
   val data   = Input(UInt(dataWidth.W))
 }
 
 class RegFilePortBundle(
-  readPorts:  Int = 2,
+  readPorts:  Int = 4,
   writePorts: Int = 2,
   dataWidth:  Int = 32)
     extends Bundle {

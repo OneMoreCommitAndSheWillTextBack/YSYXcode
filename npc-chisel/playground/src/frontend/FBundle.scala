@@ -1,7 +1,7 @@
 package top.frontend.bundle
 
 import chisel3._
-import chisel3.util.{Cat, log2Ceil, Valid}
+import chisel3.util.{log2Ceil, Cat, Valid}
 import top.config._
 
 // the bundle cross module in the frontend
@@ -78,7 +78,7 @@ object ICacheReq {
     req.meta.blockAddr := {
       Cat(pc(addrWidth - 1, offsetWidth), 0.U(offsetWidth.W))
     }
-    req.meta.pred := pred
+    req.meta.pred      := pred
 
     return req
   }

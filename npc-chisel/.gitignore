@@ -15,6 +15,7 @@
 !.gitignore
 !.scalafmt.conf
 !README.md
+!doc/design.md
 build/
 
 # mill

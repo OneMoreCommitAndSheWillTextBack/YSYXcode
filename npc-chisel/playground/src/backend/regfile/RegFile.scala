@@ -3,28 +3,22 @@ package top.backend.regfile
 import chisel3._
 import top.backend.bundle._
 import chisel3.util.MuxCase
+import top.config.BackendConfig
 
-class RegFile(
-  readPorts:  Int = 2,
-  writePorts: Int = 2,
-  dataWidth:  Int = 32)
-    extends Module {
-  require(readPorts > 0, "RegFile must have at least one read port")
-  require(writePorts > 0, "RegFile must have at least one write port")
-
+class RegFile(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(
     new RegFilePortBundle(
-      readPorts = readPorts,
-      writePorts = writePorts,
-      dataWidth = dataWidth
+      readPorts = cfg.regfileReadPorts,
+      writePorts = cfg.regfileWritePorts,
+      dataWidth = cfg.dataWidth
     )
   )
 
-  private val gpr = Reg(Vec(31, UInt(dataWidth.W)))
+  private val gpr = Reg(Vec(31, UInt(cfg.dataWidth.W)))
 
   for (read <- io.read) {
     read.data := MuxCase(
-      0.U(dataWidth.W),
+      0.U(cfg.dataWidth.W),
       (1 until 32).map(idx => (read.enable && read.addr === idx.U) -> gpr(idx - 1))
     )
   }
