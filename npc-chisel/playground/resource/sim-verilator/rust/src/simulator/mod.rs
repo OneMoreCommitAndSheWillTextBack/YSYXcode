@@ -10,6 +10,7 @@ use crate::{
     memory::{Memory, MemoryError},
     perf::Perf,
     sdb::SdbError,
+    simulator::SimulatorState::Running,
     SimulatorResult, ACTIVE_SIMULATOR,
 };
 use std::{fs, io, path::PathBuf};
@@ -29,6 +30,14 @@ pub enum SimulatorError {
     Difftest(DifftestError),
     ImageIo { path: PathBuf, source: io::Error },
     CpuNotConnected,
+    SimulateFinish,
+}
+
+pub enum SimulatorState {
+    Running,
+    Stop,
+    Abort,
+    End,
 }
 
 impl From<MemoryError> for SimulatorError {
@@ -61,6 +70,7 @@ pub struct Simulator {
     cpu: Option<Cpu>,
     perf: Perf,
     difftest: DiffTest,
+    state: SimulatorState,
 }
 
 impl Simulator {
@@ -74,9 +84,10 @@ impl Simulator {
             cpu: None,
             perf: Perf::new(),
             difftest,
+            state: Running,
         });
         let callbacks = ffi::NpcDpiCallbacks {
-            on_commit: None,
+            on_commit: Some(simulator_on_commit),
             on_current_pc: None,
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
@@ -120,25 +131,16 @@ impl Simulator {
     }
 
     fn execute_once(&mut self) -> SimulatorResult<()> {
-        let context = {
-            let Some(cpu) = self.cpu.as_mut() else {
-                return Err(SimulatorError::CpuNotConnected);
-            };
-
-            cpu.step();
-
-            if self.difftest.needs_check_context() {
-                Some(cpu.context()?)
-            } else {
-                None
-            }
+        let Some(cpu) = self.cpu.as_mut() else {
+            return Err(SimulatorError::CpuNotConnected);
         };
 
-        self.perf.on_cycle();
-        if let Some(context) = context {
-            self.difftest.step_and_check(&context)?;
+        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
+            return Err(SimulatorError::SimulateFinish);
         }
 
+        cpu.step();
+        self.perf.on_cycle();
         Ok(())
     }
 
@@ -148,6 +150,43 @@ impl Simulator {
         }
 
         Ok(())
+    }
+
+    pub fn get_commit(&mut self) -> SimulatorResult<()> {
+        let context = {
+            let Some(cpu) = self.cpu.as_mut() else {
+                return Err(SimulatorError::CpuNotConnected);
+            };
+
+            if self.difftest.needs_check_context() {
+                Some(cpu.context()?)
+            } else {
+                None
+            }
+        };
+
+        if let Some(context) = context {
+            self.difftest.step_and_check(&context)?;
+        }
+
+        Ok(())
+    }
+
+    fn on_commit(&mut self, event: CommitEvent) {
+        self.perf.on_commit(&event);
+
+        if !event.valid {
+            return;
+        }
+
+        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
+            return;
+        }
+
+        if let Err(error) = self.get_commit() {
+            eprintln!("[Error] commit handling failed: {error:?}");
+            self.state = SimulatorState::Abort;
+        }
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
@@ -172,11 +211,6 @@ impl Simulator {
 
     pub fn difftest_detach(&mut self) {
         self.difftest.detach();
-    }
-
-    pub fn difftest_step_and_check(&mut self) -> SimulatorResult<()> {
-        let context = self.cpu_context()?;
-        Ok(self.difftest.step_and_check(&context)?)
     }
 
     fn load_image(&mut self) -> SimulatorResult<usize> {
@@ -251,4 +285,19 @@ extern "C" fn simulator_pmem_read(addr: u32, len: u32) -> u32 {
 extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
     let simulator = unsafe { &mut *active_simulator() };
     let _ = simulator.pmem_write(addr, len, data);
+}
+
+extern "C" fn simulator_on_commit(event: *const ffi::NpcCommitEvent) {
+    if event.is_null() {
+        return;
+    }
+
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+
+    let event = unsafe { &*event };
+    let simulator = unsafe { &mut *simulator };
+    simulator.on_commit(CommitEvent::new(event.valid != 0, event.pc, event.inst));
 }

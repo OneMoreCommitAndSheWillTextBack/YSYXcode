@@ -1,12 +1,11 @@
 #include "npc_dpi.h"
-
 #include "npc_host_bridge.h"
 
 #include <cstdint>
 
-extern "C" void npc_commit_inst(int valid, int pc, int inst) {
+extern "C" void npc_commit(int valid, int pc, int inst) {
   NpcHostBridge::commit(valid, static_cast<uint32_t>(pc),
-                       static_cast<uint32_t>(inst));
+                        static_cast<uint32_t>(inst));
 }
 
 extern "C" void npc_get_current_pc(int pc) {

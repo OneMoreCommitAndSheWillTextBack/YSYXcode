@@ -27,6 +27,10 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
 
     val commit = Output(Vec(cfg.issueWidth, Valid(new CommitPayload(cfg.addrWidth))))
+
+    val contextValid = Output(Bool())
+    val contextPc    = Output(UInt(cfg.addrWidth.W))
+    val debugGpr     = Output(Vec(32, UInt(cfg.dataWidth.W)))
   })
 
   private val slotIdxWidth = math.max(log2Ceil(cfg.issueWidth), 1)
@@ -178,7 +182,19 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     gpr.io.write(i).data   := commit.io.regWrite(i).data
   }
 
-  io.commit := commit.io.commit
+  io.commit       := commit.io.commit
+  io.contextValid := commit.io.contextValid
+  io.contextPc    := commit.io.contextPc
+
+  for (idx <- 0 until 32) {
+    val writeHits = commit.io.regWrite.map(write => write.enable && write.addr === idx.U)
+    io.debugGpr(idx) := MuxCase(
+      gpr.io.debug(idx),
+      writeHits.zip(commit.io.regWrite).reverse.map { case (hit, write) =>
+        hit -> write.data
+      }
+    )
+  }
 
   private val dmemIdle :: dmemLoadResp :: dmemStoreResp :: Nil = Enum(3)
   private val dmemState                                        = RegInit(dmemIdle)

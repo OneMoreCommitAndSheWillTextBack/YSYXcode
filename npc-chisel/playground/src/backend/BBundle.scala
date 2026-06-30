@@ -187,4 +187,5 @@ class RegFilePortBundle(
     extends Bundle {
   val read  = Vec(readPorts, new RegFileReadPort(dataWidth))
   val write = Vec(writePorts, new RegFileWritePort(dataWidth))
+  val debug = Output(Vec(32, UInt(dataWidth.W)))
 }

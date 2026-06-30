@@ -4,6 +4,7 @@ import chisel3._
 import top.backend.Backend
 import top.bundle.FrontendToBackend
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
+import top.dpi.NpcContextDpi
 import top.frontend.Frontend
 import top.frontend.bundle.{BpuUpdate, CfiType}
 import top.mem.Mem
@@ -62,6 +63,8 @@ class Core(resetVector: BigInt) extends Module {
   val frontend = Module(new Frontend(resetVector, frontendCfg))
   val backend  = Module(new Backend(backendCfg))
   val mem      = Module(new Mem(memCfg))
+  val contextDpi = Module(new NpcContextDpi)
+  val contextPcReg = RegInit(resetVector.U(backendCfg.addrWidth.W))
 
   frontend.io.trapRedirect.valid := backend.io.redirect.trapRedirect.valid
   frontend.io.trapRedirect.value := backend.io.redirect.trapRedirect.target
@@ -110,6 +113,25 @@ class Core(resetVector: BigInt) extends Module {
 
   mem.io.dmemReq <> backend.io.dmemReq
   backend.io.dmemResp <> mem.io.dmemResp
+
+  when(backend.io.contextValid) {
+    contextPcReg := backend.io.contextPc
+  }
+
+  contextDpi.contextValid := true.B
+  contextDpi.pc           := Mux(backend.io.contextValid, backend.io.contextPc, contextPcReg)
+  contextDpi.privMode     := 3.U(32.W)
+  contextDpi.gpr          := backend.io.debugGpr.asUInt
+  contextDpi.mstatus      := 0.U
+  contextDpi.mtvec        := 0.U
+  contextDpi.mepc         := 0.U
+  contextDpi.mcause       := 0.U
+  contextDpi.mtval        := 0.U
+  contextDpi.mie          := 0.U
+  contextDpi.mip          := 0.U
+  contextDpi.mscratch     := 0.U
+  contextDpi.mcycle       := 0.U
+  contextDpi.minstret     := 0.U
 
   io.master <> mem.io.axi
 }

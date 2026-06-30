@@ -5,7 +5,7 @@
 namespace {
 NpcHostBridge *g_active_bridge = nullptr;
 
-NpcHostBridge &active_bridge() { return *g_active_bridge; }
+NpcHostBridge *active_bridge() { return g_active_bridge; }
 } // namespace
 
 NpcHostBridge::NpcHostBridge(const NpcDpiCallbacks *callbacks)
@@ -20,9 +20,9 @@ NpcHostBridge::~NpcHostBridge() {
 }
 
 void NpcHostBridge::commit(int valid, uint32_t pc, uint32_t inst) {
-  NpcHostBridge &bridge = active_bridge();
+  NpcHostBridge *bridge = active_bridge();
 
-  if (bridge.callbacks_.on_commit == nullptr) {
+  if (bridge == nullptr || bridge->callbacks_.on_commit == nullptr) {
     return;
   }
 
@@ -31,36 +31,36 @@ void NpcHostBridge::commit(int valid, uint32_t pc, uint32_t inst) {
       pc,
       inst,
   };
-  bridge.callbacks_.on_commit(&event);
+  bridge->callbacks_.on_commit(&event);
 }
 
 void NpcHostBridge::current_pc(uint32_t pc) {
-  NpcHostBridge &bridge = active_bridge();
+  NpcHostBridge *bridge = active_bridge();
 
-  if (bridge.callbacks_.on_current_pc == nullptr) {
+  if (bridge == nullptr || bridge->callbacks_.on_current_pc == nullptr) {
     return;
   }
 
   NpcPcEvent event = {pc};
-  bridge.callbacks_.on_current_pc(&event);
+  bridge->callbacks_.on_current_pc(&event);
 }
 
 uint32_t NpcHostBridge::pmem_read(uint32_t addr, uint32_t len) {
-  NpcHostBridge &bridge = active_bridge();
+  NpcHostBridge *bridge = active_bridge();
 
-  if (bridge.callbacks_.pmem_read == nullptr) {
+  if (bridge == nullptr || bridge->callbacks_.pmem_read == nullptr) {
     return 0;
   }
 
-  return bridge.callbacks_.pmem_read(addr, len);
+  return bridge->callbacks_.pmem_read(addr, len);
 }
 
 void NpcHostBridge::pmem_write(uint32_t addr, uint32_t len, uint32_t data) {
-  NpcHostBridge &bridge = active_bridge();
+  NpcHostBridge *bridge = active_bridge();
 
-  if (bridge.callbacks_.pmem_write == nullptr) {
+  if (bridge == nullptr || bridge->callbacks_.pmem_write == nullptr) {
     return;
   }
 
-  bridge.callbacks_.pmem_write(addr, len, data);
+  bridge->callbacks_.pmem_write(addr, len, data);
 }

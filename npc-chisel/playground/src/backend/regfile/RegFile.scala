@@ -16,6 +16,11 @@ class RegFile(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val gpr = Reg(Vec(31, UInt(cfg.dataWidth.W)))
 
+  io.debug(0) := 0.U
+  for (idx <- 1 until 32) {
+    io.debug(idx) := gpr(idx - 1)
+  }
+
   for (read <- io.read) {
     read.data := MuxCase(
       0.U(cfg.dataWidth.W),
