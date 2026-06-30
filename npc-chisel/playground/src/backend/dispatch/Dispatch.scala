@@ -1,7 +1,7 @@
 package top.backend.dispatch
 
 import chisel3._
-import chisel3.util.MuxLookup
+import chisel3.util.{Decoupled, MuxLookup}
 import top.backend.bundle.{DecodePacket, IssueOperand, IssuePacket, RegFileReadPort, ScoreboardAlloc, ScoreboardQuery}
 import top.backend.decoder.SrcType
 import top.config.BackendConfig
@@ -13,7 +13,7 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     val rfRead          = Vec(cfg.operandsPerInst, Flipped(new RegFileReadPort(cfg.dataWidth)))
     val scoreboardQuery = Vec(cfg.operandsPerInst, Flipped(new ScoreboardQuery(cfg)))
     val scoreboardAlloc = Output(new ScoreboardAlloc(cfg))
-    val out             = Output(new IssuePacket(cfg))
+    val out             = Decoupled(new IssuePacket(cfg))
   })
 
   private val src1IsReg = io.in.src1Type === SrcType.reg
@@ -29,7 +29,7 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
   io.scoreboardQuery(1).valid := io.in.legal && src2IsReg
   io.scoreboardQuery(1).rs    := io.in.rs2
 
-  io.scoreboardAlloc.valid  := io.in.legal
+  io.scoreboardAlloc.valid  := io.out.fire
   io.scoreboardAlloc.rd     := io.in.rd
   io.scoreboardAlloc.rfWen  := io.in.rfWen
   io.scoreboardAlloc.robIdx := io.robIdx
@@ -53,24 +53,25 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     operand.data  := selectSrc(srcType, regData)
     operand.ready := !io.in.legal || !isReg || scoreboard.ready
     operand.tag   := Mux(isReg && !scoreboard.ready, scoreboard.producer, 0.U)
-    return operand
+    operand
   }
 
-  io.out             := 0.U.asTypeOf(new IssuePacket(cfg))
-  io.out.fetch       := io.in.fetch
-  io.out.legal       := io.in.legal
-  io.out.robIdx      := io.robIdx
-  io.out.rd          := io.in.rd
-  io.out.imm         := io.in.imm
-  io.out.src1        := makeOperand(io.in.src1Type, io.rfRead(0).data, io.scoreboardQuery(0))
-  io.out.src2        := makeOperand(io.in.src2Type, io.rfRead(1).data, io.scoreboardQuery(1))
-  io.out.fuType      := io.in.fuType
-  io.out.fuOp        := io.in.fuOp
-  io.out.rfWen       := io.in.rfWen
-  io.out.isLoad      := io.in.isLoad
-  io.out.isStore     := io.in.isStore
-  io.out.isBranch    := io.in.isBranch
-  io.out.isJal       := io.in.isJal
-  io.out.memSize     := io.in.memSize
-  io.out.memUnsigned := io.in.memUnsigned
+  io.out.valid            := io.in.legal
+  io.out.bits             := 0.U.asTypeOf(new IssuePacket(cfg))
+  io.out.bits.fetch       := io.in.fetch
+  io.out.bits.legal       := io.in.legal
+  io.out.bits.robIdx      := io.robIdx
+  io.out.bits.rd          := io.in.rd
+  io.out.bits.imm         := io.in.imm
+  io.out.bits.src1        := makeOperand(io.in.src1Type, io.rfRead(0).data, io.scoreboardQuery(0))
+  io.out.bits.src2        := makeOperand(io.in.src2Type, io.rfRead(1).data, io.scoreboardQuery(1))
+  io.out.bits.fuType      := io.in.fuType
+  io.out.bits.fuOp        := io.in.fuOp
+  io.out.bits.rfWen       := io.in.rfWen
+  io.out.bits.isLoad      := io.in.isLoad
+  io.out.bits.isStore     := io.in.isStore
+  io.out.bits.isBranch    := io.in.isBranch
+  io.out.bits.isJal       := io.in.isJal
+  io.out.bits.memSize     := io.in.memSize
+  io.out.bits.memUnsigned := io.in.memUnsigned
 }

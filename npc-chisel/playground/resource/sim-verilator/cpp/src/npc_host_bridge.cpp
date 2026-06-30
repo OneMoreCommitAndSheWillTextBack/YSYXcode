@@ -1,5 +1,5 @@
 #include "npc_host_bridge.h"
-
+#include "npc_sim_types.h"
 #include <cstdint>
 
 namespace {

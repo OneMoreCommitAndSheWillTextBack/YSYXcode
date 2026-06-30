@@ -1,7 +1,8 @@
 import top.Target
 
 object Elaborate extends App {
-  private val targetOption = "--ysyx-target"
+  private val targetOption     = "--ysyx-target"
+  private val defaultTargetDir = "build"
 
   private val (target, chiselArgs) = {
     def parseArgs(rest: List[String], kept: List[String], currentTarget: Target): (Target, Array[String]) =
@@ -20,6 +21,12 @@ object Elaborate extends App {
     parseArgs(args.toList, Nil, Target.Npc)
   }
 
+  private val targetDirSpecified = chiselArgs.exists(arg =>
+    arg == "--target-dir" || arg == "-td" || arg.startsWith("--target-dir=") || arg.startsWith("-td=")
+  )
+
+  private val stageArgs = if (targetDirSpecified) chiselArgs else chiselArgs ++ Array("--target-dir", defaultTargetDir)
+
   val firtoolOptions = Array(
     "--lowering-options=" + List(
       // make yosys happy
@@ -29,5 +36,5 @@ object Elaborate extends App {
       "locationInfoStyle=wrapInAtSquareBracket"
     ).reduce(_ + "," + _)
   )
-  circt.stage.ChiselStage.emitSystemVerilogFile(new top.Top(target), chiselArgs, firtoolOptions)
+  circt.stage.ChiselStage.emitSystemVerilogFile(new top.Top(target), stageArgs, firtoolOptions)
 }

@@ -25,6 +25,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   private val immS = Cat(Fill(20, inst(31)), inst(31, 25), inst(11, 7))
   private val immB = Cat(Fill(19, inst(31)), inst(31), inst(7), inst(30, 25), inst(11, 8), 0.U(1.W))
   private val immJ = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
+  private val immU = Cat(inst(31, 12), 0.U(12.W))
 
   io.out             := 0.U.asTypeOf(new DecodePacket(cfg.addrWidth))
   io.out.fetch       := io.in
@@ -40,7 +41,8 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
       ImmSel.i -> immI,
       ImmSel.s -> immS,
       ImmSel.b -> immB,
-      ImmSel.j -> immJ
+      ImmSel.j -> immJ,
+      ImmSel.u -> immU
     )
   )
   io.out.src1Type    := decoded(DecodeIndex.src1Type)

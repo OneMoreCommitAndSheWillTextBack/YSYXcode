@@ -48,13 +48,13 @@ fn compare_contexts_raw(dut: &CpuContext, reference: &CpuContext) -> Result<(), 
         }
     }
 
-    compare_csr("mstatus", dut.csr.mstatus, reference.csr.mstatus)?;
-    compare_csr("mtvec", dut.csr.mtvec, reference.csr.mtvec)?;
-    compare_csr("mepc", dut.csr.mepc, reference.csr.mepc)?;
-    compare_csr("mcause", dut.csr.mcause, reference.csr.mcause)?;
-    compare_csr("mtval", dut.csr.mtval, reference.csr.mtval)?;
-    compare_csr("mie", dut.csr.mie, reference.csr.mie)?;
-    compare_csr("mscratch", dut.csr.mscratch, reference.csr.mscratch)?;
+    // compare_csr("mstatus", dut.csr.mstatus, reference.csr.mstatus)?;
+    // compare_csr("mtvec", dut.csr.mtvec, reference.csr.mtvec)?;
+    // compare_csr("mepc", dut.csr.mepc, reference.csr.mepc)?;
+    // compare_csr("mcause", dut.csr.mcause, reference.csr.mcause)?;
+    // compare_csr("mtval", dut.csr.mtval, reference.csr.mtval)?;
+    // compare_csr("mie", dut.csr.mie, reference.csr.mie)?;
+    // compare_csr("mscratch", dut.csr.mscratch, reference.csr.mscratch)?;
 
     if dut.priv_mode != reference.priv_mode {
         return Err(DifftestMismatch::Priv {

@@ -2,18 +2,19 @@ package top.backend.issue
 
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, MuxLookup, PriorityEncoderOH}
-import top.backend.bundle.{IssueFuReady, IssuePacket, IssueWakeup}
+import top.backend.bundle.{IssueFuReady, IssuePacket, IssueWakeup, StoreTrackerQuery}
 import top.backend.decoder.FuType
 import top.config.BackendConfig
 
 class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val enq     = Flipped(Decoupled(new IssuePacket(cfg)))
-    val wakeup  = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
-    val fuReady = Input(new IssueFuReady)
-    val robHead = Input(UInt(cfg.robIdxWidth.W))
-    val issue   = Decoupled(new IssuePacket(cfg))
-    val flush   = Input(Bool())
+    val enq        = Flipped(Decoupled(new IssuePacket(cfg)))
+    val wakeup     = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
+    val fuReady    = Input(new IssueFuReady)
+    val robHead    = Input(UInt(cfg.robIdxWidth.W))
+    val storeQuery = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
+    val issue      = Decoupled(new IssuePacket(cfg))
+    val flush      = Input(Bool())
   })
 
   private val entries = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
@@ -35,8 +36,13 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     )
 
   for (i <- 0 until cfg.issueQueueEntries) {
-    val ready = entries(i).src1.ready && entries(i).src2.ready
-    select.io.request(i) := valid(i) && entries(i).legal && ready && fuAvailable(entries(i).fuType)
+    val ready       = entries(i).src1.ready && entries(i).src2.ready
+    val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
+
+    io.storeQuery(i).valid  := valid(i) && entries(i).legal && entries(i).isLoad
+    io.storeQuery(i).robIdx := entries(i).robIdx
+
+    select.io.request(i) := valid(i) && entries(i).legal && ready && fuAvailable(entries(i).fuType) && !loadBlocked
     select.io.robIdx(i)  := entries(i).robIdx
   }
 

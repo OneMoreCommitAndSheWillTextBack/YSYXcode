@@ -47,6 +47,22 @@ class IssueWakeup(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val data   = UInt(cfg.dataWidth.W)
 }
 
+class StoreTrackerQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid         = Input(Bool())
+  val robIdx        = Input(UInt(cfg.robIdxWidth.W))
+  val hasOlderStore = Output(Bool())
+}
+
+class StoreTrackerAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreTrackerCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
 class IssueOperand(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val data  = UInt(cfg.dataWidth.W)
   val ready = Bool()
@@ -91,6 +107,49 @@ class ScoreboardCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val rd     = UInt(5.W)
   val rfWen  = Bool()
   val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class RobAllocPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val decode = new DecodePacket(cfg.addrWidth)
+}
+
+class RobWritebackPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val robIdx         = UInt(cfg.robIdxWidth.W)
+  val result         = UInt(cfg.dataWidth.W)
+  val storeAddr      = UInt(cfg.addrWidth.W)
+  val storeData      = UInt(cfg.dataWidth.W)
+  val storeMask      = UInt((cfg.dataWidth / 8).W)
+  val redirectValid  = Bool()
+  val redirectTarget = UInt(cfg.addrWidth.W)
+  val branchTaken    = Bool()
+  val branchTarget   = UInt(cfg.addrWidth.W)
+}
+
+class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val robIdx         = UInt(cfg.robIdxWidth.W)
+  val fetch          = new FetchInstPayload(cfg.addrWidth)
+  val rd             = UInt(5.W)
+  val rfWen          = Bool()
+  val isLoad         = Bool()
+  val isStore        = Bool()
+  val isBranch       = Bool()
+  val isJal          = Bool()
+  val memSize        = UInt(3.W)
+  val memUnsigned    = Bool()
+  val result         = UInt(cfg.dataWidth.W)
+  val storeAddr      = UInt(cfg.addrWidth.W)
+  val storeData      = UInt(cfg.dataWidth.W)
+  val storeMask      = UInt((cfg.dataWidth / 8).W)
+  val redirectValid  = Bool()
+  val redirectTarget = UInt(cfg.addrWidth.W)
+  val branchTaken    = Bool()
+  val branchTarget   = UInt(cfg.addrWidth.W)
+}
+
+class CommitRegWrite(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val enable = Bool()
+  val addr   = UInt(5.W)
+  val data   = UInt(cfg.dataWidth.W)
 }
 
 class ExecutePacket(addrWidth: Int = 32, dataWidth: Int = 32) extends Bundle {
