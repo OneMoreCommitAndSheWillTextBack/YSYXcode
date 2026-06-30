@@ -18,7 +18,7 @@ CARGO_TARGET_DIR ?= $(abspath $(VERILATOR_BUILD_DIR)/cargo-target)
 CARGO_BIN ?= $(CARGO_TARGET_DIR)/debug/npc-chisel-sim
 
 VERILATOR_FLAGS ?= -sv --cc --trace --MMD --no-timing --timescale "1ns/1ns" \
-	-Wno-DECLFILENAME -Wno-UNUSEDSIGNAL -Wno-UNDRIVEN --auto-flush
+	-Wno-DECLFILENAME -Wno-UNUSEDSIGNAL -Wno-UNDRIVEN -autoflush
 
 verilator: verilog $(EXTRA_V)
 	mkdir -p $(VERILATOR_OBJ_DIR)
