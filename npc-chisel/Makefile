@@ -2,10 +2,6 @@ BUILD_DIR ?= ./build/
 PRJ ?= playground
 TARGET ?= npc
 
--include ../Makefile
-
-include scriptmk/naive.mk
-
 verilog:
 	$(call git_commit, "generate verilog")
 	mkdir -p $(BUILD_DIR)
@@ -33,3 +29,7 @@ clean:
 	-rm -rf $(BUILD_DIR)
 
 .PHONY: verilog test help reformat checkformat bsp idea clean
+
+include scriptmk/naive.mk
+
+-include ../Makefile
