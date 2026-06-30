@@ -9,6 +9,7 @@ SIM_RUST_DIR ?= $(SIM_RESOURCE_DIR)/rust
 
 EXTRA_V ?= $(SIM_VERILOG_DIR)/npc.v
 RTL_V ?= $(BUILD_DIR)/ysyx_24100007.sv
+RTL_FILELIST ?= $(BUILD_DIR)/filelist.f
 
 VERILATOR_ROOT ?= $(shell $(VERILATOR) --getenv VERILATOR_ROOT)
 VERILATOR_BUILD_DIR ?= $(BUILD_DIR)/verilator
@@ -23,7 +24,7 @@ VERILATOR_FLAGS ?= -sv --cc --trace --MMD --no-timing --timescale "1ns/1ns" \
 verilator: verilog $(EXTRA_V)
 	mkdir -p $(VERILATOR_OBJ_DIR)
 	$(VERILATOR) $(VERILATOR_FLAGS) \
-		$(RTL_V) $(EXTRA_V) \
+		-F $(RTL_FILELIST) $(EXTRA_V) \
 		--top-module $(TOP_MODULE) \
 		--Mdir $(VERILATOR_OBJ_DIR)
 
