@@ -1,7 +1,7 @@
 package top.backend
 
 import chisel3._
-import chisel3.util.{log2Ceil, Decoupled, Enum, Valid}
+import chisel3.util.{log2Ceil, Decoupled, Enum, MuxCase, Valid}
 import top.bundle._
 import top.config.BackendConfig
 
