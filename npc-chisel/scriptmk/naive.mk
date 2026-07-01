@@ -4,6 +4,7 @@ include $(PRJ)/resource/difftest/difftest.mk
 DIFFTEST_REF ?= nemu
 SIM_ARGS ?= --difftest-ref $(DIFFTEST_REF)
 SIM_ARGS += --batch
+SIM_ARGS += --wave
 
 run: verilator-exec difftest
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!

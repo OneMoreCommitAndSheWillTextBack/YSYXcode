@@ -10,6 +10,7 @@ use crate::{
     memory::{Memory, MemoryError},
     perf::Perf,
     sdb::SdbError,
+    sim_log,
     simulator::SimulatorState::Running,
     SimulatorResult, ACTIVE_SIMULATOR,
 };
@@ -108,7 +109,19 @@ impl Simulator {
             .ok_or(SimulatorError::CpuNotConnected)?
             .init_wave(wave_path)?;
 
+        simulator.finish_config();
+
         Ok(simulator)
+    }
+
+    pub fn finish_config(&mut self) {
+        if self.config.enable_wave {
+            if let Some(cpu) = self.cpu.as_mut() {
+                cpu.enable_wave();
+            }
+        }
+
+        sim_log::show_trace(&self.config);
     }
 
     pub fn reset(&mut self) -> SimulatorResult<()> {
