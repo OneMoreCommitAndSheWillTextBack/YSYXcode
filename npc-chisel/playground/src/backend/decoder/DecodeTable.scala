@@ -17,7 +17,7 @@ private[decoder] case class NpcDecode(
   isStore:  Boolean = false,
   isBranch: Boolean = false,
   isJal:    Boolean = false,
-  isEcall:  Boolean = false,
+  isEbreak: Boolean = false,
   memSize:  Int = 0,
   memUnsigned: Boolean = false) {
 
@@ -35,7 +35,7 @@ private[decoder] case class NpcDecode(
     bool(isJal),
     memSize.U(3.W),
     bool(memUnsigned),
-    bool(isEcall)
+    bool(isEbreak)
   )
 
   private def bool(value: Boolean): UInt =
@@ -56,7 +56,7 @@ private[decoder] object DecodeIndex {
   val isJal       = 10
   val memSize     = 11
   val memUnsigned = 12
-  val isEcall     = 13
+  val isEbreak    = 13
 }
 
 private[decoder] object DecodeTable {
@@ -67,10 +67,11 @@ private[decoder] object DecodeTable {
   private val LUI   = BitPat("b?????????????????????????0110111")
   private val AUIPC = BitPat("b?????????????????????????0010111")
   private val LW    = BitPat("b?????????????????010?????0000011")
+  private val LBU   = BitPat("b?????????????????100?????0000011")
   private val SW    = BitPat("b?????????????????010?????0100011")
   private val BEQ   = BitPat("b?????????????????000?????1100011")
   private val JAL   = BitPat("b?????????????????????????1101111")
-  private val ECALL = BitPat("b00000000000000000000000001110011")
+  private val EBREAK = BitPat("b00000000000100000000000001110011")
   private val SB    = BitPat("b?????????????????000?????0100011")
 
   val table: Array[(BitPat, List[UInt])] = Array(
@@ -115,6 +116,17 @@ private[decoder] object DecodeTable {
       isLoad = true,
       memSize = 2
     ).signals,
+    LBU   -> NpcDecode(
+      src1 = SrcType.reg,
+      src2 = SrcType.none,
+      immSel = ImmSel.i,
+      fu = FuType.lsu,
+      op = LsuOp.load,
+      rfWen = true,
+      isLoad = true,
+      memSize = 0,
+      memUnsigned = true
+    ).signals,
     SW    -> NpcDecode(
       src1 = SrcType.reg,
       src2 = SrcType.reg,
@@ -150,8 +162,10 @@ private[decoder] object DecodeTable {
       rfWen = true,
       isJal = true
     ).signals,
-    ECALL -> NpcDecode(
-      isEcall = true
+    EBREAK -> NpcDecode(
+      fu = FuType.alu,
+      op = AluOp.add,
+      isEbreak = true
     ).signals
   )
 }

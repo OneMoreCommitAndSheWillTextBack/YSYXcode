@@ -59,7 +59,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.isJal       := decoded(DecodeIndex.isJal).asBool
   io.out.memSize     := decoded(DecodeIndex.memSize)
   io.out.memUnsigned := decoded(DecodeIndex.memUnsigned).asBool
-  io.out.isEcall     := decoded(DecodeIndex.isEcall).asBool
+  io.out.isEbreak    := decoded(DecodeIndex.isEbreak).asBool
 
   NpcReportInvalidInst.callWithEnable(
     io.inValid && !legal,

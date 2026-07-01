@@ -61,6 +61,22 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val enqOH = PriorityEncoderOH(free.asUInt).asBools
   io.enq.ready := free.asUInt.orR
 
+  private val enqBits = Wire(new IssuePacket(cfg))
+  enqBits := io.enq.bits
+  private val src1WakeupHits = VecInit(io.wakeup.map(wakeup =>
+    wakeup.valid && !io.enq.bits.src1.ready && io.enq.bits.src1.tag === wakeup.robIdx
+  ))
+  private val src2WakeupHits = VecInit(io.wakeup.map(wakeup =>
+    wakeup.valid && !io.enq.bits.src2.ready && io.enq.bits.src2.tag === wakeup.robIdx
+  ))
+  private val src1WakeupHit = src1WakeupHits.asUInt.orR
+  private val src2WakeupHit = src2WakeupHits.asUInt.orR
+
+  enqBits.src1.ready := io.enq.bits.src1.ready || src1WakeupHit
+  enqBits.src1.data  := Mux(src1WakeupHit, Mux1H(src1WakeupHits, io.wakeup.map(_.data)), io.enq.bits.src1.data)
+  enqBits.src2.ready := io.enq.bits.src2.ready || src2WakeupHit
+  enqBits.src2.data  := Mux(src2WakeupHit, Mux1H(src2WakeupHits, io.wakeup.map(_.data)), io.enq.bits.src2.data)
+
   for (i <- 0 until cfg.issueQueueEntries) {
     when(io.flush) {
       valid(i) := false.B
@@ -83,7 +99,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       }
 
       when(io.enq.fire && enqOH(i)) {
-        entries(i) := io.enq.bits
+        entries(i) := enqBits
         valid(i)   := true.B
       }
     }

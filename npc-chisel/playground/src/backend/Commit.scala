@@ -80,12 +80,14 @@ class Commit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   for (i <- 0 until cfg.commitWidth) {
     val selectedStore  = storeGrantOH(i)
+    val commitSlotEnabled = if (i == 0) true.B else false.B
     val olderCommitted = if (i == 0) {
       true.B
     } else {
       io.rob.take(i).map(_.fire).reduce(_ && _)
     }
     io.rob(i).ready :=
+      commitSlotEnabled &&
       olderCommitted &&
         !blockedByOlderRedirect(i) &&
         (!io.rob(i).bits.isStore || (selectedStore && io.dmemReq.ready))
@@ -122,7 +124,7 @@ class Commit(cfg: BackendConfig = BackendConfig()) extends Module {
     NpcCommit.callWithEnable(
       io.commit(i).valid,
       1.U(32.W),
-      io.rob(i).bits.isEcall,
+      io.rob(i).bits.isEbreak,
       io.commit(i).bits.pc,
       io.commit(i).bits.inst
     )
