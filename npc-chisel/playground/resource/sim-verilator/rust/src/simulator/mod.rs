@@ -246,7 +246,7 @@ impl Simulator {
 
         self.memory.write(MBASE, &image)?;
         self.difftest.sync_memory(MBASE, &image)?;
-        println!("\x1b[0m\x1b[1;32mfinish load memory\x1b[0m");
+        eprintln!("\x1b[0m\x1b[1;32mfinish load memory\x1b[0m");
         Ok(image.len())
     }
 
