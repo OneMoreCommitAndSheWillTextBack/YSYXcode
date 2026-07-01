@@ -32,7 +32,8 @@ private[decoder] case class NpcDecode(
     bool(isBranch),
     bool(isJal),
     memSize.U(3.W),
-    bool(memUnsigned)
+    bool(memUnsigned),
+    bool(isEcall)
   )
 
   private def bool(value: Boolean): UInt =

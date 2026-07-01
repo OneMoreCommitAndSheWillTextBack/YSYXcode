@@ -217,6 +217,23 @@ impl Simulator {
         if let Err(error) = self.do_difftest() {
             eprintln!("[Error] commit handling failed: {error:?}");
             self.state = SimulatorState::Abort;
+            return;
+        }
+
+        if event.finish {
+            let context = match self.cpu.as_mut().and_then(|cpu| cpu.context().ok()) {
+                Some(context) => context,
+                None => {
+                    self.state = SimulatorState::Abort;
+                    return;
+                }
+            };
+
+            self.state = if context.gpr[10] == 0 {
+                SimulatorState::End
+            } else {
+                SimulatorState::Abort
+            };
         }
     }
 
