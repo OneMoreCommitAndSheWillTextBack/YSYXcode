@@ -31,6 +31,7 @@ pub enum SimulatorError {
     ImageIo { path: PathBuf, source: io::Error },
     CpuNotConnected,
     SimulateFinish,
+    ReachMaxNoCommitCyc,
 }
 
 pub enum SimulatorState {
@@ -71,6 +72,7 @@ pub struct Simulator {
     perf: Perf,
     difftest: DiffTest,
     state: SimulatorState,
+    cycle_nocommit: u32,
 }
 
 impl Simulator {
@@ -85,6 +87,7 @@ impl Simulator {
             perf: Perf::new(),
             difftest,
             state: Running,
+            cycle_nocommit: 0,
         });
         let callbacks = ffi::NpcDpiCallbacks {
             on_commit: Some(simulator_on_commit),
@@ -146,7 +149,12 @@ impl Simulator {
 
     pub fn execute(&mut self, times: u64) -> SimulatorResult<()> {
         for _ in 0..times {
+            if self.cycle_nocommit > 20000 {
+                return Err(SimulatorError::ReachMaxNoCommitCyc);
+            }
+
             self.execute_once()?;
+            self.cycle_nocommit += 1;
         }
 
         Ok(())
@@ -183,6 +191,7 @@ impl Simulator {
             return;
         }
 
+        self.cycle_nocommit = 0;
         if let Err(error) = self.do_difftest() {
             eprintln!("[Error] commit handling failed: {error:?}");
             self.state = SimulatorState::Abort;
