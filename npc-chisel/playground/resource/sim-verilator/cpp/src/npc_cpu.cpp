@@ -2,7 +2,7 @@
 
 #include "Vnpc.h"
 #include "cstdint"
-#include "npc_dpi_export.h"
+#include "npc_wave.h"
 #include "verilated.h"
 
 namespace {
@@ -18,19 +18,53 @@ constexpr uint32_t CSR_MIP = 0x344;
 constexpr uint32_t CSR_MCYCLE = 0xB00;
 constexpr uint32_t CSR_MINSTRET = 0xB02;
 
-bool npc_cpu_context_api_available() {
-  return npc_dpi_context_valid != nullptr && npc_dpi_get_pc != nullptr &&
-         npc_dpi_get_priv != nullptr && npc_dpi_get_gpr != nullptr &&
-         npc_dpi_get_csr != nullptr;
+constexpr const char *NPC_CONTEXT_DPI_SCOPES[] = {
+    "npc.u_core.core.contextDpi",
+    "TOP.npc.u_core.core.contextDpi",
+    "TOP.u_core.core.contextDpi",
+};
+
+const VerilatedScope *npc_cpu_context_scope(Vnpc &top) {
+  for (const char *name : NPC_CONTEXT_DPI_SCOPES) {
+    if (const VerilatedScope *scope = top.contextp()->scopeFind(name)) {
+      return scope;
+    }
+  }
+
+  return nullptr;
 }
 
-bool npc_cpu_context_ready() {
-  return npc_cpu_context_api_available() && npc_dpi_context_valid() != 0;
+class NpcDpiScope {
+public:
+  explicit NpcDpiScope(Vnpc &top)
+      : previous_(Verilated::dpiScope()), current_(npc_cpu_context_scope(top)) {
+    if (current_ != nullptr) {
+      Verilated::dpiScope(current_);
+    }
+  }
+
+  ~NpcDpiScope() {
+    if (current_ != nullptr) {
+      Verilated::dpiScope(previous_);
+    }
+  }
+
+  bool valid() const { return current_ != nullptr; }
+
+private:
+  const VerilatedScope *previous_;
+  const VerilatedScope *current_;
+};
+
+bool npc_cpu_context_ready(Vnpc &top) {
+  NpcDpiScope scope(top);
+  return scope.valid() && Vnpc::npc_dpi_context_valid() != 0;
 }
 
 } // namespace
 
-void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles) {
+void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles,
+                   NpcWave &_wave) {
   top.reset = 1;
   top.clock = 0;
   top.eval();
@@ -40,10 +74,12 @@ void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles) {
     top.clock = 1;
     top.eval();
     context.timeInc(1);
+    _wave.dump(context.time());
 
     top.clock = 0;
     top.eval();
     context.timeInc(1);
+    _wave.dump(context.time());
   }
 
   top.reset = 0;
@@ -51,14 +87,18 @@ void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles) {
   context.timeInc(1);
 }
 
-void npc_cpu_step(VerilatedContext &context, Vnpc &top) {
+void npc_cpu_step(VerilatedContext &context, Vnpc &top, NpcWave &_wave) {
   top.clock = 1;
   top.eval();
   context.timeInc(1);
 
+  _wave.dump(context.time());
+
   top.clock = 0;
   top.eval();
   context.timeInc(1);
+
+  _wave.dump(context.time());
 }
 
 bool npc_cpu_get_gpr(Vnpc &top, NpcGprContext *out) {
@@ -69,12 +109,13 @@ bool npc_cpu_get_gpr(Vnpc &top, NpcGprContext *out) {
   }
 
   *out = {};
-  if (!npc_cpu_context_ready()) {
+  NpcDpiScope scope(top);
+  if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
 
   for (uint32_t i = 0; i < NPC_GPR_COUNT; ++i) {
-    out->x[i] = npc_dpi_get_gpr(i);
+    out->x[i] = Vnpc::npc_dpi_get_gpr(i);
   }
 
   return true;
@@ -88,20 +129,21 @@ bool npc_cpu_get_csr(Vnpc &top, NpcCsrContext *out) {
   }
 
   *out = {};
-  if (!npc_cpu_context_ready()) {
+  NpcDpiScope scope(top);
+  if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
 
-  out->mstatus = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MSTATUS));
-  out->mtvec = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MTVEC));
-  out->mepc = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MEPC));
-  out->mcause = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MCAUSE));
-  out->mtval = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MTVAL));
-  out->mie = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MIE));
-  out->mip = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MIP));
-  out->mscratch = static_cast<uint32_t>(npc_dpi_get_csr(CSR_MSCRATCH));
-  out->mcycle = npc_dpi_get_csr(CSR_MCYCLE);
-  out->minstret = npc_dpi_get_csr(CSR_MINSTRET);
+  out->mstatus = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MSTATUS));
+  out->mtvec = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MTVEC));
+  out->mepc = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MEPC));
+  out->mcause = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MCAUSE));
+  out->mtval = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MTVAL));
+  out->mie = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MIE));
+  out->mip = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MIP));
+  out->mscratch = static_cast<uint32_t>(Vnpc::npc_dpi_get_csr(CSR_MSCRATCH));
+  out->mcycle = Vnpc::npc_dpi_get_csr(CSR_MCYCLE);
+  out->minstret = Vnpc::npc_dpi_get_csr(CSR_MINSTRET);
 
   return true;
 }
@@ -112,7 +154,8 @@ bool npc_cpu_get_context(Vnpc &top, NpcCpuContext *out) {
   }
 
   *out = {};
-  if (!npc_cpu_context_ready()) {
+  NpcDpiScope scope(top);
+  if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
 
@@ -123,8 +166,8 @@ bool npc_cpu_get_context(Vnpc &top, NpcCpuContext *out) {
   }
 
   out->valid = 1;
-  out->pc = npc_dpi_get_pc();
-  out->priv_ = static_cast<uint8_t>(npc_dpi_get_priv() & 0x3);
+  out->pc = Vnpc::npc_dpi_get_pc();
+  out->priv_ = static_cast<uint8_t>(Vnpc::npc_dpi_get_priv() & 0x3);
   out->gpr = gpr;
   out->csr = csr;
 

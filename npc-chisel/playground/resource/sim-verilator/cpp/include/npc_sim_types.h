@@ -7,6 +7,7 @@
 
 typedef struct NpcCommitEvent {
   uint8_t valid;
+  uint8_t finish;
   uint32_t pc;
   uint32_t inst;
 } NpcCommitEvent;
@@ -20,6 +21,7 @@ typedef struct NpcDpiCallbacks {
   void (*on_current_pc)(const NpcPcEvent *event);
   uint32_t (*pmem_read)(uint32_t addr, uint32_t len);
   void (*pmem_write)(uint32_t addr, uint32_t len, uint32_t data);
+  void (*report_invalid_inst)(uint32_t pc, uint32_t inst);
 } NpcDpiCallbacks;
 
 typedef struct NpcGprContext {

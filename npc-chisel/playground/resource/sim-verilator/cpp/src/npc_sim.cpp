@@ -27,8 +27,7 @@ void NpcSim::reset(uint32_t reset_cycles) {
     return;
   }
 
-  npc_cpu_reset(*context_, *top_, reset_cycles);
-  wave_.dump(context_->time());
+  npc_cpu_reset(*context_, *top_, reset_cycles, wave_);
 }
 
 void NpcSim::step() {
@@ -36,8 +35,7 @@ void NpcSim::step() {
     return;
   }
 
-  npc_cpu_step(*context_, *top_);
-  wave_.dump(context_->time());
+  npc_cpu_step(*context_, *top_, wave_);
 }
 
 bool NpcSim::get_gpr(NpcGprContext *out) {

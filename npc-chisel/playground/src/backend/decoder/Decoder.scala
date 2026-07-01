@@ -5,11 +5,13 @@ import chisel3.util.{Cat, Fill, ListLookup, MuxLookup}
 import top.backend.bundle._
 import top.bundle.FetchInstPayload
 import top.config.BackendConfig
+import top.dpi.NpcReportInvalidInst
 
 class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val in  = Input(new FetchInstPayload(cfg.addrWidth))
-    val out = Output(new DecodePacket(cfg.addrWidth))
+    val in      = Input(new FetchInstPayload(cfg.addrWidth))
+    val inValid = Input(Bool())
+    val out     = Output(new DecodePacket(cfg.addrWidth))
   })
 
   private val inst = io.in.inst
@@ -20,6 +22,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val decoded = ListLookup(inst, DecodeTable.default, DecodeTable.table)
   private val immSel  = decoded(DecodeIndex.immSel)
+  private val legal   = decoded(DecodeIndex.legal).asBool
 
   private val immI = Cat(Fill(20, inst(31)), inst(31, 20))
   private val immS = Cat(Fill(20, inst(31)), inst(31, 25), inst(11, 7))
@@ -29,7 +32,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
 
   io.out             := 0.U.asTypeOf(new DecodePacket(cfg.addrWidth))
   io.out.fetch       := io.in
-  io.out.legal       := decoded(DecodeIndex.legal).asBool
+  io.out.legal       := legal
   io.out.rs1         := rs1
   io.out.rs2         := rs2
   io.out.rd          := rd
@@ -56,4 +59,11 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.isJal       := decoded(DecodeIndex.isJal).asBool
   io.out.memSize     := decoded(DecodeIndex.memSize)
   io.out.memUnsigned := decoded(DecodeIndex.memUnsigned).asBool
+  io.out.isEbreak    := decoded(DecodeIndex.isEbreak).asBool
+
+  NpcReportInvalidInst.callWithEnable(
+    io.inValid && !legal,
+    io.in.pc,
+    io.in.inst
+  )
 }

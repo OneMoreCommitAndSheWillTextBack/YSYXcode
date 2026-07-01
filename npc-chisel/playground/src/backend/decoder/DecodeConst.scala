@@ -45,8 +45,8 @@ object AluOp {
 }
 
 object LsuOp {
-  val lw = 1.U(FuOp.width.W)
-  val sw = 2.U(FuOp.width.W)
+  val load  = 1.U(FuOp.width.W)
+  val store = 2.U(FuOp.width.W)
 }
 
 object BruOp {

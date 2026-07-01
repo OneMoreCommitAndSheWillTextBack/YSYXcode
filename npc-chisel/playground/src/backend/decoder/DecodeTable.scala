@@ -2,6 +2,8 @@ package top.backend.decoder
 
 import chisel3._
 import chisel3.util.BitPat
+import top.backend.decoder.DecodeIndex.{src1Type => src1Type}
+import top.backend.decoder.DecodeIndex.{memSize => memSize}
 
 private[decoder] case class NpcDecode(
   legal:    Boolean = true,
@@ -15,6 +17,7 @@ private[decoder] case class NpcDecode(
   isStore:  Boolean = false,
   isBranch: Boolean = false,
   isJal:    Boolean = false,
+  isEbreak: Boolean = false,
   memSize:  Int = 0,
   memUnsigned: Boolean = false) {
 
@@ -31,7 +34,8 @@ private[decoder] case class NpcDecode(
     bool(isBranch),
     bool(isJal),
     memSize.U(3.W),
-    bool(memUnsigned)
+    bool(memUnsigned),
+    bool(isEbreak)
   )
 
   private def bool(value: Boolean): UInt =
@@ -52,6 +56,7 @@ private[decoder] object DecodeIndex {
   val isJal       = 10
   val memSize     = 11
   val memUnsigned = 12
+  val isEbreak    = 13
 }
 
 private[decoder] object DecodeTable {
@@ -62,9 +67,12 @@ private[decoder] object DecodeTable {
   private val LUI   = BitPat("b?????????????????????????0110111")
   private val AUIPC = BitPat("b?????????????????????????0010111")
   private val LW    = BitPat("b?????????????????010?????0000011")
+  private val LBU   = BitPat("b?????????????????100?????0000011")
   private val SW    = BitPat("b?????????????????010?????0100011")
   private val BEQ   = BitPat("b?????????????????000?????1100011")
   private val JAL   = BitPat("b?????????????????????????1101111")
+  private val EBREAK = BitPat("b00000000000100000000000001110011")
+  private val SB    = BitPat("b?????????????????000?????0100011")
 
   val table: Array[(BitPat, List[UInt])] = Array(
     ADD   -> NpcDecode(
@@ -103,19 +111,39 @@ private[decoder] object DecodeTable {
       src2 = SrcType.none,
       immSel = ImmSel.i,
       fu = FuType.lsu,
-      op = LsuOp.lw,
+      op = LsuOp.load,
       rfWen = true,
       isLoad = true,
       memSize = 2
+    ).signals,
+    LBU   -> NpcDecode(
+      src1 = SrcType.reg,
+      src2 = SrcType.none,
+      immSel = ImmSel.i,
+      fu = FuType.lsu,
+      op = LsuOp.load,
+      rfWen = true,
+      isLoad = true,
+      memSize = 0,
+      memUnsigned = true
     ).signals,
     SW    -> NpcDecode(
       src1 = SrcType.reg,
       src2 = SrcType.reg,
       immSel = ImmSel.s,
       fu = FuType.lsu,
-      op = LsuOp.sw,
+      op = LsuOp.store,
       isStore = true,
       memSize = 2
+    ).signals,
+    SB    -> NpcDecode(
+      src1 = SrcType.reg,
+      src2 = SrcType.reg,
+      immSel = ImmSel.s,
+      fu = FuType.lsu,
+      op = LsuOp.store,
+      isStore = true,
+      memSize = 0
     ).signals,
     BEQ   -> NpcDecode(
       src1 = SrcType.reg,
@@ -133,6 +161,11 @@ private[decoder] object DecodeTable {
       op = JmpOp.jal,
       rfWen = true,
       isJal = true
+    ).signals,
+    EBREAK -> NpcDecode(
+      fu = FuType.alu,
+      op = AluOp.add,
+      isEbreak = true
     ).signals
   )
 }

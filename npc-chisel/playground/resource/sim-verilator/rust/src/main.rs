@@ -7,6 +7,7 @@ mod ffi;
 mod memory;
 mod perf;
 mod sdb;
+mod sim_log;
 mod simulator;
 
 use config::SimulatorConfig;

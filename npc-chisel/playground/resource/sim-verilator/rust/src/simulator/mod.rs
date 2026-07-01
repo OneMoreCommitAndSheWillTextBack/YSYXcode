@@ -10,15 +10,25 @@ use crate::{
     memory::{Memory, MemoryError},
     perf::Perf,
     sdb::SdbError,
+    sim_log,
+    simulator::{self, SimulatorState::Running},
     SimulatorResult, ACTIVE_SIMULATOR,
 };
 use std::{fs, io, path::PathBuf};
 
 const MBASE: u32 = 0x8000_0000;
 const PMEM_SIZE: usize = 128 * 1024 * 1024;
-const DEFAULT_IMAGE: [u32; 13] = [
-    0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513, 0x00008067, 0xff410113, 0x00000517,
-    0x01450513, 0x00112423, 0xfe9ff0ef, 0x00050513, 0x00100073,
+// const DEFAULT_IMAGE: [u32; 13] = [
+//     0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513, 0x00008067, 0xff410113, 0x00000517,
+//     0x01450513, 0x00112423, 0xfe9ff0ef, 0x00050513, 0x00100073,
+// ];
+
+const DEFAULT_IMAGE: [u32; 5] = [
+    0x00000297, // auipc t0,0
+    0x00028823, // sb  zero,16(t0)
+    0x0102c503, // lbu a0,16(t0)
+    0x00100073, // ebreak (used as nemu_trap)
+    0xdeadbeef, // some data
 ];
 
 #[derive(Debug)]
@@ -29,6 +39,15 @@ pub enum SimulatorError {
     Difftest(DifftestError),
     ImageIo { path: PathBuf, source: io::Error },
     CpuNotConnected,
+    SimulateFinish,
+    ReachMaxNoCommitCyc,
+}
+
+pub enum SimulatorState {
+    Running,
+    Stop,
+    Abort,
+    End,
 }
 
 impl From<MemoryError> for SimulatorError {
@@ -61,6 +80,8 @@ pub struct Simulator {
     cpu: Option<Cpu>,
     perf: Perf,
     difftest: DiffTest,
+    state: SimulatorState,
+    cycle_nocommit: u32,
 }
 
 impl Simulator {
@@ -74,12 +95,15 @@ impl Simulator {
             cpu: None,
             perf: Perf::new(),
             difftest,
+            state: Running,
+            cycle_nocommit: 0,
         });
         let callbacks = ffi::NpcDpiCallbacks {
-            on_commit: None,
+            on_commit: Some(simulator_on_commit),
             on_current_pc: None,
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
+            report_invalid_inst: Some(report_invalid_inst),
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
@@ -94,7 +118,19 @@ impl Simulator {
             .ok_or(SimulatorError::CpuNotConnected)?
             .init_wave(wave_path)?;
 
+        simulator.finish_config();
+
         Ok(simulator)
+    }
+
+    pub fn finish_config(&mut self) {
+        if self.config.enable_wave {
+            if let Some(cpu) = self.cpu.as_mut() {
+                cpu.enable_wave();
+            }
+        }
+
+        sim_log::show_trace(&self.config);
     }
 
     pub fn reset(&mut self) -> SimulatorResult<()> {
@@ -120,12 +156,37 @@ impl Simulator {
     }
 
     fn execute_once(&mut self) -> SimulatorResult<()> {
+        let Some(cpu) = self.cpu.as_mut() else {
+            return Err(SimulatorError::CpuNotConnected);
+        };
+
+        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
+            return Err(SimulatorError::SimulateFinish);
+        }
+
+        cpu.step();
+        self.perf.on_cycle();
+        Ok(())
+    }
+
+    pub fn execute(&mut self, times: u64) -> SimulatorResult<()> {
+        for _ in 0..times {
+            if self.cycle_nocommit > 20000 {
+                return Err(SimulatorError::ReachMaxNoCommitCyc);
+            }
+
+            self.execute_once()?;
+            self.cycle_nocommit += 1;
+        }
+
+        Ok(())
+    }
+
+    pub fn do_difftest(&mut self) -> SimulatorResult<()> {
         let context = {
             let Some(cpu) = self.cpu.as_mut() else {
                 return Err(SimulatorError::CpuNotConnected);
             };
-
-            cpu.step();
 
             if self.difftest.needs_check_context() {
                 Some(cpu.context()?)
@@ -134,7 +195,6 @@ impl Simulator {
             }
         };
 
-        self.perf.on_cycle();
         if let Some(context) = context {
             self.difftest.step_and_check(&context)?;
         }
@@ -142,12 +202,45 @@ impl Simulator {
         Ok(())
     }
 
-    pub fn execute(&mut self, times: u64) -> SimulatorResult<()> {
-        for _ in 0..times {
-            self.execute_once()?;
+    fn on_commit(&mut self, event: CommitEvent) {
+        self.perf.on_commit(&event);
+
+        if !event.valid {
+            return;
         }
 
-        Ok(())
+        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
+            return;
+        }
+
+        self.cycle_nocommit = 0;
+        println!("commit inst 0x{:08x}", event.inst);
+        if let Err(error) = self.do_difftest() {
+            eprintln!("[Error] commit handling failed: {error:?}");
+            self.state = SimulatorState::Abort;
+            return;
+        }
+
+        if event.finish {
+            let context = match self.cpu.as_mut().and_then(|cpu| cpu.context().ok()) {
+                Some(context) => context,
+                None => {
+                    self.state = SimulatorState::Abort;
+                    return;
+                }
+            };
+
+            self.state = if context.gpr[10] == 0 {
+                SimulatorState::End
+            } else {
+                SimulatorState::Abort
+            };
+        }
+    }
+
+    pub fn get_invinst_report(&mut self, pc: u32, inst: u32) {
+        self.state = SimulatorState::Abort;
+        crate::Log!("get invalid inst 0x{:08x} at pc 0x{:08x}", inst, pc);
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
@@ -174,11 +267,6 @@ impl Simulator {
         self.difftest.detach();
     }
 
-    pub fn difftest_step_and_check(&mut self) -> SimulatorResult<()> {
-        let context = self.cpu_context()?;
-        Ok(self.difftest.step_and_check(&context)?)
-    }
-
     fn load_image(&mut self) -> SimulatorResult<usize> {
         let image = match self.config.image.as_ref() {
             Some(path) => fs::read(path).map_err(|source| SimulatorError::ImageIo {
@@ -190,7 +278,7 @@ impl Simulator {
 
         self.memory.write(MBASE, &image)?;
         self.difftest.sync_memory(MBASE, &image)?;
-        println!("\x1b[0m\x1b[1;32mfinish load memory\x1b[0m");
+        eprintln!("\x1b[0m\x1b[1;32mfinish load memory\x1b[0m");
         Ok(image.len())
     }
 
@@ -251,4 +339,34 @@ extern "C" fn simulator_pmem_read(addr: u32, len: u32) -> u32 {
 extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
     let simulator = unsafe { &mut *active_simulator() };
     let _ = simulator.pmem_write(addr, len, data);
+}
+
+extern "C" fn simulator_on_commit(event: *const ffi::NpcCommitEvent) {
+    if event.is_null() {
+        return;
+    }
+
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+
+    let event = unsafe { &*event };
+    let simulator = unsafe { &mut *simulator };
+    simulator.on_commit(CommitEvent::new(
+        event.valid != 0,
+        event.finish != 0,
+        event.pc,
+        event.inst,
+    ));
+}
+
+extern "C" fn report_invalid_inst(pc: u32, inst: u32) {
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+
+    let simulator = unsafe { &mut *simulator };
+    simulator.get_invinst_report(pc, inst);
 }

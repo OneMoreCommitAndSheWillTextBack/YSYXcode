@@ -8,6 +8,7 @@ pub struct NpcSim {
 #[repr(C)]
 pub struct NpcCommitEvent {
     pub valid: u8,
+    pub finish: u8,
     pub pc: u32,
     pub inst: u32,
 }
@@ -25,6 +26,7 @@ pub struct NpcDpiCallbacks {
     pub on_current_pc: Option<extern "C" fn(*const NpcPcEvent)>,
     pub pmem_read: Option<extern "C" fn(u32, u32) -> u32>,
     pub pmem_write: Option<extern "C" fn(addr: u32, len: u32, data: u32)>,
+    pub report_invalid_inst: Option<extern "C" fn(pc: u32, inst: u32)>,
 }
 
 #[allow(dead_code)]

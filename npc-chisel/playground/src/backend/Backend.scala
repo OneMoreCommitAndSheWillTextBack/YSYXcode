@@ -27,6 +27,9 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
 
     val commit = Output(Vec(cfg.issueWidth, Valid(new CommitPayload(cfg.addrWidth))))
+
+    val contextValid = Output(Bool())
+    val contextPc    = Output(UInt(cfg.addrWidth.W))
   })
 
   private val slotIdxWidth = math.max(log2Ceil(cfg.issueWidth), 1)
@@ -52,15 +55,18 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
   private val pending  = RegInit(false.B)
   private val slotIdx  = RegInit(0.U(slotIdxWidth.W))
+  private val stopAfterEbreak = RegInit(false.B)
 
-  io.frontend.ready := !pending
+  io.frontend.ready := !pending && !stopAfterEbreak
 
   val currentFetch = fetchReg.insts(slotIdx)
-  decoder.io.in := currentFetch.bits
+  val currentFetchValid = pending && currentFetch.valid
+  decoder.io.in      := currentFetch.bits
+  decoder.io.inValid := currentFetchValid
 
   val dispatchDecode = Wire(new DecodePacket(cfg.addrWidth))
   dispatchDecode       := decoder.io.out
-  dispatchDecode.legal := pending && currentFetch.valid && decoder.io.out.legal
+  dispatchDecode.legal := currentFetchValid && decoder.io.out.legal
 
   dispatch.io.in     := dispatchDecode
   dispatch.io.robIdx := rob.io.allocIdx(0)
@@ -78,10 +84,16 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
 
   val currentSlotDone = pending && (!currentFetch.valid || dispatch.io.out.fire)
   val lastSlot        = slotIdx === (cfg.issueWidth - 1).U
+  val ebreakDispatched = dispatch.io.out.fire && dispatchDecode.isEbreak
 
   when(flush) {
-    pending := false.B
-    slotIdx := 0.U
+    pending         := false.B
+    slotIdx         := 0.U
+    stopAfterEbreak := false.B
+  }.elsewhen(ebreakDispatched) {
+    pending         := false.B
+    slotIdx         := 0.U
+    stopAfterEbreak := true.B
   }.elsewhen(!pending && io.frontend.fire) {
     fetchReg := io.frontend.bits
     pending  := true.B
@@ -178,7 +190,9 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     gpr.io.write(i).data   := commit.io.regWrite(i).data
   }
 
-  io.commit := commit.io.commit
+  io.commit       := commit.io.commit
+  io.contextValid := commit.io.contextValid
+  io.contextPc    := commit.io.contextPc
 
   private val dmemIdle :: dmemLoadResp :: dmemStoreResp :: Nil = Enum(3)
   private val dmemState                                        = RegInit(dmemIdle)

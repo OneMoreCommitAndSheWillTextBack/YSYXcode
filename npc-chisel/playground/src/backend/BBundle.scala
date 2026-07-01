@@ -23,6 +23,7 @@ class DecodePacket(addrWidth: Int = 32) extends Bundle {
   val isJal       = Bool()
   val memSize     = UInt(3.W)
   val memUnsigned = Bool()
+  val isEbreak    = Bool()
 }
 
 class IssueControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -136,6 +137,7 @@ class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isJal          = Bool()
   val memSize        = UInt(3.W)
   val memUnsigned    = Bool()
+  val isEbreak       = Bool()
   val result         = UInt(cfg.dataWidth.W)
   val storeAddr      = UInt(cfg.addrWidth.W)
   val storeData      = UInt(cfg.dataWidth.W)
