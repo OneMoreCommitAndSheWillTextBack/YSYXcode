@@ -8,6 +8,7 @@ pub struct NpcSim {
 #[repr(C)]
 pub struct NpcCommitEvent {
     pub valid: u8,
+    pub finish: u8,
     pub pc: u32,
     pub inst: u32,
 }

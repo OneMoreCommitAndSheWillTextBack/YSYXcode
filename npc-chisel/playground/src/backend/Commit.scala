@@ -122,6 +122,7 @@ class Commit(cfg: BackendConfig = BackendConfig()) extends Module {
     NpcCommit.callWithEnable(
       io.commit(i).valid,
       1.U(32.W),
+      io.rob(i).bits.isEcall,
       io.commit(i).bits.pc,
       io.commit(i).bits.inst
     )
@@ -135,7 +136,7 @@ class Commit(cfg: BackendConfig = BackendConfig()) extends Module {
   io.redirect.bpuUpdate.bits.target  := Mux1H(bpuUpdateGrantOH, bpuUpdateTarget)
   io.redirect.bpuUpdate.bits.instLen := Mux1H(bpuUpdateGrantOH, bpuUpdateInstLen)
 
-  private val contextFire = VecInit((0 until cfg.commitWidth).map(i => io.rob(i).fire))
+  private val contextFire     = VecInit((0 until cfg.commitWidth).map(i => io.rob(i).fire))
   private val latestContextOH = VecInit((0 until cfg.commitWidth).map { i =>
     val noYoungerFire =
       if (i == cfg.commitWidth - 1) {

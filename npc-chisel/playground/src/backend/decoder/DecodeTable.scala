@@ -15,6 +15,7 @@ private[decoder] case class NpcDecode(
   isStore:  Boolean = false,
   isBranch: Boolean = false,
   isJal:    Boolean = false,
+  isEcall:  Boolean = false,
   memSize:  Int = 0,
   memUnsigned: Boolean = false) {
 
@@ -52,6 +53,7 @@ private[decoder] object DecodeIndex {
   val isJal       = 10
   val memSize     = 11
   val memUnsigned = 12
+  val isEcall     = 13
 }
 
 private[decoder] object DecodeTable {
@@ -65,6 +67,7 @@ private[decoder] object DecodeTable {
   private val SW    = BitPat("b?????????????????010?????0100011")
   private val BEQ   = BitPat("b?????????????????000?????1100011")
   private val JAL   = BitPat("b?????????????????????????1101111")
+  private val ECALL = BitPat("b00000000000000000000000001110011")
 
   val table: Array[(BitPat, List[UInt])] = Array(
     ADD   -> NpcDecode(
@@ -133,6 +136,9 @@ private[decoder] object DecodeTable {
       op = JmpOp.jal,
       rfWen = true,
       isJal = true
+    ).signals,
+    ECALL -> NpcDecode(
+      isEcall = true
     ).signals
   )
 }

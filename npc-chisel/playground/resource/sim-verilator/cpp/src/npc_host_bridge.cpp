@@ -19,7 +19,7 @@ NpcHostBridge::~NpcHostBridge() {
   }
 }
 
-void NpcHostBridge::commit(int valid, uint32_t pc, uint32_t inst) {
+void NpcHostBridge::commit(int valid, int finish, uint32_t pc, uint32_t inst) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.on_commit == nullptr) {
@@ -28,6 +28,7 @@ void NpcHostBridge::commit(int valid, uint32_t pc, uint32_t inst) {
 
   NpcCommitEvent event = {
       static_cast<uint8_t>(valid != 0),
+      static_cast<uint8_t>(finish != 0),
       pc,
       inst,
   };

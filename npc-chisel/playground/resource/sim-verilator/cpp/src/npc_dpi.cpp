@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
-extern "C" void npc_commit(int valid, int pc, int inst) {
-  NpcHostBridge::commit(valid, static_cast<uint32_t>(pc),
+extern "C" void npc_commit(int valid, int finish, int pc, int inst) {
+  NpcHostBridge::commit(valid, finish, static_cast<uint32_t>(pc),
                         static_cast<uint32_t>(inst));
 }
 

@@ -4,8 +4,8 @@ import chisel3._
 import chisel3.util.circt.dpi._
 
 object NpcCommit extends DPIClockedVoidFunctionImport {
-  override def functionName: String = "npc_commit"
-  override def inputNames: Option[Seq[String]] = Some(Seq("valid", "pc", "inst"))
+  override def functionName: String              = "npc_commit"
+  override def inputNames:   Option[Seq[String]] = Some(Seq("valid", "finish", "pc", "inst"))
 }
 
 class NpcContextDpi extends ExtModule {

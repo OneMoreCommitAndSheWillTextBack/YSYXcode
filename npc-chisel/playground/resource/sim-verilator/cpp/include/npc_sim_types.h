@@ -7,6 +7,7 @@
 
 typedef struct NpcCommitEvent {
   uint8_t valid;
+  uint8_t finish;
   uint32_t pc;
   uint32_t inst;
 } NpcCommitEvent;
