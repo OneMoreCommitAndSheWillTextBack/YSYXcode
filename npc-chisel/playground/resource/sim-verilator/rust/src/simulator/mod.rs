@@ -152,7 +152,7 @@ impl Simulator {
         Ok(())
     }
 
-    pub fn get_commit(&mut self) -> SimulatorResult<()> {
+    pub fn do_difftest(&mut self) -> SimulatorResult<()> {
         let context = {
             let Some(cpu) = self.cpu.as_mut() else {
                 return Err(SimulatorError::CpuNotConnected);
@@ -183,7 +183,7 @@ impl Simulator {
             return;
         }
 
-        if let Err(error) = self.get_commit() {
+        if let Err(error) = self.do_difftest() {
             eprintln!("[Error] commit handling failed: {error:?}");
             self.state = SimulatorState::Abort;
         }
