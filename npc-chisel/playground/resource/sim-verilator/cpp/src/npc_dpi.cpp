@@ -12,6 +12,11 @@ extern "C" void npc_get_current_pc(int pc) {
   NpcHostBridge::current_pc(static_cast<uint32_t>(pc));
 }
 
+extern "C" void npc_report_invalid_inst(int pc, int inst) {
+  NpcHostBridge::report_invalid_inst(static_cast<uint32_t>(pc),
+                                     static_cast<uint32_t>(inst));
+}
+
 extern "C" void npc_pmem_read(int addr, int len, int *data) {
   if (data == nullptr) {
     return;

@@ -59,11 +59,13 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   io.frontend.ready := !pending
 
   val currentFetch = fetchReg.insts(slotIdx)
-  decoder.io.in := currentFetch.bits
+  val currentFetchValid = pending && currentFetch.valid
+  decoder.io.in      := currentFetch.bits
+  decoder.io.inValid := currentFetchValid
 
   val dispatchDecode = Wire(new DecodePacket(cfg.addrWidth))
   dispatchDecode       := decoder.io.out
-  dispatchDecode.legal := pending && currentFetch.valid && decoder.io.out.legal
+  dispatchDecode.legal := currentFetchValid && decoder.io.out.legal
 
   dispatch.io.in     := dispatchDecode
   dispatch.io.robIdx := rob.io.allocIdx(0)

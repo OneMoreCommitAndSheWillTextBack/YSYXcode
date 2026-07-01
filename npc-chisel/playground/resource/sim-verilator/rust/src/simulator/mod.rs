@@ -11,7 +11,7 @@ use crate::{
     perf::Perf,
     sdb::SdbError,
     sim_log,
-    simulator::SimulatorState::Running,
+    simulator::{self, SimulatorState::Running},
     SimulatorResult, ACTIVE_SIMULATOR,
 };
 use std::{fs, io, path::PathBuf};
@@ -103,6 +103,7 @@ impl Simulator {
             on_current_pc: None,
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
+            report_invalid_inst: Some(report_invalid_inst),
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
@@ -237,6 +238,11 @@ impl Simulator {
         }
     }
 
+    pub fn get_invinst_report(&mut self, pc: u32, inst: u32) {
+        self.state = SimulatorState::Abort;
+        crate::Log!("get invalid inst 0x{:08x} at pc 0x{:08x}", inst, pc);
+    }
+
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
         let cpu = self.cpu.as_mut().ok_or(SimulatorError::CpuNotConnected)?;
         Ok(cpu.gpr()?)
@@ -353,4 +359,14 @@ extern "C" fn simulator_on_commit(event: *const ffi::NpcCommitEvent) {
         event.pc,
         event.inst,
     ));
+}
+
+extern "C" fn report_invalid_inst(pc: u32, inst: u32) {
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+
+    let simulator = unsafe { &mut *simulator };
+    simulator.get_invinst_report(pc, inst);
 }

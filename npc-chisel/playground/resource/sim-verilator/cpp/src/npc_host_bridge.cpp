@@ -46,6 +46,16 @@ void NpcHostBridge::current_pc(uint32_t pc) {
   bridge->callbacks_.on_current_pc(&event);
 }
 
+void NpcHostBridge::report_invalid_inst(uint32_t pc, uint32_t inst) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.report_invalid_inst == nullptr) {
+    return;
+  }
+
+  bridge->callbacks_.report_invalid_inst(pc, inst);
+}
+
 uint32_t NpcHostBridge::pmem_read(uint32_t addr, uint32_t len) {
   NpcHostBridge *bridge = active_bridge();
 

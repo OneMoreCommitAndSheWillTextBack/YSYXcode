@@ -16,6 +16,7 @@ public:
   static void current_pc(uint32_t pc);
   static uint32_t pmem_read(uint32_t addr, uint32_t len);
   static void pmem_write(uint32_t addr, uint32_t len, uint32_t data);
+  static void report_invalid_inst(uint32_t pc, uint32_t inst);
 
 private:
   NpcDpiCallbacks callbacks_{};

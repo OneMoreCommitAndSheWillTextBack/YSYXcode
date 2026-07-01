@@ -8,6 +8,11 @@ object NpcCommit extends DPIClockedVoidFunctionImport {
   override def inputNames:   Option[Seq[String]] = Some(Seq("valid", "finish", "pc", "inst"))
 }
 
+object NpcReportInvalidInst extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_report_invalid_inst"
+  override def inputNames:   Option[Seq[String]] = Some(Seq("pc", "inst"))
+}
+
 class NpcContextDpi extends ExtModule {
   val contextValid = IO(Input(Bool()))
   val pc           = IO(Input(UInt(32.W)))
