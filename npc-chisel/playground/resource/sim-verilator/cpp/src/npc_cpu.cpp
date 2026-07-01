@@ -74,12 +74,12 @@ void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles,
     top.clock = 1;
     top.eval();
     context.timeInc(1);
-    _wave.dump(context->time());
+    _wave.dump(context.time());
 
     top.clock = 0;
     top.eval();
     context.timeInc(1);
-    _wave.dump(context->time());
+    _wave.dump(context.time());
   }
 
   top.reset = 0;
