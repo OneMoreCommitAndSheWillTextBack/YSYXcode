@@ -205,6 +205,7 @@ impl Simulator {
         }
 
         self.cycle_nocommit = 0;
+        println!("commit inst 0x{:08x}", event.inst);
         if let Err(error) = self.do_difftest() {
             eprintln!("[Error] commit handling failed: {error:?}");
             self.state = SimulatorState::Abort;
