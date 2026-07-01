@@ -1,7 +1,6 @@
 package top.dpi
 
 import chisel3._
-import chisel3.experimental.ExtModule
 import chisel3.util.circt.dpi._
 
 object NpcCommit extends DPIClockedVoidFunctionImport {
@@ -13,7 +12,6 @@ class NpcContextDpi extends ExtModule {
   val contextValid = IO(Input(Bool()))
   val pc           = IO(Input(UInt(32.W)))
   val privMode     = IO(Input(UInt(32.W)))
-  val gpr          = IO(Input(UInt((32 * 32).W)))
   val mstatus      = IO(Input(UInt(32.W)))
   val mtvec        = IO(Input(UInt(32.W)))
   val mepc         = IO(Input(UInt(32.W)))
@@ -31,7 +29,6 @@ class NpcContextDpi extends ExtModule {
       |  input         contextValid,
       |  input  [31:0] pc,
       |  input  [31:0] privMode,
-      |  input  [1023:0] gpr,
       |  input  [31:0] mstatus,
       |  input  [31:0] mtvec,
       |  input  [31:0] mepc,
@@ -59,14 +56,6 @@ class NpcContextDpi extends ExtModule {
       |    npc_dpi_get_priv = privMode;
       |  endfunction
       |
-      |  export "DPI-C" function npc_dpi_get_gpr;
-      |  function int unsigned npc_dpi_get_gpr(input int unsigned idx);
-      |    if (idx < 32)
-      |      npc_dpi_get_gpr = gpr[idx * 32 +: 32];
-      |    else
-      |      npc_dpi_get_gpr = 32'b0;
-      |  endfunction
-      |
       |  export "DPI-C" function npc_dpi_get_csr;
       |  function int unsigned npc_dpi_get_csr(input int unsigned addr);
       |    case (addr)
@@ -82,6 +71,28 @@ class NpcContextDpi extends ExtModule {
       |      32'hb02: npc_dpi_get_csr = minstret;
       |      default: npc_dpi_get_csr = 32'b0;
       |    endcase
+      |  endfunction
+      |
+      |endmodule
+      |""".stripMargin
+  )
+}
+
+class NpcGprDpi extends ExtModule {
+  val gpr = IO(Input(UInt((32 * 32).W)))
+
+  setInline(
+    "NpcGprDpi.sv",
+    """module NpcGprDpi(
+      |  input [1023:0] gpr
+      |);
+      |
+      |  export "DPI-C" function npc_dpi_get_gpr;
+      |  function int unsigned npc_dpi_get_gpr(input int unsigned idx);
+      |    if (idx < 32)
+      |      npc_dpi_get_gpr = gpr[idx * 32 +: 32];
+      |    else
+      |      npc_dpi_get_gpr = 32'b0;
       |  endfunction
       |
       |endmodule

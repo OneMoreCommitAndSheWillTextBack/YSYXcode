@@ -1,7 +1,7 @@
 package top.backend
 
 import chisel3._
-import chisel3.util.{log2Ceil, Decoupled, Enum, MuxCase, Valid}
+import chisel3.util.{log2Ceil, Decoupled, Enum, Valid}
 import top.bundle._
 import top.config.BackendConfig
 
@@ -30,7 +30,6 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
 
     val contextValid = Output(Bool())
     val contextPc    = Output(UInt(cfg.addrWidth.W))
-    val debugGpr     = Output(Vec(32, UInt(cfg.dataWidth.W)))
   })
 
   private val slotIdxWidth = math.max(log2Ceil(cfg.issueWidth), 1)
@@ -185,16 +184,6 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   io.commit       := commit.io.commit
   io.contextValid := commit.io.contextValid
   io.contextPc    := commit.io.contextPc
-
-  for (idx <- 0 until 32) {
-    val writeHits = commit.io.regWrite.map(write => write.enable && write.addr === idx.U)
-    io.debugGpr(idx) := MuxCase(
-      gpr.io.debug(idx),
-      writeHits.zip(commit.io.regWrite).reverse.map { case (hit, write) =>
-        hit -> write.data
-      }
-    )
-  }
 
   private val dmemIdle :: dmemLoadResp :: dmemStoreResp :: Nil = Enum(3)
   private val dmemState                                        = RegInit(dmemIdle)

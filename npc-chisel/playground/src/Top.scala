@@ -121,7 +121,6 @@ class Core(resetVector: BigInt) extends Module {
   contextDpi.contextValid := true.B
   contextDpi.pc           := Mux(backend.io.contextValid, backend.io.contextPc, contextPcReg)
   contextDpi.privMode     := 3.U(32.W)
-  contextDpi.gpr          := backend.io.debugGpr.asUInt
   contextDpi.mstatus      := 0.U
   contextDpi.mtvec        := 0.U
   contextDpi.mepc         := 0.U

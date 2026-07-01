@@ -2,6 +2,7 @@
 
 #include "Vnpc.h"
 #include "cstdint"
+#include "npc_wave.h"
 #include "verilated.h"
 
 namespace {
@@ -62,7 +63,8 @@ bool npc_cpu_context_ready(Vnpc &top) {
 
 } // namespace
 
-void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles) {
+void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles,
+                   NpcWave &_wave) {
   top.reset = 1;
   top.clock = 0;
   top.eval();
@@ -72,10 +74,12 @@ void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles) {
     top.clock = 1;
     top.eval();
     context.timeInc(1);
+    _wave.dump(context->time());
 
     top.clock = 0;
     top.eval();
     context.timeInc(1);
+    _wave.dump(context->time());
   }
 
   top.reset = 0;
@@ -83,14 +87,18 @@ void npc_cpu_reset(VerilatedContext &context, Vnpc &top, uint32_t cycles) {
   context.timeInc(1);
 }
 
-void npc_cpu_step(VerilatedContext &context, Vnpc &top) {
+void npc_cpu_step(VerilatedContext &context, Vnpc &top, NpcWave &_wave) {
   top.clock = 1;
   top.eval();
   context.timeInc(1);
 
+  _wave.dump(context.time());
+
   top.clock = 0;
   top.eval();
   context.timeInc(1);
+
+  _wave.dump(context.time());
 }
 
 bool npc_cpu_get_gpr(Vnpc &top, NpcGprContext *out) {

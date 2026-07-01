@@ -4,6 +4,7 @@ import chisel3._
 import top.backend.bundle._
 import chisel3.util.MuxCase
 import top.config.BackendConfig
+import top.dpi.NpcGprDpi
 
 class RegFile(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(
@@ -15,11 +16,18 @@ class RegFile(cfg: BackendConfig = BackendConfig()) extends Module {
   )
 
   private val gpr = Reg(Vec(31, UInt(cfg.dataWidth.W)))
+  private val dpi = Module(new NpcGprDpi)
 
-  io.debug(0) := 0.U
+  private val dpiGpr = Wire(Vec(32, UInt(cfg.dataWidth.W)))
+  dpiGpr(0) := 0.U
   for (idx <- 1 until 32) {
-    io.debug(idx) := gpr(idx - 1)
+    val hits = io.write.map(write => write.enable && write.addr === idx.U)
+    dpiGpr(idx) := MuxCase(
+      gpr(idx - 1),
+      hits.zip(io.write).reverse.map { case (hit, write) => hit -> write.data }
+    )
   }
+  dpi.gpr := dpiGpr.asUInt
 
   for (read <- io.read) {
     read.data := MuxCase(
