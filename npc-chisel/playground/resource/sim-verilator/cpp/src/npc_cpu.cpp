@@ -2,7 +2,6 @@
 
 #include "Vnpc.h"
 #include "cstdint"
-#include "svdpi.h"
 #include "verilated.h"
 
 namespace {
@@ -24,9 +23,9 @@ constexpr const char *NPC_CONTEXT_DPI_SCOPES[] = {
     "TOP.u_core.core.contextDpi",
 };
 
-svScope npc_cpu_context_scope() {
+const VerilatedScope *npc_cpu_context_scope(Vnpc &top) {
   for (const char *name : NPC_CONTEXT_DPI_SCOPES) {
-    if (svScope scope = svGetScopeFromName(name)) {
+    if (const VerilatedScope *scope = top.contextp()->scopeFind(name)) {
       return scope;
     }
   }
@@ -36,27 +35,28 @@ svScope npc_cpu_context_scope() {
 
 class NpcDpiScope {
 public:
-  NpcDpiScope() : previous_(svGetScope()), current_(npc_cpu_context_scope()) {
+  explicit NpcDpiScope(Vnpc &top)
+      : previous_(Verilated::dpiScope()), current_(npc_cpu_context_scope(top)) {
     if (current_ != nullptr) {
-      svSetScope(current_);
+      Verilated::dpiScope(current_);
     }
   }
 
   ~NpcDpiScope() {
     if (current_ != nullptr) {
-      svSetScope(previous_);
+      Verilated::dpiScope(previous_);
     }
   }
 
   bool valid() const { return current_ != nullptr; }
 
 private:
-  svScope previous_;
-  svScope current_;
+  const VerilatedScope *previous_;
+  const VerilatedScope *current_;
 };
 
-bool npc_cpu_context_ready() {
-  NpcDpiScope scope;
+bool npc_cpu_context_ready(Vnpc &top) {
+  NpcDpiScope scope(top);
   return scope.valid() && Vnpc::npc_dpi_context_valid() != 0;
 }
 
@@ -101,7 +101,7 @@ bool npc_cpu_get_gpr(Vnpc &top, NpcGprContext *out) {
   }
 
   *out = {};
-  NpcDpiScope scope;
+  NpcDpiScope scope(top);
   if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
@@ -121,7 +121,7 @@ bool npc_cpu_get_csr(Vnpc &top, NpcCsrContext *out) {
   }
 
   *out = {};
-  NpcDpiScope scope;
+  NpcDpiScope scope(top);
   if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
@@ -146,7 +146,7 @@ bool npc_cpu_get_context(Vnpc &top, NpcCpuContext *out) {
   }
 
   *out = {};
-  NpcDpiScope scope;
+  NpcDpiScope scope(top);
   if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
