@@ -3,6 +3,7 @@ package top.backend.lsu
 import chisel3._
 import chisel3.util.{Decoupled, Enum, MuxLookup, Valid}
 import top.backend.bundle.{IssuePacket, IssueWakeup, RobWritebackPacket}
+import top.backend.decoder.LsuOp
 import top.bundle.{DataMemReq, DataMemResp}
 import top.config.BackendConfig
 
@@ -36,8 +37,8 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     )
   )
 
-  val isLoad  = io.in.bits.isLoad
-  val isStore = io.in.bits.isStore
+  val isLoad  = io.in.bits.fuOp === LsuOp.load
+  val isStore = io.in.bits.fuOp === LsuOp.store
 
   io.busy := state =/= sIdle
 

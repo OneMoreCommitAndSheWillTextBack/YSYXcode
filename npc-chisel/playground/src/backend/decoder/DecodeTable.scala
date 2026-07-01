@@ -2,6 +2,8 @@ package top.backend.decoder
 
 import chisel3._
 import chisel3.util.BitPat
+import top.backend.decoder.DecodeIndex.{src1Type => src1Type}
+import top.backend.decoder.DecodeIndex.{memSize => memSize}
 
 private[decoder] case class NpcDecode(
   legal:    Boolean = true,
@@ -69,6 +71,7 @@ private[decoder] object DecodeTable {
   private val BEQ   = BitPat("b?????????????????000?????1100011")
   private val JAL   = BitPat("b?????????????????????????1101111")
   private val ECALL = BitPat("b00000000000000000000000001110011")
+  private val SB    = BitPat("?????????????????000?????0100011")
 
   val table: Array[(BitPat, List[UInt])] = Array(
     ADD   -> NpcDecode(
@@ -107,7 +110,7 @@ private[decoder] object DecodeTable {
       src2 = SrcType.none,
       immSel = ImmSel.i,
       fu = FuType.lsu,
-      op = LsuOp.lw,
+      op = LsuOp.load,
       rfWen = true,
       isLoad = true,
       memSize = 2
@@ -117,9 +120,18 @@ private[decoder] object DecodeTable {
       src2 = SrcType.reg,
       immSel = ImmSel.s,
       fu = FuType.lsu,
-      op = LsuOp.sw,
+      op = LsuOp.store,
       isStore = true,
       memSize = 2
+    ).signals,
+    SB    -> NpcDecode(
+      src1 = SrcType.reg,
+      src2 = SrcType.reg,
+      immSel = ImmSel.s,
+      fu = FuType.lsu,
+      op = LsuOp.store,
+      isStore = true,
+      memSize = 0
     ).signals,
     BEQ   -> NpcDecode(
       src1 = SrcType.reg,
