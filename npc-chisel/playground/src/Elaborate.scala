@@ -6,14 +6,14 @@ object Elaborate extends App {
   private val (target, chiselArgs) = {
     def parseArgs(rest: List[String], kept: List[String], currentTarget: Target): (Target, Array[String]) =
       rest match {
-        case Nil => (currentTarget, kept.reverse.toArray)
-        case (`targetOption`) :: Nil =>
+        case Nil                                              => (currentTarget, kept.reverse.toArray)
+        case (`targetOption`) :: Nil                          =>
           throw new IllegalArgumentException(s"$targetOption requires npc or soc")
-        case (`targetOption`) :: value :: tail =>
+        case (`targetOption`) :: value :: tail                =>
           parseArgs(tail, kept, Target.parse(value))
         case arg :: tail if arg.startsWith(s"$targetOption=") =>
           parseArgs(tail, kept, Target.parse(arg.drop(targetOption.length + 1)))
-        case arg :: tail =>
+        case arg :: tail                                      =>
           parseArgs(tail, arg :: kept, currentTarget)
       }
 

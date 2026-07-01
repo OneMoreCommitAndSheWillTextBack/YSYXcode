@@ -55,8 +55,8 @@ class Frontend(
   pcGen.io.redirect := pcRedirect
   pcGen.io.advance  := ifetch.io.pcAdvance
 
-  ifetch.io.redirect := redirect
-  ifetch.io.pc       := pcGen.io.pc
+  ifetch.io.redirect       := redirect
+  ifetch.io.pc             := pcGen.io.pc
   ifetch.io.pred.valid     := bpu.io.pred.valid
   ifetch.io.pred.taken     := bpu.io.pred.taken
   ifetch.io.pred.target    := bpu.io.pred.target

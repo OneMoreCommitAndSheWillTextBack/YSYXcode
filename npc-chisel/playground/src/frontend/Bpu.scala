@@ -152,9 +152,9 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   bht.io.update.bits.pc    := io.update.bits.pc
   bht.io.update.bits.taken := io.update.bits.taken
 
-  val isBranch = btb.io.resp.cfiType === CfiType.branch
-  val hasCfi   = btb.io.resp.cfiType =/= CfiType.none
-  val btbHit   = io.lookup.valid && btb.io.resp.hit && hasCfi
+  val isBranch  = btb.io.resp.cfiType === CfiType.branch
+  val hasCfi    = btb.io.resp.cfiType =/= CfiType.none
+  val btbHit    = io.lookup.valid && btb.io.resp.hit && hasCfi
   val predTaken = btbHit && Mux(isBranch, bht.io.taken, true.B)
 
   io.pred.valid     := btbHit
