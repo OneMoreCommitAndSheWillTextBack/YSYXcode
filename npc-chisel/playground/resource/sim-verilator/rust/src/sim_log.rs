@@ -43,10 +43,12 @@ pub fn show_trace(config: &SimulatorConfig) {
     };
 
     eprintln!(
-        "{}trace:{} wave={} difftest={}",
+        "{}trace: wave={}{} {}difftest={}{}",
         ANSI_FG_BLUE,
         ANSI_RESET,
         state(config.enable_wave),
+        ANSI_FG_BLUE,
+        ANSI_RESET,
         state(config.difftest_on),
     );
 }
