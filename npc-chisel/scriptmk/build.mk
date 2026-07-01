@@ -23,13 +23,12 @@ VERILATOR_FLAGS ?= -sv --cc --trace --MMD --no-timing --timescale "1ns/1ns" \
 
 verilator: verilog $(EXTRA_V)
 	mkdir -p $(VERILATOR_OBJ_DIR)
-	$(VERILATOR) $(VERILATOR_FLAGS) \
-		-F $(RTL_FILELIST) $(EXTRA_V) \
+	$(VERILATOR) $(VERILATOR_FLAGS) -F $(RTL_FILELIST) $(EXTRA_V) \
 		--top-module $(TOP_MODULE) \
 		--Mdir $(VERILATOR_OBJ_DIR)
 
 verilator-exec: verilator
-	cd $(SIM_RUST_DIR) && \
+	@cd $(SIM_RUST_DIR) && \
 		NPC_LINK_VERILATOR=1 \
 		NPC_VERILATOR_TOP=$(TOP_MODULE) \
 		NPC_VERILATOR_OBJ_DIR=$(abspath $(VERILATOR_OBJ_DIR)) \
