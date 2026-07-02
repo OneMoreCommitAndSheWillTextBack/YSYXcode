@@ -32,6 +32,11 @@ const DEFAULT_IMAGE: [u32; 5] = [
     0xdeadbeef, // some data
 ];
 
+const ANSI_RESET: &str = "\x1b[0m";
+const ANSI_FG_BLUE: &str = "\x1b[34m";
+const ANSI_FG_GREEN: &str = "\x1b[32m";
+const ANSI_FG_RED: &str = "\x1b[31m";
+
 #[derive(Debug)]
 pub enum SimulatorError {
     Memory(MemoryError),
@@ -243,8 +248,10 @@ impl Simulator {
             };
 
             self.state = if context.gpr[10] == 0 {
+                eprintln!("{}HIT GOOD TRAP{}", ANSI_FG_GREEN, ANSI_RESET);
                 SimulatorState::End
             } else {
+                eprintln!("{}HIT BAD TRAP{}", ANSI_FG_RED, ANSI_RESET);
                 SimulatorState::Abort
             };
         }
