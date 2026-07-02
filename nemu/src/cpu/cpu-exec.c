@@ -135,6 +135,8 @@ static void statistic() {
 
   IFNDEF(CONFIG_TARGET_AM, setlocale(LC_NUMERIC, ""));
 #define NUMBERIC_FMT MUXDEF(CONFIG_TARGET_AM, "%", "%'") PRIu64
+
+#ifndef CONFIG_TARGET_SHARE
   Log("host time spent = " NUMBERIC_FMT " us", g_timer);
   Log("total guest instructions = " NUMBERIC_FMT, g_nr_guest_inst);
   if (g_timer > 0)
@@ -143,6 +145,7 @@ static void statistic() {
   else
     Log("Finish running in less than 1 us and can not calculate the simulation "
         "frequency");
+#endif
 }
 
 void assert_fail_msg() {
@@ -177,6 +180,7 @@ void cpu_exec(uint64_t n) {
 
   case NEMU_END:
   case NEMU_ABORT:
+#ifndef CONFIG_TARGET_SHARE
     Log("nemu: %s at pc = " FMT_WORD,
         (nemu_state.state == NEMU_ABORT
              ? ANSI_FMT("ABORT", ANSI_FG_RED)
@@ -184,6 +188,7 @@ void cpu_exec(uint64_t n) {
                     ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN)
                     : ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
         nemu_state.halt_pc);
+#endif
     // fall through
   case NEMU_QUIT:
     statistic();
