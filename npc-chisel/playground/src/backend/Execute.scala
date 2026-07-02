@@ -6,6 +6,7 @@ import top.backend.bundle.{IssuePacket, IssueWakeup, RobWritebackPacket}
 import top.backend.decoder.FuType
 import top.backend.fu.ALU
 import top.config.BackendConfig
+import top.bundle.CfiType
 
 class Execute(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
@@ -22,9 +23,9 @@ class Execute(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val fallThrough    = io.in.bits.fetch.pc + io.in.bits.fetch.instLen
   private val branchTarget   = io.in.bits.fetch.pc + io.in.bits.imm
-  private val branchTaken    = io.in.bits.isBranch && io.in.bits.src1.data === io.in.bits.src2.data
+  private val branchTaken    = (io.in.bits.cfi === CfiType.branch) && io.in.bits.src1.data === io.in.bits.src2.data
   private val redirectTarget = Mux(
-    io.in.bits.isJal || branchTaken,
+    (io.in.bits.cfi === CfiType.jal) || branchTaken,
     branchTarget,
     fallThrough
   )
@@ -39,9 +40,9 @@ class Execute(cfg: BackendConfig = BackendConfig()) extends Module {
   io.writeback.bits                := 0.U.asTypeOf(new RobWritebackPacket(cfg))
   io.writeback.bits.robIdx         := io.in.bits.robIdx
   io.writeback.bits.result         := Mux(io.in.bits.fuType === FuType.jmp, asDataWidth(fallThrough), alu.io.out)
-  io.writeback.bits.redirectValid  := io.in.bits.isBranch || io.in.bits.isJal
+  io.writeback.bits.redirectValid  := (io.in.bits.cfi === CfiType.branch) || (io.in.bits.cfi === CfiType.jal)
   io.writeback.bits.redirectTarget := redirectTarget
-  io.writeback.bits.branchTaken    := branchTaken || io.in.bits.isJal
+  io.writeback.bits.branchTaken    := branchTaken || (io.in.bits.cfi === CfiType.jal)
   io.writeback.bits.branchTarget   := branchTarget
 
   io.wakeup.valid  := io.in.fire && io.in.bits.rfWen

@@ -5,6 +5,7 @@ import chisel3.util.{Decoupled, MuxLookup}
 import top.backend.bundle.{DecodePacket, IssueOperand, IssuePacket, RegFileReadPort, ScoreboardAlloc, ScoreboardQuery}
 import top.backend.decoder.{FuType, SrcType}
 import top.config.BackendConfig
+import top.bundle.CfiType
 
 class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
@@ -26,7 +27,7 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     decode.legal && decode.rfWen && (decode.rd =/= 0.U)
 
   private def isControlBoundary(decode: DecodePacket): Bool =
-    decode.legal && (decode.isBranch || decode.isJal || (decode.fuType === FuType.bru) || (decode.fuType === FuType.jmp))
+    decode.legal && (decode.cfi =/= CfiType.none)
 
   private def asDataWidth(value: UInt): UInt =
     value.asTypeOf(UInt(cfg.dataWidth.W))
@@ -129,8 +130,7 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     io.out(lane).bits.rfWen       := decode.rfWen
     io.out(lane).bits.isLoad      := decode.isLoad
     io.out(lane).bits.isStore     := decode.isStore
-    io.out(lane).bits.isBranch    := decode.isBranch
-    io.out(lane).bits.isJal       := decode.isJal
+    io.out(lane).bits.cfi         := decode.cfi
     io.out(lane).bits.memSize     := decode.memSize
     io.out(lane).bits.memUnsigned := decode.memUnsigned
   }

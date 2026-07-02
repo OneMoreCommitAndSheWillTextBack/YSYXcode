@@ -53,8 +53,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.rfWen       := decoded(DecodeIndex.rfWen).asBool && rd =/= 0.U
   io.out.isLoad      := decoded(DecodeIndex.isLoad).asBool
   io.out.isStore     := decoded(DecodeIndex.isStore).asBool
-  io.out.isBranch    := decoded(DecodeIndex.isBranch).asBool
-  io.out.isJal       := decoded(DecodeIndex.isJal).asBool
+  io.out.cfi         := decoded(DecodeIndex.cfi)
   io.out.memSize     := decoded(DecodeIndex.memSize)
   io.out.memUnsigned := decoded(DecodeIndex.memUnsigned).asBool
   io.out.isEbreak    := decoded(DecodeIndex.isEbreak).asBool

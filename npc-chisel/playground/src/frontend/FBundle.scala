@@ -3,6 +3,7 @@ package top.frontend.bundle
 import chisel3._
 import chisel3.util.{log2Ceil, Cat, Valid}
 import top.config._
+import top.bundle.CfiType
 
 // the bundle cross module in the frontend
 
@@ -23,10 +24,6 @@ class PcRedirect extends Bundle {
   val value = UInt(32.W)
 }
 
-object CfiType extends ChiselEnum {
-  val none, branch, jal, jalr, call, ret = Value
-}
-
 class FetchPred(cfg: ICacheConfig) extends Bundle {
   require(cfg.fetchBytes >= 2, "fetchBytes must contain at least one halfword")
 
@@ -34,7 +31,7 @@ class FetchPred(cfg: ICacheConfig) extends Bundle {
   val taken     = Bool()
   val target    = UInt(cfg.addrWidth.W)
   val cfiOffset = UInt(log2Ceil(cfg.fetchBytes / 2).W)
-  val cfiType   = CfiType()
+  val cfiType   = UInt(CfiType.width.W)
 }
 
 class IFetchBlockMeta(cfg: ICacheConfig) extends Bundle {
@@ -99,12 +96,12 @@ class BpuPred(cfg: BpuConfig) extends Bundle {
   val taken     = Bool()
   val target    = UInt(cfg.addrWidth.W)
   val cfiOffset = UInt(cfg.cfiOffsetBits.W)
-  val cfiType   = CfiType()
+  val cfiType   = UInt(CfiType.width.W)
 }
 
 class BpuUpdate(cfg: BpuConfig) extends Bundle {
   val pc      = UInt(cfg.addrWidth.W) // 真实分支指令 PC
-  val cfiType = CfiType()
+  val cfiType = UInt(CfiType.width.W)
   val taken   = Bool()
   val target  = UInt(cfg.addrWidth.W)
   val instLen = UInt(3.W)             // 2 or 4，后面算 fallThrough 有用

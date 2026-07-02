@@ -3,6 +3,17 @@ package top.bundle
 import chisel3._
 import chisel3.util.Valid
 
+object CfiType {
+  val width = 3
+
+  val none   = 0.U
+  val branch = 1.U
+  val jal    = 2.U
+  val jalr   = 3.U
+  val call   = 4.U
+  val ret    = 5.U
+}
+
 class Redirect(addrWidth: Int = 32) extends Bundle {
   val valid  = Bool()
   val target = UInt(addrWidth.W)

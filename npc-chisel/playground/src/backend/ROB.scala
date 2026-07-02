@@ -5,6 +5,7 @@ import chisel3.util.{log2Ceil, Decoupled, PopCount, Valid}
 import top.backend.bundle.{RobAllocPacket, RobCommitPacket, RobWritebackPacket}
 import top.bundle.FetchInstPayload
 import top.config.BackendConfig
+import top.bundle.CfiType
 
 private class RobEntry(cfg: BackendConfig) extends Bundle {
   val valid          = Bool()
@@ -14,8 +15,7 @@ private class RobEntry(cfg: BackendConfig) extends Bundle {
   val rfWen          = Bool()
   val isLoad         = Bool()
   val isStore        = Bool()
-  val isBranch       = Bool()
-  val isJal          = Bool()
+  val cfi            = UInt(CfiType.width.W)
   val memSize        = UInt(3.W)
   val memUnsigned    = Bool()
   val isEbreak       = Bool()
@@ -99,8 +99,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     io.commit(i).bits.rfWen          := entry.rfWen
     io.commit(i).bits.isLoad         := entry.isLoad
     io.commit(i).bits.isStore        := entry.isStore
-    io.commit(i).bits.isBranch       := entry.isBranch
-    io.commit(i).bits.isJal          := entry.isJal
+    io.commit(i).bits.isBranch       := entry.cfi
     io.commit(i).bits.memSize        := entry.memSize
     io.commit(i).bits.memUnsigned    := entry.memUnsigned
     io.commit(i).bits.isEbreak       := entry.isEbreak
@@ -165,8 +164,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
         entries(allocIdx).rfWen          := decode.rfWen
         entries(allocIdx).isLoad         := decode.isLoad
         entries(allocIdx).isStore        := decode.isStore
-        entries(allocIdx).isBranch       := decode.isBranch
-        entries(allocIdx).isJal          := decode.isJal
+        entries(allocIdx).cfi            := decode.cfi
         entries(allocIdx).memSize        := decode.memSize
         entries(allocIdx).memUnsigned    := decode.memUnsigned
         entries(allocIdx).isEbreak       := decode.isEbreak

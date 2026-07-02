@@ -2,6 +2,9 @@ package top.backend.decoder
 
 import chisel3._
 import chisel3.util.BitPat
+import top.bundle.CfiType
+import top.backend.decoder.DecodeIndex.{cfi => cfi}
+import top.backend.decoder.DecodeIndex.{rfWen => rfWen}
 
 private[decoder] case class NpcDecode(
   legal:    Boolean = true,
@@ -10,11 +13,10 @@ private[decoder] case class NpcDecode(
   immSel:   UInt = ImmSel.none,
   fu:       UInt = FuType.none,
   op:       UInt = FuOp.none,
+  cfi:      UInt = CfiType.none,
   rfWen:    Boolean = false,
   isLoad:   Boolean = false,
   isStore:  Boolean = false,
-  isBranch: Boolean = false,
-  isJal:    Boolean = false,
   isEbreak: Boolean = false,
   memSize:  Int = 0,
   memUnsigned: Boolean = false) {
@@ -26,11 +28,10 @@ private[decoder] case class NpcDecode(
     immSel,
     fu,
     op,
+    cfi,
     bool(rfWen),
     bool(isLoad),
     bool(isStore),
-    bool(isBranch),
-    bool(isJal),
     memSize.U(3.W),
     bool(memUnsigned),
     bool(isEbreak)
@@ -47,14 +48,13 @@ private[decoder] object DecodeIndex {
   val immSel      = 3
   val fuType      = 4
   val fuOp        = 5
-  val rfWen       = 6
-  val isLoad      = 7
-  val isStore     = 8
-  val isBranch    = 9
-  val isJal       = 10
-  val memSize     = 11
-  val memUnsigned = 12
-  val isEbreak    = 13
+  val cfi         = 6
+  val rfWen       = 7
+  val isLoad      = 8
+  val isStore     = 9
+  val memSize     = 10
+  val memUnsigned = 11
+  val isEbreak    = 12
 }
 
 private[decoder] trait DecodeGroup {
@@ -122,10 +122,10 @@ private[decoder] object DecodeDsl {
       immSel = ImmSel.b,
       fu = FuType.bru,
       op = op,
-      isBranch = true
+      cfi = CfiType.branch
     ).signals
 
-  def jump(op: UInt): List[UInt] =
+  def jal(op: UInt): List[UInt] =
     NpcDecode(
       src1 = SrcType.pc,
       src2 = SrcType.none,
@@ -133,7 +133,18 @@ private[decoder] object DecodeDsl {
       fu = FuType.jmp,
       op = op,
       rfWen = true,
-      isJal = true
+      cfi = CfiType.jal
+    ).signals
+
+  def jalr(op: UInt): List[UInt] =
+    NpcDecode(
+      src1 = SrcType.reg,
+      src2 = SrcType.imm,
+      immSel = ImmSel.i,
+      fu = FuType.jmp,
+      op = op,
+      rfWen = true,
+      cfi = CfiType.jalr
     ).signals
 
   def ebreak: List[UInt] =
