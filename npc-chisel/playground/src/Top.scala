@@ -6,7 +6,7 @@ import top.bundle.FrontendToBackend
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
 import top.dpi.NpcContextDpi
 import top.frontend.Frontend
-import top.frontend.bundle.{BpuUpdate, CfiType}
+import top.frontend.bundle.BpuUpdate
 import top.mem.Mem
 import top.sim.DifftestBridge
 
@@ -61,12 +61,12 @@ class Core(resetVector: BigInt) extends Module {
     val master    = new AxiPort
   })
 
-  val frontend = Module(new Frontend(resetVector, frontendCfg))
-  val backend  = Module(new Backend(backendCfg))
-  val mem      = Module(new Mem(memCfg))
+  val frontend       = Module(new Frontend(resetVector, frontendCfg))
+  val backend        = Module(new Backend(backendCfg))
+  val mem            = Module(new Mem(memCfg))
   val difftestBridge = Module(new DifftestBridge(backendCfg))
-  val contextDpi = Module(new NpcContextDpi)
-  val contextPcReg = RegInit(resetVector.U(backendCfg.addrWidth.W))
+  val contextDpi     = Module(new NpcContextDpi)
+  val contextPcReg   = RegInit(resetVector.U(backendCfg.addrWidth.W))
 
   frontend.io.trapRedirect.valid := backend.io.redirect.trapRedirect.valid
   frontend.io.trapRedirect.value := backend.io.redirect.trapRedirect.target
@@ -80,11 +80,7 @@ class Core(resetVector: BigInt) extends Module {
   frontend.io.bpuUpdate.valid        := backend.io.redirect.bpuUpdate.valid
   frontend.io.bpuUpdate.bits         := 0.U.asTypeOf(new BpuUpdate(frontendCfg.bpu))
   frontend.io.bpuUpdate.bits.pc      := backend.io.redirect.bpuUpdate.bits.pc
-  frontend.io.bpuUpdate.bits.cfiType := Mux(
-    backend.io.redirect.bpuUpdate.bits.cfiType === 2.U,
-    CfiType.jal,
-    CfiType.branch
-  )
+  frontend.io.bpuUpdate.bits.cfiType := backend.io.redirect.bpuUpdate.bits.cfiType
   frontend.io.bpuUpdate.bits.taken   := backend.io.redirect.bpuUpdate.bits.taken
   frontend.io.bpuUpdate.bits.target  := backend.io.redirect.bpuUpdate.bits.target
   frontend.io.bpuUpdate.bits.instLen := backend.io.redirect.bpuUpdate.bits.instLen

@@ -5,19 +5,20 @@ import chisel3.util._
 
 import top.frontend.bundle._
 import top.config._
+import top.bundle.CfiType
 
 class BtbResp(cfg: BpuConfig) extends Bundle {
   val hit       = Bool()
   val target    = UInt(cfg.addrWidth.W)
   val cfiOffset = UInt(cfg.cfiOffsetBits.W)
-  val cfiType   = CfiType()
+  val cfiType   = UInt(CfiType.width.W)
 }
 
 class BtbUpdate(cfg: BpuConfig) extends Bundle {
   val pc        = UInt(cfg.addrWidth.W)
   val target    = UInt(cfg.addrWidth.W)
   val cfiOffset = UInt(cfg.cfiOffsetBits.W)
-  val cfiType   = CfiType()
+  val cfiType   = UInt(CfiType.width.W)
 }
 
 class BtbBundle(cfg: BpuConfig) extends Bundle {
@@ -42,7 +43,7 @@ class Btb(cfg: BpuConfig) extends Module {
   val validArray  = RegInit(VecInit(Seq.fill(cfg.btbEntries)(false.B)))
   val tagArray    = Reg(Vec(cfg.btbEntries, UInt(tagWidth.W)))
   val targetArray = Reg(Vec(cfg.btbEntries, UInt(cfg.addrWidth.W)))
-  val cfitpArray  = Reg(Vec(cfg.btbEntries, CfiType()))
+  val cfitpArray  = Reg(Vec(cfg.btbEntries, UInt(CfiType.width.W)))
   val cfioffArray = Reg(Vec(cfg.btbEntries, UInt(cfg.cfiOffsetBits.W)))
 
   val updateSet = index(io.update.bits.pc)

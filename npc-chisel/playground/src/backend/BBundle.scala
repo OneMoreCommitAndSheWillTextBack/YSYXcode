@@ -4,6 +4,7 @@ import chisel3._
 import top.backend.decoder.{FuOp, FuType, SrcType}
 import top.bundle.FetchInstPayload
 import top.config.BackendConfig
+import top.bundle.CfiType
 
 class DecodePacket(addrWidth: Int = 32) extends Bundle {
   val fetch       = new FetchInstPayload(addrWidth)
@@ -19,8 +20,7 @@ class DecodePacket(addrWidth: Int = 32) extends Bundle {
   val rfWen       = Bool()
   val isLoad      = Bool()
   val isStore     = Bool()
-  val isBranch    = Bool()
-  val isJal       = Bool()
+  val cfi         = UInt(CfiType.width.W)
   val memSize     = UInt(3.W)
   val memUnsigned = Bool()
   val isEbreak    = Bool()
@@ -124,8 +124,7 @@ class IssuePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val rfWen       = Bool()
   val isLoad      = Bool()
   val isStore     = Bool()
-  val isBranch    = Bool()
-  val isJal       = Bool()
+  val cfi         = UInt(CfiType.width.W)
   val memSize     = UInt(3.W)
   val memUnsigned = Bool()
 }
@@ -174,8 +173,7 @@ class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val rfWen          = Bool()
   val isLoad         = Bool()
   val isStore        = Bool()
-  val isBranch       = Bool()
-  val isJal          = Bool()
+  val cfi            = UInt(CfiType.width.W)
   val memSize        = UInt(3.W)
   val memUnsigned    = Bool()
   val isEbreak       = Bool()
