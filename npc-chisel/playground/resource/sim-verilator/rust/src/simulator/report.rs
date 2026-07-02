@@ -70,8 +70,8 @@ fn print_pc_summary(dut: &CpuContext, reference: &CpuContext) {
     let diff = signed_delta(dut.pc, reference.pc);
 
     eprintln!(
-        "  {C_NAME}{:<8}{C_RESET} {color}0x{:08x}{C_RESET}   {color}0x{:08x}{C_RESET}   {color}{:<8}{C_RESET}",
-        "pc", dut.pc, reference.pc, diff
+        "{C_NAME}[difftest] pc:{C_RESET} {color}DUT=0x{:08x}, REF=0x{:08x}, diff={}{C_RESET}",
+        dut.pc, reference.pc, diff
     );
 }
 
