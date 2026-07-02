@@ -55,14 +55,12 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
   private val pending  = RegInit(false.B)
   private val slotIdx  = RegInit(0.U(slotIdxWidth.W))
-  private val stopAfterEbreak = RegInit(false.B)
 
-  io.frontend.ready := !pending && !stopAfterEbreak
+  io.frontend.ready := !pending
 
   val currentFetch = fetchReg.insts(slotIdx)
   val currentFetchValid = pending && currentFetch.valid
-  decoder.io.in      := currentFetch.bits
-  decoder.io.inValid := currentFetchValid
+  decoder.io.in := currentFetch.bits
 
   val dispatchDecode = Wire(new DecodePacket(cfg.addrWidth))
   dispatchDecode       := decoder.io.out
@@ -84,16 +82,10 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
 
   val currentSlotDone = pending && (!currentFetch.valid || dispatch.io.out.fire)
   val lastSlot        = slotIdx === (cfg.issueWidth - 1).U
-  val ebreakDispatched = dispatch.io.out.fire && dispatchDecode.isEbreak
 
   when(flush) {
-    pending         := false.B
-    slotIdx         := 0.U
-    stopAfterEbreak := false.B
-  }.elsewhen(ebreakDispatched) {
-    pending         := false.B
-    slotIdx         := 0.U
-    stopAfterEbreak := true.B
+    pending := false.B
+    slotIdx := 0.U
   }.elsewhen(!pending && io.frontend.fire) {
     fetchReg := io.frontend.bits
     pending  := true.B
