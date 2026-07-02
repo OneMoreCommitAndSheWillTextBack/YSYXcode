@@ -29,6 +29,8 @@ pub enum DifftestError {
     Mismatch {
         pc: u32,
         mismatch: DifftestMismatch,
+        dut: CpuContext,
+        reference: CpuContext,
     },
 }
 

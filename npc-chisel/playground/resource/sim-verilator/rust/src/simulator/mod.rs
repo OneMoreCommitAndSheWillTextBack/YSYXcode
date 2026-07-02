@@ -1,4 +1,5 @@
 mod event;
+mod report;
 
 pub use event::CommitGroupEvent;
 
@@ -228,6 +229,7 @@ impl Simulator {
 
         if let Err(error) = self.do_difftest(commit_count) {
             eprintln!("[Error] commit handling failed: {error:?}");
+            report::print_difftest_report(&error);
             self.state = SimulatorState::Abort;
             return;
         }
@@ -236,8 +238,7 @@ impl Simulator {
             let context = match self.cpu.as_mut().and_then(|cpu| cpu.context().ok()) {
                 Some(context) => context,
                 None => {
-                    self.state = SimulatorState::Abort;
-                    return;
+                    panic!("should not reach here");
                 }
             };
 
