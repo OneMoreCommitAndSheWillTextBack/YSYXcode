@@ -45,6 +45,7 @@ final case class IntExeUnitConfig(name: String, pipes: Seq[FuPipeConfig]) {
 object IntExeUnitConfig {
   import ExuFuKind._
 
+  // latency = 0 keeps the old Execute timing: issue and writeback happen in the same cycle.
   val aluOnly: IntExeUnitConfig = IntExeUnitConfig(
     name = "int_alu",
     pipes = Seq(
@@ -64,6 +65,7 @@ object IntExeUnitConfig {
   def defaultIssuePort(port: Int, width: Int): IntExeUnitConfig = {
     require(width > 0, "integer issue width must be positive")
 
+    // Narrow ports select first, so an ALU op will not steal the only BRU/JMP-capable port.
     if (port == width - 1) aluBju else aluOnly
   }
 }
