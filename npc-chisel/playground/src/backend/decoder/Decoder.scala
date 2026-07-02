@@ -5,13 +5,11 @@ import chisel3.util.{Cat, Fill, ListLookup, MuxLookup}
 import top.backend.bundle._
 import top.bundle.FetchInstPayload
 import top.config.BackendConfig
-import top.dpi.NpcReportInvalidInst
 
 class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val in      = Input(new FetchInstPayload(cfg.addrWidth))
-    val inValid = Input(Bool())
-    val out     = Output(new DecodePacket(cfg.addrWidth))
+    val in  = Input(new FetchInstPayload(cfg.addrWidth))
+    val out = Output(new DecodePacket(cfg.addrWidth))
   })
 
   private val inst = io.in.inst
@@ -60,10 +58,4 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.memSize     := decoded(DecodeIndex.memSize)
   io.out.memUnsigned := decoded(DecodeIndex.memUnsigned).asBool
   io.out.isEbreak    := decoded(DecodeIndex.isEbreak).asBool
-
-  NpcReportInvalidInst.callWithEnable(
-    io.inValid && !legal,
-    io.in.pc,
-    io.in.inst
-  )
 }

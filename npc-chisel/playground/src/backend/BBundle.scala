@@ -64,6 +64,47 @@ class StoreTrackerCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx = UInt(cfg.robIdxWidth.W)
 }
 
+class RetireException(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid         = Bool()
+  val cause         = UInt(8.W)
+  val tval          = UInt(cfg.dataWidth.W)
+  val blocksYounger = Bool()
+}
+
+class RetireStore(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid = Bool()
+  val addr  = UInt(cfg.addrWidth.W)
+  val data  = UInt(cfg.dataWidth.W)
+  val mask  = UInt((cfg.dataWidth / 8).W)
+  val size  = UInt(3.W)
+}
+
+class RetireControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val redirectValid  = Bool()
+  val redirectTarget = UInt(cfg.addrWidth.W)
+  val branchTaken    = Bool()
+  val branchTarget   = UInt(cfg.addrWidth.W)
+}
+
+class RetireLane(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid     = Bool()
+  val robIdx    = UInt(cfg.robIdxWidth.W)
+  val fetch     = new FetchInstPayload(cfg.addrWidth)
+  val nextPc    = UInt(cfg.addrWidth.W)
+  val rf        = new CommitRegWrite(cfg)
+  val store     = new RetireStore(cfg)
+  val control   = new RetireControl(cfg)
+  val exception = new RetireException(cfg)
+  val finish    = Bool()
+}
+
+class RetireGroup(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val lanes      = Vec(cfg.commitWidth, new RetireLane(cfg))
+  val validMask  = UInt(cfg.commitWidth.W)
+  val finishMask = UInt(cfg.commitWidth.W)
+  val finalPc    = UInt(cfg.addrWidth.W)
+}
+
 class IssueOperand(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val data  = UInt(cfg.dataWidth.W)
   val ready = Bool()
@@ -152,22 +193,6 @@ class CommitRegWrite(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val enable = Bool()
   val addr   = UInt(5.W)
   val data   = UInt(cfg.dataWidth.W)
-}
-
-class ExecutePacket(addrWidth: Int = 32, dataWidth: Int = 32) extends Bundle {
-  val pc        = UInt(addrWidth.W)
-  val inst      = UInt(32.W)
-  val rd        = UInt(5.W)
-  val result    = UInt(dataWidth.W)
-  val writeback = Bool()
-}
-
-class WritebackPacket(addrWidth: Int = 32, dataWidth: Int = 32) extends Bundle {
-  val pc   = UInt(addrWidth.W)
-  val inst = UInt(32.W)
-  val rd   = UInt(5.W)
-  val data = UInt(dataWidth.W)
-  val wen  = Bool()
 }
 
 class RegFileReadPort(dataWidth: Int = 32) extends Bundle {

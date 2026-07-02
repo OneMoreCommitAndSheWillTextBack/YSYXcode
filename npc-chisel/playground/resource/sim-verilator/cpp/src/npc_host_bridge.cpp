@@ -19,41 +19,22 @@ NpcHostBridge::~NpcHostBridge() {
   }
 }
 
-void NpcHostBridge::commit(int valid, int finish, uint32_t pc, uint32_t inst) {
+void NpcHostBridge::commit_group(uint32_t valid_mask, uint32_t finish_mask,
+                                 uint32_t pc0, uint32_t inst0, uint32_t pc1,
+                                 uint32_t inst1) {
   NpcHostBridge *bridge = active_bridge();
 
-  if (bridge == nullptr || bridge->callbacks_.on_commit == nullptr) {
+  if (bridge == nullptr || bridge->callbacks_.on_commit_group == nullptr) {
     return;
   }
 
-  NpcCommitEvent event = {
-      static_cast<uint8_t>(valid != 0),
-      static_cast<uint8_t>(finish != 0),
-      pc,
-      inst,
+  NpcCommitGroupEvent event = {
+      valid_mask,
+      finish_mask,
+      {pc0, pc1},
+      {inst0, inst1},
   };
-  bridge->callbacks_.on_commit(&event);
-}
-
-void NpcHostBridge::current_pc(uint32_t pc) {
-  NpcHostBridge *bridge = active_bridge();
-
-  if (bridge == nullptr || bridge->callbacks_.on_current_pc == nullptr) {
-    return;
-  }
-
-  NpcPcEvent event = {pc};
-  bridge->callbacks_.on_current_pc(&event);
-}
-
-void NpcHostBridge::report_invalid_inst(uint32_t pc, uint32_t inst) {
-  NpcHostBridge *bridge = active_bridge();
-
-  if (bridge == nullptr || bridge->callbacks_.report_invalid_inst == nullptr) {
-    return;
-  }
-
-  bridge->callbacks_.report_invalid_inst(pc, inst);
+  bridge->callbacks_.on_commit_group(&event);
 }
 
 uint32_t NpcHostBridge::pmem_read(uint32_t addr, uint32_t len) {

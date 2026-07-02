@@ -4,7 +4,7 @@ mod report;
 pub use counters::PerfCounters;
 pub use report::PerfSnapshot;
 
-use crate::simulator::CommitEvent;
+use crate::simulator::CommitGroupEvent;
 
 #[derive(Debug, Default)]
 pub struct Perf {
@@ -20,8 +20,8 @@ impl Perf {
         self.counters.on_cycle();
     }
 
-    pub fn on_commit(&mut self, event: &CommitEvent) {
-        self.counters.on_commit(event);
+    pub fn on_commit_group(&mut self, event: &CommitGroupEvent) {
+        self.counters.on_commit_group(event);
     }
 
     pub fn counters(&self) -> &PerfCounters {

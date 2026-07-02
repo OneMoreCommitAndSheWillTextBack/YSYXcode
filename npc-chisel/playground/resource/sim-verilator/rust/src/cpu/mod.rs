@@ -1,9 +1,7 @@
 mod context;
-mod signals;
 mod wave;
 
 pub use context::{CpuContext, CsrContext, NpcCpuContext, NpcCsrContext, NpcGprContext, PrivMode};
-pub use signals::{CommitSignals, CpuSignals};
 pub use wave::WaveConfig;
 
 use crate::ffi;

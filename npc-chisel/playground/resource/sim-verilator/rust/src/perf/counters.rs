@@ -1,4 +1,4 @@
-use crate::simulator::CommitEvent;
+use crate::simulator::CommitGroupEvent;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PerfCounters {
@@ -11,10 +11,8 @@ impl PerfCounters {
         self.cycles += 1;
     }
 
-    pub fn on_commit(&mut self, event: &CommitEvent) {
-        if event.valid {
-            self.committed_insts += 1;
-        }
+    pub fn on_commit_group(&mut self, event: &CommitGroupEvent) {
+        self.committed_insts += event.valid_count();
     }
 
     pub fn cycles(&self) -> u64 {

@@ -60,8 +60,3 @@ class DataMemResp(dataWidth: Int = 32) extends Bundle {
   val data  = UInt(dataWidth.W)
   val fault = Bool()
 }
-
-class CommitPayload(addrWidth: Int = 32) extends Bundle {
-  val pc   = UInt(addrWidth.W)
-  val inst = UInt(32.W)
-}

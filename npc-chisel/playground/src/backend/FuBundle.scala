@@ -9,5 +9,3 @@ class AluReq(dataWidth: Int = 32) extends Bundle {
   val out  = Output(UInt(dataWidth.W))
   val op   = Input(UInt(FuOp.width.W))
 }
-
-class LsuReq(dataWidth: Int = 32) extends Bundle {}
