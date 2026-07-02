@@ -21,14 +21,17 @@ class Execute(cfg: BackendConfig = BackendConfig()) extends Module {
   private def asDataWidth(value: UInt): UInt =
     value.asTypeOf(UInt(cfg.dataWidth.W))
 
+  private val isBranch       = io.in.bits.cfi === CfiType.branch
+  private val isJal          = io.in.bits.cfi === CfiType.jal
+  private val isJalr         = io.in.bits.cfi === CfiType.jalr
+  private val isJump         = isJal || isJalr
   private val fallThrough    = io.in.bits.fetch.pc + io.in.bits.fetch.instLen
-  private val branchTarget   = io.in.bits.fetch.pc + io.in.bits.imm
-  private val branchTaken    = (io.in.bits.cfi === CfiType.branch) && io.in.bits.src1.data === io.in.bits.src2.data
-  private val redirectTarget = Mux(
-    (io.in.bits.cfi === CfiType.jal) || branchTaken,
-    branchTarget,
-    fallThrough
-  )
+  private val pcTarget       = io.in.bits.fetch.pc + io.in.bits.imm
+  private val jalrTarget     = (io.in.bits.src1.data + io.in.bits.imm)(cfg.addrWidth - 1, 0) & ~1.U(cfg.addrWidth.W)
+  private val branchTaken    = isBranch && io.in.bits.src1.data === io.in.bits.src2.data
+  private val cfiTaken       = isJump || branchTaken
+  private val resolvedTarget = Mux(isJalr, jalrTarget, pcTarget)
+  private val redirectTarget = Mux(cfiTaken, resolvedTarget, fallThrough)
 
   alu.io.src1 := io.in.bits.src1.data
   alu.io.src2 := io.in.bits.src2.data
@@ -40,10 +43,10 @@ class Execute(cfg: BackendConfig = BackendConfig()) extends Module {
   io.writeback.bits                := 0.U.asTypeOf(new RobWritebackPacket(cfg))
   io.writeback.bits.robIdx         := io.in.bits.robIdx
   io.writeback.bits.result         := Mux(io.in.bits.fuType === FuType.jmp, asDataWidth(fallThrough), alu.io.out)
-  io.writeback.bits.redirectValid  := (io.in.bits.cfi === CfiType.branch) || (io.in.bits.cfi === CfiType.jal)
+  io.writeback.bits.redirectValid  := isBranch || isJump
   io.writeback.bits.redirectTarget := redirectTarget
-  io.writeback.bits.branchTaken    := branchTaken || (io.in.bits.cfi === CfiType.jal)
-  io.writeback.bits.branchTarget   := branchTarget
+  io.writeback.bits.branchTaken    := cfiTaken
+  io.writeback.bits.branchTarget   := resolvedTarget
 
   io.wakeup.valid  := io.in.fire && io.in.bits.rfWen
   io.wakeup.robIdx := io.in.bits.robIdx
