@@ -4,8 +4,8 @@ import chisel3._
 import chisel3.util.circt.dpi._
 
 object NpcCommitGroup extends DPIClockedVoidFunctionImport {
-  override def functionName: String = "npc_commit_group"
-  override def inputNames: Option[Seq[String]] = Some(
+  override def functionName: String              = "npc_commit_group"
+  override def inputNames:   Option[Seq[String]] = Some(
     Seq(
       "validMask",
       "finishMask",

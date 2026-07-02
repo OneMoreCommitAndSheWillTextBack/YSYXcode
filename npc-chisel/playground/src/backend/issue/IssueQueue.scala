@@ -1,27 +1,30 @@
 package top.backend.issue
 
 import chisel3._
-import chisel3.util.{Decoupled, Mux1H, MuxLookup, PriorityEncoderOH}
+import chisel3.util.{Decoupled, Mux1H, MuxLookup, PopCount}
 import top.backend.bundle.{IssueFuReady, IssuePacket, IssueWakeup, StoreTrackerQuery}
 import top.backend.decoder.FuType
 import top.config.BackendConfig
 
 class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val enq        = Flipped(Decoupled(new IssuePacket(cfg)))
+    val enq        = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
     val wakeup     = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
     val fuReady    = Input(new IssueFuReady)
     val robHead    = Input(UInt(cfg.robIdxWidth.W))
     val storeQuery = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
-    val issue      = Decoupled(new IssuePacket(cfg))
+    val intIssue   = Decoupled(new IssuePacket(cfg))
+    val memIssue   = Decoupled(new IssuePacket(cfg))
     val flush      = Input(Bool())
   })
 
-  private val entries = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
-  private val valid   = RegInit(VecInit(Seq.fill(cfg.issueQueueEntries)(false.B)))
-  private val select  = Module(new IssueSelect(cfg))
+  private val entries   = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
+  private val valid     = RegInit(VecInit(Seq.fill(cfg.issueQueueEntries)(false.B)))
+  private val intSelect = Module(new IssueSelect(cfg))
+  private val memSelect = Module(new IssueSelect(cfg))
 
-  select.io.robHead := io.robHead
+  intSelect.io.robHead := io.robHead
+  memSelect.io.robHead := io.robHead
 
   private def fuAvailable(fuType: UInt): Bool =
     MuxLookup(fuType, false.B)(
@@ -38,44 +41,101 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   for (i <- 0 until cfg.issueQueueEntries) {
     val ready       = entries(i).src1.ready && entries(i).src2.ready
     val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
+    val memPipe     = entries(i).fuType === FuType.lsu
+    val request     = valid(i) && entries(i).legal && ready && fuAvailable(entries(i).fuType) && !loadBlocked
 
     io.storeQuery(i).valid  := valid(i) && entries(i).legal && entries(i).isLoad
     io.storeQuery(i).robIdx := entries(i).robIdx
 
-    select.io.request(i) := valid(i) && entries(i).legal && ready && fuAvailable(entries(i).fuType) && !loadBlocked
-    select.io.robIdx(i)  := entries(i).robIdx
+    intSelect.io.request(i) := request && !memPipe
+    intSelect.io.robIdx(i)  := entries(i).robIdx
+    memSelect.io.request(i) := request && memPipe
+    memSelect.io.robIdx(i)  := entries(i).robIdx
   }
 
-  io.issue.valid := select.io.grantOH.asUInt.orR
-  io.issue.bits  := Mux1H(
-    select.io.grantOH,
+  io.intIssue.valid := intSelect.io.grantOH.asUInt.orR
+  io.intIssue.bits  := Mux1H(
+    intSelect.io.grantOH,
+    entries
+  )
+  io.memIssue.valid := memSelect.io.grantOH.asUInt.orR
+  io.memIssue.bits  := Mux1H(
+    memSelect.io.grantOH,
     entries
   )
 
-  private val issueFire = io.issue.fire
+  private val issueFire = Wire(Vec(cfg.issueQueueEntries, Bool()))
   private val free      = Wire(Vec(cfg.issueQueueEntries, Bool()))
   for (i <- 0 until cfg.issueQueueEntries) {
-    free(i) := !valid(i) || (issueFire && select.io.grantOH(i))
+    issueFire(i) :=
+      (io.intIssue.fire && intSelect.io.grantOH(i)) ||
+        (io.memIssue.fire && memSelect.io.grantOH(i))
+    free(i)      := !valid(i) || issueFire(i)
   }
 
-  private val enqOH = PriorityEncoderOH(free.asUInt).asBools
-  io.enq.ready := free.asUInt.orR
+  private val freeCount = PopCount(free)
+  for (enqIdx <- 0 until cfg.dispatchWidth) {
+    val previousEnqsValid =
+      if (enqIdx == 0) true.B else io.enq.take(enqIdx).map(_.valid).reduce(_ && _)
+    io.enq(enqIdx).ready := (freeCount > enqIdx.U) && previousEnqsValid
+  }
 
-  private val enqBits = Wire(new IssuePacket(cfg))
-  enqBits := io.enq.bits
-  private val src1WakeupHits = VecInit(io.wakeup.map(wakeup =>
-    wakeup.valid && !io.enq.bits.src1.ready && io.enq.bits.src1.tag === wakeup.robIdx
-  ))
-  private val src2WakeupHits = VecInit(io.wakeup.map(wakeup =>
-    wakeup.valid && !io.enq.bits.src2.ready && io.enq.bits.src2.tag === wakeup.robIdx
-  ))
-  private val src1WakeupHit = src1WakeupHits.asUInt.orR
-  private val src2WakeupHit = src2WakeupHits.asUInt.orR
+  private val enqOH = Wire(Vec(cfg.dispatchWidth, Vec(cfg.issueQueueEntries, Bool())))
+  for (enqIdx <- 0 until cfg.dispatchWidth) {
+    for (entryIdx <- 0 until cfg.issueQueueEntries) {
+      val usedByEarlierEnq      = if (enqIdx == 0) {
+        false.B
+      } else {
+        (0 until enqIdx).map(earlierEnq => enqOH(earlierEnq)(entryIdx)).reduce(_ || _)
+      }
+      val entryAvailable        = free(entryIdx) && !usedByEarlierEnq
+      val earlierEntryAvailable = if (entryIdx == 0) {
+        false.B
+      } else {
+        (0 until entryIdx).map { earlierEntry =>
+          val earlierEntryUsed = if (enqIdx == 0) {
+            false.B
+          } else {
+            (0 until enqIdx).map(earlierEnq => enqOH(earlierEnq)(earlierEntry)).reduce(_ || _)
+          }
+          free(earlierEntry) && !earlierEntryUsed
+        }.reduce(_ || _)
+      }
 
-  enqBits.src1.ready := io.enq.bits.src1.ready || src1WakeupHit
-  enqBits.src1.data  := Mux(src1WakeupHit, Mux1H(src1WakeupHits, io.wakeup.map(_.data)), io.enq.bits.src1.data)
-  enqBits.src2.ready := io.enq.bits.src2.ready || src2WakeupHit
-  enqBits.src2.data  := Mux(src2WakeupHit, Mux1H(src2WakeupHits, io.wakeup.map(_.data)), io.enq.bits.src2.data)
+      enqOH(enqIdx)(entryIdx) := io.enq(enqIdx).fire && entryAvailable && !earlierEntryAvailable
+    }
+  }
+
+  private val enqBits = Wire(Vec(cfg.dispatchWidth, new IssuePacket(cfg)))
+  for (enqIdx <- 0 until cfg.dispatchWidth) {
+    enqBits(enqIdx) := io.enq(enqIdx).bits
+
+    val src1WakeupHits = VecInit(
+      io.wakeup.map(wakeup =>
+        wakeup.valid && !io.enq(enqIdx).bits.src1.ready && (io.enq(enqIdx).bits.src1.tag === wakeup.robIdx)
+      )
+    )
+    val src2WakeupHits = VecInit(
+      io.wakeup.map(wakeup =>
+        wakeup.valid && !io.enq(enqIdx).bits.src2.ready && (io.enq(enqIdx).bits.src2.tag === wakeup.robIdx)
+      )
+    )
+    val src1WakeupHit  = src1WakeupHits.asUInt.orR
+    val src2WakeupHit  = src2WakeupHits.asUInt.orR
+
+    enqBits(enqIdx).src1.ready := io.enq(enqIdx).bits.src1.ready || src1WakeupHit
+    enqBits(enqIdx).src1.data  := Mux(
+      src1WakeupHit,
+      Mux1H(src1WakeupHits, io.wakeup.map(_.data)),
+      io.enq(enqIdx).bits.src1.data
+    )
+    enqBits(enqIdx).src2.ready := io.enq(enqIdx).bits.src2.ready || src2WakeupHit
+    enqBits(enqIdx).src2.data  := Mux(
+      src2WakeupHit,
+      Mux1H(src2WakeupHits, io.wakeup.map(_.data)),
+      io.enq(enqIdx).bits.src2.data
+    )
+  }
 
   for (i <- 0 until cfg.issueQueueEntries) {
     when(io.flush) {
@@ -83,24 +143,26 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     }.otherwise {
       for (wakeup <- io.wakeup) {
         when(valid(i) && wakeup.valid) {
-          when(!entries(i).src1.ready && entries(i).src1.tag === wakeup.robIdx) {
+          when(!entries(i).src1.ready && (entries(i).src1.tag === wakeup.robIdx)) {
             entries(i).src1.ready := true.B
             entries(i).src1.data  := wakeup.data
           }
-          when(!entries(i).src2.ready && entries(i).src2.tag === wakeup.robIdx) {
+          when(!entries(i).src2.ready && (entries(i).src2.tag === wakeup.robIdx)) {
             entries(i).src2.ready := true.B
             entries(i).src2.data  := wakeup.data
           }
         }
       }
 
-      when(issueFire && select.io.grantOH(i)) {
+      when(issueFire(i)) {
         valid(i) := false.B
       }
 
-      when(io.enq.fire && enqOH(i)) {
-        entries(i) := enqBits
-        valid(i)   := true.B
+      for (enqIdx <- 0 until cfg.dispatchWidth) {
+        when(enqOH(enqIdx)(i)) {
+          entries(i) := enqBits(enqIdx)
+          valid(i)   := true.B
+        }
       }
     }
   }
