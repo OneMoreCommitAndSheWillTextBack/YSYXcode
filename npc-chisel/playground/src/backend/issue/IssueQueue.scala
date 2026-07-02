@@ -2,7 +2,7 @@ package top.backend.issue
 
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, MuxLookup, PopCount}
-import top.backend.bundle.{IssueFuReady, IssuePacket, IssueWakeup, StoreTrackerQuery}
+import top.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, StoreTrackerQuery}
 import top.backend.decoder.FuType
 import top.config.BackendConfig
 
@@ -10,31 +10,32 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
     val enq        = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
     val wakeup     = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
-    val fuReady    = Input(new IssueFuReady)
+    val intStatus  = Input(Vec(cfg.intIssueWidth, new IssuePortStatus))
+    val memStatus  = Input(new IssuePortStatus)
     val robHead    = Input(UInt(cfg.robIdxWidth.W))
     val storeQuery = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
-    val intIssue   = Decoupled(new IssuePacket(cfg))
+    val intIssue   = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
     val memIssue   = Decoupled(new IssuePacket(cfg))
     val flush      = Input(Bool())
   })
 
   private val entries   = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
   private val valid     = RegInit(VecInit(Seq.fill(cfg.issueQueueEntries)(false.B)))
-  private val intSelect = Module(new IssueSelect(cfg))
+  private val intSelect = Seq.fill(cfg.intIssueWidth)(Module(new IssueSelect(cfg)))
   private val memSelect = Module(new IssueSelect(cfg))
 
-  intSelect.io.robHead := io.robHead
+  intSelect.foreach(_.io.robHead := io.robHead)
   memSelect.io.robHead := io.robHead
 
-  private def fuAvailable(fuType: UInt): Bool =
+  private def fuAvailable(status: IssuePortStatus, fuType: UInt): Bool =
     MuxLookup(fuType, false.B)(
       Seq(
-        FuType.alu   -> io.fuReady.alu,
-        FuType.lsu   -> io.fuReady.lsu,
-        FuType.bru   -> io.fuReady.bru,
-        FuType.jmp   -> io.fuReady.jmp,
-        FuType.csr   -> io.fuReady.csr,
-        FuType.fence -> io.fuReady.fence
+        FuType.alu   -> status.alu,
+        FuType.lsu   -> status.lsu,
+        FuType.bru   -> status.bru,
+        FuType.jmp   -> status.jmp,
+        FuType.csr   -> status.csr,
+        FuType.fence -> status.fence
       )
     )
 
@@ -42,24 +43,35 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val ready       = entries(i).src1.ready && entries(i).src2.ready
     val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
     val memPipe     = entries(i).fuType === FuType.lsu
-    val request     = valid(i) && entries(i).legal && ready && fuAvailable(entries(i).fuType) && !loadBlocked
+    val request     = valid(i) && entries(i).legal && ready && !loadBlocked
 
     io.storeQuery(i).valid  := valid(i) && entries(i).legal && entries(i).isLoad
     io.storeQuery(i).robIdx := entries(i).robIdx
 
-    intSelect.io.request(i) := request && !memPipe
-    intSelect.io.robIdx(i)  := entries(i).robIdx
-    memSelect.io.request(i) := request && memPipe
+    for (port <- 0 until cfg.intIssueWidth) {
+      val usedByEarlierPort =
+        if (port == 0) false.B else (0 until port).map(p => intSelect(p).io.grantOH(i)).reduce(_ || _)
+
+      intSelect(port).io.request(i) := request &&
+        !memPipe &&
+        !usedByEarlierPort &&
+        fuAvailable(io.intStatus(port), entries(i).fuType)
+      intSelect(port).io.robIdx(i)  := entries(i).robIdx
+    }
+
+    memSelect.io.request(i) := request && memPipe && fuAvailable(io.memStatus, entries(i).fuType)
     memSelect.io.robIdx(i)  := entries(i).robIdx
   }
 
-  io.intIssue.valid := intSelect.io.grantOH.asUInt.orR
-  io.intIssue.bits  := Mux1H(
-    intSelect.io.grantOH,
-    entries
-  )
+  for (port <- 0 until cfg.intIssueWidth) {
+    io.intIssue(port).valid := intSelect(port).io.grantOH.asUInt.orR
+    io.intIssue(port).bits  := Mux1H(
+      intSelect(port).io.grantOH,
+      entries
+    )
+  }
   io.memIssue.valid := memSelect.io.grantOH.asUInt.orR
-  io.memIssue.bits  := Mux1H(
+  io.memIssue.bits := Mux1H(
     memSelect.io.grantOH,
     entries
   )
@@ -68,7 +80,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val free      = Wire(Vec(cfg.issueQueueEntries, Bool()))
   for (i <- 0 until cfg.issueQueueEntries) {
     issueFire(i) :=
-      (io.intIssue.fire && intSelect.io.grantOH(i)) ||
+      (0 until cfg.intIssueWidth).map(port => io.intIssue(port).fire && intSelect(port).io.grantOH(i)).reduce(_ || _) ||
         (io.memIssue.fire && memSelect.io.grantOH(i))
     free(i)      := !valid(i) || issueFire(i)
   }
