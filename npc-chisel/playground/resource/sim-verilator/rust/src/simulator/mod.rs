@@ -39,7 +39,7 @@ pub enum SimulatorError {
     Difftest(DifftestError),
     ImageIo { path: PathBuf, source: io::Error },
     CpuNotConnected,
-    SimulateFinish,
+    SimulateAbort,
     ReachMaxNoCommitCyc,
 }
 
@@ -158,8 +158,10 @@ impl Simulator {
             return Err(SimulatorError::CpuNotConnected);
         };
 
-        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
-            return Err(SimulatorError::SimulateFinish);
+        match self.state {
+            SimulatorState::Running | SimulatorState::Stop => {}
+            SimulatorState::End => return Ok(()),
+            SimulatorState::Abort => return Err(SimulatorError::SimulateAbort),
         }
 
         cpu.step();
@@ -169,6 +171,12 @@ impl Simulator {
 
     pub fn execute(&mut self, times: u64) -> SimulatorResult<()> {
         for _ in 0..times {
+            match self.state {
+                SimulatorState::Running | SimulatorState::Stop => {}
+                SimulatorState::End => return Ok(()),
+                SimulatorState::Abort => return Err(SimulatorError::SimulateAbort),
+            }
+
             if self.cycle_nocommit > 20000 {
                 return Err(SimulatorError::ReachMaxNoCommitCyc);
             }
