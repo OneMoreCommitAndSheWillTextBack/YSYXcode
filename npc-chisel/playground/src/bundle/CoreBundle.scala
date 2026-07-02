@@ -6,12 +6,12 @@ import chisel3.util.Valid
 object CfiType {
   val width = 3
 
-  val none   = 0.U
-  val branch = 1.U
-  val jal    = 2.U
-  val jalr   = 3.U
-  val call   = 4.U
-  val ret    = 5.U
+  val none   = 0.U(width.W)
+  val branch = 1.U(width.W)
+  val jal    = 2.U(width.W)
+  val jalr   = 3.U(width.W)
+  val call   = 4.U(width.W)
+  val ret    = 5.U(width.W)
 }
 
 class Redirect(addrWidth: Int = 32) extends Bundle {
@@ -37,7 +37,7 @@ class FrontendToBackend(issueWidth: Int = 2, addrWidth: Int = 32) extends Bundle
 
 class BpuUpdatePayload(addrWidth: Int = 32) extends Bundle {
   val pc      = UInt(addrWidth.W)
-  val cfiType = UInt(3.W)
+  val cfiType = UInt(CfiType.width.W)
   val taken   = Bool()
   val target  = UInt(addrWidth.W)
   val instLen = UInt(3.W)

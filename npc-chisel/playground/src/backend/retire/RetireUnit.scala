@@ -2,14 +2,8 @@ package top.backend.retire
 
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, PopCount, PriorityEncoderOH}
-import top.backend.bundle.{
-  CommitRegWrite,
-  RetireGroup,
-  RobCommitPacket,
-  ScoreboardCommit,
-  StoreTrackerCommit
-}
-import top.bundle.{BackendToFrontend, DataMemReq}
+import top.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreTrackerCommit}
+import top.bundle.{BackendToFrontend, CfiType, DataMemReq}
 import top.config.BackendConfig
 
 class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
@@ -102,7 +96,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val bpuUpdateValid   = Wire(Vec(cfg.commitWidth, Bool()))
   private val bpuUpdatePc      = Wire(Vec(cfg.commitWidth, UInt(cfg.addrWidth.W)))
-  private val bpuUpdateType    = Wire(Vec(cfg.commitWidth, UInt(3.W)))
+  private val bpuUpdateType    = Wire(Vec(cfg.commitWidth, UInt(CfiType.width.W)))
   private val bpuUpdateTaken   = Wire(Vec(cfg.commitWidth, Bool()))
   private val bpuUpdateTarget  = Wire(Vec(cfg.commitWidth, UInt(cfg.addrWidth.W)))
   private val bpuUpdateInstLen = Wire(Vec(cfg.commitWidth, UInt(3.W)))
@@ -122,29 +116,29 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.storeCommit(i).valid  := canRetire(i) && io.rob(i).bits.isStore
     io.storeCommit(i).robIdx := io.rob(i).bits.robIdx
 
-    io.retire.lanes(i).valid     := canRetire(i)
-    io.retire.lanes(i).robIdx    := io.rob(i).bits.robIdx
-    io.retire.lanes(i).fetch     := io.rob(i).bits.fetch
-    io.retire.lanes(i).nextPc    := nextPc(i)
-    io.retire.lanes(i).rf        := io.regWrite(i)
-    io.retire.lanes(i).store.valid := canRetire(i) && io.rob(i).bits.isStore
-    io.retire.lanes(i).store.addr  := io.rob(i).bits.storeAddr
-    io.retire.lanes(i).store.data  := io.rob(i).bits.storeData
-    io.retire.lanes(i).store.mask  := io.rob(i).bits.storeMask
-    io.retire.lanes(i).store.size  := io.rob(i).bits.memSize
-    io.retire.lanes(i).control.redirectValid  := redirectCandidate(i)
-    io.retire.lanes(i).control.redirectTarget := io.rob(i).bits.redirectTarget
-    io.retire.lanes(i).control.branchTaken    := io.rob(i).bits.branchTaken
-    io.retire.lanes(i).control.branchTarget   := io.rob(i).bits.branchTarget
+    io.retire.lanes(i).valid                   := canRetire(i)
+    io.retire.lanes(i).robIdx                  := io.rob(i).bits.robIdx
+    io.retire.lanes(i).fetch                   := io.rob(i).bits.fetch
+    io.retire.lanes(i).nextPc                  := nextPc(i)
+    io.retire.lanes(i).rf                      := io.regWrite(i)
+    io.retire.lanes(i).store.valid             := canRetire(i) && io.rob(i).bits.isStore
+    io.retire.lanes(i).store.addr              := io.rob(i).bits.storeAddr
+    io.retire.lanes(i).store.data              := io.rob(i).bits.storeData
+    io.retire.lanes(i).store.mask              := io.rob(i).bits.storeMask
+    io.retire.lanes(i).store.size              := io.rob(i).bits.memSize
+    io.retire.lanes(i).control.redirectValid   := redirectCandidate(i)
+    io.retire.lanes(i).control.redirectTarget  := io.rob(i).bits.redirectTarget
+    io.retire.lanes(i).control.branchTaken     := io.rob(i).bits.branchTaken
+    io.retire.lanes(i).control.branchTarget    := io.rob(i).bits.branchTarget
     io.retire.lanes(i).exception.valid         := false.B
     io.retire.lanes(i).exception.cause         := 0.U
     io.retire.lanes(i).exception.tval          := 0.U
     io.retire.lanes(i).exception.blocksYounger := false.B
-    io.retire.lanes(i).finish := canRetire(i) && io.rob(i).bits.isEbreak
+    io.retire.lanes(i).finish                  := canRetire(i) && io.rob(i).bits.isEbreak
 
-    bpuUpdateValid(i)   := canRetire(i) && (io.rob(i).bits.isBranch || io.rob(i).bits.isJal)
+    bpuUpdateValid(i)   := canRetire(i) && (io.rob(i).bits.cfi =/= CfiType.none)
     bpuUpdatePc(i)      := io.rob(i).bits.fetch.pc
-    bpuUpdateType(i)    := Mux(io.rob(i).bits.isJal, 2.U(3.W), 1.U(3.W))
+    bpuUpdateType(i)    := io.rob(i).bits.cfi
     bpuUpdateTaken(i)   := io.rob(i).bits.branchTaken
     bpuUpdateTarget(i)  := io.rob(i).bits.branchTarget
     bpuUpdateInstLen(i) := io.rob(i).bits.fetch.instLen

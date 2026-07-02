@@ -9,6 +9,6 @@ private[decoder] object RviJumpDecode extends DecodeGroup {
   import RviPatterns._
 
   val table: Seq[(BitPat, List[UInt])] = Seq(
-    JAL -> jump(JmpOp.jal)
+    JAL -> jal(JmpOp.jal)
   )
 }

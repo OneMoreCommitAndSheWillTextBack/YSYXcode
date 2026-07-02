@@ -128,7 +128,7 @@ private[decoder] object DecodeDsl {
   def jal(op: UInt): List[UInt] =
     NpcDecode(
       src1 = SrcType.pc,
-      src2 = SrcType.none,
+      src2 = SrcType.imm,
       immSel = ImmSel.j,
       fu = FuType.jmp,
       op = op,
