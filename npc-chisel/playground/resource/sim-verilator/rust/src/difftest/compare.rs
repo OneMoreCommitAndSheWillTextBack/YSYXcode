@@ -27,6 +27,8 @@ pub(super) fn compare_contexts(dut: &CpuContext, reference: &CpuContext) -> Diff
     compare_contexts_raw(dut, reference).map_err(|mismatch| DifftestError::Mismatch {
         pc: dut.pc,
         mismatch,
+        dut: *dut,
+        reference: *reference,
     })
 }
 

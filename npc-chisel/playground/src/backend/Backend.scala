@@ -1,11 +1,11 @@
 package top.backend
 
 import chisel3._
-import chisel3.util.{log2Ceil, Decoupled, Enum, Valid}
+import chisel3.util.{log2Ceil, Decoupled, Enum, PopCount, Valid}
 import top.bundle._
 import top.config.BackendConfig
 
-import top.backend.bundle.{DecodePacket, IssueWakeup, RetireGroup, RobWritebackPacket, ScoreboardAlloc, StoreTrackerAlloc}
+import top.backend.bundle.{DecodePacket, IssueWakeup, RetireGroup, RobWritebackPacket}
 import top.backend.decoder._
 import top.backend.dispatch.{Dispatch, Scoreboard}
 import top.backend.execute.Execute
@@ -32,10 +32,11 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     val contextPc    = Output(UInt(cfg.addrWidth.W))
   })
 
-  private val slotIdxWidth = math.max(log2Ceil(cfg.issueWidth), 1)
+  private val slotIdxWidth   = math.max(log2Ceil(cfg.issueWidth), 1)
+  private val slotCountWidth = math.max(log2Ceil(cfg.issueWidth + 1), 1)
 
   val gpr          = Module(new RegFile(cfg))
-  val decoder      = Module(new Decoder(cfg))
+  val decoder      = Seq.fill(cfg.dispatchWidth)(Module(new Decoder(cfg)))
   val dispatch     = Module(new Dispatch(cfg))
   val scoreboard   = Module(new Scoreboard(cfg))
   val rob          = Module(new ROB(cfg))
@@ -58,30 +59,50 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
 
   io.frontend.ready := !pending
 
-  val currentFetch = fetchReg.insts(slotIdx)
-  val currentFetchValid = pending && currentFetch.valid
-  decoder.io.in := currentFetch.bits
+  val dispatchFetch  = Wire(Vec(cfg.dispatchWidth, Valid(new FetchInstPayload(cfg.addrWidth))))
+  val dispatchDecode = Wire(Vec(cfg.dispatchWidth, new DecodePacket(cfg.addrWidth)))
+  val laneInRange    = Wire(Vec(cfg.dispatchWidth, Bool()))
 
-  val dispatchDecode = Wire(new DecodePacket(cfg.addrWidth))
-  dispatchDecode       := decoder.io.out
-  dispatchDecode.legal := currentFetchValid && decoder.io.out.legal
+  for (lane <- 0 until cfg.dispatchWidth) {
+    val laneSlot = Wire(UInt(slotCountWidth.W))
+    laneSlot          := slotIdx + lane.U(slotCountWidth.W)
+    laneInRange(lane) := laneSlot < cfg.issueWidth.U
 
-  dispatch.io.in     := dispatchDecode
-  dispatch.io.robIdx := rob.io.allocIdx(0)
+    dispatchFetch(lane) := 0.U.asTypeOf(Valid(new FetchInstPayload(cfg.addrWidth)))
+    for (slot <- 0 until cfg.issueWidth) {
+      when(laneSlot === slot.U) {
+        dispatchFetch(lane) := fetchReg.insts(slot)
+      }
+    }
 
-  dispatch.io.out.ready       := rob.io.alloc(0).ready && issueQueue.io.enq.ready
-  rob.io.alloc(0).valid       := dispatch.io.out.valid && issueQueue.io.enq.ready
-  rob.io.alloc(0).bits.decode := dispatchDecode
-  issueQueue.io.enq.valid     := dispatch.io.out.valid && rob.io.alloc(0).ready
-  issueQueue.io.enq.bits      := dispatch.io.out.bits
+    decoder(lane).io.in        := dispatchFetch(lane).bits
+    dispatchDecode(lane)       := decoder(lane).io.out
+    dispatchDecode(lane).legal := pending && laneInRange(lane) && dispatchFetch(lane).valid && decoder(
+      lane
+    ).io.out.legal
 
-  for (i <- 1 until cfg.dispatchWidth) {
-    rob.io.alloc(i).valid       := false.B
-    rob.io.alloc(i).bits.decode := 0.U.asTypeOf(new DecodePacket(cfg.addrWidth))
+    dispatch.io.in(lane)     := dispatchDecode(lane)
+    dispatch.io.robIdx(lane) := rob.io.allocIdx(lane)
+
+    dispatch.io.out(lane).ready := rob.io.alloc(lane).ready && issueQueue.io.enq(lane).ready
+
+    rob.io.alloc(lane).valid       := dispatch.io.out(lane).valid && issueQueue.io.enq(lane).ready
+    rob.io.alloc(lane).bits.decode := dispatchDecode(lane)
+
+    issueQueue.io.enq(lane).valid := dispatch.io.out(lane).valid && rob.io.alloc(lane).ready
+    issueQueue.io.enq(lane).bits  := dispatch.io.out(lane).bits
   }
 
-  val currentSlotDone = pending && (!currentFetch.valid || dispatch.io.out.fire)
-  val lastSlot        = slotIdx === (cfg.issueWidth - 1).U
+  val laneConsumed = Wire(Vec(cfg.dispatchWidth, Bool()))
+  for (lane <- 0 until cfg.dispatchWidth) {
+    val skippedEmptySlot = pending && laneInRange(lane) && !dispatchFetch(lane).valid
+    val consumedThisLane = skippedEmptySlot || dispatch.io.out(lane).fire
+    laneConsumed(lane) := consumedThisLane && (if (lane == 0) true.B else laneConsumed(lane - 1))
+  }
+
+  val consumedCount = PopCount(laneConsumed)
+  val nextSlotIdx   = slotIdx + consumedCount
+  val packetDone    = (consumedCount =/= 0.U) && (nextSlotIdx >= cfg.issueWidth.U)
 
   when(flush) {
     pending := false.B
@@ -90,21 +111,16 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     fetchReg := io.frontend.bits
     pending  := true.B
     slotIdx  := 0.U
-  }.elsewhen(currentSlotDone) {
-    when(lastSlot) {
+  }.elsewhen(pending && (consumedCount =/= 0.U)) {
+    when(packetDone) {
       pending := false.B
       slotIdx := 0.U
     }.otherwise {
-      slotIdx := slotIdx + 1.U
+      slotIdx := nextSlotIdx(slotIdxWidth - 1, 0)
     }
   }
 
   for (i <- 0 until cfg.regfileReadPorts) {
-    gpr.io.read(i).enable := false.B
-    gpr.io.read(i).addr   := 0.U
-  }
-
-  for (i <- 0 until cfg.operandsPerInst) {
     gpr.io.read(i).enable      := dispatch.io.rfRead(i).enable
     gpr.io.read(i).addr        := dispatch.io.rfRead(i).addr
     dispatch.io.rfRead(i).data := gpr.io.read(i).data
@@ -115,7 +131,7 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     scoreboard.io.query(i).rs    := 0.U
   }
 
-  for (i <- 0 until cfg.operandsPerInst) {
+  for (i <- 0 until cfg.scoreboardQueries) {
     scoreboard.io.query(i).valid            := dispatch.io.scoreboardQuery(i).valid
     scoreboard.io.query(i).rs               := dispatch.io.scoreboardQuery(i).rs
     dispatch.io.scoreboardQuery(i).ready    := scoreboard.io.query(i).ready
@@ -123,12 +139,10 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   }
 
   for (i <- 0 until cfg.dispatchWidth) {
-    scoreboard.io.alloc(i)   := 0.U.asTypeOf(new ScoreboardAlloc(cfg))
-    storeTracker.io.alloc(i) := 0.U.asTypeOf(new StoreTrackerAlloc(cfg))
+    scoreboard.io.alloc(i)          := dispatch.io.scoreboardAlloc(i)
+    storeTracker.io.alloc(i).valid  := dispatch.io.out(i).fire && dispatchDecode(i).isStore
+    storeTracker.io.alloc(i).robIdx := rob.io.allocIdx(i)
   }
-  scoreboard.io.alloc(0) := dispatch.io.scoreboardAlloc
-  storeTracker.io.alloc(0).valid  := dispatch.io.out.fire && dispatchDecode.isStore
-  storeTracker.io.alloc(0).robIdx := rob.io.allocIdx(0)
 
   for (i <- 0 until cfg.commitWidth) {
     retire.io.rob(i) <> rob.io.commit(i)
@@ -152,14 +166,13 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   issueQueue.io.fuReady.fence := false.B
   issueQueue.io.storeQuery <> storeTracker.io.query
 
-  val issuedIsLsu = issueQueue.io.issue.bits.fuType === FuType.lsu
-  issueQueue.io.issue.ready := Mux(issuedIsLsu, lsu.io.in.ready, execute.io.in.ready)
+  issueQueue.io.intIssue.ready := execute.io.in.ready
+  execute.io.in.valid          := issueQueue.io.intIssue.valid
+  execute.io.in.bits           := issueQueue.io.intIssue.bits
 
-  execute.io.in.valid := issueQueue.io.issue.valid && !issuedIsLsu
-  execute.io.in.bits  := issueQueue.io.issue.bits
-
-  lsu.io.in.valid := issueQueue.io.issue.valid && issuedIsLsu
-  lsu.io.in.bits  := issueQueue.io.issue.bits
+  issueQueue.io.memIssue.ready := lsu.io.in.ready
+  lsu.io.in.valid              := issueQueue.io.memIssue.valid
+  lsu.io.in.bits               := issueQueue.io.memIssue.bits
 
   for (i <- 0 until cfg.writebackWidth) {
     rob.io.writeback(i)     := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))

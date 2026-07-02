@@ -1,4 +1,5 @@
 mod event;
+mod report;
 
 pub use event::CommitGroupEvent;
 
@@ -39,7 +40,7 @@ pub enum SimulatorError {
     Difftest(DifftestError),
     ImageIo { path: PathBuf, source: io::Error },
     CpuNotConnected,
-    SimulateFinish,
+    SimulateAbort,
     ReachMaxNoCommitCyc,
 }
 
@@ -158,8 +159,10 @@ impl Simulator {
             return Err(SimulatorError::CpuNotConnected);
         };
 
-        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
-            return Err(SimulatorError::SimulateFinish);
+        match self.state {
+            SimulatorState::Running | SimulatorState::Stop => {}
+            SimulatorState::End => return Ok(()),
+            SimulatorState::Abort => return Err(SimulatorError::SimulateAbort),
         }
 
         cpu.step();
@@ -169,6 +172,12 @@ impl Simulator {
 
     pub fn execute(&mut self, times: u64) -> SimulatorResult<()> {
         for _ in 0..times {
+            match self.state {
+                SimulatorState::Running | SimulatorState::Stop => {}
+                SimulatorState::End => return Ok(()),
+                SimulatorState::Abort => return Err(SimulatorError::SimulateAbort),
+            }
+
             if self.cycle_nocommit > 20000 {
                 return Err(SimulatorError::ReachMaxNoCommitCyc);
             }
@@ -220,6 +229,7 @@ impl Simulator {
 
         if let Err(error) = self.do_difftest(commit_count) {
             eprintln!("[Error] commit handling failed: {error:?}");
+            report::print_difftest_report(&error);
             self.state = SimulatorState::Abort;
             return;
         }
@@ -228,8 +238,7 @@ impl Simulator {
             let context = match self.cpu.as_mut().and_then(|cpu| cpu.context().ok()) {
                 Some(context) => context,
                 None => {
-                    self.state = SimulatorState::Abort;
-                    return;
+                    panic!("should not reach here");
                 }
             };
 
