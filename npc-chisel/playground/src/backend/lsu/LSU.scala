@@ -3,7 +3,7 @@ package top.backend.lsu
 import chisel3._
 import chisel3.util.{Decoupled, Enum, MuxLookup, Valid}
 import top.backend.bundle.{IssuePacket, IssueWakeup, RobWritebackPacket}
-import top.backend.decoder.LsuOp
+import top.backend.decoder.{LsuOp, MemSize}
 import top.bundle.{DataMemReq, DataMemResp}
 import top.config.BackendConfig
 
@@ -25,15 +25,16 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val loadRobIdx = Reg(UInt(cfg.robIdxWidth.W))
 
-  private val addr      = io.in.bits.src1.data + io.in.bits.imm
-  private val storeMask = MuxLookup(
-    io.in.bits.memSize,
-    ((1 << (cfg.dataWidth / 8)) - 1).U((cfg.dataWidth / 8).W)
-  )(
+  private val dataBytes = cfg.dataWidth / 8
+  private def asAddr(value: UInt): UInt =
+    value.pad(cfg.addrWidth)(cfg.addrWidth - 1, 0)
+
+  private val addr      = asAddr(io.in.bits.src1.data + io.in.bits.imm)
+  private val storeMask = MuxLookup(io.in.bits.memSize, 0.U(dataBytes.W))(
     Seq(
-      0.U -> 1.U((cfg.dataWidth / 8).W),
-      1.U -> 3.U((cfg.dataWidth / 8).W),
-      2.U -> 15.U((cfg.dataWidth / 8).W)
+      MemSize.byte.U -> 1.U(dataBytes.W),
+      MemSize.half.U -> 3.U(dataBytes.W),
+      MemSize.word.U -> ((1 << dataBytes) - 1).U(dataBytes.W)
     )
   )
 

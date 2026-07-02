@@ -9,9 +9,13 @@ private[decoder] object RviMemDecode extends DecodeGroup {
   import RviPatterns._
 
   val table: Seq[(BitPat, List[UInt])] = Seq(
-    LW  -> load(size = 2),
-    LBU -> load(size = 0, unsigned = true),
-    SW  -> store(size = 2),
-    SB  -> store(size = 0)
+    LB  -> load(size = MemSize.byte),
+    LH  -> load(size = MemSize.half),
+    LW  -> load(size = MemSize.word),
+    LBU -> load(size = MemSize.byte, unsigned = true),
+    LHU -> load(size = MemSize.half, unsigned = true),
+    SB  -> store(size = MemSize.byte),
+    SH  -> store(size = MemSize.half),
+    SW  -> store(size = MemSize.word)
   )
 }
