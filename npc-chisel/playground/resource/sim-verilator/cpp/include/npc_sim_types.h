@@ -5,23 +5,17 @@
 
 #define NPC_GPR_COUNT 32
 
-typedef struct NpcCommitEvent {
-  uint8_t valid;
-  uint8_t finish;
-  uint32_t pc;
-  uint32_t inst;
-} NpcCommitEvent;
-
-typedef struct NpcPcEvent {
-  uint32_t pc;
-} NpcPcEvent;
+typedef struct NpcCommitGroupEvent {
+  uint32_t valid_mask;
+  uint32_t finish_mask;
+  uint32_t pc[2];
+  uint32_t inst[2];
+} NpcCommitGroupEvent;
 
 typedef struct NpcDpiCallbacks {
-  void (*on_commit)(const NpcCommitEvent *event);
-  void (*on_current_pc)(const NpcPcEvent *event);
+  void (*on_commit_group)(const NpcCommitGroupEvent *event);
   uint32_t (*pmem_read)(uint32_t addr, uint32_t len);
   void (*pmem_write)(uint32_t addr, uint32_t len, uint32_t data);
-  void (*report_invalid_inst)(uint32_t pc, uint32_t inst);
 } NpcDpiCallbacks;
 
 typedef struct NpcGprContext {

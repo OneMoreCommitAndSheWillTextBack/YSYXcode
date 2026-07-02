@@ -3,18 +3,12 @@
 
 #include <cstdint>
 
-extern "C" void npc_commit(int valid, int finish, int pc, int inst) {
-  NpcHostBridge::commit(valid, finish, static_cast<uint32_t>(pc),
-                        static_cast<uint32_t>(inst));
-}
-
-extern "C" void npc_get_current_pc(int pc) {
-  NpcHostBridge::current_pc(static_cast<uint32_t>(pc));
-}
-
-extern "C" void npc_report_invalid_inst(int pc, int inst) {
-  NpcHostBridge::report_invalid_inst(static_cast<uint32_t>(pc),
-                                     static_cast<uint32_t>(inst));
+extern "C" void npc_commit_group(int valid_mask, int finish_mask, int pc0,
+                                 int inst0, int pc1, int inst1) {
+  NpcHostBridge::commit_group(
+      static_cast<uint32_t>(valid_mask), static_cast<uint32_t>(finish_mask),
+      static_cast<uint32_t>(pc0), static_cast<uint32_t>(inst0),
+      static_cast<uint32_t>(pc1), static_cast<uint32_t>(inst1));
 }
 
 extern "C" void npc_pmem_read(int addr, int len, int *data) {

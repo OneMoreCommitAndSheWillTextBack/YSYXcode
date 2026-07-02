@@ -1,6 +1,6 @@
 mod event;
 
-pub use event::CommitEvent;
+pub use event::CommitGroupEvent;
 
 use crate::{
     config::SimulatorConfig,
@@ -11,7 +11,7 @@ use crate::{
     perf::Perf,
     sdb::SdbError,
     sim_log,
-    simulator::{self, SimulatorState::Running},
+    simulator::SimulatorState::Running,
     SimulatorResult, ACTIVE_SIMULATOR,
 };
 use std::{fs, io, path::PathBuf};
@@ -99,11 +99,9 @@ impl Simulator {
             cycle_nocommit: 0,
         });
         let callbacks = ffi::NpcDpiCallbacks {
-            on_commit: Some(simulator_on_commit),
-            on_current_pc: None,
+            on_commit_group: Some(simulator_on_commit_group),
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
-            report_invalid_inst: Some(report_invalid_inst),
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
@@ -182,7 +180,7 @@ impl Simulator {
         Ok(())
     }
 
-    pub fn do_difftest(&mut self) -> SimulatorResult<()> {
+    pub fn do_difftest(&mut self, steps: u64) -> SimulatorResult<()> {
         let context = {
             let Some(cpu) = self.cpu.as_mut() else {
                 return Err(SimulatorError::CpuNotConnected);
@@ -196,16 +194,18 @@ impl Simulator {
         };
 
         if let Some(context) = context {
-            self.difftest.step_and_check(&context)?;
+            self.difftest.step_and_check(steps, &context)?;
         }
 
         Ok(())
     }
 
-    fn on_commit(&mut self, event: CommitEvent) {
-        self.perf.on_commit(&event);
+    fn on_commit_group(&mut self, event: CommitGroupEvent) {
+        self.perf.on_commit_group(&event);
 
-        if !event.valid {
+        let commit_count = event.valid_count();
+
+        if commit_count == 0 {
             return;
         }
 
@@ -214,14 +214,17 @@ impl Simulator {
         }
 
         self.cycle_nocommit = 0;
-        println!("commit inst 0x{:08x}", event.inst);
-        if let Err(error) = self.do_difftest() {
+        for inst in event.valid_insts() {
+            println!("commit inst 0x{inst:08x}");
+        }
+
+        if let Err(error) = self.do_difftest(commit_count) {
             eprintln!("[Error] commit handling failed: {error:?}");
             self.state = SimulatorState::Abort;
             return;
         }
 
-        if event.finish {
+        if event.has_finish() {
             let context = match self.cpu.as_mut().and_then(|cpu| cpu.context().ok()) {
                 Some(context) => context,
                 None => {
@@ -236,11 +239,6 @@ impl Simulator {
                 SimulatorState::Abort
             };
         }
-    }
-
-    pub fn get_invinst_report(&mut self, pc: u32, inst: u32) {
-        self.state = SimulatorState::Abort;
-        crate::Log!("get invalid inst 0x{:08x} at pc 0x{:08x}", inst, pc);
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
@@ -341,7 +339,7 @@ extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
     let _ = simulator.pmem_write(addr, len, data);
 }
 
-extern "C" fn simulator_on_commit(event: *const ffi::NpcCommitEvent) {
+extern "C" fn simulator_on_commit_group(event: *const ffi::NpcCommitGroupEvent) {
     if event.is_null() {
         return;
     }
@@ -353,20 +351,10 @@ extern "C" fn simulator_on_commit(event: *const ffi::NpcCommitEvent) {
 
     let event = unsafe { &*event };
     let simulator = unsafe { &mut *simulator };
-    simulator.on_commit(CommitEvent::new(
-        event.valid != 0,
-        event.finish != 0,
+    simulator.on_commit_group(CommitGroupEvent::new(
+        event.valid_mask,
+        event.finish_mask,
         event.pc,
         event.inst,
     ));
-}
-
-extern "C" fn report_invalid_inst(pc: u32, inst: u32) {
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return;
-    }
-
-    let simulator = unsafe { &mut *simulator };
-    simulator.get_invinst_report(pc, inst);
 }

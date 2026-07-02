@@ -95,12 +95,16 @@ impl DiffTest {
         };
     }
 
-    pub fn step_and_check(&mut self, context: &CpuContext) -> DifftestResult<()> {
+    pub fn step_and_check(&mut self, steps: u64, context: &CpuContext) -> DifftestResult<()> {
         let DifftestState::Attached(backend) = &mut self.state else {
             return Ok(());
         };
 
-        backend.exec(1);
+        if steps == 0 {
+            return Ok(());
+        }
+
+        backend.exec(steps);
         let reference = backend.copy_context_from_ref();
         compare_contexts(context, &reference)
     }

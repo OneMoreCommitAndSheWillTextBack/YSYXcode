@@ -5,14 +5,14 @@ import chisel3.util.{log2Ceil, Decoupled, Enum, Valid}
 import top.bundle._
 import top.config.BackendConfig
 
-import top.backend.bundle.{DecodePacket, IssueWakeup, RobWritebackPacket, ScoreboardAlloc, StoreTrackerAlloc}
-import top.backend.commit.Commit
+import top.backend.bundle.{DecodePacket, IssueWakeup, RetireGroup, RobWritebackPacket, ScoreboardAlloc, StoreTrackerAlloc}
 import top.backend.decoder._
 import top.backend.dispatch.{Dispatch, Scoreboard}
 import top.backend.execute.Execute
 import top.backend.issue.IssueQueue
 import top.backend.lsu.{LSU, StoreTracker}
 import top.backend.regfile._
+import top.backend.retire.RetireUnit
 import top.backend.rob.ROB
 
 class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
@@ -26,7 +26,7 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
     val dmemReq  = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
 
-    val commit = Output(Vec(cfg.issueWidth, Valid(new CommitPayload(cfg.addrWidth))))
+    val retire = Output(new RetireGroup(cfg))
 
     val contextValid = Output(Bool())
     val contextPc    = Output(UInt(cfg.addrWidth.W))
@@ -43,14 +43,14 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   val execute      = Module(new Execute(cfg))
   val lsu          = Module(new LSU(cfg))
   val storeTracker = Module(new StoreTracker(cfg))
-  val commit       = Module(new Commit(cfg))
+  val retire       = Module(new RetireUnit(cfg))
 
-  io.redirect := commit.io.redirect
+  io.redirect := retire.io.redirect
 
   private val flush =
-    commit.io.redirect.trapRedirect.valid ||
-      commit.io.redirect.branchRedirect.valid ||
-      commit.io.redirect.predRedirect.valid
+    retire.io.redirect.trapRedirect.valid ||
+      retire.io.redirect.branchRedirect.valid ||
+      retire.io.redirect.predRedirect.valid
 
   private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
   private val pending  = RegInit(false.B)
@@ -131,11 +131,11 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   storeTracker.io.alloc(0).robIdx := rob.io.allocIdx(0)
 
   for (i <- 0 until cfg.commitWidth) {
-    commit.io.rob(i) <> rob.io.commit(i)
+    retire.io.rob(i) <> rob.io.commit(i)
   }
 
-  scoreboard.io.commit    := commit.io.scoreboardCommit
-  storeTracker.io.commit  := commit.io.storeCommit
+  scoreboard.io.commit    := retire.io.scoreboardCommit
+  storeTracker.io.commit  := retire.io.storeCommit
   storeTracker.io.robHead := rob.io.head
   rob.io.flush            := flush
   scoreboard.io.flush     := flush
@@ -177,27 +177,27 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   }
 
   for (i <- 0 until cfg.commitWidth) {
-    gpr.io.write(i).enable := commit.io.regWrite(i).enable
-    gpr.io.write(i).addr   := commit.io.regWrite(i).addr
-    gpr.io.write(i).data   := commit.io.regWrite(i).data
+    gpr.io.write(i).enable := retire.io.regWrite(i).enable
+    gpr.io.write(i).addr   := retire.io.regWrite(i).addr
+    gpr.io.write(i).data   := retire.io.regWrite(i).data
   }
 
-  io.commit       := commit.io.commit
-  io.contextValid := commit.io.contextValid
-  io.contextPc    := commit.io.contextPc
+  io.retire       := retire.io.retire
+  io.contextValid := retire.io.contextValid
+  io.contextPc    := retire.io.contextPc
 
   private val dmemIdle :: dmemLoadResp :: dmemStoreResp :: Nil = Enum(3)
   private val dmemState                                        = RegInit(dmemIdle)
   private val dropLoadResp                                     = RegInit(false.B)
 
   val lsuReqSelected    = dmemState === dmemIdle && lsu.io.dmemReq.valid
-  val commitReqSelected = dmemState === dmemIdle && !lsu.io.dmemReq.valid && commit.io.dmemReq.valid
+  val retireReqSelected = dmemState === dmemIdle && !lsu.io.dmemReq.valid && retire.io.dmemReq.valid
 
-  io.dmemReq.valid := lsuReqSelected || commitReqSelected
-  io.dmemReq.bits  := Mux(lsuReqSelected, lsu.io.dmemReq.bits, commit.io.dmemReq.bits)
+  io.dmemReq.valid := lsuReqSelected || retireReqSelected
+  io.dmemReq.bits  := Mux(lsuReqSelected, lsu.io.dmemReq.bits, retire.io.dmemReq.bits)
 
   lsu.io.dmemReq.ready    := dmemState === dmemIdle && io.dmemReq.ready
-  commit.io.dmemReq.ready := dmemState === dmemIdle && !lsu.io.dmemReq.valid && io.dmemReq.ready
+  retire.io.dmemReq.ready := dmemState === dmemIdle && !lsu.io.dmemReq.valid && io.dmemReq.ready
 
   lsu.io.dmemResp.valid := dmemState === dmemLoadResp && io.dmemResp.valid && !dropLoadResp
   lsu.io.dmemResp.bits  := io.dmemResp.bits

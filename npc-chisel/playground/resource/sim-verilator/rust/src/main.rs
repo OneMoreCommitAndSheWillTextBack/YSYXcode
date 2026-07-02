@@ -1,4 +1,4 @@
-#![allow(dead_code, unused_imports)]
+#![allow(dead_code)]
 
 mod config;
 mod cpu;
@@ -11,7 +11,6 @@ mod sim_log;
 mod simulator;
 
 use config::SimulatorConfig;
-use memory::Memory;
 use sdb::Sdb;
 use simulator::{Simulator, SimulatorError};
 
