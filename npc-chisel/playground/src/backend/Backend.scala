@@ -220,7 +220,7 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   val storeRespOutstanding = dmemState === dmemStoreResp
 
   val lsuReqSelected    = dmemCanAcceptReq && !flush && lsu.io.dmemReq.valid
-  val retireReqSelected = dmemCanAcceptReq && !lsuReqSelected && retire.io.dmemReq.valid
+  val retireReqSelected = dmemCanAcceptReq && !lsu.io.dmemReq.valid && retire.io.dmemReq.valid
 
   io.dmemReq.valid := lsuReqSelected || retireReqSelected
   io.dmemReq.bits  := Mux(lsuReqSelected, lsu.io.dmemReq.bits, retire.io.dmemReq.bits)
