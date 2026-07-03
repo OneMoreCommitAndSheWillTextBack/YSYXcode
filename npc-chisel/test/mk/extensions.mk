@@ -1,0 +1,1 @@
+SUPPORTED_EXTENSIONS := riscv32i

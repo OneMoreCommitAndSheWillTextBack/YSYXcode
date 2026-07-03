@@ -33,7 +33,7 @@ class IssueControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val grantOH = Output(Vec(cfg.issueQueueEntries, Bool()))
 }
 
-class IssueFuReady extends Bundle {
+class IssuePortStatus extends Bundle {
   val alu   = Bool()
   val lsu   = Bool()
   val bru   = Bool()

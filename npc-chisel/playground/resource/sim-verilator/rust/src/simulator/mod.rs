@@ -1,7 +1,10 @@
 mod event;
 mod report;
+mod statistics;
 
 pub use event::CommitGroupEvent;
+
+use statistics::Statistics;
 
 use crate::{
     config::SimulatorConfig,
@@ -15,10 +18,12 @@ use crate::{
     simulator::SimulatorState::Running,
     SimulatorResult, ACTIVE_SIMULATOR,
 };
+use chrono::Local;
 use std::{fs, io, path::PathBuf};
 
 const MBASE: u32 = 0x8000_0000;
 const PMEM_SIZE: usize = 128 * 1024 * 1024;
+const MAX_NO_COMMIT_CYCLES: u32 = 20000;
 // const DEFAULT_IMAGE: [u32; 13] = [
 //     0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513, 0x00008067, 0xff410113, 0x00000517,
 //     0x01450513, 0x00112423, 0xfe9ff0ef, 0x00050513, 0x00100073,
@@ -31,6 +36,11 @@ const DEFAULT_IMAGE: [u32; 5] = [
     0x00100073, // ebreak (used as nemu_trap)
     0xdeadbeef, // some data
 ];
+
+const ANSI_RESET: &str = "\x1b[0m";
+const ANSI_FG_BLUE: &str = "\x1b[34m";
+const ANSI_FG_GREEN: &str = "\x1b[32m";
+const ANSI_FG_RED: &str = "\x1b[31m";
 
 #[derive(Debug)]
 pub enum SimulatorError {
@@ -82,7 +92,7 @@ pub struct Simulator {
     perf: Perf,
     difftest: DiffTest,
     state: SimulatorState,
-    cycle_nocommit: u32,
+    statistics: Statistics,
 }
 
 impl Simulator {
@@ -97,7 +107,7 @@ impl Simulator {
             perf: Perf::new(),
             difftest,
             state: Running,
-            cycle_nocommit: 0,
+            statistics: Statistics::new(),
         });
         let callbacks = ffi::NpcDpiCallbacks {
             on_commit_group: Some(simulator_on_commit_group),
@@ -106,6 +116,7 @@ impl Simulator {
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
+        crate::Log!("Init Cpu Successful");
 
         simulator.memory.register_ram("pmem", MBASE, PMEM_SIZE)?;
         simulator.load_image()?;
@@ -130,6 +141,8 @@ impl Simulator {
         }
 
         sim_log::show_trace(&self.config);
+        let now = Local::now();
+        crate::Log!("run simulator at {}", now.format("%a %b %e %T %Y"));
     }
 
     pub fn reset(&mut self) -> SimulatorResult<()> {
@@ -178,12 +191,19 @@ impl Simulator {
                 SimulatorState::Abort => return Err(SimulatorError::SimulateAbort),
             }
 
-            if self.cycle_nocommit > 20000 {
+            if self
+                .statistics
+                .exceeds_no_commit_limit(MAX_NO_COMMIT_CYCLES)
+            {
+                eprintln!(
+                    "{}HIT BAD TRAP, REACH MAX NO COMMIT CYCLES{}",
+                    ANSI_FG_RED, ANSI_RESET
+                );
                 return Err(SimulatorError::ReachMaxNoCommitCyc);
             }
 
             self.execute_once()?;
-            self.cycle_nocommit += 1;
+            self.statistics.on_cycle();
         }
 
         Ok(())
@@ -222,13 +242,14 @@ impl Simulator {
             return;
         }
 
-        self.cycle_nocommit = 0;
-        for inst in event.valid_insts() {
-            println!("commit inst 0x{inst:08x}");
+        self.statistics.on_commit_group(commit_count);
+        for commit in event.valid_inst_pc() {
+            let pc = commit.0;
+            let inst = commit.1;
+            println!("commit inst 0x{inst:08x} at pc 0x{pc:08x}");
         }
 
         if let Err(error) = self.do_difftest(commit_count) {
-            eprintln!("[Error] commit handling failed: {error:?}");
             report::print_difftest_report(&error);
             self.state = SimulatorState::Abort;
             return;
@@ -243,11 +264,30 @@ impl Simulator {
             };
 
             self.state = if context.gpr[10] == 0 {
+                eprintln!("{}HIT GOOD TRAP{}", ANSI_FG_GREEN, ANSI_RESET);
                 SimulatorState::End
             } else {
+                eprintln!("{}HIT BAD TRAP{}", ANSI_FG_RED, ANSI_RESET);
                 SimulatorState::Abort
             };
         }
+    }
+
+    pub fn generat_report(&mut self) {
+        let cycles = self.statistics.cycle();
+        let commits = self.statistics.total_commits();
+        let ipc = if cycles == 0 {
+            0.0
+        } else {
+            commits as f64 / cycles as f64
+        };
+
+        crate::Log!(
+            "cycles: {}, total commits: {}, ipc: {:.3}",
+            cycles,
+            commits,
+            ipc
+        );
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
@@ -276,16 +316,22 @@ impl Simulator {
 
     fn load_image(&mut self) -> SimulatorResult<usize> {
         let image = match self.config.image.as_ref() {
-            Some(path) => fs::read(path).map_err(|source| SimulatorError::ImageIo {
-                path: path.clone(),
-                source,
-            })?,
-            None => default_image_bytes(),
+            Some(path) => {
+                crate::Log!("Image Path is {}", path.display());
+                fs::read(path).map_err(|source| SimulatorError::ImageIo {
+                    path: path.clone(),
+                    source,
+                })?
+            }
+            None => {
+                crate::Log!("No Image Path Specific, Using Default Image");
+                default_image_bytes()
+            }
         };
 
         self.memory.write(MBASE, &image)?;
         self.difftest.sync_memory(MBASE, &image)?;
-        eprintln!("\x1b[0m\x1b[1;32mfinish load memory\x1b[0m");
+        crate::Log!("Image Load finished",);
         Ok(image.len())
     }
 

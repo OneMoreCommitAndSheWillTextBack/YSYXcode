@@ -50,7 +50,10 @@ impl RefBackend {
         };
 
         let init: DifftestInit = unsafe { load_symbol(handle, path, b"difftest_init\0")? };
-        unsafe { init(port) };
+        unsafe {
+            init(port);
+            fflush(std::ptr::null_mut());
+        };
 
         Ok(backend)
     }
@@ -155,4 +158,5 @@ unsafe extern "C" {
     fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
     fn dlclose(handle: *mut c_void) -> c_int;
     fn dlerror() -> *const c_char;
+    fn fflush(stream: *mut c_void) -> c_int;
 }

@@ -5,10 +5,10 @@ import chisel3.util.{log2Ceil, Decoupled, Enum, PopCount, Valid}
 import top.bundle._
 import top.config.BackendConfig
 
-import top.backend.bundle.{DecodePacket, IssueWakeup, RetireGroup, RobWritebackPacket}
+import top.backend.bundle.{DecodePacket, IssuePortStatus, IssueWakeup, RetireGroup, RobWritebackPacket}
 import top.backend.decoder._
 import top.backend.dispatch.{Dispatch, Scoreboard}
-import top.backend.execute.Execute
+import top.backend.exu.{ExecuteBlock, ExuRequest}
 import top.backend.issue.IssueQueue
 import top.backend.lsu.{LSU, StoreTracker}
 import top.backend.regfile._
@@ -17,7 +17,7 @@ import top.backend.rob.ROB
 
 class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   require(cfg.issueWidth > 0, "Backend requires at least one frontend slot")
-  require(cfg.writebackWidth >= 2, "Backend currently reserves writeback ports for execute and lsu")
+  require(cfg.writebackWidth >= cfg.intIssueWidth + 1, "Backend reserves writeback ports for integer EXUs and LSU")
 
   val io = IO(new Bundle {
     val frontend = Flipped(Decoupled(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
@@ -41,7 +41,7 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   val scoreboard   = Module(new Scoreboard(cfg))
   val rob          = Module(new ROB(cfg))
   val issueQueue   = Module(new IssueQueue(cfg))
-  val execute      = Module(new Execute(cfg))
+  val execute      = Module(new ExecuteBlock(cfg))
   val lsu          = Module(new LSU(cfg))
   val storeTracker = Module(new StoreTracker(cfg))
   val retire       = Module(new RetireUnit(cfg))
@@ -157,31 +157,43 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   issueQueue.io.flush     := flush
   lsu.io.flush            := flush
 
-  issueQueue.io.robHead       := rob.io.head
-  issueQueue.io.fuReady.alu   := true.B
-  issueQueue.io.fuReady.lsu   := !lsu.io.busy
-  issueQueue.io.fuReady.bru   := true.B
-  issueQueue.io.fuReady.jmp   := true.B
-  issueQueue.io.fuReady.csr   := false.B
-  issueQueue.io.fuReady.fence := false.B
+  issueQueue.io.robHead := rob.io.head
+  for (port <- 0 until cfg.intIssueWidth) {
+    issueQueue.io.intStatus(port) := execute.io.status(port)
+  }
+  issueQueue.io.memStatus := 0.U.asTypeOf(new IssuePortStatus)
+  issueQueue.io.memStatus.lsu := !lsu.io.busy
   issueQueue.io.storeQuery <> storeTracker.io.query
 
-  issueQueue.io.intIssue.ready := execute.io.in.ready
-  execute.io.in.valid          := issueQueue.io.intIssue.valid
-  execute.io.in.bits           := issueQueue.io.intIssue.bits
+  execute.io.flush := flush
+  for (port <- 0 until cfg.intIssueWidth) {
+    issueQueue.io.intIssue(port).ready := execute.io.in(port).ready
+    execute.io.in(port).valid          := issueQueue.io.intIssue(port).valid
+    execute.io.in(port).bits           := ExuRequest.fromIssue(issueQueue.io.intIssue(port).bits, cfg)
+  }
 
   issueQueue.io.memIssue.ready := lsu.io.in.ready
   lsu.io.in.valid              := issueQueue.io.memIssue.valid
   lsu.io.in.bits               := issueQueue.io.memIssue.bits
 
-  for (i <- 0 until cfg.writebackWidth) {
+  for (i    <- 0 until cfg.writebackWidth) {
     rob.io.writeback(i)     := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))
     issueQueue.io.wakeup(i) := 0.U.asTypeOf(new IssueWakeup(cfg))
   }
-  rob.io.writeback(0) := execute.io.writeback
-  rob.io.writeback(1)     := lsu.io.writeback
-  issueQueue.io.wakeup(0) := execute.io.wakeup
-  issueQueue.io.wakeup(1) := lsu.io.wakeup
+  for (port <- 0 until cfg.intIssueWidth) {
+    rob.io.writeback(port)     := execute.io.writeback(port)
+    issueQueue.io.wakeup(port) := execute.io.wakeup(port)
+  }
+
+  private val lsuWritebackPort = cfg.intIssueWidth
+  rob.io.writeback(lsuWritebackPort)     := lsu.io.writeback
+  issueQueue.io.wakeup(lsuWritebackPort) := lsu.io.wakeup
+
+  for (i <- 0 until cfg.commitWidth) {
+    issueQueue.io.commitWakeup(i).valid  := retire.io.scoreboardCommit(i).valid && retire.io.scoreboardCommit(i).rfWen
+    issueQueue.io.commitWakeup(i).robIdx := retire.io.scoreboardCommit(i).robIdx
+    issueQueue.io.commitWakeup(i).data   := retire.io.regWrite(i).data
+  }
 
   for (i <- 0 until cfg.regfileWritePorts) {
     gpr.io.write(i).enable := false.B
@@ -203,31 +215,39 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   private val dmemState                                        = RegInit(dmemIdle)
   private val dropLoadResp                                     = RegInit(false.B)
 
-  val lsuReqSelected    = dmemState === dmemIdle && lsu.io.dmemReq.valid
-  val retireReqSelected = dmemState === dmemIdle && !lsu.io.dmemReq.valid && retire.io.dmemReq.valid
+  val dmemCanAcceptReq     = dmemState === dmemIdle
+  val loadRespOutstanding  = dmemState === dmemLoadResp
+  val storeRespOutstanding = dmemState === dmemStoreResp
+
+  val lsuReqSelected    = dmemCanAcceptReq && !flush && lsu.io.dmemReq.valid
+  // Keep retire store arbitration independent from flush; flush is produced by retire.
+  val retireReqSelected = dmemCanAcceptReq && !lsu.io.dmemReq.valid && retire.io.dmemReq.valid
 
   io.dmemReq.valid := lsuReqSelected || retireReqSelected
   io.dmemReq.bits  := Mux(lsuReqSelected, lsu.io.dmemReq.bits, retire.io.dmemReq.bits)
 
-  lsu.io.dmemReq.ready    := dmemState === dmemIdle && io.dmemReq.ready
-  retire.io.dmemReq.ready := dmemState === dmemIdle && !lsu.io.dmemReq.valid && io.dmemReq.ready
+  lsu.io.dmemReq.ready    := lsuReqSelected && io.dmemReq.ready
+  retire.io.dmemReq.ready := retireReqSelected && io.dmemReq.ready
 
-  lsu.io.dmemResp.valid := dmemState === dmemLoadResp && io.dmemResp.valid && !dropLoadResp
+  val loadRespMustDrop = dropLoadResp || (flush && loadRespOutstanding)
+
+  lsu.io.dmemResp.valid := loadRespOutstanding && io.dmemResp.valid && !loadRespMustDrop
   lsu.io.dmemResp.bits  := io.dmemResp.bits
   io.dmemResp.ready     := Mux(
-    dmemState === dmemLoadResp,
-    Mux(dropLoadResp, true.B, lsu.io.dmemResp.ready),
-    dmemState === dmemStoreResp
+    loadRespOutstanding,
+    Mux(loadRespMustDrop, true.B, lsu.io.dmemResp.ready),
+    storeRespOutstanding
   )
-
-  when(flush && dmemState === dmemLoadResp) {
-    dropLoadResp := true.B
-  }
 
   when(io.dmemReq.fire) {
     dmemState := Mux(io.dmemReq.bits.write, dmemStoreResp, dmemLoadResp)
-  }.elsewhen(dmemState =/= dmemIdle && io.dmemResp.fire) {
-    dmemState    := dmemIdle
+  }.elsewhen((loadRespOutstanding || storeRespOutstanding) && io.dmemResp.fire) {
+    dmemState := dmemIdle
+  }
+
+  when(io.dmemResp.fire) {
     dropLoadResp := false.B
+  }.elsewhen(flush && loadRespOutstanding) {
+    dropLoadResp := true.B
   }
 }

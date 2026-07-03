@@ -54,6 +54,13 @@ impl CommitGroupEvent {
             .map(|event| event.inst)
     }
 
+    pub fn valid_inst_pc(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
+        self.lanes
+            .iter()
+            .filter(|event| event.valid)
+            .map(|event| (event.pc, event.inst))
+    }
+
     pub fn has_finish(&self) -> bool {
         self.lanes.iter().any(|event| event.valid && event.finish)
     }

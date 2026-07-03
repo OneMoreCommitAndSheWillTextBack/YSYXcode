@@ -100,14 +100,17 @@ final case class BackendConfig(
   addrWidth:      Int = 32,
   dataWidth:      Int = 32,
   robEntries:     Int = 16,
-  writebackWidth: Int = 2,
+  intIssueWidth:  Int = 2,
+  writebackWidth: Int = 3,
   issueQueueEntries: Int = 8) {
   require(issueWidth > 0, "issueWidth must be positive")
   require(commitWidth > 0, "commitWidth must be positive")
   require(addrWidth > 0, "addrWidth must be positive")
   require(dataWidth > 0, "dataWidth must be positive")
   require(robEntries > 1, "robEntries must contain more than one entry")
+  require(intIssueWidth > 0, "intIssueWidth must be positive")
   require(writebackWidth > 0, "writebackWidth must be positive")
+  require(writebackWidth >= intIssueWidth + 1, "writebackWidth must cover all integer execute ports and LSU")
   require(issueQueueEntries > 0, "issueQueueEntries must be positive")
 
   val dispatchWidth:      Int = issueWidth

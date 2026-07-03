@@ -10,6 +10,15 @@ verilog:
 test:
 	mill -i $(PRJ).test
 
+tb testbench:
+	$(MAKE) -C test run
+
+tb-list testbench-list:
+	$(MAKE) -C test list
+
+tb-clean testbench-clean:
+	$(MAKE) -C test clean
+
 help:
 	mill -i $(PRJ).runMain Elaborate --help
 
@@ -28,7 +37,7 @@ idea:
 clean:
 	-rm -rf $(BUILD_DIR)
 
-.PHONY: verilog test help reformat checkformat bsp idea clean
+.PHONY: verilog test tb testbench tb-list testbench-list tb-clean testbench-clean help reformat checkformat bsp idea clean
 
 include scriptmk/naive.mk
 

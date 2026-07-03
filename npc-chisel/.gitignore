@@ -10,6 +10,7 @@
 !*.cc
 !*.rs
 !*.vh
+!*.ld
 !Cargo.toml
 !Cargo.lock
 !.gitignore
