@@ -189,6 +189,12 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   rob.io.writeback(lsuWritebackPort)     := lsu.io.writeback
   issueQueue.io.wakeup(lsuWritebackPort) := lsu.io.wakeup
 
+  for (i <- 0 until cfg.commitWidth) {
+    issueQueue.io.commitWakeup(i).valid  := retire.io.scoreboardCommit(i).valid && retire.io.scoreboardCommit(i).rfWen
+    issueQueue.io.commitWakeup(i).robIdx := retire.io.scoreboardCommit(i).robIdx
+    issueQueue.io.commitWakeup(i).data   := retire.io.regWrite(i).data
+  }
+
   for (i <- 0 until cfg.regfileWritePorts) {
     gpr.io.write(i).enable := false.B
     gpr.io.write(i).addr   := 0.U

@@ -10,6 +10,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
     val enq        = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
     val wakeup     = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
+    val commitWakeup = Input(Vec(cfg.commitWidth, new IssueWakeup(cfg)))
     val intStatus  = Input(Vec(cfg.intIssueWidth, new IssuePortStatus))
     val memStatus  = Input(new IssuePortStatus)
     val robHead    = Input(UInt(cfg.robIdxWidth.W))
@@ -23,6 +24,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val valid     = RegInit(VecInit(Seq.fill(cfg.issueQueueEntries)(false.B)))
   private val intSelect = Seq.fill(cfg.intIssueWidth)(Module(new IssueSelect(cfg)))
   private val memSelect = Module(new IssueSelect(cfg))
+  private val allWakeups = io.wakeup ++ io.commitWakeup
 
   intSelect.foreach(_.io.robHead := io.robHead)
   memSelect.io.robHead := io.robHead
@@ -123,12 +125,12 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     enqBits(enqIdx) := io.enq(enqIdx).bits
 
     val src1WakeupHits = VecInit(
-      io.wakeup.map(wakeup =>
+      allWakeups.map(wakeup =>
         wakeup.valid && !io.enq(enqIdx).bits.src1.ready && (io.enq(enqIdx).bits.src1.tag === wakeup.robIdx)
       )
     )
     val src2WakeupHits = VecInit(
-      io.wakeup.map(wakeup =>
+      allWakeups.map(wakeup =>
         wakeup.valid && !io.enq(enqIdx).bits.src2.ready && (io.enq(enqIdx).bits.src2.tag === wakeup.robIdx)
       )
     )
@@ -138,13 +140,13 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     enqBits(enqIdx).src1.ready := io.enq(enqIdx).bits.src1.ready || src1WakeupHit
     enqBits(enqIdx).src1.data  := Mux(
       src1WakeupHit,
-      Mux1H(src1WakeupHits, io.wakeup.map(_.data)),
+      Mux1H(src1WakeupHits, allWakeups.map(_.data)),
       io.enq(enqIdx).bits.src1.data
     )
     enqBits(enqIdx).src2.ready := io.enq(enqIdx).bits.src2.ready || src2WakeupHit
     enqBits(enqIdx).src2.data  := Mux(
       src2WakeupHit,
-      Mux1H(src2WakeupHits, io.wakeup.map(_.data)),
+      Mux1H(src2WakeupHits, allWakeups.map(_.data)),
       io.enq(enqIdx).bits.src2.data
     )
   }
@@ -153,7 +155,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     when(io.flush) {
       valid(i) := false.B
     }.otherwise {
-      for (wakeup <- io.wakeup) {
+      for (wakeup <- allWakeups) {
         when(valid(i) && wakeup.valid) {
           when(!entries(i).src1.ready && (entries(i).src1.tag === wakeup.robIdx)) {
             entries(i).src1.ready := true.B

@@ -153,14 +153,16 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   bht.io.update.bits.pc    := io.update.bits.pc
   bht.io.update.bits.taken := io.update.bits.taken
 
-  val isBranch  = btb.io.resp.cfiType === CfiType.branch
-  val hasCfi    = btb.io.resp.cfiType =/= CfiType.none
-  val btbHit    = io.lookup.valid && btb.io.resp.hit && hasCfi
-  val predTaken = btbHit && Mux(isBranch, bht.io.taken, true.B)
+  val lookupOffset = io.lookup.bits.pc(cfg.offsetBits - 1, 1)
+  val isBranch     = btb.io.resp.cfiType === CfiType.branch
+  val hasCfi       = btb.io.resp.cfiType =/= CfiType.none
+  val btbHit       = io.lookup.valid && btb.io.resp.hit && hasCfi
+  val cfiInWindow  = btbHit && btb.io.resp.cfiOffset >= lookupOffset
+  val predTaken    = cfiInWindow && Mux(isBranch, bht.io.taken, true.B)
 
-  io.pred.valid     := btbHit
+  io.pred.valid     := cfiInWindow
   io.pred.taken     := predTaken
   io.pred.target    := Mux(predTaken, btb.io.resp.target, 0.U)
-  io.pred.cfiOffset := Mux(btbHit, btb.io.resp.cfiOffset, 0.U)
-  io.pred.cfiType   := Mux(btbHit, btb.io.resp.cfiType, CfiType.none)
+  io.pred.cfiOffset := Mux(cfiInWindow, btb.io.resp.cfiOffset, 0.U)
+  io.pred.cfiType   := Mux(cfiInWindow, btb.io.resp.cfiType, CfiType.none)
 }
