@@ -257,6 +257,8 @@ impl Simulator {
         }
     }
 
+    pub fn generat_report(&mut self) {}
+
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
         let cpu = self.cpu.as_mut().ok_or(SimulatorError::CpuNotConnected)?;
         Ok(cpu.gpr()?)
