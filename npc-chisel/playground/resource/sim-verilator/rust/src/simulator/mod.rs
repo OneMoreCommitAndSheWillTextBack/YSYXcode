@@ -294,19 +294,22 @@ impl Simulator {
 
     fn load_image(&mut self) -> SimulatorResult<usize> {
         let image = match self.config.image.as_ref() {
-            Some(path) => fs::read(path).map_err(|source| SimulatorError::ImageIo {
-                path: path.clone(),
-                source,
-            })?,
-            None => default_image_bytes(),
+            Some(path) => {
+                crate::Log!("Image Path is {}", path.display());
+                fs::read(path).map_err(|source| SimulatorError::ImageIo {
+                    path: path.clone(),
+                    source,
+                })?
+            }
+            None => {
+                crate::Log!("No Image Path Specific, Using Default Image");
+                default_image_bytes()
+            }
         };
 
         self.memory.write(MBASE, &image)?;
         self.difftest.sync_memory(MBASE, &image)?;
-        crate::Log!(
-            "Image Load finished, Image Path is {}",
-            self.config.image.as_ref().unwrap().display()
-        );
+        crate::Log!("Image Load finished",);
         Ok(image.len())
     }
 
