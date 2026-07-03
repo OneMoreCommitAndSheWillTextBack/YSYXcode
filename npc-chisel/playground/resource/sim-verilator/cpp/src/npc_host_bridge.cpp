@@ -1,5 +1,6 @@
 #include "npc_host_bridge.h"
 #include "npc_sim_types.h"
+#include <cstddef>
 #include <cstdint>
 
 namespace {
@@ -55,4 +56,13 @@ void NpcHostBridge::pmem_write(uint32_t addr, uint32_t len, uint32_t data) {
   }
 
   bridge->callbacks_.pmem_write(addr, len, data);
+}
+
+void NpcHostBridge::cache_hit(uint8_t hit) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.cache_hit == nullptr) {
+    return;
+  }
+  bridge->callbacks_.cache_hit(hit);
 }

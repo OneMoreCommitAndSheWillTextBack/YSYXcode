@@ -49,8 +49,8 @@ class Frontend(
   )
 
   val pcRedirect = Wire(new PcRedirect)
-  pcRedirect.valid := redirect.valid || (ifetch.io.pcAdvance && bpu.io.pred.taken)
-  pcRedirect.value := Mux(redirect.valid, redirect.value, bpu.io.pred.target)
+  pcRedirect.valid := redirect.valid || ifetch.io.predRedirect.valid
+  pcRedirect.value := Mux(redirect.valid, redirect.value, ifetch.io.predRedirect.value)
 
   pcGen.io.redirect := pcRedirect
   pcGen.io.advance  := ifetch.io.pcAdvance

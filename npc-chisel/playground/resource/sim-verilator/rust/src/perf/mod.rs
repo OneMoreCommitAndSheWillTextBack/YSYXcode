@@ -1,10 +1,6 @@
 mod counters;
-mod report;
 
 pub use counters::PerfCounters;
-pub use report::PerfSnapshot;
-
-use crate::simulator::CommitGroupEvent;
 
 #[derive(Debug, Default)]
 pub struct Perf {
@@ -16,19 +12,13 @@ impl Perf {
         Self::default()
     }
 
-    pub fn on_cycle(&mut self) {
-        self.counters.on_cycle();
+    pub fn cachehit(&mut self, hit: bool) {
+        self.counters.cache_hit(hit);
     }
 
-    pub fn on_commit_group(&mut self, event: &CommitGroupEvent) {
-        self.counters.on_commit_group(event);
+    pub fn cacherate(&mut self) -> f64 {
+        self.counters.cache_hit_rate()
     }
 
-    pub fn counters(&self) -> &PerfCounters {
-        &self.counters
-    }
-
-    pub fn snapshot(&self) -> PerfSnapshot {
-        PerfSnapshot::from_counters(&self.counters)
-    }
+    pub fn on_cycle(&mut self) {}
 }

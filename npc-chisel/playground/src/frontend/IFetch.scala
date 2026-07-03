@@ -66,7 +66,6 @@ class HalfwordBuffer(cfg: ICacheConfig, depth: Int, enqWidth: Int, peekWidth: In
   private val ptrWidth      = log2Ceil(depth)
   private val countWidth    = log2Ceil(depth + 1)
   private val enqCountWidth = log2Ceil(enqWidth + 1)
-  private val deqCountWidth = log2Ceil(peekWidth + 1)
 
   val io = IO(new Bundle {
     val flush     = Input(Bool())
@@ -79,7 +78,7 @@ class HalfwordBuffer(cfg: ICacheConfig, depth: Int, enqWidth: Int, peekWidth: In
 
     val peek  = Output(Vec(peekWidth, new HalfwordEntry(cfg)))
     val count = Output(UInt(countWidth.W))
-    val deq   = Input(UInt(deqCountWidth.W))
+    val deq   = Input(UInt(countWidth.W))
   })
 
   private def ptrAdd(ptr: UInt, inc: UInt): UInt =
@@ -95,9 +94,7 @@ class HalfwordBuffer(cfg: ICacheConfig, depth: Int, enqWidth: Int, peekWidth: In
   val enqCount  = Mux(enqFire, io.enqCount, 0.U(enqCountWidth.W))
 
   val enqCountWide = Wire(UInt(countWidth.W))
-  val deqCountWide = Wire(UInt(countWidth.W))
   enqCountWide := enqCount
-  deqCountWide := io.deq
 
   io.freeCount := freeCount
   io.enqReady  := freeCount >= io.enqCount
@@ -126,21 +123,22 @@ class HalfwordBuffer(cfg: ICacheConfig, depth: Int, enqWidth: Int, peekWidth: In
       writePtr := ptrAdd(writePtr, enqCount)
     }
 
-    count := (count +& enqCountWide - deqCountWide)(countWidth - 1, 0)
+    count := (count +& enqCountWide - io.deq)(countWidth - 1, 0)
   }
 }
 
 class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
-  private val peekWidth     = 4
-  private val countWidth    = log2Ceil(bufferDepth + 1)
-  private val deqCountWidth = log2Ceil(peekWidth + 1)
+  private val peekWidth  = 4
+  private val countWidth = log2Ceil(bufferDepth + 1)
+  private val needWidth  = log2Ceil(peekWidth + 1)
 
   val io = IO(new Bundle {
-    val flush = Input(Bool())
-    val peek  = Input(Vec(peekWidth, new HalfwordEntry(cfg)))
-    val count = Input(UInt(countWidth.W))
-    val out   = Decoupled(new FetchPacket)
-    val deq   = Output(UInt(deqCountWidth.W))
+    val flush        = Input(Bool())
+    val peek         = Input(Vec(peekWidth, new HalfwordEntry(cfg)))
+    val count        = Input(UInt(countWidth.W))
+    val out          = Decoupled(new FetchPacket)
+    val deq          = Output(UInt(countWidth.W))
+    val predRedirect = Output(new PcRedirect)
   })
 
   private def instLen(isRVC: Bool): UInt =
@@ -155,7 +153,7 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val h3 = io.peek(3)
 
   val firstIsRVC = h0.bits(1, 0) =/= 3.U
-  val firstNeed  = Mux(firstIsRVC, 1.U(deqCountWidth.W), 2.U(deqCountWidth.W))
+  val firstNeed  = Mux(firstIsRVC, 1.U(needWidth.W), 2.U(needWidth.W))
   val firstReady = io.count >= firstNeed
   val firstRaw   = Mux(firstIsRVC, Cat(0.U(16.W), h0.bits), Cat(h1.bits, h0.bits))
 
@@ -165,7 +163,7 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val secondPred = Wire(new FetchPred(cfg))
   secondPred := Mux(firstIsRVC, h1.pred, h2.pred)
   val secondIsRVC = secondLow(1, 0) =/= 3.U
-  val secondNeed  = Mux(secondIsRVC, 1.U(deqCountWidth.W), 2.U(deqCountWidth.W))
+  val secondNeed  = Mux(secondIsRVC, 1.U(needWidth.W), 2.U(needWidth.W))
   val totalNeed   = firstNeed + secondNeed
   val secondReady = firstReady && io.count >= totalNeed
   val secondRaw   = Mux(secondIsRVC, Cat(0.U(16.W), secondLow), Cat(secondHigh, secondLow))
@@ -209,11 +207,25 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.out.bits.insts(1).bits.predNpc    := Mux(secondPredTaken, secondPred.target, secondFallThrough)
   io.out.bits.insts(1).bits.predTarget := Mux(secondPredHit, secondPred.target, 0.U)
 
+  val packetPredTaken =
+    (io.out.bits.insts(0).valid && firstPredTaken) ||
+      (io.out.bits.insts(1).valid && secondPredTaken)
+  val normalDeq       = Wire(UInt(countWidth.W))
+  normalDeq := Mux(secondReady, totalNeed, firstNeed)
+
+  io.predRedirect.valid := io.out.fire && packetPredTaken
+  io.predRedirect.value := Mux(firstPredTaken, h0.pred.target, secondPred.target)
+
+  // A predicted-taken CFI changes the fetch stream at this packet boundary.
+  // Discard all currently buffered fall-through halfwords; target fetch starts
+  // only after the redirect is accepted by PCGen.
   io.deq := Mux(
     io.out.fire,
-    Mux(secondReady, totalNeed, firstNeed),
-    0.U(deqCountWidth.W)
+    Mux(packetPredTaken, io.count, normalDeq),
+    0.U(countWidth.W)
   )
+
+  assert(io.deq <= io.count)
 }
 
 class InstBuffer(bufferDepth: Int = 8) extends Module {
@@ -281,13 +293,14 @@ class IFetch(
   private val peekHalfwords  = 4
 
   val io = IO(new Bundle {
-    val redirect   = Input(new PcRedirect)
-    val pc         = Input(UInt(cacheCfg.addrWidth.W))
-    val pred       = Input(new FetchPred(cacheCfg))
-    val pcAdvance  = Output(Bool())
-    val icacheReq  = Decoupled(new ICacheReq(cacheCfg))
-    val icacheResp = Flipped(Decoupled(new ICacheResp(cacheCfg)))
-    val fetch      = Decoupled(new FetchPacket)
+    val redirect     = Input(new PcRedirect)
+    val pc           = Input(UInt(cacheCfg.addrWidth.W))
+    val pred         = Input(new FetchPred(cacheCfg))
+    val predRedirect = Output(new PcRedirect)
+    val pcAdvance    = Output(Bool())
+    val icacheReq    = Decoupled(new ICacheReq(cacheCfg))
+    val icacheResp   = Flipped(Decoupled(new ICacheResp(cacheCfg)))
+    val fetch        = Decoupled(new FetchPacket)
   })
 
   val splitter       = Module(new HalfwordSplitter(cacheCfg))
@@ -300,15 +313,21 @@ class IFetch(
 
   val req                 = ICacheReq.fromPc(io.pc, cacheCfg, io.pred)
   val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
-  val canReq              = !reqOutstanding && !dropResp && enoughSpaceForBlock && !io.redirect.valid
+  val localPredRedirect   = assembler.io.predRedirect
+  val frontendRedirect    = io.redirect.valid || localPredRedirect.valid
+  val canReq              = !reqOutstanding && !dropResp && enoughSpaceForBlock && !frontendRedirect
 
   io.icacheReq.valid := canReq
   io.icacheReq.bits  := req
   io.pcAdvance       := io.icacheReq.fire
+  io.predRedirect    := localPredRedirect
 
   splitter.io.resp := io.icacheResp.bits
 
-  val discardResp = dropResp || io.redirect.valid
+  // Backend redirects flush every queued frontend stage. A local prediction
+  // redirect keeps older packets in the instruction buffer, but discards any
+  // fall-through cache response that has not reached the halfword FIFO yet.
+  val discardResp = dropResp || frontendRedirect
   halfwordBuffer.io.flush    := io.redirect.valid
   halfwordBuffer.io.enqValid := io.icacheResp.fire && !discardResp
   halfwordBuffer.io.enqCount := splitter.io.count
@@ -325,7 +344,7 @@ class IFetch(
   instBuffer.io.in <> assembler.io.out
   io.fetch <> instBuffer.io.out
 
-  when(io.redirect.valid) {
+  when(frontendRedirect) {
     dropResp       := (dropResp || reqOutstanding) && !io.icacheResp.fire
     reqOutstanding := false.B
   }.otherwise {

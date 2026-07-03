@@ -17,6 +17,7 @@ public:
                            uint32_t inst1);
   static uint32_t pmem_read(uint32_t addr, uint32_t len);
   static void pmem_write(uint32_t addr, uint32_t len, uint32_t data);
+  static void cache_hit(uint8_t hit);
 
 private:
   NpcDpiCallbacks callbacks_{};

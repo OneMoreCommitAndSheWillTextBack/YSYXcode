@@ -12,10 +12,10 @@ use crate::{
     difftest::{DiffTest, DifftestError},
     ffi,
     memory::{Memory, MemoryError},
-    perf::Perf,
+    perf::{Perf, PerfCounters},
     sdb::SdbError,
     sim_log,
-    simulator::SimulatorState::Running,
+    simulator::{self, SimulatorState::Running},
     SimulatorResult, ACTIVE_SIMULATOR,
 };
 use chrono::Local;
@@ -113,6 +113,7 @@ impl Simulator {
             on_commit_group: Some(simulator_on_commit_group),
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
+            cache_hit: Some(simulator_cache_hit),
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
@@ -230,8 +231,6 @@ impl Simulator {
     }
 
     fn on_commit_group(&mut self, event: CommitGroupEvent) {
-        self.perf.on_commit_group(&event);
-
         let commit_count = event.valid_count();
 
         if commit_count == 0 {
@@ -250,7 +249,6 @@ impl Simulator {
         }
 
         if let Err(error) = self.do_difftest(commit_count) {
-            eprintln!("[Error] commit handling failed: {error:?}");
             report::print_difftest_report(&error);
             self.state = SimulatorState::Abort;
             return;
@@ -275,19 +273,15 @@ impl Simulator {
     }
 
     pub fn generat_report(&mut self) {
-        let cycles = self.statistics.cycle();
-        let commits = self.statistics.total_commits();
-        let ipc = if cycles == 0 {
-            0.0
-        } else {
-            commits as f64 / cycles as f64
-        };
+        // icache hit rate
+        crate::Log!("Icache hit rate: {}", self.perf.cacherate());
 
+        // ipc
         crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",
-            cycles,
-            commits,
-            ipc
+            self.statistics.cycle(),
+            self.statistics.total_commits(),
+            PerfCounters::calc_dpi(self.statistics.total_commits(), self.statistics.cycle())
         );
     }
 
@@ -413,4 +407,14 @@ extern "C" fn simulator_on_commit_group(event: *const ffi::NpcCommitGroupEvent) 
         event.pc,
         event.inst,
     ));
+}
+
+extern "C" fn simulator_cache_hit(hit: u8) {
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+    let simulator = unsafe { &mut *simulator };
+
+    simulator.perf.cachehit(hit != 0);
 }
