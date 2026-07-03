@@ -21,7 +21,6 @@ fn main() {
     let config = SimulatorConfig::from_env();
 
     if let Err(error) = run_simulator(config) {
-        eprintln!("[Error] {error:?}");
         std::process::exit(1);
     }
 }
@@ -32,10 +31,13 @@ fn run_simulator(config: SimulatorConfig) -> SimulatorResult<()> {
 
     simulator.reset()?;
 
-    if batch {
+    let res = if batch {
         simulator.execute(u64::MAX)
     } else {
         Sdb::new().run()?;
         Ok(())
-    }
+    };
+
+    simulator.generat_report();
+    return res;
 }
