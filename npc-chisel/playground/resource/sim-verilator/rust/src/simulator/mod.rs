@@ -1,7 +1,10 @@
 mod event;
 mod report;
+mod statistics;
 
 pub use event::CommitGroupEvent;
+
+use statistics::Statistics;
 
 use crate::{
     config::SimulatorConfig,
@@ -20,6 +23,7 @@ use std::{fs, io, path::PathBuf};
 
 const MBASE: u32 = 0x8000_0000;
 const PMEM_SIZE: usize = 128 * 1024 * 1024;
+const MAX_NO_COMMIT_CYCLES: u32 = 20000;
 // const DEFAULT_IMAGE: [u32; 13] = [
 //     0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513, 0x00008067, 0xff410113, 0x00000517,
 //     0x01450513, 0x00112423, 0xfe9ff0ef, 0x00050513, 0x00100073,
@@ -88,10 +92,7 @@ pub struct Simulator {
     perf: Perf,
     difftest: DiffTest,
     state: SimulatorState,
-
-    cycle_nocommit: u32,
-    cycle: u64,
-    total_commits: u64,
+    statistics: Statistics,
 }
 
 impl Simulator {
@@ -106,9 +107,7 @@ impl Simulator {
             perf: Perf::new(),
             difftest,
             state: Running,
-            cycle_nocommit: 0,
-            cycle: 0,
-            total_commits: 0,
+            statistics: Statistics::new(),
         });
         let callbacks = ffi::NpcDpiCallbacks {
             on_commit_group: Some(simulator_on_commit_group),
@@ -192,12 +191,15 @@ impl Simulator {
                 SimulatorState::Abort => return Err(SimulatorError::SimulateAbort),
             }
 
-            if self.cycle_nocommit > 20000 {
+            if self
+                .statistics
+                .exceeds_no_commit_limit(MAX_NO_COMMIT_CYCLES)
+            {
                 return Err(SimulatorError::ReachMaxNoCommitCyc);
             }
 
             self.execute_once()?;
-            self.cycle_nocommit += 1;
+            self.statistics.on_cycle();
         }
 
         Ok(())
@@ -236,7 +238,7 @@ impl Simulator {
             return;
         }
 
-        self.cycle_nocommit = 0;
+        self.statistics.on_commit_group(commit_count);
         for inst in event.valid_insts() {
             println!("commit inst 0x{inst:08x}");
         }
@@ -266,7 +268,22 @@ impl Simulator {
         }
     }
 
-    pub fn generat_report(&mut self) {}
+    pub fn generat_report(&mut self) {
+        let cycles = self.statistics.cycle();
+        let commits = self.statistics.total_commits();
+        let ipc = if cycles == 0 {
+            0.0
+        } else {
+            commits as f64 / cycles as f64
+        };
+
+        crate::Log!(
+            "cycles: {}, total commits: {}, ipc: {:.3}",
+            cycles,
+            commits,
+            ipc
+        );
+    }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
         let cpu = self.cpu.as_mut().ok_or(SimulatorError::CpuNotConnected)?;
