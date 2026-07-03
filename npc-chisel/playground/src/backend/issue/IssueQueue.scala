@@ -8,22 +8,22 @@ import top.config.BackendConfig
 
 class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val enq        = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
-    val wakeup     = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
+    val enq          = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
+    val wakeup       = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
     val commitWakeup = Input(Vec(cfg.commitWidth, new IssueWakeup(cfg)))
-    val intStatus  = Input(Vec(cfg.intIssueWidth, new IssuePortStatus))
-    val memStatus  = Input(new IssuePortStatus)
-    val robHead    = Input(UInt(cfg.robIdxWidth.W))
-    val storeQuery = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
-    val intIssue   = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
-    val memIssue   = Decoupled(new IssuePacket(cfg))
-    val flush      = Input(Bool())
+    val intStatus    = Input(Vec(cfg.intIssueWidth, new IssuePortStatus))
+    val memStatus    = Input(new IssuePortStatus)
+    val robHead      = Input(UInt(cfg.robIdxWidth.W))
+    val storeQuery   = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
+    val intIssue     = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
+    val memIssue     = Decoupled(new IssuePacket(cfg))
+    val flush        = Input(Bool())
   })
 
-  private val entries   = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
-  private val valid     = RegInit(VecInit(Seq.fill(cfg.issueQueueEntries)(false.B)))
-  private val intSelect = Seq.fill(cfg.intIssueWidth)(Module(new IssueSelect(cfg)))
-  private val memSelect = Module(new IssueSelect(cfg))
+  private val entries    = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
+  private val valid      = RegInit(VecInit(Seq.fill(cfg.issueQueueEntries)(false.B)))
+  private val intSelect  = Seq.fill(cfg.intIssueWidth)(Module(new IssueSelect(cfg)))
+  private val memSelect  = Module(new IssueSelect(cfg))
   private val allWakeups = io.wakeup ++ io.commitWakeup
 
   intSelect.foreach(_.io.robHead := io.robHead)
@@ -73,7 +73,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     )
   }
   io.memIssue.valid := memSelect.io.grantOH.asUInt.orR
-  io.memIssue.bits := Mux1H(
+  io.memIssue.bits  := Mux1H(
     memSelect.io.grantOH,
     entries
   )

@@ -195,6 +195,10 @@ impl Simulator {
                 .statistics
                 .exceeds_no_commit_limit(MAX_NO_COMMIT_CYCLES)
             {
+                eprintln!(
+                    "{}HIT BAD TRAP, REACH MAX NO COMMIT CYCLES{}",
+                    ANSI_FG_RED, ANSI_RESET
+                );
                 return Err(SimulatorError::ReachMaxNoCommitCyc);
             }
 
