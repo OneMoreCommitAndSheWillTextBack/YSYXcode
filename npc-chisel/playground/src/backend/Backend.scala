@@ -220,6 +220,7 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   val storeRespOutstanding = dmemState === dmemStoreResp
 
   val lsuReqSelected    = dmemCanAcceptReq && !flush && lsu.io.dmemReq.valid
+  // Keep retire store arbitration independent from flush; flush is produced by retire.
   val retireReqSelected = dmemCanAcceptReq && !lsu.io.dmemReq.valid && retire.io.dmemReq.valid
 
   io.dmemReq.valid := lsuReqSelected || retireReqSelected
