@@ -215,31 +215,38 @@ class Backend(cfg: BackendConfig = BackendConfig()) extends Module {
   private val dmemState                                        = RegInit(dmemIdle)
   private val dropLoadResp                                     = RegInit(false.B)
 
-  val lsuReqSelected    = dmemState === dmemIdle && lsu.io.dmemReq.valid
-  val retireReqSelected = dmemState === dmemIdle && !lsu.io.dmemReq.valid && retire.io.dmemReq.valid
+  val dmemCanAcceptReq     = dmemState === dmemIdle
+  val loadRespOutstanding  = dmemState === dmemLoadResp
+  val storeRespOutstanding = dmemState === dmemStoreResp
+
+  val lsuReqSelected    = dmemCanAcceptReq && !flush && lsu.io.dmemReq.valid
+  val retireReqSelected = dmemCanAcceptReq && !lsuReqSelected && retire.io.dmemReq.valid
 
   io.dmemReq.valid := lsuReqSelected || retireReqSelected
   io.dmemReq.bits  := Mux(lsuReqSelected, lsu.io.dmemReq.bits, retire.io.dmemReq.bits)
 
-  lsu.io.dmemReq.ready    := dmemState === dmemIdle && io.dmemReq.ready
-  retire.io.dmemReq.ready := dmemState === dmemIdle && !lsu.io.dmemReq.valid && io.dmemReq.ready
+  lsu.io.dmemReq.ready    := lsuReqSelected && io.dmemReq.ready
+  retire.io.dmemReq.ready := retireReqSelected && io.dmemReq.ready
 
-  lsu.io.dmemResp.valid := dmemState === dmemLoadResp && io.dmemResp.valid && !dropLoadResp
+  val loadRespMustDrop = dropLoadResp || (flush && loadRespOutstanding)
+
+  lsu.io.dmemResp.valid := loadRespOutstanding && io.dmemResp.valid && !loadRespMustDrop
   lsu.io.dmemResp.bits  := io.dmemResp.bits
   io.dmemResp.ready     := Mux(
-    dmemState === dmemLoadResp,
-    Mux(dropLoadResp, true.B, lsu.io.dmemResp.ready),
-    dmemState === dmemStoreResp
+    loadRespOutstanding,
+    Mux(loadRespMustDrop, true.B, lsu.io.dmemResp.ready),
+    storeRespOutstanding
   )
-
-  when(flush && dmemState === dmemLoadResp) {
-    dropLoadResp := true.B
-  }
 
   when(io.dmemReq.fire) {
     dmemState := Mux(io.dmemReq.bits.write, dmemStoreResp, dmemLoadResp)
-  }.elsewhen(dmemState =/= dmemIdle && io.dmemResp.fire) {
-    dmemState    := dmemIdle
+  }.elsewhen((loadRespOutstanding || storeRespOutstanding) && io.dmemResp.fire) {
+    dmemState := dmemIdle
+  }
+
+  when(io.dmemResp.fire) {
     dropLoadResp := false.B
+  }.elsewhen(flush && loadRespOutstanding) {
+    dropLoadResp := true.B
   }
 }
