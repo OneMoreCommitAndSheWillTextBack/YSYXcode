@@ -17,6 +17,15 @@ object NpcCommitGroup extends DPIClockedVoidFunctionImport {
   )
 }
 
+object NpcCacheHit extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_cache_hit"
+  override def inputNames:   Option[Seq[String]] = Some(
+    Seq(
+      "hit"
+    )
+  )
+}
+
 class NpcContextDpi extends ExtModule {
   val contextValid = IO(Input(Bool()))
   val pc           = IO(Input(UInt(32.W)))

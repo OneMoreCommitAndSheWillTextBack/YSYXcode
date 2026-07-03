@@ -3,7 +3,7 @@ package top.sim
 import chisel3._
 import top.backend.bundle.RetireGroup
 import top.config.BackendConfig
-import top.dpi.NpcCommitGroup
+import top.dpi.{NpcCacheHit, NpcCommitGroup}
 
 class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
   require(cfg.commitWidth == 2, "NpcCommitGroup DPI currently exposes exactly two retire lanes")
@@ -23,5 +23,17 @@ class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
     io.retire.lanes(0).fetch.inst,
     io.retire.lanes(1).fetch.pc,
     io.retire.lanes(1).fetch.inst
+  )
+}
+
+class CacheHitBridge extends Module {
+  val io = IO(new Bundle {
+    val cacheFire = Input(Bool())
+    val cacheHit  = Input(Bool())
+  })
+
+  NpcCacheHit.callWithEnable(
+    io.cacheFire,
+    io.cacheHit
   )
 }

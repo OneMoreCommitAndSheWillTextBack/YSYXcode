@@ -25,3 +25,7 @@ extern "C" void npc_pmem_write(int addr, int len, int data) {
                             static_cast<uint32_t>(len),
                             static_cast<uint32_t>(data));
 }
+
+extern "C" void npc_cache_hit(char hit) {
+  NpcHostBridge::cache_hit(static_cast<uint8_t>(hit));
+}

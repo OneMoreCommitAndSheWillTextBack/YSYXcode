@@ -16,6 +16,7 @@ typedef struct NpcDpiCallbacks {
   void (*on_commit_group)(const NpcCommitGroupEvent *event);
   uint32_t (*pmem_read)(uint32_t addr, uint32_t len);
   void (*pmem_write)(uint32_t addr, uint32_t len, uint32_t data);
+  void (*cache_hit)(uint8_t hit);
 } NpcDpiCallbacks;
 
 typedef struct NpcGprContext {

@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import top.config.ICacheConfig
 import top.frontend.bundle.{ICacheRefillReq, ICacheRefillResp, ICacheReq, ICacheResp}
+import top.sim.CacheHitBridge
 
 class ICacheIO(cfg: ICacheConfig) extends Bundle {
   val req        = Flipped(Decoupled(new ICacheReq(cfg)))
@@ -60,6 +61,11 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   io.refillReq.valid     := state === ICacheState.SRefillReq
   io.refillReq.bits.addr := missReq.meta.blockAddr
   io.refillResp.ready    := state === ICacheState.SRefillResp
+
+  // dpi bridge
+  val dpiCache = Module(new CacheHitBridge)
+  dpiCache.io.cacheFire := !reset.asBool && io.req.fire
+  dpiCache.io.cacheHit  := hit
 
   when(state === ICacheState.SIdle) {
     when(io.req.fire) {

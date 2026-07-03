@@ -19,6 +19,7 @@ pub struct NpcDpiCallbacks {
     pub on_commit_group: Option<extern "C" fn(*const NpcCommitGroupEvent)>,
     pub pmem_read: Option<extern "C" fn(u32, u32) -> u32>,
     pub pmem_write: Option<extern "C" fn(addr: u32, len: u32, data: u32)>,
+    pub cache_hit: Option<extern "C" fn(hit: u8)>,
 }
 
 #[allow(dead_code)]
