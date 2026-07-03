@@ -15,6 +15,7 @@ use crate::{
     simulator::SimulatorState::Running,
     SimulatorResult, ACTIVE_SIMULATOR,
 };
+use chrono::Local;
 use std::{fs, io, path::PathBuf};
 
 const MBASE: u32 = 0x8000_0000;
@@ -87,7 +88,10 @@ pub struct Simulator {
     perf: Perf,
     difftest: DiffTest,
     state: SimulatorState,
+
     cycle_nocommit: u32,
+    cycle: u64,
+    total_commits: u64,
 }
 
 impl Simulator {
@@ -103,6 +107,8 @@ impl Simulator {
             difftest,
             state: Running,
             cycle_nocommit: 0,
+            cycle: 0,
+            total_commits: 0,
         });
         let callbacks = ffi::NpcDpiCallbacks {
             on_commit_group: Some(simulator_on_commit_group),
@@ -111,6 +117,7 @@ impl Simulator {
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
+        crate::Log!("Init Cpu Successful");
 
         simulator.memory.register_ram("pmem", MBASE, PMEM_SIZE)?;
         simulator.load_image()?;
@@ -135,6 +142,8 @@ impl Simulator {
         }
 
         sim_log::show_trace(&self.config);
+        let now = Local::now();
+        crate::Log!("run simulator at {}", now.format("%a %b %e %T %Y"));
     }
 
     pub fn reset(&mut self) -> SimulatorResult<()> {
@@ -294,7 +303,10 @@ impl Simulator {
 
         self.memory.write(MBASE, &image)?;
         self.difftest.sync_memory(MBASE, &image)?;
-        eprintln!("\x1b[0m\x1b[1;32mfinish load memory\x1b[0m");
+        crate::Log!(
+            "Image Load finished, Image Path is {}",
+            self.config.image.as_ref().unwrap().display()
+        );
         Ok(image.len())
     }
 
