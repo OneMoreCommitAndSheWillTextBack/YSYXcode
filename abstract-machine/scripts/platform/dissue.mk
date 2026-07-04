@@ -19,6 +19,7 @@ CFLAGS += -I$(AM_HOME)/am/src/riscv/dissue/include
 ARGS = --image $(IMAGE).bin
 ARGS += --batch
 ARGS += --wave-path $(DISSUE_HOME)
+ARGS += --difftest-ref nemu
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
