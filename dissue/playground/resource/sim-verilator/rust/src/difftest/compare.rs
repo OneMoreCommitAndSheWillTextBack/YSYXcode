@@ -1,4 +1,4 @@
-use super::{DifftestError, DifftestResult};
+use super::{DifftestError, DifftestResult, CSR_DIFF_SPECS};
 use crate::cpu::{CpuContext, PrivMode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,13 +50,11 @@ fn compare_contexts_raw(dut: &CpuContext, reference: &CpuContext) -> Result<(), 
         }
     }
 
-    compare_csr("mstatus", dut.csr.mstatus, reference.csr.mstatus)?;
-    compare_csr("mtvec", dut.csr.mtvec, reference.csr.mtvec)?;
-    compare_csr("mepc", dut.csr.mepc, reference.csr.mepc)?;
-    compare_csr("mcause", dut.csr.mcause, reference.csr.mcause)?;
-    compare_csr("mtval", dut.csr.mtval, reference.csr.mtval)?;
-    // compare_csr("mie", dut.csr.mie, reference.csr.mie)?;
-    // compare_csr("mscratch", dut.csr.mscratch, reference.csr.mscratch)?;
+    for spec in CSR_DIFF_SPECS {
+        if spec.diff_enabled() {
+            compare_csr(spec.name(), spec.read(&dut.csr), spec.read(&reference.csr))?;
+        }
+    }
 
     if dut.priv_mode != reference.priv_mode {
         return Err(DifftestMismatch::Priv {

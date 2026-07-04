@@ -1,7 +1,7 @@
 use super::SimulatorError;
 use crate::{
     cpu::CpuContext,
-    difftest::{DifftestError, DifftestMismatch},
+    difftest::{DifftestError, DifftestMismatch, CSR_DIFF_SPECS},
 };
 
 const REG_NAMES: [&str; 32] = [
@@ -15,6 +15,7 @@ const C_HDR: &str = "\x1b[36m";
 const C_NAME: &str = "\x1b[33m";
 const C_VAL: &str = "\x1b[32m";
 const C_DIFF: &str = "\x1b[31m";
+const C_SKIP: &str = "\x1b[90m";
 
 pub(super) fn print_difftest_report(error: &SimulatorError) {
     let SimulatorError::Difftest(DifftestError::Mismatch {
@@ -31,6 +32,7 @@ pub(super) fn print_difftest_report(error: &SimulatorError) {
     print_mismatch_summary(mismatch);
     print_pc_summary(dut, reference);
     print_gpr_table(dut, reference);
+    print_csr_table(dut, reference);
 }
 
 fn print_mismatch_summary(mismatch: &DifftestMismatch) {
@@ -94,6 +96,36 @@ fn print_gpr_table(dut: &CpuContext, reference: &CpuContext) {
         eprintln!(
             "  {C_NAME}{:<8}{C_RESET} {color}0x{:08x}{C_RESET}   {color}0x{:08x}{C_RESET}   {color}{:<8}{C_RESET}",
             name, dut_value, ref_value, diff
+        );
+    }
+}
+
+fn print_csr_table(dut: &CpuContext, reference: &CpuContext) {
+    eprintln!(
+        "{C_HDR}  {:<10} {:<12} {:<12} {:<8} {:<5}{C_RESET}",
+        "csr", "DUT", "REF", "diff", "check"
+    );
+    eprintln!(
+        "  {C_HDR}{:<10} {:<12} {:<12} {:<8} {:<5}{C_RESET}",
+        "==========", "============", "============", "========", "====="
+    );
+
+    for spec in CSR_DIFF_SPECS {
+        let dut_value = spec.read(&dut.csr);
+        let ref_value = spec.read(&reference.csr);
+        let value_color = color_for(dut_value, ref_value);
+        let check_enabled = spec.diff_enabled();
+        let check_color = if check_enabled { C_VAL } else { C_SKIP };
+        let check = if check_enabled { "diff" } else { "skip" };
+        let diff = signed_delta(dut_value, ref_value);
+
+        eprintln!(
+            "  {C_NAME}{:<10}{C_RESET} {value_color}0x{:08x}{C_RESET}   {value_color}0x{:08x}{C_RESET}   {value_color}{:<8}{C_RESET} {check_color}{:<5}{C_RESET}",
+            spec.name(),
+            dut_value,
+            ref_value,
+            diff,
+            check
         );
     }
 }
