@@ -15,8 +15,11 @@ static void __am_uart_rx(AM_UART_RX_T *cfg) {
   return;
 }
 
+static void __am_uart_config(AM_UART_CONFIG_T *cfg) { cfg->present = false; }
+
 typedef void (*handler_t)(void *buf);
 static void *lut[128] = {
+    [AM_UART_CONFIG] = __am_uart_config,
     [AM_UART_TX] = __am_uart_tx,
     [AM_UART_RX] = __am_uart_rx,
 };
