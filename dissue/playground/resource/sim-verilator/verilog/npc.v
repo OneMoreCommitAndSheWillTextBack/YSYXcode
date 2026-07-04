@@ -477,7 +477,7 @@ module axi_memory (
   end
 
   reg [31:0] data_i;
-  reg [3:0] wstrb_i;
+  reg [ 3:0] wstrb_i;
 
   always @(posedge clk) begin
     if (rst) begin
