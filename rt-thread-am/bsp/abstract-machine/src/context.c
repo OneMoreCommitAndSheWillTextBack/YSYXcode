@@ -7,7 +7,7 @@
 static rt_ubase_t global_to, global_from;
 
 static Context* ev_handler(Event e, Context *c) {
-  printf("get event ID = %d\n", e.event);
+  // printf("get event ID = %d\n", e.event);
   switch (e.event) {
     case EVENT_YIELD:
     case EVENT_SYSCALL:
