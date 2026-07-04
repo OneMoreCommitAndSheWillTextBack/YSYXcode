@@ -5,6 +5,7 @@ import chisel3.util.{Decoupled, Mux1H, MuxLookup, PopCount}
 import top.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, StoreTrackerQuery}
 import top.backend.decoder.FuType
 import top.config.BackendConfig
+import top.dpi.NpcIssueQueuePerf
 
 class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
@@ -73,7 +74,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     )
   }
   io.memIssue.valid := memSelect.io.grantOH.asUInt.orR
-  io.memIssue.bits  := Mux1H(
+  io.memIssue.bits := Mux1H(
     memSelect.io.grantOH,
     entries
   )
@@ -86,6 +87,28 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
         (io.memIssue.fire && memSelect.io.grantOH(i))
     free(i)      := !valid(i) || issueFire(i)
   }
+
+  private val issueCountThisCycle = PopCount(io.intIssue.map(_.fire) :+ io.memIssue.fire)
+  private val occupancy           = PopCount(valid)
+  private val hasReadyEntry       = VecInit(
+    (0 until cfg.issueQueueEntries).map(i =>
+      valid(i) && entries(i).legal && entries(i).src1.ready && entries(i).src2.ready
+    )
+  ).asUInt.orR
+  private val hasOperandBlocked   = VecInit(
+    (0 until cfg.issueQueueEntries).map(i =>
+      valid(i) && entries(i).legal && (!entries(i).src1.ready || !entries(i).src2.ready)
+    )
+  ).asUInt.orR
+  private val noIssue             = issueCountThisCycle === 0.U
+
+  NpcIssueQueuePerf.callWithEnable(
+    !reset.asBool && !io.flush,
+    issueCountThisCycle.pad(32),
+    occupancy.pad(32),
+    noIssue && hasReadyEntry,
+    noIssue && !hasReadyEntry && hasOperandBlocked
+  )
 
   private val freeCount = PopCount(free)
   for (enqIdx <- 0 until cfg.dispatchWidth) {
