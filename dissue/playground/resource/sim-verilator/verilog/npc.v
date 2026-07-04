@@ -476,6 +476,38 @@ module axi_memory (
     end
   end
 
+  reg [31:0] data_i;
+  reg [3:0] wstrb_i;
+
+  always @(posedge clk) begin
+    if (rst) begin
+      data_i  <= 32'b0;
+      wstrb_i <= 4'b0;
+    end else if (is_write) begin
+      data_i  <= io_wdata;
+      wstrb_i <= io_wstrb;
+    end
+  end
+
+  wire [ 3:0] mmio_read_lane_hit;
+  wire [31:0] mmio_read_data;
+  wire [ 3:0] mmio_write_lane_hit;
+
+  sim_mmio u_mmio (
+      .clk           (clk),
+      .rst           (rst),
+      .read_valid    ((state_current == READ) && io_rready),
+      .read_addr     (addr_aligned),
+      .read_strb     (4'b1111),
+      .read_lane_hit (mmio_read_lane_hit),
+      .read_data     (mmio_read_data),
+      .write_valid   (state_current == WRITE),
+      .write_addr    (addr_aligned),
+      .write_data    (data_i),
+      .write_strb    (wstrb_i),
+      .write_lane_hit(mmio_write_lane_hit)
+  );
+
   reg read_done;
   reg read_valid;
   reg [31:0] data_output;
@@ -486,7 +518,11 @@ module axi_memory (
     if (state_current == READ) begin
       if (io_rready) begin
         // 握手的时候更新
-        npc_pmem_read(addr_aligned, 32'd4, data_output);
+        if (|mmio_read_lane_hit) begin
+          data_output <= mmio_read_data;
+        end else begin
+          npc_pmem_read(addr_aligned, 32'd4, data_output);
+        end
         if (read_burst_counter == trans_time - 1'b1) begin
           read_done  <= 1'b1;
           read_valid <= 1'b1;
@@ -516,31 +552,20 @@ module axi_memory (
   );
   reg write_done;
 
-  reg [31:0] data_i;
-  reg [3:0] wstrb_i;
-
-  always @(posedge clk) begin
-    if (rst) begin
-      data_i  <= 32'b0;
-      wstrb_i <= 4'b0;
-    end else if (is_write) begin
-      data_i  <= io_wdata;
-      wstrb_i <= io_wstrb;
-    end
-  end
-
   always @(negedge clk) begin
-    if (state_current == WRITE) begin
-      if (wstrb_i[0]) begin
+    if (rst) begin
+      write_done <= 1'b0;
+    end else if (state_current == WRITE) begin
+      if (wstrb_i[0] && !mmio_write_lane_hit[0]) begin
         npc_pmem_write(addr_aligned, 32'd1, {24'b0, data_i[7:0]});
       end
-      if (wstrb_i[1]) begin
+      if (wstrb_i[1] && !mmio_write_lane_hit[1]) begin
         npc_pmem_write(addr_aligned + 32'd1, 32'd1, {24'b0, data_i[15:8]});
       end
-      if (wstrb_i[2]) begin
+      if (wstrb_i[2] && !mmio_write_lane_hit[2]) begin
         npc_pmem_write(addr_aligned + 32'd2, 32'd1, {24'b0, data_i[23:16]});
       end
-      if (wstrb_i[3]) begin
+      if (wstrb_i[3] && !mmio_write_lane_hit[3]) begin
         npc_pmem_write(addr_aligned + 32'd3, 32'd1, {24'b0, data_i[31:24]});
       end
       write_done <= 1'b1;

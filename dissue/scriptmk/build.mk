@@ -7,7 +7,7 @@ SIM_VERILOG_DIR ?= $(SIM_RESOURCE_DIR)/verilog
 SIM_CPP_DIR ?= $(SIM_RESOURCE_DIR)/cpp
 SIM_RUST_DIR ?= $(SIM_RESOURCE_DIR)/rust
 
-EXTRA_V ?= $(SIM_VERILOG_DIR)/npc.v
+EXTRA_V ?= $(sort $(wildcard $(SIM_VERILOG_DIR)/*.v))
 RTL_V ?= $(BUILD_DIR)/ysyx_24100007.sv
 RTL_FILELIST ?= $(BUILD_DIR)/filelist.f
 
