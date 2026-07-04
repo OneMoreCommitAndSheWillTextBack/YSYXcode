@@ -26,6 +26,18 @@ object NpcCacheHit extends DPIClockedVoidFunctionImport {
   )
 }
 
+object NpcIssueQueuePerf extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_issue_queue_perf"
+  override def inputNames:   Option[Seq[String]] = Some(
+    Seq(
+      "issueCount",
+      "occupancy",
+      "blockReady",
+      "blockOperand"
+    )
+  )
+}
+
 class NpcContextDpi extends ExtModule {
   val contextValid = IO(Input(Bool()))
   val pc           = IO(Input(UInt(32.W)))

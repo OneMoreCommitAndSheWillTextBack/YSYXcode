@@ -66,3 +66,15 @@ void NpcHostBridge::cache_hit(uint8_t hit) {
   }
   bridge->callbacks_.cache_hit(hit);
 }
+
+void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
+                                     uint8_t block_ready,
+                                     uint8_t block_operand) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.issue_queue_perf == nullptr) {
+    return;
+  }
+  bridge->callbacks_.issue_queue_perf(issue_count, occupancy, block_ready,
+                                      block_operand);
+}

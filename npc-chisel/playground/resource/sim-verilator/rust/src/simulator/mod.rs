@@ -114,6 +114,7 @@ impl Simulator {
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
             cache_hit: Some(simulator_cache_hit),
+            issue_queue_perf: Some(simulator_issue_queue_perf),
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
@@ -283,6 +284,20 @@ impl Simulator {
             self.statistics.total_commits(),
             PerfCounters::calc_dpi(self.statistics.total_commits(), self.statistics.cycle())
         );
+
+        crate::Log!(
+            "IssueQueue: samples: {}, issue count: {}, issue/cycle: {:.3}, dual issue cycles: {}",
+            self.perf.issue_queue_sample_cycles(),
+            self.perf.issue_queue_issue_count(),
+            self.perf.issue_queue_issue_rate(),
+            self.perf.issue_queue_dual_issue_cycles()
+        );
+        crate::Log!(
+            "IssueQueue: block ready cycles: {}, block operand cycles: {}, avg occupancy: {:.3}",
+            self.perf.issue_queue_block_ready_cycles(),
+            self.perf.issue_queue_block_operand_cycles(),
+            self.perf.issue_queue_average_occupancy()
+        );
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
@@ -417,4 +432,21 @@ extern "C" fn simulator_cache_hit(hit: u8) {
     let simulator = unsafe { &mut *simulator };
 
     simulator.perf.cachehit(hit != 0);
+}
+
+extern "C" fn simulator_issue_queue_perf(
+    issue_count: u8,
+    occupancy: u8,
+    block_ready: u8,
+    block_operand: u8,
+) {
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+    let simulator = unsafe { &mut *simulator };
+
+    simulator
+        .perf
+        .issue_queue_perf(issue_count, occupancy, block_ready != 0, block_operand != 0);
 }
