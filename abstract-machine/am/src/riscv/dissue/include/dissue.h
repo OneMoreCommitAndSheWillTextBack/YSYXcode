@@ -9,7 +9,7 @@
 
 #define MMIO_BASE 0xa0000000
 
-#define SERIAL_PORT (DEVICE_BASE + 0x00003f8)
+#define SERIAL_PORT (MMIO_BASE + 0x00003f8)
 
 extern char _pmem_start;
 #define PMEM_SIZE (128 * 1024 * 1024)
