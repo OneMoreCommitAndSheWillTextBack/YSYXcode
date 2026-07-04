@@ -1,8 +1,10 @@
 mod abi;
 mod backend;
 mod compare;
+mod csr;
 
 pub use compare::DifftestMismatch;
+pub(crate) use csr::CSR_DIFF_SPECS;
 
 use crate::{config::DifftestRef, cpu::CpuContext};
 use backend::RefBackend;

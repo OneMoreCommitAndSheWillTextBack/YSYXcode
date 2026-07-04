@@ -10,7 +10,7 @@ verilog:
 test:
 	mill -i $(PRJ).test
 
-tb testbench:
+tb testbench: verilator-exec
 	$(MAKE) -C test run
 
 tb-list testbench-list:

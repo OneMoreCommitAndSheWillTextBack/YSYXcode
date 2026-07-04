@@ -244,9 +244,9 @@ impl Simulator {
 
         self.statistics.on_commit_group(commit_count);
         for commit in event.valid_inst_pc() {
-            let pc = commit.0;
-            let inst = commit.1;
-            println!("commit inst 0x{inst:08x} at pc 0x{pc:08x}");
+            // let pc = commit.0;
+            // let inst = commit.1;
+            // println!("commit inst 0x{inst:08x} at pc 0x{pc:08x}");
         }
 
         if let Err(error) = self.do_difftest(commit_count) {
