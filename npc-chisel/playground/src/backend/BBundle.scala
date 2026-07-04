@@ -48,6 +48,14 @@ class IssueWakeup(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val data   = UInt(cfg.dataWidth.W)
 }
 
+class IssueQueuePerf extends Bundle {
+  val issueCount         = UInt(64.W)
+  val dualIssueCycles    = UInt(64.W)
+  val blockOperandCycles = UInt(64.W)
+  val blockReadyCycles   = UInt(64.W)
+  val occupancySum       = UInt(64.W)
+}
+
 class StoreTrackerQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid         = Input(Bool())
   val robIdx        = Input(UInt(cfg.robIdxWidth.W))

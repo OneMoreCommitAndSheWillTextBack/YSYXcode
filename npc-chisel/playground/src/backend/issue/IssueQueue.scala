@@ -2,7 +2,7 @@ package top.backend.issue
 
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, MuxLookup, PopCount}
-import top.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, StoreTrackerQuery}
+import top.backend.bundle.{IssuePacket, IssuePortStatus, IssueQueuePerf, IssueWakeup, StoreTrackerQuery}
 import top.backend.decoder.FuType
 import top.config.BackendConfig
 
@@ -17,6 +17,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val storeQuery   = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
     val intIssue     = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
     val memIssue     = Decoupled(new IssuePacket(cfg))
+    val perf         = Output(new IssueQueuePerf)
     val flush        = Input(Bool())
   })
 
@@ -73,10 +74,28 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     )
   }
   io.memIssue.valid := memSelect.io.grantOH.asUInt.orR
-  io.memIssue.bits  := Mux1H(
+  io.memIssue.bits := Mux1H(
     memSelect.io.grantOH,
     entries
   )
+
+  private val issueCount         = RegInit(0.U(64.W))
+  private val dualIssueCycles    = RegInit(0.U(64.W))
+  private val blockOperandCycles = RegInit(0.U(64.W))
+  private val blockReadyCycles   = RegInit(0.U(64.W))
+  private val occupancySum       = RegInit(0.U(64.W))
+
+  dontTouch(issueCount)
+  dontTouch(dualIssueCycles)
+  dontTouch(blockOperandCycles)
+  dontTouch(blockReadyCycles)
+  dontTouch(occupancySum)
+
+  io.perf.issueCount         := issueCount
+  io.perf.dualIssueCycles    := dualIssueCycles
+  io.perf.blockOperandCycles := blockOperandCycles
+  io.perf.blockReadyCycles   := blockReadyCycles
+  io.perf.occupancySum       := occupancySum
 
   private val issueFire = Wire(Vec(cfg.issueQueueEntries, Bool()))
   private val free      = Wire(Vec(cfg.issueQueueEntries, Bool()))
@@ -85,6 +104,35 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       (0 until cfg.intIssueWidth).map(port => io.intIssue(port).fire && intSelect(port).io.grantOH(i)).reduce(_ || _) ||
         (io.memIssue.fire && memSelect.io.grantOH(i))
     free(i)      := !valid(i) || issueFire(i)
+  }
+
+  private val issueCountThisCycle = PopCount(io.intIssue.map(_.fire) :+ io.memIssue.fire)
+  private val occupancy           = PopCount(valid)
+  private val hasReadyEntry       = VecInit(
+    (0 until cfg.issueQueueEntries).map(i =>
+      valid(i) && entries(i).legal && entries(i).src1.ready && entries(i).src2.ready
+    )
+  ).asUInt.orR
+  private val hasOperandBlocked   = VecInit(
+    (0 until cfg.issueQueueEntries).map(i =>
+      valid(i) && entries(i).legal && (!entries(i).src1.ready || !entries(i).src2.ready)
+    )
+  ).asUInt.orR
+  private val noIssue             = issueCountThisCycle === 0.U
+
+  when(!io.flush) {
+    issueCount   := issueCount + issueCountThisCycle
+    occupancySum := occupancySum + occupancy
+
+    when(issueCountThisCycle >= 2.U) {
+      dualIssueCycles := dualIssueCycles + 1.U
+    }
+
+    when(noIssue && hasReadyEntry) {
+      blockReadyCycles := blockReadyCycles + 1.U
+    }.elsewhen(noIssue && hasOperandBlocked) {
+      blockOperandCycles := blockOperandCycles + 1.U
+    }
   }
 
   private val freeCount = PopCount(free)

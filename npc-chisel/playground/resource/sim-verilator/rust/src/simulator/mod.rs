@@ -15,7 +15,7 @@ use crate::{
     perf::{Perf, PerfCounters},
     sdb::SdbError,
     sim_log,
-    simulator::{self, SimulatorState::Running},
+    simulator::SimulatorState::Running,
     SimulatorResult, ACTIVE_SIMULATOR,
 };
 use chrono::Local;

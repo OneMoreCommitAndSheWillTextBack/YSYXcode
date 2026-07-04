@@ -3,8 +3,6 @@ pub(super) struct Statistics {
     cycle_nocommit: u32,
     cycle: u64,
     total_commits: u64,
-    cache_req_time: u64,
-    cache_hit_time: u64,
 }
 
 impl Statistics {
@@ -36,10 +34,5 @@ impl Statistics {
 
     pub fn total_commits(&self) -> u64 {
         self.total_commits
-    }
-
-    pub fn cache_hit(&mut self, hit: bool) {
-        self.cache_req_time += 1;
-        self.cache_hit_time += if hit { 1 } else { 0 };
     }
 }

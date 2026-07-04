@@ -64,7 +64,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
 
   // dpi bridge
   val dpiCache = Module(new CacheHitBridge)
-  dpiCache.io.cacheFire := io.req.fire
+  dpiCache.io.cacheFire := !reset.asBool && io.req.fire
   dpiCache.io.cacheHit  := hit
 
   when(state === ICacheState.SIdle) {
