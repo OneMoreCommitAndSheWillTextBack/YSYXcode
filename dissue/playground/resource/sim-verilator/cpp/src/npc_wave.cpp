@@ -32,6 +32,7 @@ void NpcWave::disable() { enable_ = false; }
 void NpcWave::close() {
   if (trace_ != nullptr) {
     trace_->close();
+    trace_.reset();
   }
 }
 
