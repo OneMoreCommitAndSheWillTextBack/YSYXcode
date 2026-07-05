@@ -17,12 +17,13 @@ class CsrFile(
   private val mtval       = RegInit(resetValues.mtval)
   private val priv    = RegInit(PrivMode.M)
 
-  private val current = CsrArchValues(mstatus, mtvec, mepc, mcause, mtval)
-  private val next    = CsrArch.nextValues(current, io.commit, io.trap, priv, cfg)
+  private val current   = CsrArchValues(mstatus, mtvec, mepc, mcause, mtval)
+  private val committed = CsrArch.commitValues(current, io.commit, cfg)
+  private val next      = CsrArch.nextValues(current, io.commit, io.trap, io.mret, priv, cfg)
 
   io.read.data := CsrArch.readValue(io.read.addr, next, cfg)
 
-  when(io.commit.map(_.valid).reduce(_ || _) || io.trap.valid) {
+  when(io.commit.map(_.valid).reduce(_ || _) || io.trap.valid || io.mret.valid) {
     mstatus := next.mstatus
     mtvec   := next.mtvec
     mepc    := next.mepc
@@ -32,8 +33,11 @@ class CsrFile(
 
   when(io.trap.valid) {
     priv := PrivMode.M
+  }.elsewhen(io.mret.valid) {
+    priv := CsrArch.mretPriv(committed.mstatus)
   }
 
   io.status.priv.mode  := priv
   io.status.trapVector := CsrArch.trapBase(next.mtvec, cfg)
+  io.status.mretTarget := committed.mepc
 }

@@ -60,6 +60,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.memUnsigned := decoded(DecodeIndex.memUnsigned).asBool
   io.out.isEbreak    := decoded(DecodeIndex.isEbreak).asBool
   io.out.isEcall     := decoded(DecodeIndex.isEcall).asBool
+  io.out.isMret      := decoded(DecodeIndex.isMret).asBool
   io.out.isCsr       := isCsr
   io.out.csrAddr     := inst(31, 20)
   io.out.csrWen      := isCsr && (

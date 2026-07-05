@@ -26,7 +26,32 @@ object CsrArch {
     current: CsrArchValues,
     commit:  Seq[Valid[CsrCommit]],
     trap:    CsrTrapCommit,
+    mret:    CsrMretCommit,
     priv:    UInt,
+    cfg:     BackendConfig = BackendConfig()
+  ): CsrArchValues = {
+    val next = commitValues(current, commit, cfg)
+
+    val afterMret = CsrArchValues(
+      mstatus = Mux(mret.valid, mretMstatus(next.mstatus, cfg), next.mstatus),
+      mtvec = next.mtvec,
+      mepc = next.mepc,
+      mcause = next.mcause,
+      mtval = next.mtval
+    )
+
+    CsrArchValues(
+      mstatus = Mux(trap.valid, trapMstatus(next.mstatus, priv, cfg), afterMret.mstatus),
+      mtvec = next.mtvec,
+      mepc = Mux(trap.valid, canonicalMepc(trap.epc, cfg), afterMret.mepc),
+      mcause = Mux(trap.valid, trap.cause, afterMret.mcause),
+      mtval = Mux(trap.valid, trap.tval, afterMret.mtval)
+    )
+  }
+
+  def commitValues(
+    current: CsrArchValues,
+    commit:  Seq[Valid[CsrCommit]],
     cfg:     BackendConfig = BackendConfig()
   ): CsrArchValues = {
     var next = current
@@ -61,13 +86,7 @@ object CsrArch {
       )
     }
 
-    CsrArchValues(
-      mstatus = Mux(trap.valid, trapMstatus(next.mstatus, priv, cfg), next.mstatus),
-      mtvec = next.mtvec,
-      mepc = Mux(trap.valid, canonicalMepc(trap.epc, cfg), next.mepc),
-      mcause = Mux(trap.valid, trap.cause, next.mcause),
-      mtval = Mux(trap.valid, trap.tval, next.mtval)
-    )
+    next
   }
 
   def readValue(addr: UInt, values: CsrArchValues, cfg: BackendConfig = BackendConfig()): UInt =
@@ -83,6 +102,11 @@ object CsrArch {
 
   def trapBase(mtvecValue: UInt, cfg: BackendConfig = BackendConfig()): UInt =
     mtvecValue(cfg.addrWidth - 1, 2) ## 0.U(2.W)
+
+  def mretPriv(mstatusValue: UInt): UInt = {
+    val mode = mstatusValue(Mstatus.mppMsb, Mstatus.mppLsb)
+    Mux(PrivMode.legal(mode), mode, PrivMode.M)
+  }
 
   private def data(value: BigInt, cfg: BackendConfig): UInt =
     value.U(cfg.dataWidth.W)
@@ -107,5 +131,15 @@ object CsrArch {
     val mpp       = previousPriv.pad(cfg.dataWidth) << Mstatus.mppLsb
 
     (old & ~writeMask).asUInt | mpie | mpp
+  }
+
+  private def mretMstatus(old: UInt, cfg: BackendConfig): UInt = {
+    val returnPriv = mretPriv(old)
+    val writeMask  = data(Mstatus.trapWriteMask, cfg)
+    val mprvMask   = Mux(returnPriv === PrivMode.M, 0.U(cfg.dataWidth.W), data(Mstatus.mprvMask, cfg))
+    val mie        = old(Mstatus.mpieBit).asUInt << Mstatus.mieBit
+    val mpie       = 1.U(cfg.dataWidth.W) << Mstatus.mpieBit
+
+    (old & ~(writeMask | mprvMask)).asUInt | mie | mpie
   }
 }

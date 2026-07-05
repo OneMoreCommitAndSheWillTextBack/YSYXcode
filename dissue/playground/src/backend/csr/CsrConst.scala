@@ -64,6 +64,9 @@ object Mstatus {
   val trapWriteMask: BigInt =
     bit(mieBit) | bit(mpieBit) | mask(mppMsb, mppLsb)
 
+  val mprvMask: BigInt =
+    bit(mprvBit)
+
   val supervisorVisibleWriteMask: BigInt =
     bit(sieBit) | bit(spieBit) | bit(sppBit) | bit(sumBit) | bit(mxrBit)
 

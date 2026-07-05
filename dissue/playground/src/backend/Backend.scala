@@ -160,6 +160,7 @@ class Backend(
   storeTracker.io.commit  := retire.io.storeCommit
   csrFile.io.commit       := retire.io.csrCommit
   csrFile.io.trap         := retire.io.csrTrap
+  csrFile.io.mret         := retire.io.csrMret
   retire.io.csrStatus     := csrFile.io.status
   csrTracker.io.commit    := retire.io.csrTrackerCommit
   storeTracker.io.robHead := rob.io.head
@@ -175,6 +176,7 @@ class Backend(
   difftest.io.regWrite  := retire.io.regWrite
   difftest.io.csrCommit := retire.io.csrCommit
   difftest.io.csrTrap   := retire.io.csrTrap
+  difftest.io.csrMret   := retire.io.csrMret
   difftest.io.context   := retire.io.context
 
   issueQueue.io.robHead := rob.io.head
