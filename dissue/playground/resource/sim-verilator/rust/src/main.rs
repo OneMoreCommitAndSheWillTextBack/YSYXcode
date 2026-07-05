@@ -40,5 +40,6 @@ fn run_simulator(config: SimulatorConfig) -> SimulatorResult<()> {
     };
 
     simulator.generat_report();
+    simulator.wave_close();
     return res;
 }
