@@ -20,12 +20,12 @@ NpcHostBridge::~NpcHostBridge() {
   }
 }
 
-void NpcHostBridge::commit_group(uint32_t valid_mask, uint32_t finish_mask,
-                                 uint32_t pc0, uint32_t inst0, uint32_t pc1,
-                                 uint32_t inst1) {
+void NpcHostBridge::difftest_commit(uint32_t valid_mask, uint32_t finish_mask,
+                                    uint32_t pc0, uint32_t inst0,
+                                    uint32_t pc1, uint32_t inst1) {
   NpcHostBridge *bridge = active_bridge();
 
-  if (bridge == nullptr || bridge->callbacks_.on_commit_group == nullptr) {
+  if (bridge == nullptr || bridge->callbacks_.on_difftest_commit == nullptr) {
     return;
   }
 
@@ -35,7 +35,18 @@ void NpcHostBridge::commit_group(uint32_t valid_mask, uint32_t finish_mask,
       {pc0, pc1},
       {inst0, inst1},
   };
-  bridge->callbacks_.on_commit_group(&event);
+  bridge->callbacks_.on_difftest_commit(&event);
+}
+
+void NpcHostBridge::difftest_context(const NpcCpuContext *context) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.on_difftest_context == nullptr ||
+      context == nullptr) {
+    return;
+  }
+
+  bridge->callbacks_.on_difftest_context(context);
 }
 
 uint32_t NpcHostBridge::pmem_read(uint32_t addr, uint32_t len) {

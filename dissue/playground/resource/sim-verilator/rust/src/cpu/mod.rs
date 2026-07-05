@@ -1,7 +1,7 @@
 mod context;
 mod wave;
 
-pub use context::{CpuContext, CsrContext, NpcCpuContext, NpcCsrContext, NpcGprContext, PrivMode};
+pub use context::{CpuContext, CsrContext, NpcCpuContext, PrivMode};
 pub use wave::WaveConfig;
 
 use crate::ffi;
@@ -17,7 +17,6 @@ pub enum CpuError {
 pub struct Cpu {
     raw: NonNull<ffi::NpcSim>,
     wave: WaveConfig,
-    context: NpcCpuContext,
 }
 
 impl Cpu {
@@ -28,7 +27,6 @@ impl Cpu {
         Ok(Self {
             raw,
             wave: WaveConfig::default(),
-            context: NpcCpuContext::new(),
         })
     }
 
@@ -38,41 +36,6 @@ impl Cpu {
 
     pub fn step(&mut self) {
         unsafe { ffi::npc_sim_step(self.raw.as_ptr()) };
-    }
-
-    pub fn gpr(&mut self) -> Result<[u32; 32], CpuError> {
-        let mut raw = NpcGprContext::default();
-        let ok = unsafe { ffi::npc_sim_get_gpr(self.raw.as_ptr(), &mut raw) };
-
-        if ok == 0 {
-            return Err(CpuError::ContextUnavailable);
-        }
-
-        Ok(raw.x)
-    }
-
-    pub fn csr(&mut self) -> Result<CsrContext, CpuError> {
-        let mut raw = NpcCsrContext::default();
-        let ok = unsafe { ffi::npc_sim_get_csr(self.raw.as_ptr(), &mut raw) };
-
-        if ok == 0 {
-            return Err(CpuError::ContextUnavailable);
-        }
-
-        Ok(raw.into())
-    }
-
-    pub fn context(&mut self) -> Result<CpuContext, CpuError> {
-        self.context = NpcCpuContext::new();
-        let ok = unsafe { ffi::npc_sim_get_context(self.raw.as_ptr(), &mut self.context) };
-
-        if ok == 0 {
-            return Err(CpuError::ContextUnavailable);
-        }
-
-        self.context
-            .into_context()
-            .ok_or(CpuError::ContextUnavailable)
     }
 
     pub(crate) fn raw(&self) -> *mut ffi::NpcSim {

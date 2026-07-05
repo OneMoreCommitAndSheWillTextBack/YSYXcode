@@ -93,6 +93,9 @@ pub struct Simulator {
     difftest: DiffTest,
     state: SimulatorState,
     statistics: Statistics,
+    latest_context: Option<CpuContext>,
+    pending_commit_count: u64,
+    pending_finish: bool,
 }
 
 impl Simulator {
@@ -108,9 +111,13 @@ impl Simulator {
             difftest,
             state: Running,
             statistics: Statistics::new(),
+            latest_context: None,
+            pending_commit_count: 0,
+            pending_finish: false,
         });
         let callbacks = ffi::NpcDpiCallbacks {
-            on_commit_group: Some(simulator_on_commit_group),
+            on_difftest_commit: Some(simulator_on_difftest_commit),
+            on_difftest_context: Some(simulator_on_difftest_context),
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
             cache_hit: Some(simulator_cache_hit),
@@ -148,21 +155,20 @@ impl Simulator {
     }
 
     pub fn reset(&mut self) -> SimulatorResult<()> {
-        let context = {
+        self.latest_context = None;
+        self.pending_commit_count = 0;
+        self.pending_finish = false;
+
+        {
             let Some(cpu) = self.cpu.as_mut() else {
                 return Err(SimulatorError::CpuNotConnected);
             };
 
             cpu.reset(self.config.reset_cycles);
+        }
 
-            if self.difftest.needs_attach_context() {
-                Some(cpu.context()?)
-            } else {
-                None
-            }
-        };
-
-        if let Some(context) = context {
+        if self.difftest.needs_attach_context() {
+            let context = self.cpu_context()?;
             self.difftest.attach(&context)?;
         }
 
@@ -182,6 +188,7 @@ impl Simulator {
 
         cpu.step();
         self.perf.on_cycle();
+        self.process_difftest_events()?;
         Ok(())
     }
 
@@ -211,27 +218,47 @@ impl Simulator {
         Ok(())
     }
 
-    pub fn do_difftest(&mut self, steps: u64) -> SimulatorResult<()> {
-        let context = {
-            let Some(cpu) = self.cpu.as_mut() else {
-                return Err(SimulatorError::CpuNotConnected);
-            };
+    fn process_difftest_events(&mut self) -> SimulatorResult<()> {
+        let commit_count = self.pending_commit_count;
+        let has_finish = self.pending_finish;
+        self.pending_commit_count = 0;
+        self.pending_finish = false;
 
-            if self.difftest.needs_check_context() {
-                Some(cpu.context()?)
-            } else {
-                None
+        if commit_count == 0 {
+            return Ok(());
+        }
+
+        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
+            return Ok(());
+        }
+
+        self.statistics.on_commits(commit_count);
+
+        if self.difftest.needs_check_context() {
+            let context = self.cpu_context()?;
+            if let Err(error) = self.difftest.step_and_check(commit_count, &context) {
+                let error = SimulatorError::Difftest(error);
+                report::print_difftest_report(&error);
+                self.state = SimulatorState::Abort;
+                return Err(error);
             }
-        };
+        }
 
-        if let Some(context) = context {
-            self.difftest.step_and_check(steps, &context)?;
+        if has_finish {
+            let context = self.cpu_context()?;
+            self.state = if context.gpr[10] == 0 {
+                eprintln!("{}HIT GOOD TRAP{}", ANSI_FG_GREEN, ANSI_RESET);
+                SimulatorState::End
+            } else {
+                eprintln!("{}HIT BAD TRAP{}", ANSI_FG_RED, ANSI_RESET);
+                SimulatorState::Abort
+            };
         }
 
         Ok(())
     }
 
-    fn on_commit_group(&mut self, event: CommitGroupEvent) {
+    fn on_difftest_commit(&mut self, event: CommitGroupEvent) {
         let commit_count = event.valid_count();
 
         if commit_count == 0 {
@@ -242,34 +269,13 @@ impl Simulator {
             return;
         }
 
-        self.statistics.on_commit_group(commit_count);
-        for commit in event.valid_inst_pc() {
-            // let pc = commit.0;
-            // let inst = commit.1;
-            // println!("commit inst 0x{inst:08x} at pc 0x{pc:08x}");
-        }
+        self.pending_commit_count += commit_count;
+        self.pending_finish |= event.has_finish();
+    }
 
-        if let Err(error) = self.do_difftest(commit_count) {
-            report::print_difftest_report(&error);
-            self.state = SimulatorState::Abort;
-            return;
-        }
-
-        if event.has_finish() {
-            let context = match self.cpu.as_mut().and_then(|cpu| cpu.context().ok()) {
-                Some(context) => context,
-                None => {
-                    panic!("should not reach here");
-                }
-            };
-
-            self.state = if context.gpr[10] == 0 {
-                eprintln!("{}HIT GOOD TRAP{}", ANSI_FG_GREEN, ANSI_RESET);
-                SimulatorState::End
-            } else {
-                eprintln!("{}HIT BAD TRAP{}", ANSI_FG_RED, ANSI_RESET);
-                SimulatorState::Abort
-            };
+    fn on_difftest_context(&mut self, context: crate::cpu::NpcCpuContext) {
+        if let Some(context) = context.into_context() {
+            self.latest_context = Some(context);
         }
     }
 
@@ -301,18 +307,16 @@ impl Simulator {
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
-        let cpu = self.cpu.as_mut().ok_or(SimulatorError::CpuNotConnected)?;
-        Ok(cpu.gpr()?)
+        Ok(self.cpu_context()?.gpr)
     }
 
     pub fn cpu_csr(&mut self) -> SimulatorResult<CsrContext> {
-        let cpu = self.cpu.as_mut().ok_or(SimulatorError::CpuNotConnected)?;
-        Ok(cpu.csr()?)
+        Ok(self.cpu_context()?.csr)
     }
 
     pub fn cpu_context(&mut self) -> SimulatorResult<CpuContext> {
-        let cpu = self.cpu.as_mut().ok_or(SimulatorError::CpuNotConnected)?;
-        Ok(cpu.context()?)
+        self.latest_context
+            .ok_or(SimulatorError::Cpu(CpuError::ContextUnavailable))
     }
 
     pub fn difftest_attach(&mut self) -> SimulatorResult<()> {
@@ -404,7 +408,7 @@ extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
     let _ = simulator.pmem_write(addr, len, data);
 }
 
-extern "C" fn simulator_on_commit_group(event: *const ffi::NpcCommitGroupEvent) {
+extern "C" fn simulator_on_difftest_commit(event: *const ffi::NpcCommitGroupEvent) {
     if event.is_null() {
         return;
     }
@@ -416,12 +420,27 @@ extern "C" fn simulator_on_commit_group(event: *const ffi::NpcCommitGroupEvent) 
 
     let event = unsafe { &*event };
     let simulator = unsafe { &mut *simulator };
-    simulator.on_commit_group(CommitGroupEvent::new(
+    simulator.on_difftest_commit(CommitGroupEvent::new(
         event.valid_mask,
         event.finish_mask,
         event.pc,
         event.inst,
     ));
+}
+
+extern "C" fn simulator_on_difftest_context(context: *const crate::cpu::NpcCpuContext) {
+    if context.is_null() {
+        return;
+    }
+
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+
+    let context = unsafe { *context };
+    let simulator = unsafe { &mut *simulator };
+    simulator.on_difftest_context(context);
 }
 
 extern "C" fn simulator_cache_hit(hit: u8) {

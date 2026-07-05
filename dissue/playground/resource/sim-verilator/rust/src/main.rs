@@ -21,6 +21,7 @@ fn main() {
     let config = SimulatorConfig::from_env();
 
     if let Err(error) = run_simulator(config) {
+        eprintln!("{error:?}");
         std::process::exit(1);
     }
 }
