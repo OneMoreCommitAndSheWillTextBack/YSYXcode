@@ -3,7 +3,15 @@ package top.backend.retire
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, PopCount, PriorityEncoderOH, Valid}
 import top.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreTrackerCommit}
-import top.backend.csr.{CsrCommit, CsrContextUpdate, CsrMretCommit, CsrStatus, CsrTrackerCommit, CsrTrapCommit, ExceptionCause}
+import top.backend.csr.{
+  CsrCommit,
+  CsrContextUpdate,
+  CsrMretCommit,
+  CsrStatus,
+  CsrTrackerCommit,
+  CsrTrapCommit,
+  ExceptionCause
+}
 import top.bundle.{BackendToFrontend, CfiType, DataMemReq}
 import top.config.BackendConfig
 
@@ -46,7 +54,10 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
         io.rob(i).bits.redirectValid &&
         io.rob(i).bits.fetch.predNpc =/= io.rob(i).bits.redirectTarget
 
-    laneBoundary(i) := redirectCandidate(i) || io.rob(i).bits.isEbreak || io.rob(i).bits.isEcall || io.rob(i).bits.isMret
+    laneBoundary(i) := redirectCandidate(i) || io.rob(i).bits.isEbreak || io.rob(i).bits.isEcall || io
+      .rob(i)
+      .bits
+      .isMret
 
     preRetire(i) :=
       io.rob(i).valid &&

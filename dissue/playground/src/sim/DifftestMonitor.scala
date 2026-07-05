@@ -40,13 +40,14 @@ class DifftestMonitor(
     )
   }
 
-  private val currentCsr = CsrArchValues(mstatus, mtvec, mepc, mcause, mtval)
+  private val currentCsr   = CsrArchValues(mstatus, mtvec, mepc, mcause, mtval)
   private val committedCsr = CsrArch.commitValues(currentCsr, io.csrCommit, cfg)
-  private val nextCsr    = CsrArch.nextValues(currentCsr, io.csrCommit, io.csrTrap, io.csrMret, priv, cfg)
-  private val nextPriv   = Mux(io.csrTrap.valid, PrivMode.M, Mux(io.csrMret.valid, CsrArch.mretPriv(committedCsr.mstatus), priv))
-  private val nextPc     = Mux(io.context.valid, io.context.pc, pc)
+  private val nextCsr      = CsrArch.nextValues(currentCsr, io.csrCommit, io.csrTrap, io.csrMret, priv, cfg)
+  private val nextPriv     =
+    Mux(io.csrTrap.valid, PrivMode.M, Mux(io.csrMret.valid, CsrArch.mretPriv(committedCsr.mstatus), priv))
+  private val nextPc       = Mux(io.context.valid, io.context.pc, pc)
 
-  private val hasCommit    = io.retire.validMask.orR
+  private val hasCommit     = io.retire.validMask.orR
   private val reportContext = Wire(new DifftestCpuContext(cfg))
 
   reportContext.valid := reset.asBool || hasCommit
@@ -55,7 +56,7 @@ class DifftestMonitor(
   for (idx <- 0 until 32) {
     reportContext.gpr(idx) := Mux(reset.asBool, 0.U, nextGpr(idx))
   }
-  reportContext.csr.mstatus  := Mux(reset.asBool, resetCsr.mstatus, nextCsr.mstatus)
+  reportContext.csr.mstatus := Mux(reset.asBool, resetCsr.mstatus, nextCsr.mstatus)
   reportContext.csr.mtvec    := Mux(reset.asBool, resetCsr.mtvec, nextCsr.mtvec)
   reportContext.csr.mepc     := Mux(reset.asBool, resetCsr.mepc, nextCsr.mepc)
   reportContext.csr.mcause   := Mux(reset.asBool, resetCsr.mcause, nextCsr.mcause)

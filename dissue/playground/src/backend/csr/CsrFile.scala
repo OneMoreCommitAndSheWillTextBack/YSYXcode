@@ -15,7 +15,7 @@ class CsrFile(
   private val mepc        = RegInit(resetValues.mepc)
   private val mcause      = RegInit(resetValues.mcause)
   private val mtval       = RegInit(resetValues.mtval)
-  private val priv    = RegInit(PrivMode.M)
+  private val priv        = RegInit(PrivMode.M)
 
   private val current   = CsrArchValues(mstatus, mtvec, mepc, mcause, mtval)
   private val committed = CsrArch.commitValues(current, io.commit, cfg)
