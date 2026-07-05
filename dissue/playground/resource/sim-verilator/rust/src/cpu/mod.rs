@@ -78,6 +78,10 @@ impl Cpu {
     }
 
     pub fn close_wave(&mut self) {
+        crate::Log!(
+            "save wave to {}",
+            self.wave.path.as_ref().unwrap().display()
+        );
         unsafe { ffi::npc_sim_close_wave(self.raw.as_ptr()) };
         self.wave.enabled = false;
     }
