@@ -31,16 +31,6 @@ class CsrStatus(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val trapVector = UInt(cfg.addrWidth.W)
 }
 
-class CsrDpiState(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val pc      = UInt(cfg.addrWidth.W)
-  val priv    = new PrivState
-  val mstatus = UInt(cfg.dataWidth.W)
-  val mtvec   = UInt(cfg.dataWidth.W)
-  val mepc    = UInt(cfg.dataWidth.W)
-  val mcause  = UInt(cfg.dataWidth.W)
-  val mtval   = UInt(cfg.dataWidth.W)
-}
-
 class CsrTrackerAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid  = Bool()
   val robIdx = UInt(cfg.robIdxWidth.W)
@@ -60,9 +50,8 @@ class CsrTrackerQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
 }
 
 class CsrFileIO(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val read    = Flipped(new CsrReadPort(cfg))
-  val commit  = Input(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
-  val trap    = Input(new CsrTrapCommit(cfg))
-  val context = Input(new CsrContextUpdate(cfg))
-  val status  = Output(new CsrStatus(cfg))
+  val read   = Flipped(new CsrReadPort(cfg))
+  val commit = Input(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
+  val trap   = Input(new CsrTrapCommit(cfg))
+  val status = Output(new CsrStatus(cfg))
 }

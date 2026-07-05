@@ -16,7 +16,8 @@ pub struct NpcCommitGroupEvent {
 #[allow(dead_code)]
 #[repr(C)]
 pub struct NpcDpiCallbacks {
-    pub on_commit_group: Option<extern "C" fn(*const NpcCommitGroupEvent)>,
+    pub on_difftest_commit: Option<extern "C" fn(*const NpcCommitGroupEvent)>,
+    pub on_difftest_context: Option<extern "C" fn(*const crate::cpu::NpcCpuContext)>,
     pub pmem_read: Option<extern "C" fn(u32, u32) -> u32>,
     pub pmem_write: Option<extern "C" fn(addr: u32, len: u32, data: u32)>,
     pub cache_hit: Option<extern "C" fn(hit: u8)>,
@@ -31,9 +32,6 @@ unsafe extern "C" {
     pub fn npc_sim_delete(sim: *mut NpcSim);
     pub fn npc_sim_reset(sim: *mut NpcSim, cycles: u32);
     pub fn npc_sim_step(sim: *mut NpcSim);
-    pub fn npc_sim_get_gpr(sim: *mut NpcSim, out: *mut crate::cpu::NpcGprContext) -> u8;
-    pub fn npc_sim_get_csr(sim: *mut NpcSim, out: *mut crate::cpu::NpcCsrContext) -> u8;
-    pub fn npc_sim_get_context(sim: *mut NpcSim, out: *mut crate::cpu::NpcCpuContext) -> u8;
     pub fn npc_sim_init_wave(sim: *mut NpcSim, path: *const core::ffi::c_char);
     pub fn npc_sim_enable_wave(sim: *mut NpcSim);
     pub fn npc_sim_disable_wave(sim: *mut NpcSim);
@@ -57,24 +55,6 @@ pub unsafe fn npc_sim_reset(_sim: *mut NpcSim, _cycles: u32) {}
 #[allow(dead_code)]
 #[cfg(test)]
 pub unsafe fn npc_sim_step(_sim: *mut NpcSim) {}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_get_gpr(_sim: *mut NpcSim, _out: *mut crate::cpu::NpcGprContext) -> u8 {
-    0
-}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_get_csr(_sim: *mut NpcSim, _out: *mut crate::cpu::NpcCsrContext) -> u8 {
-    0
-}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_get_context(_sim: *mut NpcSim, _out: *mut crate::cpu::NpcCpuContext) -> u8 {
-    0
-}
 
 #[allow(dead_code)]
 #[cfg(test)]

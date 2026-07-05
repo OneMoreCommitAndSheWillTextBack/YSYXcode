@@ -15,6 +15,7 @@ import top.backend.lsu.{LSU, StoreTracker}
 import top.backend.regfile._
 import top.backend.retire.RetireUnit
 import top.backend.rob.ROB
+import top.sim.DifftestMonitor
 
 class Backend(
   resetVector: BigInt = BigInt("80000000", 16),
@@ -48,6 +49,7 @@ class Backend(
   val csrFile      = Module(new CsrFile(resetVector, cfg))
   val csrTracker   = Module(new CsrTracker(cfg))
   val retire       = Module(new RetireUnit(cfg))
+  val difftest     = Module(new DifftestMonitor(resetVector, cfg))
 
   io.redirect := retire.io.redirect
 
@@ -158,7 +160,6 @@ class Backend(
   storeTracker.io.commit  := retire.io.storeCommit
   csrFile.io.commit       := retire.io.csrCommit
   csrFile.io.trap         := retire.io.csrTrap
-  csrFile.io.context      := retire.io.context
   retire.io.csrStatus     := csrFile.io.status
   csrTracker.io.commit    := retire.io.csrTrackerCommit
   storeTracker.io.robHead := rob.io.head
@@ -169,6 +170,12 @@ class Backend(
   csrTracker.io.flush     := flush
   issueQueue.io.flush     := flush
   lsu.io.flush            := flush
+
+  difftest.io.retire    := retire.io.retire
+  difftest.io.regWrite  := retire.io.regWrite
+  difftest.io.csrCommit := retire.io.csrCommit
+  difftest.io.csrTrap   := retire.io.csrTrap
+  difftest.io.context   := retire.io.context
 
   issueQueue.io.robHead := rob.io.head
   for (port <- 0 until cfg.intIssueWidth) {

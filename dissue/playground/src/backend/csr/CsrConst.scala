@@ -50,17 +50,25 @@ object Mstatus {
   private def mask(msb: Int, lsb: Int): BigInt =
     ((BigInt(1) << (msb - lsb + 1)) - 1) << lsb
 
+  val sieBit  = 1
   val mieBit  = 3
+  val spieBit = 5
   val mpieBit = 7
+  val sppBit  = 8
   val mppMsb  = 12
   val mppLsb  = 11
   val mprvBit = 17
+  val sumBit  = 18
+  val mxrBit  = 19
 
   val trapWriteMask: BigInt =
     bit(mieBit) | bit(mpieBit) | mask(mppMsb, mppLsb)
 
+  val supervisorVisibleWriteMask: BigInt =
+    bit(sieBit) | bit(spieBit) | bit(sppBit) | bit(sumBit) | bit(mxrBit)
+
   val writeMask: BigInt =
-    trapWriteMask | bit(mprvBit)
+    trapWriteMask | supervisorVisibleWriteMask | bit(mprvBit)
 }
 
 object ExceptionCause {

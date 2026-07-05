@@ -7,7 +7,6 @@ import top.config.{BackendConfig, FrontendConfig, MemConfig}
 import top.frontend.Frontend
 import top.frontend.bundle.BpuUpdate
 import top.mem.Mem
-import top.sim.DifftestBridge
 
 final class AxiPort extends Bundle {
   val awready = Input(Bool())
@@ -63,7 +62,6 @@ class Core(resetVector: BigInt) extends Module {
   val frontend       = Module(new Frontend(resetVector, frontendCfg))
   val backend        = Module(new Backend(resetVector, backendCfg))
   val mem            = Module(new Mem(memCfg))
-  val difftestBridge = Module(new DifftestBridge(backendCfg))
 
   frontend.io.trapRedirect.valid := backend.io.redirect.trapRedirect.valid
   frontend.io.trapRedirect.value := backend.io.redirect.trapRedirect.target
@@ -108,8 +106,6 @@ class Core(resetVector: BigInt) extends Module {
 
   mem.io.dmemReq <> backend.io.dmemReq
   backend.io.dmemResp <> mem.io.dmemResp
-
-  difftestBridge.io.retire := backend.io.retire
 
   io.master <> mem.io.axi
 }

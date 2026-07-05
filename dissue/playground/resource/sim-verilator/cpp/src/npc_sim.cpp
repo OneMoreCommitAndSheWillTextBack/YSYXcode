@@ -38,30 +38,6 @@ void NpcSim::step() {
   npc_cpu_step(*context_, *top_, wave_);
 }
 
-bool NpcSim::get_gpr(NpcGprContext *out) {
-  if (!initialized()) {
-    return false;
-  }
-
-  return npc_cpu_get_gpr(*top_, out);
-}
-
-bool NpcSim::get_csr(NpcCsrContext *out) {
-  if (!initialized()) {
-    return false;
-  }
-
-  return npc_cpu_get_csr(*top_, out);
-}
-
-bool NpcSim::get_context(NpcCpuContext *out) {
-  if (!initialized()) {
-    return false;
-  }
-
-  return npc_cpu_get_context(*top_, out);
-}
-
 bool NpcSim::initialized() const {
   return context_ != nullptr && top_ != nullptr;
 }

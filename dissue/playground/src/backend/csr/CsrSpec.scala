@@ -14,7 +14,7 @@ object CsrSpec {
       addr = CsrAddr.mstatus,
       reset = 0,
       writeMask = Mstatus.writeMask,
-      doc = "Machine status register. Exposes MIE, MPIE, MPP, and MPRV."
+      doc = "Machine status register. Exposes trap state, MPRV, and runtime-restored supervisor-visible bits."
     ),
     CsrSpec(
       name = "mtvec",

@@ -22,10 +22,6 @@ public:
   void reset(uint32_t reset_cycles);
   void step();
 
-  bool get_gpr(NpcGprContext *out);
-  bool get_csr(NpcCsrContext *out);
-  bool get_context(NpcCpuContext *out);
-
   bool initialized() const;
 
   void init_wave(const char *path);

@@ -24,30 +24,6 @@ extern "C" void npc_sim_step(NpcSim *sim) {
   sim->step();
 }
 
-extern "C" uint8_t npc_sim_get_gpr(NpcSim *sim, NpcGprContext *out) {
-  if (sim == nullptr) {
-    return 0;
-  }
-
-  return sim->get_gpr(out) ? 1 : 0;
-}
-
-extern "C" uint8_t npc_sim_get_csr(NpcSim *sim, NpcCsrContext *out) {
-  if (sim == nullptr) {
-    return 0;
-  }
-
-  return sim->get_csr(out) ? 1 : 0;
-}
-
-extern "C" uint8_t npc_sim_get_context(NpcSim *sim, NpcCpuContext *out) {
-  if (sim == nullptr) {
-    return 0;
-  }
-
-  return sim->get_context(out) ? 1 : 0;
-}
-
 extern "C" void npc_sim_init_wave(NpcSim *sim, const char *path) {
   if (sim == nullptr) {
     return;

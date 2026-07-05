@@ -15,7 +15,7 @@ impl Statistics {
         self.cycle_nocommit += 1;
     }
 
-    pub fn on_commit_group(&mut self, commit_count: u64) {
+    pub fn on_commits(&mut self, commit_count: u64) {
         if commit_count == 0 {
             return;
         }

@@ -12,15 +12,6 @@ typedef struct NpcCommitGroupEvent {
   uint32_t inst[2];
 } NpcCommitGroupEvent;
 
-typedef struct NpcDpiCallbacks {
-  void (*on_commit_group)(const NpcCommitGroupEvent *event);
-  uint32_t (*pmem_read)(uint32_t addr, uint32_t len);
-  void (*pmem_write)(uint32_t addr, uint32_t len, uint32_t data);
-  void (*cache_hit)(uint8_t hit);
-  void (*issue_queue_perf)(uint8_t issue_count, uint8_t occupancy,
-                           uint8_t block_ready, uint8_t block_operand);
-} NpcDpiCallbacks;
-
 typedef struct NpcGprContext {
   uint32_t x[NPC_GPR_COUNT];
 } NpcGprContext;
@@ -45,5 +36,15 @@ typedef struct NpcCpuContext {
   NpcGprContext gpr;
   NpcCsrContext csr;
 } NpcCpuContext;
+
+typedef struct NpcDpiCallbacks {
+  void (*on_difftest_commit)(const NpcCommitGroupEvent *event);
+  void (*on_difftest_context)(const NpcCpuContext *context);
+  uint32_t (*pmem_read)(uint32_t addr, uint32_t len);
+  void (*pmem_write)(uint32_t addr, uint32_t len, uint32_t data);
+  void (*cache_hit)(uint8_t hit);
+  void (*issue_queue_perf)(uint8_t issue_count, uint8_t occupancy,
+                           uint8_t block_ready, uint8_t block_operand);
+} NpcDpiCallbacks;
 
 #endif
