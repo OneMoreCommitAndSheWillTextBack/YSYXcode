@@ -18,31 +18,18 @@ constexpr uint32_t CSR_MIP = 0x344;
 constexpr uint32_t CSR_MCYCLE = 0xB00;
 constexpr uint32_t CSR_MINSTRET = 0xB02;
 
-constexpr const char *NPC_CONTEXT_DPI_SCOPES[] = {
-    "ysyx_24100007.core.backend.csrFile.contextDpiBridge.contextDpi",
-    "TOP.ysyx_24100007.core.backend.csrFile.contextDpiBridge.contextDpi",
-    "npc.u_core.core.backend.csrFile.contextDpiBridge.contextDpi",
-    "TOP.npc.u_core.core.backend.csrFile.contextDpiBridge.contextDpi",
-    "TOP.u_core.core.backend.csrFile.contextDpiBridge.contextDpi",
-    "npc.u_core.core.contextDpi",
-    "TOP.npc.u_core.core.contextDpi",
-    "TOP.u_core.core.contextDpi",
-};
+constexpr const char *NPC_CONTEXT_DPI_SCOPE =
+    "npc.u_core.core.backend.csrFile.contextDpiBridge.contextDpi";
+constexpr const char *NPC_GPR_DPI_SCOPE = "npc.u_core.core.backend.gpr.dpi";
 
-const VerilatedScope *npc_cpu_context_scope(Vnpc &top) {
-  for (const char *name : NPC_CONTEXT_DPI_SCOPES) {
-    if (const VerilatedScope *scope = top.contextp()->scopeFind(name)) {
-      return scope;
-    }
-  }
-
-  return nullptr;
+const VerilatedScope *npc_cpu_scope(Vnpc &top, const char *name) {
+  return top.contextp()->scopeFind(name);
 }
 
 class NpcDpiScope {
 public:
-  explicit NpcDpiScope(Vnpc &top)
-      : previous_(Verilated::dpiScope()), current_(npc_cpu_context_scope(top)) {
+  explicit NpcDpiScope(Vnpc &top, const char *name)
+      : previous_(Verilated::dpiScope()), current_(npc_cpu_scope(top, name)) {
     if (current_ != nullptr) {
       Verilated::dpiScope(current_);
     }
@@ -62,7 +49,7 @@ private:
 };
 
 bool npc_cpu_context_ready(Vnpc &top) {
-  NpcDpiScope scope(top);
+  NpcDpiScope scope(top, NPC_CONTEXT_DPI_SCOPE);
   return scope.valid() && Vnpc::npc_dpi_context_valid() != 0;
 }
 
@@ -107,15 +94,17 @@ void npc_cpu_step(VerilatedContext &context, Vnpc &top, NpcWave &_wave) {
 }
 
 bool npc_cpu_get_gpr(Vnpc &top, NpcGprContext *out) {
-  (void)top;
-
   if (out == nullptr) {
     return false;
   }
 
   *out = {};
-  NpcDpiScope scope(top);
-  if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
+  if (!npc_cpu_context_ready(top)) {
+    return false;
+  }
+
+  NpcDpiScope scope(top, NPC_GPR_DPI_SCOPE);
+  if (!scope.valid()) {
     return false;
   }
 
@@ -127,14 +116,12 @@ bool npc_cpu_get_gpr(Vnpc &top, NpcGprContext *out) {
 }
 
 bool npc_cpu_get_csr(Vnpc &top, NpcCsrContext *out) {
-  (void)top;
-
   if (out == nullptr) {
     return false;
   }
 
   *out = {};
-  NpcDpiScope scope(top);
+  NpcDpiScope scope(top, NPC_CONTEXT_DPI_SCOPE);
   if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
@@ -159,7 +146,7 @@ bool npc_cpu_get_context(Vnpc &top, NpcCpuContext *out) {
   }
 
   *out = {};
-  NpcDpiScope scope(top);
+  NpcDpiScope scope(top, NPC_CONTEXT_DPI_SCOPE);
   if (!scope.valid() || Vnpc::npc_dpi_context_valid() == 0) {
     return false;
   }
