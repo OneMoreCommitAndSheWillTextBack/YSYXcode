@@ -54,9 +54,13 @@ object Mstatus {
   val mpieBit = 7
   val mppMsb  = 12
   val mppLsb  = 11
+  val mprvBit = 17
 
-  val firstWriteMask: BigInt =
+  val trapWriteMask: BigInt =
     bit(mieBit) | bit(mpieBit) | mask(mppMsb, mppLsb)
+
+  val writeMask: BigInt =
+    trapWriteMask | bit(mprvBit)
 }
 
 object ExceptionCause {

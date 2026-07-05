@@ -13,8 +13,8 @@ object CsrSpec {
       name = "mstatus",
       addr = CsrAddr.mstatus,
       reset = 0,
-      writeMask = Mstatus.firstWriteMask,
-      doc = "Machine status register. First version exposes MIE, MPIE, and MPP."
+      writeMask = Mstatus.writeMask,
+      doc = "Machine status register. Exposes MIE, MPIE, MPP, and MPRV."
     ),
     CsrSpec(
       name = "mtvec",

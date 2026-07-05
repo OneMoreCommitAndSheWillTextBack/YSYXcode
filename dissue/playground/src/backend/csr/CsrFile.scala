@@ -31,7 +31,7 @@ class CsrFile(
     mtvecValue(cfg.addrWidth - 1, 2) ## 0.U(2.W)
 
   private def trapMstatus(old: UInt, previousPriv: UInt): UInt = {
-    val writeMask = data(Mstatus.firstWriteMask)
+    val writeMask = data(Mstatus.trapWriteMask)
     val mpie      = old(Mstatus.mieBit).asUInt << Mstatus.mpieBit
     val mpp       = previousPriv.pad(cfg.dataWidth) << Mstatus.mppLsb
 
