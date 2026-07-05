@@ -3,7 +3,7 @@ package top.sim
 import chisel3._
 import chisel3.util.{MuxCase, Valid}
 import top.backend.bundle.{CommitRegWrite, RetireGroup}
-import top.backend.csr.{CsrArch, CsrArchValues, CsrCommit, CsrContextUpdate, CsrTrapCommit, PrivMode}
+import top.backend.csr.{CsrArch, CsrArchValues, CsrCommit, CsrContextUpdate, CsrMretCommit, CsrTrapCommit, PrivMode}
 import top.config.BackendConfig
 
 class DifftestMonitor(
@@ -15,6 +15,7 @@ class DifftestMonitor(
     val regWrite  = Input(Vec(cfg.commitWidth, new CommitRegWrite(cfg)))
     val csrCommit = Input(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
     val csrTrap   = Input(new CsrTrapCommit(cfg))
+    val csrMret   = Input(new CsrMretCommit(cfg))
     val context   = Input(new CsrContextUpdate(cfg))
   })
 
@@ -40,8 +41,9 @@ class DifftestMonitor(
   }
 
   private val currentCsr = CsrArchValues(mstatus, mtvec, mepc, mcause, mtval)
-  private val nextCsr    = CsrArch.nextValues(currentCsr, io.csrCommit, io.csrTrap, priv, cfg)
-  private val nextPriv   = Mux(io.csrTrap.valid, PrivMode.M, priv)
+  private val committedCsr = CsrArch.commitValues(currentCsr, io.csrCommit, cfg)
+  private val nextCsr    = CsrArch.nextValues(currentCsr, io.csrCommit, io.csrTrap, io.csrMret, priv, cfg)
+  private val nextPriv   = Mux(io.csrTrap.valid, PrivMode.M, Mux(io.csrMret.valid, CsrArch.mretPriv(committedCsr.mstatus), priv))
   private val nextPc     = Mux(io.context.valid, io.context.pc, pc)
 
   private val hasCommit    = io.retire.validMask.orR

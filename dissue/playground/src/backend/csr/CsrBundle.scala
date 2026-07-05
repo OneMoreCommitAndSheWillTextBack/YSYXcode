@@ -26,9 +26,14 @@ class CsrTrapCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val tval  = UInt(cfg.dataWidth.W)
 }
 
+class CsrMretCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid = Bool()
+}
+
 class CsrStatus(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val priv       = new PrivState
   val trapVector = UInt(cfg.addrWidth.W)
+  val mretTarget = UInt(cfg.addrWidth.W)
 }
 
 class CsrTrackerAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -53,5 +58,6 @@ class CsrFileIO(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val read   = Flipped(new CsrReadPort(cfg))
   val commit = Input(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
   val trap   = Input(new CsrTrapCommit(cfg))
+  val mret   = Input(new CsrMretCommit(cfg))
   val status = Output(new CsrStatus(cfg))
 }

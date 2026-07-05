@@ -3,7 +3,7 @@ package top.backend.retire
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, PopCount, PriorityEncoderOH, Valid}
 import top.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreTrackerCommit}
-import top.backend.csr.{CsrCommit, CsrContextUpdate, CsrStatus, CsrTrackerCommit, CsrTrapCommit, ExceptionCause}
+import top.backend.csr.{CsrCommit, CsrContextUpdate, CsrMretCommit, CsrStatus, CsrTrackerCommit, CsrTrapCommit, ExceptionCause}
 import top.bundle.{BackendToFrontend, CfiType, DataMemReq}
 import top.config.BackendConfig
 
@@ -17,6 +17,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     val csrCommit        = Output(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
     val csrTrackerCommit = Output(Vec(cfg.commitWidth, new CsrTrackerCommit(cfg)))
     val csrTrap          = Output(new CsrTrapCommit(cfg))
+    val csrMret          = Output(new CsrMretCommit(cfg))
     val csrStatus        = Input(new CsrStatus(cfg))
     val retire           = Output(new RetireGroup(cfg))
     val redirect         = Output(new BackendToFrontend(cfg.addrWidth))
@@ -45,7 +46,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
         io.rob(i).bits.redirectValid &&
         io.rob(i).bits.fetch.predNpc =/= io.rob(i).bits.redirectTarget
 
-    laneBoundary(i) := redirectCandidate(i) || io.rob(i).bits.isEbreak || io.rob(i).bits.isEcall
+    laneBoundary(i) := redirectCandidate(i) || io.rob(i).bits.isEbreak || io.rob(i).bits.isEcall || io.rob(i).bits.isMret
 
     preRetire(i) :=
       io.rob(i).valid &&
@@ -96,18 +97,25 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     trapCommit(i) := canRetire(i) && io.rob(i).bits.isEcall
   }
 
+  private val mretCommit = Wire(Vec(cfg.commitWidth, Bool()))
+  for (i <- 0 until cfg.commitWidth) {
+    mretCommit(i) := canRetire(i) && io.rob(i).bits.isMret
+  }
+
   private val trapGrantOH = PriorityEncoderOH(trapCommit.asUInt).asBools
   private val trapValid   = trapCommit.asUInt.orR
   private val trapCause   = ExceptionCause.ecallFrom(io.csrStatus.priv.mode).pad(cfg.dataWidth)
   private val trapEpc     = Mux1H(trapGrantOH, io.rob.map(_.bits.fetch.pc))
+  private val mretValid   = mretCommit.asUInt.orR
 
   io.csrTrap.valid := trapValid
   io.csrTrap.epc   := trapEpc
   io.csrTrap.cause := trapCause
   io.csrTrap.tval  := 0.U
+  io.csrMret.valid := mretValid
 
-  io.redirect.trapRedirect.valid  := trapValid
-  io.redirect.trapRedirect.target := io.csrStatus.trapVector
+  io.redirect.trapRedirect.valid  := trapValid || mretValid
+  io.redirect.trapRedirect.target := Mux(trapValid, io.csrStatus.trapVector, io.csrStatus.mretTarget)
 
   private val redirectGrantOH = PriorityEncoderOH(redirectCommit.asUInt).asBools
   io.redirect.branchRedirect.valid  := redirectCommit.asUInt.orR
@@ -196,7 +204,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   io.redirect.bpuUpdate.bits.instLen := Mux1H(bpuUpdateGrantOH, bpuUpdateInstLen)
 
   io.context.valid := io.retire.validMask.orR
-  io.context.pc    := Mux(trapValid, io.csrStatus.trapVector, io.retire.finalPc)
+  io.context.pc    := Mux(trapValid, io.csrStatus.trapVector, Mux(mretValid, io.csrStatus.mretTarget, io.retire.finalPc))
 
   if (cfg.commitWidth > 1) {
     assert(!canRetire.asUInt(cfg.commitWidth - 1, 1).orR || canRetire(0))
@@ -206,4 +214,6 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     assert(!(canRetire(i) && orReduce((0 until i).map(j => canRetire(j) && laneBoundary(j)))))
   }
   assert(PopCount(trapCommit) <= 1.U)
+  assert(PopCount(mretCommit) <= 1.U)
+  assert(!(trapValid && mretValid))
 }

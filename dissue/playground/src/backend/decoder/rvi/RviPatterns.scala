@@ -44,4 +44,5 @@ private[decoder] object RviPatterns {
   val CSRRS  = BitPat("b?????????????????010?????1110011")
   val ECALL  = BitPat("b00000000000000000000000001110011")
   val EBREAK = BitPat("b00000000000100000000000001110011")
+  val MRET   = BitPat("b00110000001000000000000001110011")
 }

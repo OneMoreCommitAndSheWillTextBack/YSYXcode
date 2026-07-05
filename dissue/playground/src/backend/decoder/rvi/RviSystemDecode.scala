@@ -13,6 +13,7 @@ private[decoder] object RviSystemDecode extends DecodeGroup {
     CSRRW  -> csr(CsrOp.rw),
     CSRRS  -> csr(CsrOp.rs),
     ECALL  -> ecall,
-    EBREAK -> ebreak
+    EBREAK -> ebreak,
+    MRET   -> mret
   )
 }

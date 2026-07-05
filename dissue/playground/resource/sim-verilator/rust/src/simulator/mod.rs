@@ -279,6 +279,12 @@ impl Simulator {
         }
     }
 
+    pub fn wave_close(&mut self) {
+        if let Some(cpu) = self.cpu.as_mut() {
+            cpu.close_wave();
+        }
+    }
+
     pub fn generat_report(&mut self) {
         // icache hit rate
         crate::Log!("Icache hit rate: {}", self.perf.cacherate());

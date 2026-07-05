@@ -5,7 +5,11 @@ pub use context::{CpuContext, CsrContext, NpcCpuContext, PrivMode};
 pub use wave::WaveConfig;
 
 use crate::ffi;
-use std::{ffi::CString, path::Path, ptr::NonNull};
+use std::{
+    ffi::CString,
+    path::{self, Path},
+    ptr::NonNull,
+};
 
 #[derive(Debug)]
 pub enum CpuError {
@@ -78,6 +82,19 @@ impl Cpu {
     }
 
     pub fn close_wave(&mut self) {
+        if !self.wave.enabled {
+            return;
+        }
+
+        match self.wave.path.as_ref() {
+            Some(pathbuf) => {
+                crate::Log!("save to path {}", pathbuf.display());
+            }
+            None => {
+                crate::Log!("save to current path");
+            }
+        }
+
         unsafe { ffi::npc_sim_close_wave(self.raw.as_ptr()) };
         self.wave.enabled = false;
     }
