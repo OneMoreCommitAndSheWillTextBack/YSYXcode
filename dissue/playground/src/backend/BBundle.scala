@@ -3,12 +3,14 @@ package top.backend.bundle
 import chisel3._
 import top.backend.csr.CsrAddr
 import top.backend.decoder.{FuOp, FuType, SrcType}
+import top.backend.exception.ExceptionInfo
 import top.bundle.FetchInstPayload
 import top.config.BackendConfig
 import top.bundle.CfiType
 
-class DecodePacket(addrWidth: Int = 32) extends Bundle {
-  val fetch       = new FetchInstPayload(addrWidth)
+class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid       = Bool()
+  val fetch       = new FetchInstPayload(cfg.addrWidth)
   val legal       = Bool()
   val rs1         = UInt(5.W)
   val rs2         = UInt(5.W)
@@ -30,6 +32,16 @@ class DecodePacket(addrWidth: Int = 32) extends Bundle {
   val isCsr       = Bool()
   val csrAddr     = UInt(CsrAddr.width.W)
   val csrWen      = Bool()
+  val exception   = new ExceptionInfo(cfg)
+
+  def hasTrapAtRetire: Bool =
+    exception.valid || isEcall
+
+  def isRetireOnly: Bool =
+    hasTrapAtRetire || isMret
+
+  def needsIssue: Bool =
+    valid && !isRetireOnly
 }
 
 class IssueControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -72,10 +84,7 @@ class StoreTrackerCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx = UInt(cfg.robIdxWidth.W)
 }
 
-class RetireException(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val valid         = Bool()
-  val cause         = UInt(8.W)
-  val tval          = UInt(cfg.dataWidth.W)
+class RetireException(cfg: BackendConfig = BackendConfig()) extends ExceptionInfo(cfg) {
   val blocksYounger = Bool()
 }
 
@@ -138,6 +147,10 @@ class IssuePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isCsr       = Bool()
   val csrAddr     = UInt(CsrAddr.width.W)
   val csrWen      = Bool()
+  val exception   = new ExceptionInfo(cfg)
+
+  def needsExecution: Bool =
+    legal && !exception.valid
 }
 
 class ScoreboardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -162,7 +175,7 @@ class ScoreboardCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
 }
 
 class RobAllocPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val decode = new DecodePacket(cfg.addrWidth)
+  val decode = new DecodePacket(cfg)
 }
 
 class RobWritebackPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -177,6 +190,7 @@ class RobWritebackPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val branchTarget   = UInt(cfg.addrWidth.W)
   val csrWen         = Bool()
   val csrWdata       = UInt(cfg.dataWidth.W)
+  val exception      = new ExceptionInfo(cfg)
 }
 
 class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -204,6 +218,10 @@ class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val csrAddr        = UInt(CsrAddr.width.W)
   val csrWen         = Bool()
   val csrWdata       = UInt(cfg.dataWidth.W)
+  val exception      = new ExceptionInfo(cfg)
+
+  def hasTrapAtRetire: Bool =
+    exception.valid || isEcall
 }
 
 class CommitRegWrite(cfg: BackendConfig = BackendConfig()) extends Bundle {

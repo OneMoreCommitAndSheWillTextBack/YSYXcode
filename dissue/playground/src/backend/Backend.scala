@@ -9,6 +9,7 @@ import top.backend.bundle.{DecodePacket, IssuePortStatus, IssueWakeup, RetireGro
 import top.backend.csr.{CsrFile, CsrTracker}
 import top.backend.decoder._
 import top.backend.dispatch.{Dispatch, Scoreboard}
+import top.backend.exception.ExceptionInfo
 import top.backend.exu.{ExecuteBlock, ExuRequest}
 import top.backend.issue.IssueQueue
 import top.backend.lsu.{LSU, StoreTracker}
@@ -65,7 +66,7 @@ class Backend(
   io.frontend.ready := !pending
 
   val dispatchFetch  = Wire(Vec(cfg.dispatchWidth, Valid(new FetchInstPayload(cfg.addrWidth))))
-  val dispatchDecode = Wire(Vec(cfg.dispatchWidth, new DecodePacket(cfg.addrWidth)))
+  val dispatchDecode = Wire(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
   val laneInRange    = Wire(Vec(cfg.dispatchWidth, Bool()))
 
   for (lane <- 0 until cfg.dispatchWidth) {
@@ -80,21 +81,27 @@ class Backend(
       }
     }
 
-    decoder(lane).io.in        := dispatchFetch(lane).bits
-    dispatchDecode(lane)       := decoder(lane).io.out
-    dispatchDecode(lane).legal := pending && laneInRange(lane) && dispatchFetch(lane).valid && decoder(
-      lane
-    ).io.out.legal
+    decoder(lane).io.in := dispatchFetch(lane).bits
+    val slotValid        = pending && laneInRange(lane) && dispatchFetch(lane).valid
+    val decodedException = Wire(new ExceptionInfo(cfg))
+    decodedException       := decoder(lane).io.out.exception
+    decodedException.valid := slotValid && decoder(lane).io.out.exception.valid
+
+    dispatchDecode(lane)           := decoder(lane).io.out
+    dispatchDecode(lane).valid     := slotValid
+    dispatchDecode(lane).exception := decodedException
 
     dispatch.io.in(lane)     := dispatchDecode(lane)
     dispatch.io.robIdx(lane) := rob.io.allocIdx(lane)
 
-    dispatch.io.out(lane).ready := rob.io.alloc(lane).ready && issueQueue.io.enq(lane).ready
+    val needsIssue = dispatchDecode(lane).needsIssue
 
-    rob.io.alloc(lane).valid       := dispatch.io.out(lane).valid && issueQueue.io.enq(lane).ready
+    dispatch.io.out(lane).ready := rob.io.alloc(lane).ready && (!needsIssue || issueQueue.io.enq(lane).ready)
+
+    rob.io.alloc(lane).valid       := dispatch.io.out(lane).valid && (!needsIssue || issueQueue.io.enq(lane).ready)
     rob.io.alloc(lane).bits.decode := dispatchDecode(lane)
 
-    issueQueue.io.enq(lane).valid := dispatch.io.out(lane).valid && rob.io.alloc(lane).ready
+    issueQueue.io.enq(lane).valid := dispatch.io.out(lane).valid && rob.io.alloc(lane).ready && needsIssue
     issueQueue.io.enq(lane).bits  := dispatch.io.out(lane).bits
   }
 

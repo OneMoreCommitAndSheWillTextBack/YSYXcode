@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util.{log2Ceil, Decoupled, PopCount, Valid}
 import top.backend.bundle.{RobAllocPacket, RobCommitPacket, RobWritebackPacket}
 import top.backend.csr.CsrAddr
+import top.backend.exception.ExceptionInfo
 import top.bundle.FetchInstPayload
 import top.config.BackendConfig
 import top.bundle.CfiType
@@ -34,6 +35,7 @@ private class RobEntry(cfg: BackendConfig) extends Bundle {
   val csrAddr        = UInt(CsrAddr.width.W)
   val csrWen         = Bool()
   val csrWdata       = UInt(cfg.dataWidth.W)
+  val exception      = new ExceptionInfo(cfg)
 }
 
 class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
@@ -124,6 +126,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     io.commit(i).bits.csrAddr        := entry.csrAddr
     io.commit(i).bits.csrWen         := entry.csrWen
     io.commit(i).bits.csrWdata       := entry.csrWdata
+    io.commit(i).bits.exception      := entry.exception
   }
 
   io.head  := head
@@ -156,6 +159,9 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
         entries(wb.bits.robIdx).branchTarget   := wb.bits.branchTarget
         entries(wb.bits.robIdx).csrWen         := wb.bits.csrWen
         entries(wb.bits.robIdx).csrWdata       := wb.bits.csrWdata
+        when(!entries(wb.bits.robIdx).exception.valid) {
+          entries(wb.bits.robIdx).exception := wb.bits.exception
+        }
       }
     }
 
@@ -173,7 +179,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
         val decode   = io.alloc(i).bits.decode
 
         entries(allocIdx).valid          := true.B
-        entries(allocIdx).done           := false.B
+        entries(allocIdx).done           := !decode.needsIssue
         entries(allocIdx).fetch          := decode.fetch
         entries(allocIdx).rd             := decode.rd
         entries(allocIdx).rfWen          := decode.rfWen
@@ -188,6 +194,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
         entries(allocIdx).isCsr          := decode.isCsr
         entries(allocIdx).csrAddr        := decode.csrAddr
         entries(allocIdx).csrWen         := decode.csrWen
+        entries(allocIdx).exception      := decode.exception
         entries(allocIdx).csrWdata       := 0.U
         entries(allocIdx).result         := 0.U
         entries(allocIdx).storeAddr      := 0.U

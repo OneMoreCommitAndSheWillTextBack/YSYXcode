@@ -120,6 +120,7 @@ class IntExeUnit(
   mulIssueResult.rfWen         := io.in.bits.rfWen
   mulIssueResult.csrWen        := false.B
   mulIssueResult.redirectValid := false.B
+  mulIssueResult.exception     := io.in.bits.exception
 
   private val divIssueResult = Wire(new ExuResult(cfg))
   divIssueResult               := 0.U.asTypeOf(new ExuResult(cfg))
@@ -128,6 +129,7 @@ class IntExeUnit(
   divIssueResult.rfWen         := io.in.bits.rfWen
   divIssueResult.csrWen        := false.B
   divIssueResult.redirectValid := false.B
+  divIssueResult.exception     := io.in.bits.exception
 
   when(io.flush) {
     mulMeta0.valid := false.B
@@ -151,10 +153,11 @@ class IntExeUnit(
   exuResult.valid := io.in.fire && !io.flush && !isMulReq && !isDivReq
   exuResult.bits  := 0.U.asTypeOf(new ExuResult(cfg))
 
-  exuResult.bits.robIdx := io.in.bits.robIdx
-  exuResult.bits.rd     := io.in.bits.rd
-  exuResult.bits.rfWen  := io.in.bits.rfWen
-  exuResult.bits.result := MuxLookup(io.in.bits.fuType, alu.map(_.io.out).getOrElse(0.U(cfg.dataWidth.W)))(
+  exuResult.bits.robIdx    := io.in.bits.robIdx
+  exuResult.bits.rd        := io.in.bits.rd
+  exuResult.bits.rfWen     := io.in.bits.rfWen
+  exuResult.bits.exception := io.in.bits.exception
+  exuResult.bits.result    := MuxLookup(io.in.bits.fuType, alu.map(_.io.out).getOrElse(0.U(cfg.dataWidth.W)))(
     Seq(
       Option.when(has(ExuFuKind.Bru))(FuType.bru -> 0.U(cfg.dataWidth.W)),
       jmp.map(unit => FuType.jmp -> unit.io.link),
@@ -216,6 +219,7 @@ class IntExeUnit(
   io.writeback.bits.branchTarget   := writebackResult.bits.branchTarget
   io.writeback.bits.csrWen         := writebackResult.bits.csrWen
   io.writeback.bits.csrWdata       := writebackResult.bits.csrWdata
+  io.writeback.bits.exception      := writebackResult.bits.exception
 
   io.wakeup.valid  := writebackResult.valid && writebackResult.bits.rfWen
   io.wakeup.robIdx := writebackResult.bits.robIdx

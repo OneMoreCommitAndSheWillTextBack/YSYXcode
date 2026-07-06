@@ -1,7 +1,6 @@
 package top.backend.csr
 
 import chisel3._
-import chisel3.util.MuxLookup
 
 object PrivMode {
   val width = 2
@@ -72,19 +71,4 @@ object Mstatus {
 
   val writeMask: BigInt =
     trapWriteMask | supervisorVisibleWriteMask | bit(mprvBit)
-}
-
-object ExceptionCause {
-  val ecallFromU = 8
-  val ecallFromS = 9
-  val ecallFromM = 11
-
-  def ecallFrom(mode: UInt): UInt =
-    MuxLookup(mode, ecallFromM.U(4.W))(
-      Seq(
-        PrivMode.U -> ecallFromU.U(4.W),
-        PrivMode.S -> ecallFromS.U(4.W),
-        PrivMode.M -> ecallFromM.U(4.W)
-      )
-    )
 }

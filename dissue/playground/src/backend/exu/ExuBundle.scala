@@ -3,6 +3,7 @@ package top.backend.exu
 import chisel3._
 import top.backend.bundle.IssuePacket
 import top.backend.csr.CsrAddr
+import top.backend.exception.ExceptionInfo
 import top.bundle.{CfiType, FetchInstPayload}
 import top.config.BackendConfig
 
@@ -29,6 +30,8 @@ class ExuRequest(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isCsr   = Bool()
   val csrAddr = UInt(CsrAddr.width.W)
   val csrWen  = Bool()
+
+  val exception = new ExceptionInfo(cfg)
 }
 
 object ExuRequest {
@@ -54,6 +57,7 @@ object ExuRequest {
     request.isCsr       := issue.isCsr
     request.csrAddr     := issue.csrAddr
     request.csrWen      := issue.csrWen
+    request.exception   := issue.exception
 
     request
   }
@@ -77,4 +81,6 @@ class ExuResult(cfg: BackendConfig = BackendConfig()) extends Bundle {
 
   val csrWen   = Bool()
   val csrWdata = UInt(cfg.dataWidth.W)
+
+  val exception = new ExceptionInfo(cfg)
 }
