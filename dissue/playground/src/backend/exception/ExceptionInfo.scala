@@ -38,4 +38,10 @@ object ExceptionInfo {
     info.cause     := cause
     info
   }
+
+  def keepFirst(first: ExceptionInfo, second: ExceptionInfo, cfg: BackendConfig = BackendConfig()): ExceptionInfo = {
+    val info = Wire(new ExceptionInfo(cfg))
+    info := Mux(first.valid, first, second)
+    info
+  }
 }

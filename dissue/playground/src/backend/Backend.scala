@@ -168,6 +168,7 @@ class Backend(
   csrFile.io.commit       := retire.io.csrCommit
   csrFile.io.trap         := retire.io.csrTrap
   csrFile.io.mret         := retire.io.csrMret
+  csrFile.io.retireCount  := PopCount(retire.io.retire.validMask)
   retire.io.csrStatus     := csrFile.io.status
   csrTracker.io.commit    := retire.io.csrTrackerCommit
   storeTracker.io.robHead := rob.io.head

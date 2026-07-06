@@ -21,7 +21,8 @@ class CSR(cfg: BackendConfig = BackendConfig()) extends Module {
   io.wdata  := MuxLookup(io.op, io.old)(
     Seq(
       CsrOp.rw -> io.src,
-      CsrOp.rs -> (io.old | io.src)
+      CsrOp.rs -> (io.old | io.src),
+      CsrOp.rc -> (io.old & ~io.src).asUInt
     )
   )
   io.wen    := io.writeEnable

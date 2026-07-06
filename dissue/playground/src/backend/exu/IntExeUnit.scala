@@ -3,8 +3,9 @@ package top.backend.exu
 import chisel3._
 import chisel3.util.{Decoupled, MuxLookup, Valid}
 import top.backend.bundle.{IssuePortStatus, IssueWakeup, RobWritebackPacket}
-import top.backend.csr.CsrReadPort
+import top.backend.csr.{CsrOp, CsrReadPort}
 import top.backend.decoder.FuType
+import top.backend.exception.{ExceptionCause, ExceptionInfo}
 import top.backend.fu.{ALU, BRU, CSR, DIV, JMP, MUL}
 import top.config.BackendConfig
 
@@ -153,10 +154,21 @@ class IntExeUnit(
   exuResult.valid := io.in.fire && !io.flush && !isMulReq && !isDivReq
   exuResult.bits  := 0.U.asTypeOf(new ExuResult(cfg))
 
+  private val csrReadNeeded  =
+    io.in.bits.fuType === FuType.csr &&
+      (io.in.bits.fuOp =/= CsrOp.rw || io.in.bits.rd =/= 0.U)
+  private val csrWriteNeeded =
+    io.in.bits.fuType === FuType.csr && io.in.bits.csrWen
+  private val csrIllegal     =
+    (csrReadNeeded && !io.csrRead.readLegal) || (csrWriteNeeded && !io.csrRead.writeLegal)
+
   exuResult.bits.robIdx    := io.in.bits.robIdx
   exuResult.bits.rd        := io.in.bits.rd
   exuResult.bits.rfWen     := io.in.bits.rfWen
   exuResult.bits.exception := io.in.bits.exception
+  when(csrIllegal) {
+    exuResult.bits.exception := ExceptionInfo.raise(ExceptionCause.illegalInstr, io.in.bits.fetch.rawInst, cfg)
+  }
   exuResult.bits.result    := MuxLookup(io.in.bits.fuType, alu.map(_.io.out).getOrElse(0.U(cfg.dataWidth.W)))(
     Seq(
       Option.when(has(ExuFuKind.Bru))(FuType.bru -> 0.U(cfg.dataWidth.W)),
@@ -189,7 +201,7 @@ class IntExeUnit(
       jmp.map(unit => FuType.jmp -> unit.io.target)
     ).flatten
   )
-  exuResult.bits.csrWen         := io.in.bits.fuType === FuType.csr && csr.map(_.io.wen).getOrElse(false.B)
+  exuResult.bits.csrWen         := io.in.bits.fuType === FuType.csr && csr.map(_.io.wen).getOrElse(false.B) && !csrIllegal
   exuResult.bits.csrWdata       := csr.map(_.io.wdata).getOrElse(0.U(cfg.dataWidth.W))
 
   private val mulResult = Wire(Valid(new ExuResult(cfg)))

@@ -2,13 +2,14 @@ package top.backend.exception
 
 import chisel3._
 import chisel3.util.{Mux1H, PopCount, PriorityEncoderOH}
-import top.backend.csr.{CsrMretCommit, CsrStatus, CsrTrapCommit}
+import top.backend.csr.{CsrArch, CsrMretCommit, CsrStatus, CsrTrapCommit, PrivMode}
 import top.bundle.Redirect
 import top.config.BackendConfig
 
 class TrapLane(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid     = Bool()
   val pc        = UInt(cfg.addrWidth.W)
+  val inst      = UInt(cfg.dataWidth.W)
   val exception = new ExceptionInfo(cfg)
   val isEcall   = Bool()
   val isMret    = Bool()
@@ -31,30 +32,51 @@ class TrapUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   private val laneMret = Wire(Vec(cfg.commitWidth, Bool()))
 
   for (i <- 0 until cfg.commitWidth) {
-    val ecallException = ExceptionInfo.raise(ExceptionCause.ecallFrom(io.csrStatus.priv.mode), 0.U, cfg)
+    val ecallException       = ExceptionInfo.raise(ExceptionCause.ecallFrom(io.csrStatus.priv.mode), 0.U, cfg)
+    val illegalMretException = ExceptionInfo.raise(ExceptionCause.illegalInstr, io.lanes(i).inst, cfg)
+    val mretIllegal          = io.lanes(i).isMret && io.csrStatus.priv.mode =/= PrivMode.M
 
-    io.laneException(i)       := Mux(io.lanes(i).exception.valid, io.lanes(i).exception, ecallException)
-    io.laneException(i).valid := io.lanes(i).valid && (io.lanes(i).exception.valid || io.lanes(i).isEcall)
+    io.laneException(i)       := Mux(
+      io.lanes(i).exception.valid,
+      io.lanes(i).exception,
+      Mux(mretIllegal, illegalMretException, ecallException)
+    )
+    io.laneException(i).valid :=
+      io.lanes(i).valid && (io.lanes(i).exception.valid || io.lanes(i).isEcall || mretIllegal)
 
     laneTrap(i) := io.laneException(i).valid
-    laneMret(i) := io.lanes(i).valid && io.lanes(i).isMret
+    laneMret(i) := io.lanes(i).valid && io.lanes(i).isMret && !mretIllegal && !io.lanes(i).exception.valid
   }
 
   io.trapMask := laneTrap.asUInt
   io.mretMask := laneMret.asUInt
 
-  private val trapGrantOH = PriorityEncoderOH(io.trapMask).asBools
-  private val mretGrantOH = PriorityEncoderOH(io.mretMask).asBools
+  private val trapGrantOH      = PriorityEncoderOH(io.trapMask).asBools
+  private val trapCause        = Mux1H(trapGrantOH, io.laneException.map(_.cause))
+  private val trapIntr         = Mux1H(trapGrantOH, io.laneException.map(_.interrupt))
+  private val trapToSupervisor = CsrArch.trapDelegated(
+    trapCause,
+    trapIntr,
+    io.csrStatus.priv.mode,
+    io.csrStatus.medeleg,
+    io.csrStatus.mideleg,
+    cfg
+  )
 
-  io.trap.valid := io.trapMask.orR
-  io.trap.epc   := Mux1H(trapGrantOH, io.lanes.map(_.pc))
-  io.trap.cause := Mux1H(trapGrantOH, io.laneException.map(_.csrCause))
-  io.trap.tval  := Mux1H(trapGrantOH, io.laneException.map(_.tval))
+  io.trap.valid        := io.trapMask.orR
+  io.trap.toSupervisor := trapToSupervisor
+  io.trap.epc          := Mux1H(trapGrantOH, io.lanes.map(_.pc))
+  io.trap.cause        := Mux1H(trapGrantOH, io.laneException.map(_.csrCause))
+  io.trap.tval         := Mux1H(trapGrantOH, io.laneException.map(_.tval))
 
   io.mret.valid := io.mretMask.orR
 
   io.redirect.valid  := io.trap.valid || io.mret.valid
-  io.redirect.target := Mux(io.trap.valid, io.csrStatus.trapVector, io.csrStatus.mretTarget)
+  io.redirect.target := Mux(
+    io.trap.valid,
+    CsrArch.trapVector(trapToSupervisor, io.csrStatus.mtvec, io.csrStatus.stvec, cfg),
+    io.csrStatus.mretTarget
+  )
 
   assert(PopCount(laneTrap) <= 1.U)
   assert(PopCount(laneMret) <= 1.U)

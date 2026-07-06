@@ -25,12 +25,14 @@ class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
   }
 
   for (port <- 0 until cfg.intIssueWidth) {
-    units(port).io.flush        := io.flush
+    units(port).io.flush              := io.flush
     units(port).io.in <> io.in(port)
-    units(port).io.csrRead.data := io.csrRead.data
-    io.status(port)             := units(port).io.status
-    io.writeback(port)          := units(port).io.writeback
-    io.wakeup(port)             := units(port).io.wakeup
+    units(port).io.csrRead.data       := io.csrRead.data
+    units(port).io.csrRead.readLegal  := io.csrRead.readLegal
+    units(port).io.csrRead.writeLegal := io.csrRead.writeLegal
+    io.status(port)                   := units(port).io.status
+    io.writeback(port)                := units(port).io.writeback
+    io.wakeup(port)                   := units(port).io.wakeup
   }
 
   private val csrReadSources = unitConfigs.zip(units).collect {

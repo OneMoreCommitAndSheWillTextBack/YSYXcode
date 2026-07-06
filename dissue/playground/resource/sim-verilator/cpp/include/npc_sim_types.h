@@ -27,6 +27,33 @@ typedef struct NpcCsrContext {
   uint32_t mscratch;
   uint32_t mcycle;
   uint32_t minstret;
+  uint32_t sepc;
+  uint32_t misa;
+  uint32_t mstatush;
+  uint32_t satp;
+  uint32_t medeleg;
+  uint32_t mideleg;
+  uint32_t mvendorid;
+  uint32_t marchid;
+  uint32_t mhartid;
+  uint32_t mimpid;
+  uint32_t pmpaddr0;
+  uint32_t pmpaddr1;
+  uint32_t pmpaddr2;
+  uint32_t pmpaddr3;
+  uint32_t pmpaddr4;
+  uint32_t pmpaddr5;
+  uint32_t pmpaddr6;
+  uint32_t pmpaddr7;
+  uint32_t pmpcfg0;
+  uint32_t pmpcfg1;
+  uint32_t scause;
+  uint32_t stval;
+  uint32_t sscratch;
+  uint32_t stvec;
+  uint32_t mcounteren;
+  uint32_t scounteren;
+  uint32_t mcountinhibit;
 } NpcCsrContext;
 
 typedef struct NpcCpuContext {

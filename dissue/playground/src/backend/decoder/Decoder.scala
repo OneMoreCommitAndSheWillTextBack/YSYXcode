@@ -67,12 +67,10 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.csrAddr     := inst(31, 20)
   io.out.csrWen      := isCsr && (
     decoded(DecodeIndex.fuOp) === CsrOp.rw ||
-      (decoded(DecodeIndex.fuOp) === CsrOp.rs && rs1 =/= 0.U)
+      ((decoded(DecodeIndex.fuOp) === CsrOp.rs || decoded(DecodeIndex.fuOp) === CsrOp.rc) && rs1 =/= 0.U)
   )
   io.out.exception   := ExceptionInfo.none(cfg)
   when(!legal) {
     io.out.exception := ExceptionInfo.raise(ExceptionCause.illegalInstr, io.in.rawInst, cfg)
-  }.elsewhen(io.out.isEbreak) {
-    io.out.exception := ExceptionInfo.raise(ExceptionCause.breakpoint, 0.U, cfg)
   }
 }

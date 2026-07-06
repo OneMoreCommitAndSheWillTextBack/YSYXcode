@@ -159,9 +159,11 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
         entries(wb.bits.robIdx).branchTarget   := wb.bits.branchTarget
         entries(wb.bits.robIdx).csrWen         := wb.bits.csrWen
         entries(wb.bits.robIdx).csrWdata       := wb.bits.csrWdata
-        when(!entries(wb.bits.robIdx).exception.valid) {
-          entries(wb.bits.robIdx).exception := wb.bits.exception
-        }
+        entries(wb.bits.robIdx).exception      := ExceptionInfo.keepFirst(
+          entries(wb.bits.robIdx).exception,
+          wb.bits.exception,
+          cfg
+        )
       }
     }
 

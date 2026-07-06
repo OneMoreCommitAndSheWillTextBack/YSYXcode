@@ -12,6 +12,7 @@ private[decoder] object RviSystemDecode extends DecodeGroup {
   val table: Seq[(BitPat, List[UInt])] = Seq(
     CSRRW  -> csr(CsrOp.rw),
     CSRRS  -> csr(CsrOp.rs),
+    CSRRC  -> csr(CsrOp.rc),
     ECALL  -> ecall,
     EBREAK -> ebreak,
     MRET   -> mret
