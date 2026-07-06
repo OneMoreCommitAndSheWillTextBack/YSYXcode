@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util.{Decoupled, Enum, MuxLookup, Valid}
 import top.backend.bundle.{IssuePacket, IssueWakeup, RobWritebackPacket}
 import top.backend.decoder.{LsuOp, MemSize}
+import top.backend.exception.{ExceptionCause, ExceptionInfo}
 import top.bundle.{DataMemReq, DataMemResp}
 import top.config.BackendConfig
 
@@ -24,13 +25,20 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   private val state                     = RegInit(sIdle)
 
   private val loadRobIdx = Reg(UInt(cfg.robIdxWidth.W))
+  private val loadAddr   = Reg(UInt(cfg.addrWidth.W))
 
   private val dataBytes = cfg.dataWidth / 8
   private def asAddr(value: UInt): UInt =
     value.pad(cfg.addrWidth)(cfg.addrWidth - 1, 0)
 
-  private val addr      = asAddr(io.in.bits.src1.data + io.in.bits.imm)
-  private val storeMask = MuxLookup(io.in.bits.memSize, 0.U(dataBytes.W))(
+  private val addr       = asAddr(io.in.bits.src1.data + io.in.bits.imm)
+  private val misaligned = MuxLookup(io.in.bits.memSize, false.B)(
+    Seq(
+      MemSize.half.U -> addr(0),
+      MemSize.word.U -> addr(1, 0).orR
+    )
+  )
+  private val storeMask  = MuxLookup(io.in.bits.memSize, 0.U(dataBytes.W))(
     Seq(
       MemSize.byte.U -> 1.U(dataBytes.W),
       MemSize.half.U -> 3.U(dataBytes.W),
@@ -38,12 +46,13 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     )
   )
 
-  val isLoad  = io.in.bits.fuOp === LsuOp.load
-  val isStore = io.in.bits.fuOp === LsuOp.store
+  val isLoad          = io.in.bits.fuOp === LsuOp.load
+  val isStore         = io.in.bits.fuOp === LsuOp.store
+  val loadNeedsMemory = isLoad && !misaligned
 
   io.busy := state =/= sIdle
 
-  io.dmemReq.valid         := state === sIdle && io.in.valid && isLoad
+  io.dmemReq.valid         := state === sIdle && io.in.valid && loadNeedsMemory
   io.dmemReq.bits          := 0.U.asTypeOf(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
   io.dmemReq.bits.addr     := addr
   io.dmemReq.bits.write    := false.B
@@ -52,7 +61,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   io.dmemReq.bits.wdata    := 0.U
   io.dmemReq.bits.wmask    := 0.U
 
-  io.in.ready := state === sIdle && Mux(isLoad, io.dmemReq.ready, true.B)
+  io.in.ready := state === sIdle && Mux(loadNeedsMemory, io.dmemReq.ready, true.B)
 
   io.dmemResp.ready := state === sLoadResp
 
@@ -67,8 +76,15 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   }.otherwise {
     when(state === sIdle) {
       when(io.in.fire && isLoad) {
-        loadRobIdx := io.in.bits.robIdx
-        state      := sLoadResp
+        when(misaligned) {
+          io.writeback.valid          := true.B
+          io.writeback.bits.robIdx    := io.in.bits.robIdx
+          io.writeback.bits.exception := ExceptionInfo.raise(ExceptionCause.loadAddrMisaligned, addr, cfg)
+        }.otherwise {
+          loadRobIdx := io.in.bits.robIdx
+          loadAddr   := addr
+          state      := sLoadResp
+        }
       }.elsewhen(io.in.fire && isStore) {
         io.writeback.valid          := true.B
         io.writeback.bits.robIdx    := io.in.bits.robIdx
@@ -76,14 +92,20 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
         io.writeback.bits.storeAddr := addr
         io.writeback.bits.storeData := io.in.bits.src2.data
         io.writeback.bits.storeMask := storeMask
+        when(misaligned) {
+          io.writeback.bits.exception := ExceptionInfo.raise(ExceptionCause.storeAddrMisaligned, addr, cfg)
+        }
       }
     }.elsewhen(state === sLoadResp) {
       when(io.dmemResp.fire) {
         io.writeback.valid       := true.B
         io.writeback.bits.robIdx := loadRobIdx
         io.writeback.bits.result := io.dmemResp.bits.data
+        when(io.dmemResp.bits.fault) {
+          io.writeback.bits.exception := ExceptionInfo.raise(ExceptionCause.loadAccessFault, loadAddr, cfg)
+        }
 
-        io.wakeup.valid  := true.B
+        io.wakeup.valid  := !io.dmemResp.bits.fault
         io.wakeup.robIdx := loadRobIdx
         io.wakeup.data   := io.dmemResp.bits.data
 

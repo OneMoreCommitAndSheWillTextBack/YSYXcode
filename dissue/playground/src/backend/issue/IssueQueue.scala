@@ -51,11 +51,11 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
     val csrBlocked  = entries(i).isCsr && io.csrQuery(i).hasOlderSameAddrWriter
     val memPipe     = entries(i).fuType === FuType.lsu
-    val request     = valid(i) && entries(i).legal && ready && !loadBlocked && !csrBlocked
+    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !csrBlocked
 
-    io.storeQuery(i).valid  := valid(i) && entries(i).legal && entries(i).isLoad
+    io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad
     io.storeQuery(i).robIdx := entries(i).robIdx
-    io.csrQuery(i).valid    := valid(i) && entries(i).legal && entries(i).isCsr
+    io.csrQuery(i).valid    := valid(i) && entries(i).needsExecution && entries(i).isCsr
     io.csrQuery(i).robIdx   := entries(i).robIdx
     io.csrQuery(i).addr     := entries(i).csrAddr
 
@@ -100,12 +100,12 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val occupancy           = PopCount(valid)
   private val hasReadyEntry       = VecInit(
     (0 until cfg.issueQueueEntries).map(i =>
-      valid(i) && entries(i).legal && entries(i).src1.ready && entries(i).src2.ready
+      valid(i) && entries(i).needsExecution && entries(i).src1.ready && entries(i).src2.ready
     )
   ).asUInt.orR
   private val hasOperandBlocked   = VecInit(
     (0 until cfg.issueQueueEntries).map(i =>
-      valid(i) && entries(i).legal && (!entries(i).src1.ready || !entries(i).src2.ready)
+      valid(i) && entries(i).needsExecution && (!entries(i).src1.ready || !entries(i).src2.ready)
     )
   ).asUInt.orR
   private val noIssue             = issueCountThisCycle === 0.U

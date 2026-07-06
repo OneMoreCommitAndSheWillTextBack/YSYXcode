@@ -4,13 +4,14 @@ import chisel3._
 import chisel3.util.{Cat, Fill, ListLookup, MuxLookup}
 import top.backend.bundle._
 import top.backend.csr.CsrOp
+import top.backend.exception.{ExceptionCause, ExceptionInfo}
 import top.bundle.FetchInstPayload
 import top.config.BackendConfig
 
 class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
     val in  = Input(new FetchInstPayload(cfg.addrWidth))
-    val out = Output(new DecodePacket(cfg.addrWidth))
+    val out = Output(new DecodePacket(cfg))
   })
 
   private val inst = io.in.inst
@@ -30,7 +31,8 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   private val immJ = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
   private val immU = Cat(inst(31, 12), 0.U(12.W))
 
-  io.out             := 0.U.asTypeOf(new DecodePacket(cfg.addrWidth))
+  io.out             := 0.U.asTypeOf(new DecodePacket(cfg))
+  io.out.valid       := true.B
   io.out.fetch       := io.in
   io.out.legal       := legal
   io.out.rs1         := rs1
@@ -65,6 +67,10 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.csrAddr     := inst(31, 20)
   io.out.csrWen      := isCsr && (
     decoded(DecodeIndex.fuOp) === CsrOp.rw ||
-      (decoded(DecodeIndex.fuOp) === CsrOp.rs && rs1 =/= 0.U)
+      ((decoded(DecodeIndex.fuOp) === CsrOp.rs || decoded(DecodeIndex.fuOp) === CsrOp.rc) && rs1 =/= 0.U)
   )
+  io.out.exception   := ExceptionInfo.none(cfg)
+  when(!legal) {
+    io.out.exception := ExceptionInfo.raise(ExceptionCause.illegalInstr, io.in.rawInst, cfg)
+  }
 }

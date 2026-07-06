@@ -9,7 +9,7 @@ import top.bundle.CfiType
 
 class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val in              = Input(Vec(cfg.dispatchWidth, new DecodePacket(cfg.addrWidth)))
+    val in              = Input(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
     val robIdx          = Input(Vec(cfg.dispatchWidth, UInt(cfg.robIdxWidth.W)))
     val rfRead          = Vec(cfg.scoreboardQueries, Flipped(new RegFileReadPort(cfg.dataWidth)))
     val scoreboardQuery = Vec(cfg.scoreboardQueries, Flipped(new ScoreboardQuery(cfg)))
@@ -21,13 +21,13 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     lane * cfg.operandsPerInst + operand
 
   private def readsRs(decode: DecodePacket, srcType: UInt, rs: UInt): Bool =
-    decode.legal && (srcType === SrcType.reg) && (rs =/= 0.U)
+    decode.needsIssue && (srcType === SrcType.reg) && (rs =/= 0.U)
 
   private def writesRd(decode: DecodePacket): Bool =
-    decode.legal && decode.rfWen && (decode.rd =/= 0.U)
+    decode.needsIssue && decode.rfWen && (decode.rd =/= 0.U)
 
-  private def isControlBoundary(decode: DecodePacket): Bool =
-    decode.legal && (decode.cfi =/= CfiType.none)
+  private def isDispatchBoundary(decode: DecodePacket): Bool =
+    decode.valid && (decode.isRetireOnly || (decode.cfi =/= CfiType.none))
 
   private def asDataWidth(value: UInt): UInt =
     value.asTypeOf(UInt(cfg.dataWidth.W))
@@ -51,14 +51,14 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     val isReg   = srcType === SrcType.reg
 
     operand.data  := selectSrc(decode, srcType, regData)
-    operand.ready := !decode.legal || !isReg || scoreboard.ready
+    operand.ready := !decode.needsIssue || !isReg || scoreboard.ready
     operand.tag   := Mux(isReg && !scoreboard.ready, scoreboard.producer, 0.U)
     operand
   }
 
   val laneAllowed = Wire(Vec(cfg.dispatchWidth, Bool()))
   for (lane <- 0 until cfg.dispatchWidth) {
-    laneAllowed(lane) := io.in(lane).legal
+    laneAllowed(lane) := io.in(lane).valid
   }
 
   if (cfg.dispatchWidth > 1) {
@@ -67,18 +67,18 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
         val older = io.in(olderLane)
         val young = io.in(lane)
 
-        val raw             =
+        val raw              =
           writesRd(older) &&
             ((readsRs(young, young.src1Type, young.rs1) && (young.rs1 === older.rd)) ||
               (readsRs(young, young.src2Type, young.rs2) && (young.rs2 === older.rd)))
-        val waw             = writesRd(older) && writesRd(young) && (older.rd === young.rd)
-        val controlBoundary = isControlBoundary(older)
+        val waw              = writesRd(older) && writesRd(young) && (older.rd === young.rd)
+        val dispatchBoundary = isDispatchBoundary(older)
 
-        !io.out(olderLane).fire || raw || waw || controlBoundary
+        !io.out(olderLane).fire || raw || waw || dispatchBoundary
       }.reduce(_ || _)
 
       // Without rename, a dispatch group is only allowed to expose a dependency-free prefix.
-      laneAllowed(lane) := io.in(lane).legal && !olderHazards
+      laneAllowed(lane) := io.in(lane).valid && !olderHazards
     }
   }
 
@@ -91,17 +91,17 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     val src1IsReg = decode.src1Type === SrcType.reg
     val src2IsReg = decode.src2Type === SrcType.reg
 
-    io.rfRead(src1Port).enable := decode.legal && src1IsReg
+    io.rfRead(src1Port).enable := decode.needsIssue && src1IsReg
     io.rfRead(src1Port).addr   := decode.rs1
-    io.rfRead(src2Port).enable := decode.legal && src2IsReg
+    io.rfRead(src2Port).enable := decode.needsIssue && src2IsReg
     io.rfRead(src2Port).addr   := decode.rs2
 
-    io.scoreboardQuery(src1Port).valid := decode.legal && src1IsReg
+    io.scoreboardQuery(src1Port).valid := decode.needsIssue && src1IsReg
     io.scoreboardQuery(src1Port).rs    := decode.rs1
-    io.scoreboardQuery(src2Port).valid := decode.legal && src2IsReg
+    io.scoreboardQuery(src2Port).valid := decode.needsIssue && src2IsReg
     io.scoreboardQuery(src2Port).rs    := decode.rs2
 
-    io.scoreboardAlloc(lane).valid  := io.out(lane).fire
+    io.scoreboardAlloc(lane).valid  := io.out(lane).fire && decode.needsIssue
     io.scoreboardAlloc(lane).rd     := decode.rd
     io.scoreboardAlloc(lane).rfWen  := decode.rfWen
     io.scoreboardAlloc(lane).robIdx := io.robIdx(lane)
@@ -136,5 +136,6 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     io.out(lane).bits.isCsr       := decode.isCsr
     io.out(lane).bits.csrAddr     := decode.csrAddr
     io.out(lane).bits.csrWen      := decode.csrWen
+    io.out(lane).bits.exception   := decode.exception
   }
 }
