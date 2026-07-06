@@ -50,3 +50,13 @@ object NpcIssueQueuePerf extends DPIClockedVoidFunctionImport {
     )
   )
 }
+
+object NpcDivPerf extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_div_perf"
+  override def inputNames:   Option[Seq[String]] = Some(
+    Seq(
+      "cycles",
+      "special"
+    )
+  )
+}

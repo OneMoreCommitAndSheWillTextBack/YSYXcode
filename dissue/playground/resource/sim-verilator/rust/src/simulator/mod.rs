@@ -122,6 +122,7 @@ impl Simulator {
             pmem_write: Some(simulator_pmem_write),
             cache_hit: Some(simulator_cache_hit),
             issue_queue_perf: Some(simulator_issue_queue_perf),
+            div_perf: Some(simulator_div_perf),
         };
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
         set_active_simulator(&mut *simulator as *mut Self);
@@ -310,6 +311,13 @@ impl Simulator {
             self.perf.issue_queue_block_operand_cycles(),
             self.perf.issue_queue_average_occupancy()
         );
+        crate::Log!(
+            "DIV: operations: {}, cycles: {}, avg cycles/op: {:.3}, special operations: {}",
+            self.perf.div_operations(),
+            self.perf.div_cycles(),
+            self.perf.div_average_cycles(),
+            self.perf.div_special_operations()
+        );
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
@@ -474,4 +482,14 @@ extern "C" fn simulator_issue_queue_perf(
     simulator
         .perf
         .issue_queue_perf(issue_count, occupancy, block_ready != 0, block_operand != 0);
+}
+
+extern "C" fn simulator_div_perf(cycles: u32, special: u8) {
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+    let simulator = unsafe { &mut *simulator };
+
+    simulator.perf.div_perf(cycles, special != 0);
 }

@@ -89,3 +89,12 @@ void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
   bridge->callbacks_.issue_queue_perf(issue_count, occupancy, block_ready,
                                       block_operand);
 }
+
+void NpcHostBridge::div_perf(uint32_t cycles, uint8_t special) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.div_perf == nullptr) {
+    return;
+  }
+  bridge->callbacks_.div_perf(cycles, special);
+}

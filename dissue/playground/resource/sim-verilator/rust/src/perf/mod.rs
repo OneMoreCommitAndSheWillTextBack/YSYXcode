@@ -27,6 +27,10 @@ impl Perf {
             .issue_queue_perf(issue_count, occupancy, block_ready, block_operand);
     }
 
+    pub fn div_perf(&mut self, cycles: u32, special: bool) {
+        self.counters.div_perf(cycles, special);
+    }
+
     pub fn cacherate(&mut self) -> f64 {
         self.counters.cache_hit_rate()
     }
@@ -57,6 +61,22 @@ impl Perf {
 
     pub fn issue_queue_average_occupancy(&self) -> f64 {
         self.counters.issue_queue_average_occupancy()
+    }
+
+    pub fn div_operations(&self) -> u64 {
+        self.counters.div_operations()
+    }
+
+    pub fn div_cycles(&self) -> u64 {
+        self.counters.div_cycles()
+    }
+
+    pub fn div_special_operations(&self) -> u64 {
+        self.counters.div_special_operations()
+    }
+
+    pub fn div_average_cycles(&self) -> f64 {
+        self.counters.div_average_cycles()
     }
 
     pub fn on_cycle(&mut self) {}

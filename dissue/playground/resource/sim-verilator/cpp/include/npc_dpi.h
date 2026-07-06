@@ -13,4 +13,5 @@ extern "C" void npc_pmem_write(int addr, int len, int data);
 extern "C" void npc_cache_hit(char hit);
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,
                                      char block_ready, char block_operand);
+extern "C" void npc_div_perf(int cycles, char special);
 #endif

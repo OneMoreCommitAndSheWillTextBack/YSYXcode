@@ -3,6 +3,7 @@ package top.backend.fu
 import chisel3._
 import chisel3.util.{is, log2Ceil, switch, Cat, Decoupled, Enum, Fill, Valid}
 import top.backend.decoder.{AluOp, FuOp}
+import top.dpi.NpcDivPerf
 
 class DivReq(dataWidth: Int = 32) extends Bundle {
   val src1 = UInt(dataWidth.W)
@@ -35,6 +36,8 @@ class DIV(dataWidth: Int = 32) extends Module {
   private val quotientNegative  = Reg(Bool())
   private val remainderNegative = Reg(Bool())
   private val selectRemainder   = Reg(Bool())
+  private val cycleCount        = RegInit(0.U(16.W))
+  private val specialResult     = RegInit(false.B)
 
   private def lowData(value: UInt): UInt =
     value(dataWidth - 1, 0)
@@ -79,12 +82,17 @@ class DIV(dataWidth: Int = 32) extends Module {
   io.out.bits  := result
   io.busy      := state =/= sIdle
 
+  NpcDivPerf.callWithEnable(!reset.asBool && state === sDone && !io.flush, cycleCount.pad(32), specialResult)
+
   when(io.flush) {
     state := sIdle
   }.otherwise {
     switch(state) {
       is(sIdle) {
         when(io.in.fire) {
+          cycleCount    := 1.U
+          specialResult := specialCase
+
           when(specialCase) {
             result := Mux(reqDivByZero, divByZeroResult, overflowResult)
             state  := sDone
@@ -103,10 +111,11 @@ class DIV(dataWidth: Int = 32) extends Module {
       }
 
       is(sIterate) {
-        dividend  := nextDividend
-        quotient  := nextQuotient
-        remainder := nextRemainder
-        remaining := remaining - 1.U
+        dividend   := nextDividend
+        quotient   := nextQuotient
+        remainder  := nextRemainder
+        remaining  := remaining - 1.U
+        cycleCount := cycleCount + 1.U
 
         when(finalIteration) {
           result := Mux(selectRemainder, signedRemainder, signedQuotient)

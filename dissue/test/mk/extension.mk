@@ -70,10 +70,7 @@ SIM_BASE_ARGS ?= --batch
 DIFF ?= nemu
 # SIM_BASE_ARGS += --wave
 SIM_BASE_ARGS += --wave-path $(DEFAULT_WAVE_PATH)
-
-ifneq ($(strip $(DIFF)),)
 SIM_BASE_ARGS += --difftest-ref $(DIFF)
-endif
 
 C_TEST_SOURCES := $(sort $(wildcard $(TEST_DIR)/*.c))
 ASM_TEST_SOURCES := $(sort $(wildcard $(TEST_DIR)/*.S))
