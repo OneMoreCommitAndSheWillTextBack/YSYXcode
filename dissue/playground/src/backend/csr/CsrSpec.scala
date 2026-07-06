@@ -15,6 +15,8 @@ final case class CsrSpec(
   kind:      CsrKind,
   doc:       String)
 
+final case class CsrStateSpec(name: String, reset: BigInt)
+
 object CsrSpec {
   private val fullMask = BigInt("ffffffff", 16)
 
@@ -82,12 +84,31 @@ object CsrSpec {
     virt("instreth", CsrAddr.instreth, writeMask = 0, doc = "High retired-instruction counter view."),
     virt("sie", CsrAddr.sie, writeMask = CsrInterrupt.sieMask, doc = "Supervisor view of delegated mie bits."),
     virt("sip", CsrAddr.sip, writeMask = CsrInterrupt.writableSipMask, doc = "Supervisor view of delegated mip bits."),
-    virt("mip", CsrAddr.mip, writeMask = CsrInterrupt.writableMipMask, doc = "Machine interrupt-pending bits."),
-    virt("sstatus", CsrAddr.sstatus, writeMask = Sstatus.mask, doc = "Supervisor-visible mstatus projection.")
+    raw("mip", CsrAddr.mip, writeMask = CsrInterrupt.writableMipMask, doc = "Machine interrupt-pending bits."),
+    virt("sstatus", CsrAddr.sstatus, writeMask = Sstatus.writeMask, doc = "Supervisor-visible mstatus projection.")
   )
+
+  require(supported.map(_.addr).distinct.size == supported.size, "duplicate CSR address in CsrSpec.supported")
 
   val raw: Seq[CsrSpec] =
     supported.filter(_.kind == CsrKind.Raw)
+
+  private val counterState: Seq[CsrStateSpec] =
+    Seq(
+      CsrStateSpec("mcycle", 0),
+      CsrStateSpec("minstret", 0)
+    )
+
+  val state: Seq[CsrStateSpec] =
+    raw.map(spec => CsrStateSpec(spec.name, spec.reset)) ++ counterState
+
+  require(state.map(_.name).distinct.size == state.size, "duplicate CSR state name in CsrSpec.state")
+
+  val stateIndex: Map[String, Int] =
+    state.map(_.name).zipWithIndex.toMap
+
+  val difftestExport: Seq[String] =
+    state.map(_.name)
 
   val byAddr: Map[Int, CsrSpec] =
     supported.map(spec => spec.addr -> spec).toMap

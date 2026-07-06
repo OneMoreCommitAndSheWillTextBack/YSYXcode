@@ -71,6 +71,9 @@ DIFF ?= nemu
 # SIM_BASE_ARGS += --wave
 SIM_BASE_ARGS += --wave-path $(DEFAULT_WAVE_PATH)
 SIM_BASE_ARGS += --difftest-ref $(DIFF)
+NO_DIFF_TESTS ?=
+NO_DIFF_SIM_BASE_ARGS = $(filter-out --difftest-ref --diff $(DIFF),$(SIM_BASE_ARGS))
+TEST_SIM_BASE_ARGS = $(if $(filter $(TEST),$(NO_DIFF_TESTS)),$(NO_DIFF_SIM_BASE_ARGS),$(SIM_BASE_ARGS))
 
 C_TEST_SOURCES := $(sort $(wildcard $(TEST_DIR)/*.c))
 ASM_TEST_SOURCES := $(sort $(wildcard $(TEST_DIR)/*.S))
@@ -128,7 +131,7 @@ run-one:
 		echo "+ build $(TEST)"; \
 		$(MAKE) -s --no-print-directory "$(TEST_BIN)" && \
 		echo "+ run $(TEST)" && \
-		$(SIM) $(SIM_BASE_ARGS) $(TEST_WAVE_ARGS) --image "$(abspath $(TEST_BIN))" $(SIM_ARGS); \
+		$(SIM) $(TEST_SIM_BASE_ARGS) $(TEST_WAVE_ARGS) --image "$(abspath $(TEST_BIN))" $(SIM_ARGS); \
 	} > "$(TEST_LOG)" 2>&1
 
 build: check-tests $(addprefix $(TEST_BUILD_DIR)/,$(addsuffix .bin,$(SELECTED_TESTS)))

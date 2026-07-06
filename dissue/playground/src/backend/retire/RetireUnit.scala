@@ -3,7 +3,15 @@ package top.backend.retire
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, PopCount, PriorityEncoderOH, Valid}
 import top.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreTrackerCommit}
-import top.backend.csr.{CsrCommit, CsrContextUpdate, CsrMretCommit, CsrStatus, CsrTrackerCommit, CsrTrapCommit}
+import top.backend.csr.{
+  CsrCommit,
+  CsrContextUpdate,
+  CsrMretCommit,
+  CsrSretCommit,
+  CsrStatus,
+  CsrTrackerCommit,
+  CsrTrapCommit
+}
 import top.backend.exception.{TrapLane, TrapUnit}
 import top.bundle.{BackendToFrontend, CfiType, DataMemReq}
 import top.config.BackendConfig
@@ -19,6 +27,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     val csrTrackerCommit = Output(Vec(cfg.commitWidth, new CsrTrackerCommit(cfg)))
     val csrTrap          = Output(new CsrTrapCommit(cfg))
     val csrMret          = Output(new CsrMretCommit(cfg))
+    val csrSret          = Output(new CsrSretCommit(cfg))
     val csrStatus        = Input(new CsrStatus(cfg))
     val retire           = Output(new RetireGroup(cfg))
     val redirect         = Output(new BackendToFrontend(cfg.addrWidth))
@@ -50,7 +59,9 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     trapCandidate(i) := io.rob(i).valid && io.rob(i).bits.hasTrapAtRetire
 
-    laneBoundary(i) := redirectCandidate(i) || trapCandidate(i) || io.rob(i).bits.isMret
+    laneBoundary(i) :=
+      redirectCandidate(i) || trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
+        (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
 
     preRetire(i) :=
       io.rob(i).valid &&
@@ -101,13 +112,15 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     trapUnit.io.lanes(i).exception := io.rob(i).bits.exception
     trapUnit.io.lanes(i).isEcall   := io.rob(i).bits.isEcall
     trapUnit.io.lanes(i).isMret    := io.rob(i).bits.isMret
+    trapUnit.io.lanes(i).isSret    := io.rob(i).bits.isSret
   }
 
   private val trapRetire   = trapUnit.io.trapMask.asBools
   private val mretRetire   = trapUnit.io.mretMask.asBools
+  private val sretRetire   = trapUnit.io.sretMask.asBools
   private val normalCommit = Wire(Vec(cfg.commitWidth, Bool()))
   for (i <- 0 until cfg.commitWidth) {
-    normalCommit(i) := canRetire(i) && !trapRetire(i) && !mretRetire(i)
+    normalCommit(i) := canRetire(i) && !trapRetire(i) && !mretRetire(i) && !sretRetire(i)
   }
 
   private val redirectCommit = Wire(Vec(cfg.commitWidth, Bool()))
@@ -117,6 +130,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   io.csrTrap := trapUnit.io.trap
   io.csrMret := trapUnit.io.mret
+  io.csrSret := trapUnit.io.sret
 
   io.redirect.trapRedirect.valid  := trapUnit.io.redirect.valid
   io.redirect.trapRedirect.target := trapUnit.io.redirect.target
@@ -212,7 +226,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   io.context.pc    := Mux(
     trapUnit.io.trap.valid,
     trapUnit.io.redirect.target,
-    Mux(trapUnit.io.mret.valid, io.csrStatus.mretTarget, io.retire.finalPc)
+    Mux(trapUnit.io.mret.valid || trapUnit.io.sret.valid, trapUnit.io.redirect.target, io.retire.finalPc)
   )
 
   if (cfg.commitWidth > 1) {
@@ -225,15 +239,20 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   for (i <- 0 until cfg.commitWidth) {
     assert(!(trapRetire(i) && normalCommit(i)))
     assert(!(mretRetire(i) && normalCommit(i)))
+    assert(!(sretRetire(i) && normalCommit(i)))
     assert(!(trapRetire(i) && io.regWrite(i).enable))
     assert(!(trapRetire(i) && io.storeCommit(i).valid))
     assert(!(trapRetire(i) && io.csrCommit(i).valid))
     assert(!(mretRetire(i) && io.regWrite(i).enable))
     assert(!(mretRetire(i) && io.storeCommit(i).valid))
     assert(!(mretRetire(i) && io.csrCommit(i).valid))
+    assert(!(sretRetire(i) && io.regWrite(i).enable))
+    assert(!(sretRetire(i) && io.storeCommit(i).valid))
+    assert(!(sretRetire(i) && io.csrCommit(i).valid))
   }
   assert(PopCount(trapRetire) <= 1.U)
   assert(PopCount(mretRetire) <= 1.U)
-  assert(!(trapUnit.io.trap.valid && trapUnit.io.mret.valid))
+  assert(PopCount(sretRetire) <= 1.U)
+  assert(PopCount(VecInit(Seq(trapUnit.io.trap.valid, trapUnit.io.mret.valid, trapUnit.io.sret.valid))) <= 1.U)
   assert(!(io.redirect.trapRedirect.valid && io.redirect.branchRedirect.valid))
 }

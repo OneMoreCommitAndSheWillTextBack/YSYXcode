@@ -74,6 +74,16 @@ object CsrAddr {
 
   def apply(addr: Int): UInt =
     addr.U(width.W)
+
+  def sameHazardDomain(lhs: UInt, rhs: UInt): Bool = {
+    def pair(a: Int, b: Int): Bool =
+      (lhs === CsrAddr(a) && rhs === CsrAddr(b)) || (lhs === CsrAddr(b) && rhs === CsrAddr(a))
+
+    lhs === rhs ||
+    pair(sstatus, mstatus) ||
+    pair(sie, mie) ||
+    pair(sip, mip)
+  }
 }
 
 object CsrOp {
@@ -99,6 +109,10 @@ object Mstatus {
   val sppBit  = 8
   val mppMsb  = 12
   val mppLsb  = 11
+  val fsMsb   = 14
+  val fsLsb   = 13
+  val xsMsb   = 16
+  val xsLsb   = 15
   val mprvBit = 17
   val sumBit  = 18
   val mxrBit  = 19
@@ -115,11 +129,20 @@ object Mstatus {
   val mprvMask: BigInt =
     bit(mprvBit)
 
+  val supervisorVisibleMask: BigInt =
+    bit(sieBit) | bit(spieBit) | bit(sppBit) |
+      mask(fsMsb, fsLsb) | mask(xsMsb, xsLsb) |
+      bit(sumBit) | bit(mxrBit)
+
   val supervisorVisibleWriteMask: BigInt =
-    bit(sieBit) | bit(spieBit) | bit(sppBit) | bit(sumBit) | bit(mxrBit)
+    bit(sieBit) | bit(spieBit) | bit(sppBit) |
+      mask(fsMsb, fsLsb) | bit(sumBit) | bit(mxrBit)
 
   val writeMask: BigInt =
-    BigInt("ffffffff", 16)
+    bit(sieBit) | bit(mieBit) | bit(spieBit) | bit(mpieBit) |
+      bit(sppBit) | mask(mppMsb, mppLsb) | mask(fsMsb, fsLsb) |
+      bit(mprvBit) | bit(sumBit) | bit(mxrBit) |
+      bit(tvmBit) | bit(twBit) | bit(tsrBit)
 }
 
 object CsrInterrupt {
@@ -163,15 +186,11 @@ object CsrCounter {
 }
 
 object Sstatus {
-  private def bit(pos: Int): BigInt =
-    BigInt(1) << pos
+  val visibleMask: BigInt =
+    Mstatus.supervisorVisibleMask
 
-  val mask: BigInt =
-    bit(Mstatus.sieBit) |
-      bit(Mstatus.spieBit) |
-      bit(Mstatus.sppBit) |
-      bit(Mstatus.sumBit) |
-      bit(Mstatus.mxrBit)
+  val writeMask: BigInt =
+    Mstatus.supervisorVisibleWriteMask
 }
 
 object CsrId {

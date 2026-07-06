@@ -168,6 +168,7 @@ class Backend(
   csrFile.io.commit       := retire.io.csrCommit
   csrFile.io.trap         := retire.io.csrTrap
   csrFile.io.mret         := retire.io.csrMret
+  csrFile.io.sret         := retire.io.csrSret
   csrFile.io.retireCount  := PopCount(retire.io.retire.validMask)
   retire.io.csrStatus     := csrFile.io.status
   csrTracker.io.commit    := retire.io.csrTrackerCommit
@@ -185,6 +186,7 @@ class Backend(
   difftest.io.csrCommit := retire.io.csrCommit
   difftest.io.csrTrap   := retire.io.csrTrap
   difftest.io.csrMret   := retire.io.csrMret
+  difftest.io.csrSret   := retire.io.csrSret
   difftest.io.context   := retire.io.context
 
   issueQueue.io.robHead := rob.io.head
