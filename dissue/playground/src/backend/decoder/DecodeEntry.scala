@@ -81,6 +81,24 @@ private[decoder] object DecodeDsl {
       rfWen = true
     ).signals
 
+  def mulReg(op: UInt): List[UInt] =
+    NpcDecode(
+      src1 = SrcType.reg,
+      src2 = SrcType.reg,
+      fu = FuType.mul,
+      op = op,
+      rfWen = true
+    ).signals
+
+  def divReg(op: UInt): List[UInt] =
+    NpcDecode(
+      src1 = SrcType.reg,
+      src2 = SrcType.reg,
+      fu = FuType.div,
+      op = op,
+      rfWen = true
+    ).signals
+
   def aluImm(op: UInt): List[UInt] =
     NpcDecode(
       src1 = SrcType.reg,

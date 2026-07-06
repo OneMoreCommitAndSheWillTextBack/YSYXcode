@@ -45,6 +45,7 @@ typedef struct NpcDpiCallbacks {
   void (*cache_hit)(uint8_t hit);
   void (*issue_queue_perf)(uint8_t issue_count, uint8_t occupancy,
                            uint8_t block_ready, uint8_t block_operand);
+  void (*div_perf)(uint32_t cycles, uint8_t special);
 } NpcDpiCallbacks;
 
 #endif

@@ -67,13 +67,10 @@ DEFAULT_SIM := $(abspath $(NPC_HOME)/build/verilator-exec)
 DEFAULT_WAVE_PATH := $(abspath $(NPC_HOME)/wave.vcd)
 SIM ?= $(DEFAULT_SIM)
 SIM_BASE_ARGS ?= --batch
-DIFF = nemu
+DIFF ?= nemu
 # SIM_BASE_ARGS += --wave
 SIM_BASE_ARGS += --wave-path $(DEFAULT_WAVE_PATH)
-
-ifneq ($(strip $(DIFF)),)
 SIM_BASE_ARGS += --difftest-ref $(DIFF)
-endif
 
 C_TEST_SOURCES := $(sort $(wildcard $(TEST_DIR)/*.c))
 ASM_TEST_SOURCES := $(sort $(wildcard $(TEST_DIR)/*.S))

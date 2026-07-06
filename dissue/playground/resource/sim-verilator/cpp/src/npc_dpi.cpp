@@ -72,3 +72,8 @@ extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,
       static_cast<uint8_t>(issue_count), static_cast<uint8_t>(occupancy),
       static_cast<uint8_t>(block_ready), static_cast<uint8_t>(block_operand));
 }
+
+extern "C" void npc_div_perf(int cycles, char special) {
+  NpcHostBridge::div_perf(static_cast<uint32_t>(cycles),
+                          static_cast<uint8_t>(special));
+}

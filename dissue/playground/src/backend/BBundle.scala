@@ -41,6 +41,8 @@ class IssueControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
 
 class IssuePortStatus extends Bundle {
   val alu   = Bool()
+  val mul   = Bool()
+  val div   = Bool()
   val lsu   = Bool()
   val bru   = Bool()
   val jmp   = Bool()

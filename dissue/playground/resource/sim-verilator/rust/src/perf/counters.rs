@@ -8,6 +8,9 @@ pub struct PerfCounters {
     iq_block_ready_cycles: u64,
     iq_block_operand_cycles: u64,
     iq_occupancy_sum: u64,
+    div_operations: u64,
+    div_cycles: u64,
+    div_special_operations: u64,
 }
 
 impl PerfCounters {
@@ -39,6 +42,15 @@ impl PerfCounters {
             self.iq_block_ready_cycles += 1;
         } else if block_operand {
             self.iq_block_operand_cycles += 1;
+        }
+    }
+
+    pub fn div_perf(&mut self, cycles: u32, special: bool) {
+        self.div_operations += 1;
+        self.div_cycles += u64::from(cycles);
+
+        if special {
+            self.div_special_operations += 1;
         }
     }
 
@@ -85,6 +97,26 @@ impl PerfCounters {
             0.0
         } else {
             self.iq_issue_count as f64 / self.iq_sample_cycles as f64
+        }
+    }
+
+    pub fn div_operations(&self) -> u64 {
+        self.div_operations
+    }
+
+    pub fn div_cycles(&self) -> u64 {
+        self.div_cycles
+    }
+
+    pub fn div_special_operations(&self) -> u64 {
+        self.div_special_operations
+    }
+
+    pub fn div_average_cycles(&self) -> f64 {
+        if self.div_operations == 0 {
+            0.0
+        } else {
+            self.div_cycles as f64 / self.div_operations as f64
         }
     }
 
