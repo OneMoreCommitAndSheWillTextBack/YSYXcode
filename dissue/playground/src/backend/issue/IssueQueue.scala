@@ -36,6 +36,8 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     MuxLookup(fuType, false.B)(
       Seq(
         FuType.alu   -> status.alu,
+        FuType.mul   -> status.mul,
+        FuType.div   -> status.div,
         FuType.lsu   -> status.lsu,
         FuType.bru   -> status.bru,
         FuType.jmp   -> status.jmp,

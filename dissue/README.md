@@ -21,7 +21,7 @@
 后端执行侧：
 
 - 将 ALU/BRU/JMP 从当前组合完成模型改成统一 latency 的 pipeline FU。
-- 加入 MUL/DIV，多周期 FU 通过 `ready/valid` 暴露 busy 状态。
+- MUL 当前已拆成固定 2 周期乘法单元；DIV/REM 已拆成独立非流水 FU，内部使用 radix-2 restoring 迭代除法器，RV32 普通路径每次推进 1 个商 bit。
 - 加入 CSR FU，但 CSR 真正写入仍应放在 commit。
 - 增加 execute-stage redirect，并按 `robIdx` 做 oldest-first redirect 仲裁。
 - 完善多 CFI 场景下的 BPU update/redirect 规则。

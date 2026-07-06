@@ -23,7 +23,7 @@ object ImmSel {
 }
 
 object FuType {
-  val width = 3
+  val width = 4
 
   val none  = 0.U(width.W)
   val alu   = 1.U(width.W)
@@ -32,25 +32,35 @@ object FuType {
   val jmp   = 4.U(width.W)
   val csr   = 5.U(width.W)
   val fence = 6.U(width.W)
+  val mul   = 7.U(width.W)
+  val div   = 8.U(width.W)
 }
 
 object FuOp {
-  val width = 4
+  val width = 5
 
   val none = 0.U(width.W)
 }
 
 object AluOp {
-  val add  = 1.U(FuOp.width.W)
-  val sub  = 2.U(FuOp.width.W)
-  val slt  = 3.U(FuOp.width.W)
-  val sltu = 4.U(FuOp.width.W)
-  val xor  = 5.U(FuOp.width.W)
-  val or   = 6.U(FuOp.width.W)
-  val and  = 7.U(FuOp.width.W)
-  val sll  = 8.U(FuOp.width.W)
-  val srl  = 9.U(FuOp.width.W)
-  val sra  = 10.U(FuOp.width.W)
+  val add    = 1.U(FuOp.width.W)
+  val sub    = 2.U(FuOp.width.W)
+  val slt    = 3.U(FuOp.width.W)
+  val sltu   = 4.U(FuOp.width.W)
+  val xor    = 5.U(FuOp.width.W)
+  val or     = 6.U(FuOp.width.W)
+  val and    = 7.U(FuOp.width.W)
+  val sll    = 8.U(FuOp.width.W)
+  val srl    = 9.U(FuOp.width.W)
+  val sra    = 10.U(FuOp.width.W)
+  val mul    = 11.U(FuOp.width.W)
+  val mulh   = 12.U(FuOp.width.W)
+  val mulhsu = 13.U(FuOp.width.W)
+  val mulhu  = 14.U(FuOp.width.W)
+  val div    = 15.U(FuOp.width.W)
+  val divu   = 16.U(FuOp.width.W)
+  val rem    = 17.U(FuOp.width.W)
+  val remu   = 18.U(FuOp.width.W)
 }
 
 object MemSize {

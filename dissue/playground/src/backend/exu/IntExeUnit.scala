@@ -5,7 +5,7 @@ import chisel3.util.{Decoupled, MuxLookup, Valid}
 import top.backend.bundle.{IssuePortStatus, IssueWakeup, RobWritebackPacket}
 import top.backend.csr.CsrReadPort
 import top.backend.decoder.FuType
-import top.backend.fu.{ALU, BRU, CSR, JMP}
+import top.backend.fu.{ALU, BRU, CSR, DIV, JMP, MUL}
 import top.config.BackendConfig
 
 class IntExeUnit(
@@ -31,24 +31,56 @@ class IntExeUnit(
     )
 
   private val alu = Option.when(has(ExuFuKind.Alu))(Module(new ALU(cfg.dataWidth)))
+  private val mul = Option.when(has(ExuFuKind.Mul))(Module(new MUL(cfg.dataWidth)))
+  private val div = Option.when(has(ExuFuKind.Div))(Module(new DIV(cfg.dataWidth)))
   private val bru = Option.when(has(ExuFuKind.Bru))(Module(new BRU(cfg.addrWidth, cfg.dataWidth)))
   private val jmp = Option.when(has(ExuFuKind.Jmp))(Module(new JMP(cfg.addrWidth, cfg.dataWidth)))
   private val csr = Option.when(has(ExuFuKind.Csr))(Module(new CSR(cfg)))
 
-  io.status     := 0.U.asTypeOf(new IssuePortStatus)
-  io.status.alu := has(ExuFuKind.Alu).B
-  io.status.bru := has(ExuFuKind.Bru).B
-  io.status.jmp := has(ExuFuKind.Jmp).B
-  io.status.csr := has(ExuFuKind.Csr).B
+  io.status := 0.U.asTypeOf(new IssuePortStatus)
+  private val mulOutValid         = mul.map(_.io.out.valid).getOrElse(false.B)
+  private val mulInReady          = mul.map(_.io.in.ready).getOrElse(false.B)
+  private val divOutValid         = div.map(_.io.out.valid).getOrElse(false.B)
+  private val divInReady          = div.map(_.io.in.ready).getOrElse(false.B)
+  private val divBusy             = div.map(_.io.busy).getOrElse(false.B)
+  private val longLatencyOutValid = mulOutValid || divOutValid
+  // Keep this single-writeback port quiet while DIV owns it; MUL can still be pipelined when DIV is idle.
+  private val immediateFuReady    = !longLatencyOutValid && !divBusy
+
+  io.status.alu := has(ExuFuKind.Alu).B && immediateFuReady
+  io.status.mul := has(ExuFuKind.Mul).B && mulInReady && !divBusy
+  io.status.div := has(ExuFuKind.Div).B && divInReady
+  io.status.bru := has(ExuFuKind.Bru).B && immediateFuReady
+  io.status.jmp := has(ExuFuKind.Jmp).B && immediateFuReady
+  io.status.csr := has(ExuFuKind.Csr).B && immediateFuReady
 
   io.csrRead.addr := Mux(io.in.valid && io.in.bits.fuType === FuType.csr, io.in.bits.csrAddr, 0.U)
 
-  io.in.ready := supports(io.in.bits.fuType)
+  private val isMulReq        = io.in.bits.fuType === FuType.mul
+  private val isDivReq        = io.in.bits.fuType === FuType.div
+  private val selectedFuReady = Mux(isMulReq, mulInReady && !divBusy, Mux(isDivReq, divInReady, immediateFuReady))
+  io.in.ready := supports(io.in.bits.fuType) && selectedFuReady
 
   alu.foreach { unit =>
     unit.io.src1 := io.in.bits.src1
     unit.io.src2 := io.in.bits.src2
     unit.io.op   := io.in.bits.fuOp
+  }
+
+  mul.foreach { unit =>
+    unit.io.flush        := io.flush
+    unit.io.in.valid     := io.in.fire && isMulReq && !io.flush
+    unit.io.in.bits.src1 := io.in.bits.src1
+    unit.io.in.bits.src2 := io.in.bits.src2
+    unit.io.in.bits.op   := io.in.bits.fuOp
+  }
+
+  div.foreach { unit =>
+    unit.io.flush        := io.flush
+    unit.io.in.valid     := io.in.fire && isDivReq && !io.flush
+    unit.io.in.bits.src1 := io.in.bits.src1
+    unit.io.in.bits.src2 := io.in.bits.src2
+    unit.io.in.bits.op   := io.in.bits.fuOp
   }
 
   bru.foreach { unit =>
@@ -75,8 +107,48 @@ class IntExeUnit(
     unit.io.writeEnable := io.in.bits.csrWen
   }
 
+  private val mulMeta0 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
+  private val mulMeta1 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
+  private val mulIssue = io.in.fire && isMulReq && !io.flush
+  private val divMeta  = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
+  private val divIssue = io.in.fire && isDivReq && !io.flush
+
+  private val mulIssueResult = Wire(new ExuResult(cfg))
+  mulIssueResult               := 0.U.asTypeOf(new ExuResult(cfg))
+  mulIssueResult.robIdx        := io.in.bits.robIdx
+  mulIssueResult.rd            := io.in.bits.rd
+  mulIssueResult.rfWen         := io.in.bits.rfWen
+  mulIssueResult.csrWen        := false.B
+  mulIssueResult.redirectValid := false.B
+
+  private val divIssueResult = Wire(new ExuResult(cfg))
+  divIssueResult               := 0.U.asTypeOf(new ExuResult(cfg))
+  divIssueResult.robIdx        := io.in.bits.robIdx
+  divIssueResult.rd            := io.in.bits.rd
+  divIssueResult.rfWen         := io.in.bits.rfWen
+  divIssueResult.csrWen        := false.B
+  divIssueResult.redirectValid := false.B
+
+  when(io.flush) {
+    mulMeta0.valid := false.B
+    mulMeta1.valid := false.B
+    divMeta.valid  := false.B
+  }.otherwise {
+    mulMeta1 := mulMeta0
+
+    mulMeta0.valid := mulIssue
+    mulMeta0.bits  := mulIssueResult
+
+    when(divIssue) {
+      divMeta.valid := true.B
+      divMeta.bits  := divIssueResult
+    }.elsewhen(divOutValid) {
+      divMeta.valid := false.B
+    }
+  }
+
   private val exuResult = Wire(Valid(new ExuResult(cfg)))
-  exuResult.valid := io.in.fire && !io.flush
+  exuResult.valid := io.in.fire && !io.flush && !isMulReq && !isDivReq
   exuResult.bits  := 0.U.asTypeOf(new ExuResult(cfg))
 
   exuResult.bits.robIdx := io.in.bits.robIdx
@@ -117,23 +189,37 @@ class IntExeUnit(
   exuResult.bits.csrWen         := io.in.bits.fuType === FuType.csr && csr.map(_.io.wen).getOrElse(false.B)
   exuResult.bits.csrWdata       := csr.map(_.io.wdata).getOrElse(0.U(cfg.dataWidth.W))
 
-  io.writeback.valid               := exuResult.valid
-  io.writeback.bits                := 0.U.asTypeOf(new RobWritebackPacket(cfg))
-  io.writeback.bits.robIdx         := exuResult.bits.robIdx
-  io.writeback.bits.result         := exuResult.bits.result
-  io.writeback.bits.storeAddr      := exuResult.bits.storeAddr
-  io.writeback.bits.storeData      := exuResult.bits.storeData
-  io.writeback.bits.storeMask      := exuResult.bits.storeMask
-  io.writeback.bits.redirectValid  := exuResult.bits.redirectValid
-  io.writeback.bits.redirectTarget := exuResult.bits.redirectTarget
-  io.writeback.bits.branchTaken    := exuResult.bits.branchTaken
-  io.writeback.bits.branchTarget   := exuResult.bits.branchTarget
-  io.writeback.bits.csrWen         := exuResult.bits.csrWen
-  io.writeback.bits.csrWdata       := exuResult.bits.csrWdata
+  private val mulResult = Wire(Valid(new ExuResult(cfg)))
+  mulResult.valid       := mulOutValid && mulMeta1.valid
+  mulResult.bits        := mulMeta1.bits
+  mulResult.bits.result := mul.map(_.io.out.bits).getOrElse(0.U(cfg.dataWidth.W))
 
-  io.wakeup.valid  := exuResult.valid && exuResult.bits.rfWen
-  io.wakeup.robIdx := exuResult.bits.robIdx
-  io.wakeup.data   := exuResult.bits.result
+  private val divResult = Wire(Valid(new ExuResult(cfg)))
+  divResult.valid       := divOutValid && divMeta.valid
+  divResult.bits        := divMeta.bits
+  divResult.bits.result := div.map(_.io.out.bits).getOrElse(0.U(cfg.dataWidth.W))
+
+  private val writebackResult = Wire(Valid(new ExuResult(cfg)))
+  writebackResult.valid := divResult.valid || mulResult.valid || exuResult.valid
+  writebackResult.bits  := Mux(divResult.valid, divResult.bits, Mux(mulResult.valid, mulResult.bits, exuResult.bits))
+
+  io.writeback.valid               := writebackResult.valid
+  io.writeback.bits                := 0.U.asTypeOf(new RobWritebackPacket(cfg))
+  io.writeback.bits.robIdx         := writebackResult.bits.robIdx
+  io.writeback.bits.result         := writebackResult.bits.result
+  io.writeback.bits.storeAddr      := writebackResult.bits.storeAddr
+  io.writeback.bits.storeData      := writebackResult.bits.storeData
+  io.writeback.bits.storeMask      := writebackResult.bits.storeMask
+  io.writeback.bits.redirectValid  := writebackResult.bits.redirectValid
+  io.writeback.bits.redirectTarget := writebackResult.bits.redirectTarget
+  io.writeback.bits.branchTaken    := writebackResult.bits.branchTaken
+  io.writeback.bits.branchTarget   := writebackResult.bits.branchTarget
+  io.writeback.bits.csrWen         := writebackResult.bits.csrWen
+  io.writeback.bits.csrWdata       := writebackResult.bits.csrWdata
+
+  io.wakeup.valid  := writebackResult.valid && writebackResult.bits.rfWen
+  io.wakeup.robIdx := writebackResult.bits.robIdx
+  io.wakeup.data   := writebackResult.bits.result
 
   assert(!io.in.fire || supports(io.in.bits.fuType), s"${params.name} accepted an unsupported FU type")
 }

@@ -36,7 +36,7 @@ object CsrAddr {
 }
 
 object CsrOp {
-  val width = 4
+  val width = 5
 
   val none = 0.U(width.W)
   val rw   = 1.U(width.W)

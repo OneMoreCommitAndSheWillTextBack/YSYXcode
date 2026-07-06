@@ -14,6 +14,16 @@ object ExuFuKind {
     val fuType: UInt   = FuType.alu
   }
 
+  case object Mul extends ExuFuKind {
+    val name:   String = "mul"
+    val fuType: UInt   = FuType.mul
+  }
+
+  case object Div extends ExuFuKind {
+    val name:   String = "div"
+    val fuType: UInt   = FuType.div
+  }
+
   case object Bru extends ExuFuKind {
     val name:   String = "bru"
     val fuType: UInt   = FuType.bru
@@ -58,6 +68,15 @@ object IntExeUnitConfig {
     )
   )
 
+  val aluMulDiv: IntExeUnitConfig = IntExeUnitConfig(
+    name = "int_alu_mul_div",
+    pipes = Seq(
+      FuPipeConfig(Alu, latency = 0, pipelined = false, writesRf = true, redirects = false),
+      FuPipeConfig(Mul, latency = 2, pipelined = false, writesRf = true, redirects = false),
+      FuPipeConfig(Div, latency = 33, pipelined = false, writesRf = true, redirects = false)
+    )
+  )
+
   val aluBjuCsr: IntExeUnitConfig = IntExeUnitConfig(
     name = "int_bju_csr",
     pipes = Seq(
@@ -68,10 +87,30 @@ object IntExeUnitConfig {
     )
   )
 
+  val aluMulDivBjuCsr: IntExeUnitConfig = IntExeUnitConfig(
+    name = "int_alu_mul_div_bju_csr",
+    pipes = Seq(
+      FuPipeConfig(Alu, latency = 0, pipelined = false, writesRf = true, redirects = false),
+      FuPipeConfig(Mul, latency = 2, pipelined = false, writesRf = true, redirects = false),
+      FuPipeConfig(Div, latency = 33, pipelined = false, writesRf = true, redirects = false),
+      FuPipeConfig(Bru, latency = 0, pipelined = false, writesRf = false, redirects = true),
+      FuPipeConfig(Jmp, latency = 0, pipelined = false, writesRf = true, redirects = true),
+      FuPipeConfig(Csr, latency = 0, pipelined = false, writesRf = true, redirects = false)
+    )
+  )
+
   def defaultIssuePort(port: Int, width: Int): IntExeUnitConfig = {
     require(width > 0, "integer issue width must be positive")
 
     // Narrow ports select first, so an ALU op will not steal the only BRU/JMP-capable port.
-    if (port == width - 1) aluBjuCsr else aluOnly
+    if (width == 1) {
+      aluMulDivBjuCsr
+    } else if (port == 0) {
+      aluMulDiv
+    } else if (port == width - 1) {
+      aluBjuCsr
+    } else {
+      aluOnly
+    }
   }
 }
