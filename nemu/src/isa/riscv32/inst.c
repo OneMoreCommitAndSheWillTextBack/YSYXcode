@@ -59,6 +59,12 @@ static inline word_t rv32_div(word_t dividend_raw, word_t divisor_raw) {
   return (uint32_t)(dividend / divisor);
 }
 
+static inline word_t rv32_mulhsu(word_t multiplicand, word_t multiplier) {
+  int64_t lhs = (int64_t)(int32_t)multiplicand;
+  int64_t rhs = (int64_t)(uint32_t)multiplier;
+  return (uint64_t)(lhs * rhs) >> 32;
+}
+
 static inline word_t rv32_divu(word_t dividend, word_t divisor) {
   if (divisor == 0) {
     return UINT32_MAX;
@@ -331,6 +337,7 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if((int)src1 >= (int)src2) s->dnpc = s->pc + imm);
   INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << imm);
   INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, long t1=(int)src1;long t2=(int)src2;R(rd)=(t1*t2)>>32);
+  INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = rv32_mulhsu(src1, src2));
   INSTPAT("0000000 ????? ????? 100 ????? 01100 11", xor    , R, R(rd) = src1 ^ src2);
   INSTPAT("0000000 ????? ????? 110 ????? 01100 11", or     , R, R(rd) = src1 | src2);
   INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);
