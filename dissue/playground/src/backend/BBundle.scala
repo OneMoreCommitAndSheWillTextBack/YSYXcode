@@ -29,6 +29,7 @@ class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isEbreak    = Bool()
   val isEcall     = Bool()
   val isMret      = Bool()
+  val isSret      = Bool()
   val isCsr       = Bool()
   val csrAddr     = UInt(CsrAddr.width.W)
   val csrWen      = Bool()
@@ -38,7 +39,7 @@ class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
     exception.valid || isEcall
 
   def isRetireOnly: Bool =
-    hasTrapAtRetire || isMret
+    hasTrapAtRetire || isMret || isSret
 
   def needsIssue: Bool =
     valid && !isRetireOnly
@@ -206,6 +207,7 @@ class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isEbreak       = Bool()
   val isEcall        = Bool()
   val isMret         = Bool()
+  val isSret         = Bool()
   val result         = UInt(cfg.dataWidth.W)
   val storeAddr      = UInt(cfg.addrWidth.W)
   val storeData      = UInt(cfg.dataWidth.W)

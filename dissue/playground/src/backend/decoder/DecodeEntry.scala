@@ -21,6 +21,7 @@ private[decoder] case class NpcDecode(
   isEbreak: Boolean = false,
   isEcall:  Boolean = false,
   isMret:   Boolean = false,
+  isSret:   Boolean = false,
   isCsr:    Boolean = false,
   memSize:  Int = 0,
   memUnsigned: Boolean = false) {
@@ -41,6 +42,7 @@ private[decoder] case class NpcDecode(
     bool(isEbreak),
     bool(isEcall),
     bool(isMret),
+    bool(isSret),
     bool(isCsr)
   )
 
@@ -64,7 +66,8 @@ private[decoder] object DecodeIndex {
   val isEbreak    = 12
   val isEcall     = 13
   val isMret      = 14
-  val isCsr       = 15
+  val isSret      = 15
+  val isCsr       = 16
 }
 
 private[decoder] trait DecodeGroup {
@@ -194,6 +197,13 @@ private[decoder] object DecodeDsl {
       fu = FuType.alu,
       op = AluOp.add,
       isMret = true
+    ).signals
+
+  def sret: List[UInt] =
+    NpcDecode(
+      fu = FuType.alu,
+      op = AluOp.add,
+      isSret = true
     ).signals
 
   def csr(op: UInt): List[UInt] =

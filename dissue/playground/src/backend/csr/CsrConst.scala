@@ -24,56 +24,24 @@ class PrivState extends Bundle {
 object CsrAddr {
   val width = 12
 
-  val sstatus    = 0x100
-  val sie        = 0x104
-  val stvec      = 0x105
-  val scounteren = 0x106
-  val sscratch   = 0x140
-  val sepc       = 0x141
-  val scause     = 0x142
-  val stval      = 0x143
-  val sip        = 0x144
-  val satp       = 0x180
-
-  val mstatus       = 0x300
-  val misa          = 0x301
-  val medeleg       = 0x302
-  val mideleg       = 0x303
-  val mie           = 0x304
-  val mtvec         = 0x305
-  val mcounteren    = 0x306
-  val mstatush      = 0x310
-  val mcountinhibit = 0x320
-  val mscratch      = 0x340
-  val mepc          = 0x341
-  val mcause        = 0x342
-  val mtval         = 0x343
-  val mip           = 0x344
-  val pmpcfg0       = 0x3a0
-  val pmpcfg1       = 0x3a1
-  val pmpaddr0      = 0x3b0
-  val pmpaddr1      = 0x3b1
-  val pmpaddr2      = 0x3b2
-  val pmpaddr3      = 0x3b3
-  val pmpaddr4      = 0x3b4
-  val pmpaddr5      = 0x3b5
-  val pmpaddr6      = 0x3b6
-  val pmpaddr7      = 0x3b7
-
-  val cycle    = 0xc00
-  val time     = 0xc01
-  val instret  = 0xc02
-  val cycleh   = 0xc80
-  val timeh    = 0xc81
-  val instreth = 0xc82
-
-  val mvendorid = 0xf11
-  val marchid   = 0xf12
-  val mimpid    = 0xf13
-  val mhartid   = 0xf14
+  def of(name: String): Int =
+    CsrSpec.addrOf(name)
 
   def apply(addr: Int): UInt =
     addr.U(width.W)
+
+  def apply(name: String): UInt =
+    apply(of(name))
+
+  def sameHazardDomain(lhs: UInt, rhs: UInt): Bool = {
+    def pair(a: String, b: String): Bool =
+      (lhs === CsrAddr(a) && rhs === CsrAddr(b)) || (lhs === CsrAddr(b) && rhs === CsrAddr(a))
+
+    lhs === rhs ||
+    pair("sstatus", "mstatus") ||
+    pair("sie", "mie") ||
+    pair("sip", "mip")
+  }
 }
 
 object CsrOp {
@@ -99,6 +67,10 @@ object Mstatus {
   val sppBit  = 8
   val mppMsb  = 12
   val mppLsb  = 11
+  val fsMsb   = 14
+  val fsLsb   = 13
+  val xsMsb   = 16
+  val xsLsb   = 15
   val mprvBit = 17
   val sumBit  = 18
   val mxrBit  = 19
@@ -115,11 +87,20 @@ object Mstatus {
   val mprvMask: BigInt =
     bit(mprvBit)
 
+  val supervisorVisibleMask: BigInt =
+    bit(sieBit) | bit(spieBit) | bit(sppBit) |
+      mask(fsMsb, fsLsb) | mask(xsMsb, xsLsb) |
+      bit(sumBit) | bit(mxrBit)
+
   val supervisorVisibleWriteMask: BigInt =
-    bit(sieBit) | bit(spieBit) | bit(sppBit) | bit(sumBit) | bit(mxrBit)
+    bit(sieBit) | bit(spieBit) | bit(sppBit) |
+      mask(fsMsb, fsLsb) | bit(sumBit) | bit(mxrBit)
 
   val writeMask: BigInt =
-    BigInt("ffffffff", 16)
+    bit(sieBit) | bit(mieBit) | bit(spieBit) | bit(mpieBit) |
+      bit(sppBit) | mask(mppMsb, mppLsb) | mask(fsMsb, fsLsb) |
+      bit(mprvBit) | bit(sumBit) | bit(mxrBit) |
+      bit(tvmBit) | bit(twBit) | bit(tsrBit)
 }
 
 object CsrInterrupt {
@@ -163,15 +144,11 @@ object CsrCounter {
 }
 
 object Sstatus {
-  private def bit(pos: Int): BigInt =
-    BigInt(1) << pos
+  val visibleMask: BigInt =
+    Mstatus.supervisorVisibleMask
 
-  val mask: BigInt =
-    bit(Mstatus.sieBit) |
-      bit(Mstatus.spieBit) |
-      bit(Mstatus.sppBit) |
-      bit(Mstatus.sumBit) |
-      bit(Mstatus.mxrBit)
+  val writeMask: BigInt =
+    Mstatus.supervisorVisibleWriteMask
 }
 
 object CsrId {

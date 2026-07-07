@@ -44,7 +44,7 @@ class CsrTracker(cfg: BackendConfig = BackendConfig()) extends Module {
     val queryAge = ageFromHead(query.robIdx)
     val hasOlder = (0 until cfg.robEntries).map { entry =>
       valid(entry) &&
-      addr(entry) === query.addr &&
+      CsrAddr.sameHazardDomain(addr(entry), query.addr) &&
       ageFromHead(robIdx(entry)) < queryAge
     }.reduce(_ || _)
 

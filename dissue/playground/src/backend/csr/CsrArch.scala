@@ -4,117 +4,76 @@ import chisel3._
 import chisel3.util.{MuxLookup, Valid}
 import top.config.BackendConfig
 
-final case class CsrArchValues(
-  mepc:          UInt,
-  sepc:          UInt,
-  misa:          UInt,
-  mstatus:       UInt,
-  mstatush:      UInt,
-  mcause:        UInt,
-  mtval:         UInt,
-  mtvec:         UInt,
-  mscratch:      UInt,
-  satp:          UInt,
-  medeleg:       UInt,
-  mideleg:       UInt,
-  mvendorid:     UInt,
-  marchid:       UInt,
-  mhartid:       UInt,
-  mimpid:        UInt,
-  pmpaddr0:      UInt,
-  pmpaddr1:      UInt,
-  pmpaddr2:      UInt,
-  pmpaddr3:      UInt,
-  pmpaddr4:      UInt,
-  pmpaddr5:      UInt,
-  pmpaddr6:      UInt,
-  pmpaddr7:      UInt,
-  pmpcfg0:       UInt,
-  pmpcfg1:       UInt,
-  scause:        UInt,
-  stval:         UInt,
-  sscratch:      UInt,
-  stvec:         UInt,
-  mie:           UInt,
-  mcounteren:    UInt,
-  scounteren:    UInt,
-  mcountinhibit: UInt,
-  mip:           UInt,
-  mcycle:        UInt,
-  minstret:      UInt)
+final case class CsrArchValues(values: Seq[UInt]) {
+  require(values.size == CsrSpec.state.size, "CSR state value count does not match CsrSpec.state")
+
+  def apply(name: String): UInt =
+    values(CsrSpec.stateIndex(name))
+
+  def apply(addr: Int): UInt =
+    apply(CsrSpec.byAddr(addr).name)
+
+  def get(name: String): Option[UInt] =
+    CsrSpec.stateIndex.get(name).map(values)
+
+  def withValue(name: String, value: UInt): CsrArchValues =
+    CsrArchValues(values.updated(CsrSpec.stateIndex(name), value))
+
+  def withValue(addr: Int, value: UInt): CsrArchValues =
+    withValue(CsrSpec.byAddr(addr).name, value)
+
+  def withValues(updates: (String, UInt)*): CsrArchValues =
+    updates.foldLeft(this) { case (next, (name, value)) => next.withValue(name, value) }
+
+  def withAddrValues(updates: (Int, UInt)*): CsrArchValues =
+    updates.foldLeft(this) { case (next, (addr, value)) => next.withValue(addr, value) }
+}
+
+object CsrArchValues {
+  def fromVec(values: Vec[UInt]): CsrArchValues =
+    CsrArchValues(CsrSpec.state.indices.map(values(_)))
+}
 
 object CsrArch {
   def resetValues(cfg: BackendConfig = BackendConfig()): CsrArchValues =
-    CsrArchValues(
-      mepc = reset(CsrAddr.mepc, cfg),
-      sepc = reset(CsrAddr.sepc, cfg),
-      misa = reset(CsrAddr.misa, cfg),
-      mstatus = reset(CsrAddr.mstatus, cfg),
-      mstatush = reset(CsrAddr.mstatush, cfg),
-      mcause = reset(CsrAddr.mcause, cfg),
-      mtval = reset(CsrAddr.mtval, cfg),
-      mtvec = reset(CsrAddr.mtvec, cfg),
-      mscratch = reset(CsrAddr.mscratch, cfg),
-      satp = reset(CsrAddr.satp, cfg),
-      medeleg = reset(CsrAddr.medeleg, cfg),
-      mideleg = reset(CsrAddr.mideleg, cfg),
-      mvendorid = reset(CsrAddr.mvendorid, cfg),
-      marchid = reset(CsrAddr.marchid, cfg),
-      mhartid = reset(CsrAddr.mhartid, cfg),
-      mimpid = reset(CsrAddr.mimpid, cfg),
-      pmpaddr0 = reset(CsrAddr.pmpaddr0, cfg),
-      pmpaddr1 = reset(CsrAddr.pmpaddr1, cfg),
-      pmpaddr2 = reset(CsrAddr.pmpaddr2, cfg),
-      pmpaddr3 = reset(CsrAddr.pmpaddr3, cfg),
-      pmpaddr4 = reset(CsrAddr.pmpaddr4, cfg),
-      pmpaddr5 = reset(CsrAddr.pmpaddr5, cfg),
-      pmpaddr6 = reset(CsrAddr.pmpaddr6, cfg),
-      pmpaddr7 = reset(CsrAddr.pmpaddr7, cfg),
-      pmpcfg0 = reset(CsrAddr.pmpcfg0, cfg),
-      pmpcfg1 = reset(CsrAddr.pmpcfg1, cfg),
-      scause = reset(CsrAddr.scause, cfg),
-      stval = reset(CsrAddr.stval, cfg),
-      sscratch = reset(CsrAddr.sscratch, cfg),
-      stvec = reset(CsrAddr.stvec, cfg),
-      mie = reset(CsrAddr.mie, cfg),
-      mcounteren = reset(CsrAddr.mcounteren, cfg),
-      scounteren = reset(CsrAddr.scounteren, cfg),
-      mcountinhibit = reset(CsrAddr.mcountinhibit, cfg),
-      mip = 0.U(cfg.dataWidth.W),
-      mcycle = 0.U(cfg.dataWidth.W),
-      minstret = 0.U(cfg.dataWidth.W)
-    )
+    CsrArchValues(CsrSpec.state.map(spec => data(spec.reset, cfg)))
 
   def nextValues(
     current: CsrArchValues,
     commit:  Seq[Valid[CsrCommit]],
     trap:    CsrTrapCommit,
     mret:    CsrMretCommit,
+    sret:    CsrSretCommit,
     priv:    UInt,
     cfg:     BackendConfig = BackendConfig()
   ): CsrArchValues = {
     val next = commitValues(current, commit, cfg)
 
-    val afterMret = next.copy(
-      mstatus = Mux(mret.valid, mretMstatus(next.mstatus, cfg), next.mstatus)
+    val afterReturn = next.withValue(
+      CsrAddr.of("mstatus"),
+      Mux(
+        mret.valid,
+        mretMstatus(next(CsrAddr.of("mstatus")), cfg),
+        Mux(sret.valid, sretMstatus(next(CsrAddr.of("mstatus")), cfg), next(CsrAddr.of("mstatus")))
+      )
     )
 
     val trapToSupervisor = trap.valid && trap.toSupervisor
     val trapToMachine    = trap.valid && !trap.toSupervisor
     val trapMstatusValue = Mux(
       trap.toSupervisor,
-      trapSstatus(afterMret.mstatus, priv, cfg),
-      trapMstatus(afterMret.mstatus, priv, cfg)
+      trapSstatus(afterReturn(CsrAddr.of("mstatus")), priv, cfg),
+      trapMstatus(afterReturn(CsrAddr.of("mstatus")), priv, cfg)
     )
 
-    afterMret.copy(
-      mstatus = Mux(trap.valid, trapMstatusValue, afterMret.mstatus),
-      mepc = Mux(trapToMachine, canonicalEpc(trap.epc, cfg), afterMret.mepc),
-      sepc = Mux(trapToSupervisor, canonicalEpc(trap.epc, cfg), afterMret.sepc),
-      mcause = Mux(trapToMachine, trap.cause, afterMret.mcause),
-      mtval = Mux(trapToMachine, trap.tval, afterMret.mtval),
-      scause = Mux(trapToSupervisor, trap.cause, afterMret.scause),
-      stval = Mux(trapToSupervisor, trap.tval, afterMret.stval)
+    afterReturn.withAddrValues(
+      CsrAddr.of("mstatus") -> Mux(trap.valid, trapMstatusValue, afterReturn(CsrAddr.of("mstatus"))),
+      CsrAddr.of("mepc")    -> Mux(trapToMachine, canonicalEpc(trap.epc, cfg), afterReturn(CsrAddr.of("mepc"))),
+      CsrAddr.of("sepc")    -> Mux(trapToSupervisor, canonicalEpc(trap.epc, cfg), afterReturn(CsrAddr.of("sepc"))),
+      CsrAddr.of("mcause")  -> Mux(trapToMachine, trap.cause, afterReturn(CsrAddr.of("mcause"))),
+      CsrAddr.of("mtval")   -> Mux(trapToMachine, trap.tval, afterReturn(CsrAddr.of("mtval"))),
+      CsrAddr.of("scause")  -> Mux(trapToSupervisor, trap.cause, afterReturn(CsrAddr.of("scause"))),
+      CsrAddr.of("stval")   -> Mux(trapToSupervisor, trap.tval, afterReturn(CsrAddr.of("stval")))
     )
   }
 
@@ -123,9 +82,9 @@ object CsrArch {
     retireCount: UInt,
     cfg:         BackendConfig = BackendConfig()
   ): CsrArchValues =
-    current.copy(
-      mcycle = current.mcycle + 1.U,
-      minstret = current.minstret + retireCount.pad(cfg.dataWidth)
+    current.withValues(
+      "mcycle"   -> (current("mcycle") + 1.U),
+      "minstret" -> (current("minstret") + retireCount.pad(cfg.dataWidth))
     )
 
   def commitValues(
@@ -144,59 +103,14 @@ object CsrArch {
 
   def readValue(addr: UInt, values: CsrArchValues, cfg: BackendConfig = BackendConfig()): UInt =
     MuxLookup(addr, 0.U(cfg.dataWidth.W))(
-      Seq(
-        CsrAddr(CsrAddr.sstatus)       -> (values.mstatus & data(Sstatus.mask, cfg)),
-        CsrAddr(CsrAddr.sie)           -> (values.mie & delegatedMask(values.mideleg, CsrInterrupt.sieMask, cfg)),
-        CsrAddr(CsrAddr.stvec)         -> values.stvec,
-        CsrAddr(CsrAddr.scounteren)    -> values.scounteren,
-        CsrAddr(CsrAddr.sscratch)      -> values.sscratch,
-        CsrAddr(CsrAddr.sepc)          -> values.sepc,
-        CsrAddr(CsrAddr.scause)        -> values.scause,
-        CsrAddr(CsrAddr.stval)         -> values.stval,
-        CsrAddr(CsrAddr.sip)           -> (values.mip & delegatedMask(values.mideleg, CsrInterrupt.sieMask, cfg)),
-        CsrAddr(CsrAddr.satp)          -> values.satp,
-        CsrAddr(CsrAddr.mstatus)       -> values.mstatus,
-        CsrAddr(CsrAddr.misa)          -> values.misa,
-        CsrAddr(CsrAddr.medeleg)       -> values.medeleg,
-        CsrAddr(CsrAddr.mideleg)       -> values.mideleg,
-        CsrAddr(CsrAddr.mie)           -> values.mie,
-        CsrAddr(CsrAddr.mtvec)         -> values.mtvec,
-        CsrAddr(CsrAddr.mcounteren)    -> values.mcounteren,
-        CsrAddr(CsrAddr.mstatush)      -> values.mstatush,
-        CsrAddr(CsrAddr.mcountinhibit) -> values.mcountinhibit,
-        CsrAddr(CsrAddr.mscratch)      -> values.mscratch,
-        CsrAddr(CsrAddr.mepc)          -> values.mepc,
-        CsrAddr(CsrAddr.mcause)        -> values.mcause,
-        CsrAddr(CsrAddr.mtval)         -> values.mtval,
-        CsrAddr(CsrAddr.mip)           -> values.mip,
-        CsrAddr(CsrAddr.pmpcfg0)       -> values.pmpcfg0,
-        CsrAddr(CsrAddr.pmpcfg1)       -> values.pmpcfg1,
-        CsrAddr(CsrAddr.pmpaddr0)      -> values.pmpaddr0,
-        CsrAddr(CsrAddr.pmpaddr1)      -> values.pmpaddr1,
-        CsrAddr(CsrAddr.pmpaddr2)      -> values.pmpaddr2,
-        CsrAddr(CsrAddr.pmpaddr3)      -> values.pmpaddr3,
-        CsrAddr(CsrAddr.pmpaddr4)      -> values.pmpaddr4,
-        CsrAddr(CsrAddr.pmpaddr5)      -> values.pmpaddr5,
-        CsrAddr(CsrAddr.pmpaddr6)      -> values.pmpaddr6,
-        CsrAddr(CsrAddr.pmpaddr7)      -> values.pmpaddr7,
-        CsrAddr(CsrAddr.cycle)         -> values.mcycle,
-        CsrAddr(CsrAddr.time)          -> values.mcycle,
-        CsrAddr(CsrAddr.instret)       -> values.minstret,
-        CsrAddr(CsrAddr.cycleh)        -> 0.U,
-        CsrAddr(CsrAddr.timeh)         -> 0.U,
-        CsrAddr(CsrAddr.instreth)      -> 0.U,
-        CsrAddr(CsrAddr.mvendorid)     -> values.mvendorid,
-        CsrAddr(CsrAddr.marchid)       -> values.marchid,
-        CsrAddr(CsrAddr.mimpid)        -> values.mimpid,
-        CsrAddr(CsrAddr.mhartid)       -> values.mhartid
-      )
+      CsrSpec.supported.map(spec => CsrAddr(spec.addr) -> readValue(spec, values, cfg))
     )
 
-  def readLegal(addr: UInt, priv: UInt): Bool =
-    implemented(addr) && privilegeAllows(addr, priv)
+  def readLegal(addr: UInt, priv: UInt, values: CsrArchValues): Bool =
+    implemented(addr) && privilegeAllows(addr, priv) && counterAllows(addr, priv, values)
 
-  def writeLegal(addr: UInt, priv: UInt): Bool =
-    readLegal(addr, priv) && !readOnlyByEncoding(addr) && writable(addr)
+  def writeLegal(addr: UInt, priv: UInt, values: CsrArchValues): Bool =
+    readLegal(addr, priv, values) && !readOnlyByEncoding(addr) && writable(addr)
 
   def trapBase(mtvecValue: UInt, cfg: BackendConfig = BackendConfig()): UInt =
     mtvecValue(cfg.addrWidth - 1, 2) ## 0.U(2.W)
@@ -205,9 +119,17 @@ object CsrArch {
     toSupervisor: Bool,
     mtvecValue:   UInt,
     stvecValue:   UInt,
+    cause:        UInt,
+    interrupt:    Bool,
     cfg:          BackendConfig = BackendConfig()
-  ): UInt =
-    trapBase(Mux(toSupervisor, stvecValue, mtvecValue), cfg)
+  ): UInt = {
+    val tvec     = Mux(toSupervisor, stvecValue, mtvecValue)
+    val base     = trapBase(tvec, cfg)
+    val offset   = (cause.pad(cfg.addrWidth) << 2)(cfg.addrWidth - 1, 0)
+    val vectored = interrupt && tvec(1, 0) === 1.U
+
+    base + Mux(vectored, offset, 0.U(cfg.addrWidth.W))
+  }
 
   def trapDelegated(
     cause:     UInt,
@@ -228,6 +150,9 @@ object CsrArch {
     Mux(PrivMode.legal(mode), mode, PrivMode.M)
   }
 
+  def sretPriv(mstatusValue: UInt): UInt =
+    Mux(mstatusValue(Mstatus.sppBit), PrivMode.S, PrivMode.U)
+
   private def writeValue(
     current: CsrArchValues,
     valid:   Bool,
@@ -235,70 +160,69 @@ object CsrArch {
     wdata:   UInt,
     cfg:     BackendConfig
   ): CsrArchValues = {
-    val mstatusAfterRaw     = writeMasked(current.mstatus, wdata, CsrAddr.mstatus, addr, valid, cfg)
+    val afterRaw = CsrSpec.raw.foldLeft(current) { case (next, spec) =>
+      next.withValue(spec.name, writeRawValue(spec, current, valid, addr, wdata, cfg))
+    }
+
+    val mstatusAfterRaw     = afterRaw(CsrAddr.of("mstatus"))
     val mstatusAfterVirtual = Mux(
-      hit(CsrAddr.sstatus, addr, valid),
-      maskWrite(mstatusAfterRaw, wdata, Sstatus.mask, cfg),
+      hit(CsrAddr.of("sstatus"), addr, valid),
+      maskWrite(mstatusAfterRaw, wdata, Sstatus.writeMask, cfg),
       mstatusAfterRaw
     )
 
-    val mieAfterRaw     = writeMasked(current.mie, wdata, CsrAddr.mie, addr, valid, cfg)
-    val sieMask         = delegatedMask(current.mideleg, CsrInterrupt.sieMask, cfg)
+    val mieAfterRaw     = afterRaw(CsrAddr.of("mie"))
+    val sieMask         = delegatedMask(afterRaw(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
     val mieAfterVirtual = Mux(
-      hit(CsrAddr.sie, addr, valid),
+      hit(CsrAddr.of("sie"), addr, valid),
       (mieAfterRaw & ~sieMask).asUInt | (wdata & sieMask),
       mieAfterRaw
     )
 
-    val mipAfterMip     = writeMasked(current.mip, wdata, CsrAddr.mip, addr, valid, cfg)
-    val sipMask         = delegatedMask(current.mideleg, CsrInterrupt.writableSipMask, cfg)
+    val mipAfterMip     = afterRaw(CsrAddr.of("mip"))
+    val sipMask         = delegatedMask(afterRaw(CsrAddr.of("mideleg")), CsrInterrupt.writableSipMask, cfg)
     val mipAfterVirtual = Mux(
-      hit(CsrAddr.sip, addr, valid),
+      hit(CsrAddr.of("sip"), addr, valid),
       (mipAfterMip & ~sipMask).asUInt | (wdata & sipMask),
       mipAfterMip
     )
 
-    current.copy(
-      mepc = Mux(hit(CsrAddr.mepc, addr, valid), canonicalEpc(wdata, cfg), current.mepc),
-      sepc = Mux(hit(CsrAddr.sepc, addr, valid), canonicalEpc(wdata, cfg), current.sepc),
-      misa = writeMasked(current.misa, wdata, CsrAddr.misa, addr, valid, cfg),
-      mstatus = mstatusAfterVirtual,
-      mstatush = writeMasked(current.mstatush, wdata, CsrAddr.mstatush, addr, valid, cfg),
-      mcause = writeMasked(current.mcause, wdata, CsrAddr.mcause, addr, valid, cfg),
-      mtval = writeMasked(current.mtval, wdata, CsrAddr.mtval, addr, valid, cfg),
-      mtvec = writeMasked(current.mtvec, wdata, CsrAddr.mtvec, addr, valid, cfg),
-      mscratch = writeMasked(current.mscratch, wdata, CsrAddr.mscratch, addr, valid, cfg),
-      satp = writeMasked(current.satp, wdata, CsrAddr.satp, addr, valid, cfg),
-      medeleg = writeMasked(current.medeleg, wdata, CsrAddr.medeleg, addr, valid, cfg),
-      mideleg = writeMasked(current.mideleg, wdata, CsrAddr.mideleg, addr, valid, cfg),
-      mvendorid = writeMasked(current.mvendorid, wdata, CsrAddr.mvendorid, addr, valid, cfg),
-      marchid = writeMasked(current.marchid, wdata, CsrAddr.marchid, addr, valid, cfg),
-      mhartid = writeMasked(current.mhartid, wdata, CsrAddr.mhartid, addr, valid, cfg),
-      mimpid = writeMasked(current.mimpid, wdata, CsrAddr.mimpid, addr, valid, cfg),
-      pmpaddr0 = writeMasked(current.pmpaddr0, wdata, CsrAddr.pmpaddr0, addr, valid, cfg),
-      pmpaddr1 = writeMasked(current.pmpaddr1, wdata, CsrAddr.pmpaddr1, addr, valid, cfg),
-      pmpaddr2 = writeMasked(current.pmpaddr2, wdata, CsrAddr.pmpaddr2, addr, valid, cfg),
-      pmpaddr3 = writeMasked(current.pmpaddr3, wdata, CsrAddr.pmpaddr3, addr, valid, cfg),
-      pmpaddr4 = writeMasked(current.pmpaddr4, wdata, CsrAddr.pmpaddr4, addr, valid, cfg),
-      pmpaddr5 = writeMasked(current.pmpaddr5, wdata, CsrAddr.pmpaddr5, addr, valid, cfg),
-      pmpaddr6 = writeMasked(current.pmpaddr6, wdata, CsrAddr.pmpaddr6, addr, valid, cfg),
-      pmpaddr7 = writeMasked(current.pmpaddr7, wdata, CsrAddr.pmpaddr7, addr, valid, cfg),
-      pmpcfg0 = writeMasked(current.pmpcfg0, wdata, CsrAddr.pmpcfg0, addr, valid, cfg),
-      pmpcfg1 = writeMasked(current.pmpcfg1, wdata, CsrAddr.pmpcfg1, addr, valid, cfg),
-      scause = writeMasked(current.scause, wdata, CsrAddr.scause, addr, valid, cfg),
-      stval = writeMasked(current.stval, wdata, CsrAddr.stval, addr, valid, cfg),
-      sscratch = writeMasked(current.sscratch, wdata, CsrAddr.sscratch, addr, valid, cfg),
-      stvec = writeMasked(current.stvec, wdata, CsrAddr.stvec, addr, valid, cfg),
-      mie = mieAfterVirtual,
-      mcounteren = writeMasked(current.mcounteren, wdata, CsrAddr.mcounteren, addr, valid, cfg),
-      scounteren = writeMasked(current.scounteren, wdata, CsrAddr.scounteren, addr, valid, cfg),
-      mcountinhibit = writeMasked(current.mcountinhibit, wdata, CsrAddr.mcountinhibit, addr, valid, cfg),
-      mip = mipAfterVirtual
+    afterRaw.withAddrValues(
+      CsrAddr.of("mstatus") -> mstatusAfterVirtual,
+      CsrAddr.of("mie")     -> mieAfterVirtual,
+      CsrAddr.of("mip")     -> mipAfterVirtual
     )
   }
 
-  private def reset(addr: Int, cfg: BackendConfig): UInt =
-    data(CsrSpec.byAddr(addr).reset, cfg)
+  private def readValue(spec: CsrSpec, values: CsrArchValues, cfg: BackendConfig): UInt =
+    spec.name match {
+      case "sstatus"                       => values(CsrAddr.of("mstatus")) & data(Sstatus.visibleMask, cfg)
+      case "sie"                           => values(CsrAddr.of("mie")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
+      case "sip"                           => values(CsrAddr.of("mip")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
+      case "cycle" | "time"                =>
+        values("mcycle")
+      case "instret"                       =>
+        values("minstret")
+      case "cycleh" | "timeh" | "instreth" =>
+        0.U(cfg.dataWidth.W)
+      case name                            =>
+        values
+          .get(name)
+          .getOrElse(throw new IllegalArgumentException(s"CSR ${spec.name} has no stored state or read behavior"))
+    }
+
+  private def writeRawValue(
+    spec:    CsrSpec,
+    current: CsrArchValues,
+    valid:   Bool,
+    addr:    UInt,
+    wdata:   UInt,
+    cfg:     BackendConfig
+  ): UInt =
+    spec.name match {
+      case "mepc" | "sepc" => Mux(hit(spec.addr, addr, valid), canonicalEpc(wdata, cfg), current(spec.name))
+      case _               => writeMasked(current(spec.name), wdata, spec.addr, addr, valid, cfg)
+    }
 
   private def data(value: BigInt, cfg: BackendConfig): UInt =
     value.U(cfg.dataWidth.W)
@@ -306,11 +230,8 @@ object CsrArch {
   private def hit(csrAddr: Int, addr: UInt, valid: Bool): Bool =
     valid && addr === CsrAddr(csrAddr)
 
-  private def writeMask(addr: Int): BigInt =
-    CsrSpec.byAddr(addr).writeMask
-
   private def writeMasked(old: UInt, wdata: UInt, csrAddr: Int, addr: UInt, valid: Bool, cfg: BackendConfig): UInt =
-    Mux(hit(csrAddr, addr, valid), maskWrite(old, wdata, writeMask(csrAddr), cfg), old)
+    Mux(hit(csrAddr, addr, valid), maskWrite(old, wdata, CsrSpec.byAddr(csrAddr).writeMask, cfg), old)
 
   private def maskWrite(old: UInt, wdata: UInt, mask: BigInt, cfg: BackendConfig): UInt = {
     val writeMask = data(mask, cfg)
@@ -334,6 +255,28 @@ object CsrArch {
 
   private def readOnlyByEncoding(addr: UInt): Bool =
     addr(11, 10) === "b11".U
+
+  private def counterAllows(addr: UInt, priv: UInt, values: CsrArchValues): Bool = {
+    val bit     = counterBit(addr)
+    val isCount = bit.orR
+
+    !isCount ||
+    priv === PrivMode.M ||
+    (priv === PrivMode.S && (values(CsrAddr.of("mcounteren")) & bit).orR) ||
+    (priv === PrivMode.U && (values(CsrAddr.of("mcounteren")) & bit).orR && (values(CsrAddr.of("scounteren")) & bit).orR)
+  }
+
+  private def counterBit(addr: UInt): UInt =
+    MuxLookup(addr, 0.U(CsrCounter.counterenMask.bitLength.W))(
+      Seq(
+        CsrAddr("cycle")    -> 1.U,
+        CsrAddr("time")     -> 2.U,
+        CsrAddr("instret")  -> 4.U,
+        CsrAddr("cycleh")   -> 1.U,
+        CsrAddr("timeh")    -> 2.U,
+        CsrAddr("instreth") -> 4.U
+      )
+    )
 
   private def trapMstatus(old: UInt, previousPriv: UInt, cfg: BackendConfig): UInt = {
     val writeMask = data(Mstatus.trapWriteMask, cfg)
@@ -359,5 +302,13 @@ object CsrArch {
     val mpie       = 1.U(cfg.dataWidth.W) << Mstatus.mpieBit
 
     (old & ~(writeMask | mprvMask)).asUInt | mie | mpie
+  }
+
+  private def sretMstatus(old: UInt, cfg: BackendConfig): UInt = {
+    val writeMask = data(Mstatus.supervisorTrapWriteMask, cfg)
+    val sie       = old(Mstatus.spieBit).asUInt << Mstatus.sieBit
+    val spie      = 1.U(cfg.dataWidth.W) << Mstatus.spieBit
+
+    (old & ~(writeMask | data(Mstatus.mprvMask, cfg))).asUInt | sie | spie
   }
 }

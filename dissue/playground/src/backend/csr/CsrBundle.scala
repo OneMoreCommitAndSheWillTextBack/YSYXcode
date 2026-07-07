@@ -33,9 +33,15 @@ class CsrMretCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid = Bool()
 }
 
+class CsrSretCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid = Bool()
+}
+
 class CsrStatus(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val priv       = new PrivState
   val mretTarget = UInt(cfg.addrWidth.W)
+  val sretTarget = UInt(cfg.addrWidth.W)
+  val mstatus    = UInt(cfg.dataWidth.W)
   val mtvec      = UInt(cfg.dataWidth.W)
   val stvec      = UInt(cfg.dataWidth.W)
   val medeleg    = UInt(cfg.dataWidth.W)
@@ -65,6 +71,7 @@ class CsrFileIO(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val commit      = Input(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
   val trap        = Input(new CsrTrapCommit(cfg))
   val mret        = Input(new CsrMretCommit(cfg))
+  val sret        = Input(new CsrSretCommit(cfg))
   val retireCount = Input(UInt(log2Ceil(cfg.commitWidth + 1).W))
   val status      = Output(new CsrStatus(cfg))
 }
