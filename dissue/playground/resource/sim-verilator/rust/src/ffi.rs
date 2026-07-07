@@ -35,7 +35,6 @@ pub struct NpcDpiCallbacks {
 }
 
 #[allow(dead_code)]
-#[cfg(not(test))]
 unsafe extern "C" {
     pub fn npc_sim_new(callbacks: *const NpcDpiCallbacks) -> *mut NpcSim;
     pub fn npc_sim_delete(sim: *mut NpcSim);
@@ -46,37 +45,3 @@ unsafe extern "C" {
     pub fn npc_sim_disable_wave(sim: *mut NpcSim);
     pub fn npc_sim_close_wave(sim: *mut NpcSim);
 }
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_new(_callbacks: *const NpcDpiCallbacks) -> *mut NpcSim {
-    std::ptr::NonNull::<NpcSim>::dangling().as_ptr()
-}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_delete(_sim: *mut NpcSim) {}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_reset(_sim: *mut NpcSim, _cycles: u32) {}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_step(_sim: *mut NpcSim) {}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_init_wave(_sim: *mut NpcSim, _path: *const core::ffi::c_char) {}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_enable_wave(_sim: *mut NpcSim) {}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_disable_wave(_sim: *mut NpcSim) {}
-
-#[allow(dead_code)]
-#[cfg(test)]
-pub unsafe fn npc_sim_close_wave(_sim: *mut NpcSim) {}

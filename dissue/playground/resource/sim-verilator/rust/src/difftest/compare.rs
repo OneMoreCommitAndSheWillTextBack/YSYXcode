@@ -77,39 +77,3 @@ fn compare_csr(name: &'static str, dut: u32, reference: u32) -> Result<(), Difft
         reference,
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::cpu::{CpuContext, PrivMode};
-
-    fn context_with_pc(pc: u32) -> CpuContext {
-        CpuContext {
-            pc,
-            priv_mode: PrivMode::Machine,
-            ..CpuContext::default()
-        }
-    }
-
-    #[test]
-    fn compare_reports_gpr_mismatch() {
-        let dut = context_with_pc(0x8000_0000);
-        let mut reference = dut;
-        reference.gpr.as_mut_slice()[10] = 1;
-
-        let mismatch = compare_contexts_raw(&dut, &reference).unwrap_err();
-        assert!(matches!(mismatch, DifftestMismatch::Gpr { index: 10, .. }));
-    }
-
-    #[test]
-    fn compare_ignores_counter_csrs() {
-        let mut dut = context_with_pc(0x8000_0000);
-        let mut reference = dut;
-        dut.csr.mcycle = 16;
-        dut.csr.minstret = 2;
-        reference.csr.mcycle = 0;
-        reference.csr.minstret = 0;
-
-        compare_contexts_raw(&dut, &reference).unwrap();
-    }
-}

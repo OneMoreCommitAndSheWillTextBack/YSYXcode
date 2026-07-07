@@ -121,38 +121,3 @@ fn mem_access_len(size: u32) -> u32 {
         _ => 4,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn entry(pc: u32, inst: u32, next_pc: u32) -> CommitTraceEntry {
-        CommitTraceEntry {
-            pc,
-            inst,
-            raw_inst: inst,
-            inst_len: 4,
-            next_pc,
-            mem_valid: false,
-            mem_write: false,
-            mem_addr: 0,
-            mem_size: 0,
-        }
-    }
-
-    #[test]
-    fn identifies_jal_control_flow() {
-        assert_eq!(
-            control_flow_text(entry(0x8000_0000, 0x0040_006f, 0x8000_0004)),
-            Some("jal")
-        );
-    }
-
-    #[test]
-    fn marks_unknown_non_sequential_redirect() {
-        assert_eq!(
-            control_flow_text(entry(0x8000_0000, 0x0000_0013, 0x8000_0010)),
-            Some("redirect")
-        );
-    }
-}

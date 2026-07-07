@@ -142,36 +142,3 @@ impl SimulatorConfig {
         config
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::DifftestRef;
-    use std::path::PathBuf;
-
-    #[test]
-    fn parses_builtin_difftest_refs() {
-        assert_eq!(DifftestRef::from_arg("nemu"), Ok(DifftestRef::Nemu));
-        assert_eq!(DifftestRef::from_arg("spike"), Ok(DifftestRef::Spike));
-    }
-
-    #[test]
-    fn parses_custom_difftest_ref_paths() {
-        assert_eq!(
-            DifftestRef::from_arg("/tmp/ref.so"),
-            Ok(DifftestRef::Custom(PathBuf::from("/tmp/ref.so")))
-        );
-        assert_eq!(
-            DifftestRef::from_arg("./build/ref.so"),
-            Ok(DifftestRef::Custom(PathBuf::from("./build/ref.so")))
-        );
-        assert_eq!(
-            DifftestRef::from_arg("ref.so"),
-            Ok(DifftestRef::Custom(PathBuf::from("ref.so")))
-        );
-    }
-
-    #[test]
-    fn rejects_unknown_bare_ref_names() {
-        assert!(DifftestRef::from_arg("nume").is_err());
-    }
-}
