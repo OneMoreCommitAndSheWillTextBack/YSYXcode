@@ -130,6 +130,7 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     io.out(lane).bits.rfWen       := decode.rfWen
     io.out(lane).bits.isLoad      := decode.isLoad
     io.out(lane).bits.isStore     := decode.isStore
+    io.out(lane).bits.isAmo       := decode.isAmo
     io.out(lane).bits.cfi         := decode.cfi
     io.out(lane).bits.memSize     := decode.memSize
     io.out(lane).bits.memUnsigned := decode.memUnsigned

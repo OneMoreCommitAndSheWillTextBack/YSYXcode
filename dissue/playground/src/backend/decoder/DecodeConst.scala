@@ -20,6 +20,7 @@ object ImmSel {
   val b    = 3.U(width.W)
   val j    = 4.U(width.W)
   val u    = 5.U(width.W)
+  val z    = 6.U(width.W)
 }
 
 object FuType {
@@ -70,8 +71,19 @@ object MemSize {
 }
 
 object LsuOp {
-  val load  = 1.U(FuOp.width.W)
-  val store = 2.U(FuOp.width.W)
+  val load    = 1.U(FuOp.width.W)
+  val store   = 2.U(FuOp.width.W)
+  val lr      = 3.U(FuOp.width.W)
+  val sc      = 4.U(FuOp.width.W)
+  val amoSwap = 5.U(FuOp.width.W)
+  val amoAdd  = 6.U(FuOp.width.W)
+  val amoXor  = 7.U(FuOp.width.W)
+  val amoAnd  = 8.U(FuOp.width.W)
+  val amoOr   = 9.U(FuOp.width.W)
+  val amoMin  = 10.U(FuOp.width.W)
+  val amoMax  = 11.U(FuOp.width.W)
+  val amoMinu = 12.U(FuOp.width.W)
+  val amoMaxu = 13.U(FuOp.width.W)
 }
 
 object BruOp {

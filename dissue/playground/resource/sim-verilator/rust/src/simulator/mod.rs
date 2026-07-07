@@ -1,9 +1,11 @@
 mod event;
+mod itrace;
 mod report;
 mod statistics;
 
 pub use event::CommitGroupEvent;
 
+use itrace::Itrace;
 use statistics::Statistics;
 
 use crate::{
@@ -49,6 +51,7 @@ pub enum SimulatorError {
     Cpu(CpuError),
     Difftest(DifftestError),
     ImageIo { path: PathBuf, source: io::Error },
+    ItraceIo { path: PathBuf, source: io::Error },
     CpuNotConnected,
     SimulateAbort,
     ReachMaxNoCommitCyc,
@@ -94,14 +97,30 @@ pub struct Simulator {
     state: SimulatorState,
     statistics: Statistics,
     latest_context: Option<CpuContext>,
+    itrace: Option<Itrace>,
     pending_commit_count: u64,
     pending_finish: bool,
+    pending_difftest_sync: bool,
+    pending_difftest_sync_prefix: u64,
+    pending_commit_events: Vec<CommitGroupEvent>,
 }
 
 impl Simulator {
     pub fn new(config: SimulatorConfig) -> SimulatorResult<Box<Self>> {
         let difftest_ref = config.difftest_ref.clone();
         let difftest = DiffTest::new(difftest_ref)?;
+
+        let itrace = match config.itrace_path.as_ref() {
+            Some(path) => {
+                Some(
+                    Itrace::create(path).map_err(|source| SimulatorError::ItraceIo {
+                        path: path.clone(),
+                        source,
+                    })?,
+                )
+            }
+            None => None,
+        };
 
         let mut simulator = Box::new(Self {
             config,
@@ -112,14 +131,19 @@ impl Simulator {
             state: Running,
             statistics: Statistics::new(),
             latest_context: None,
+            itrace,
             pending_commit_count: 0,
             pending_finish: false,
+            pending_difftest_sync: false,
+            pending_difftest_sync_prefix: 0,
+            pending_commit_events: Vec::new(),
         });
         let callbacks = ffi::NpcDpiCallbacks {
             on_difftest_commit: Some(simulator_on_difftest_commit),
             on_difftest_context: Some(simulator_on_difftest_context),
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
+            time_read: Some(simulator_time_read),
             cache_hit: Some(simulator_cache_hit),
             issue_queue_perf: Some(simulator_issue_queue_perf),
             div_perf: Some(simulator_div_perf),
@@ -159,6 +183,9 @@ impl Simulator {
         self.latest_context = None;
         self.pending_commit_count = 0;
         self.pending_finish = false;
+        self.pending_difftest_sync = false;
+        self.pending_difftest_sync_prefix = 0;
+        self.pending_commit_events.clear();
 
         {
             let Some(cpu) = self.cpu.as_mut() else {
@@ -222,8 +249,13 @@ impl Simulator {
     fn process_difftest_events(&mut self) -> SimulatorResult<()> {
         let commit_count = self.pending_commit_count;
         let has_finish = self.pending_finish;
+        let needs_difftest_sync = self.pending_difftest_sync;
+        let difftest_sync_prefix = self.pending_difftest_sync_prefix;
         self.pending_commit_count = 0;
         self.pending_finish = false;
+        self.pending_difftest_sync = false;
+        self.pending_difftest_sync_prefix = 0;
+        let commit_events = std::mem::take(&mut self.pending_commit_events);
 
         if commit_count == 0 {
             return Ok(());
@@ -235,9 +267,27 @@ impl Simulator {
 
         self.statistics.on_commits(commit_count);
 
+        if let Some(itrace) = self.itrace.as_mut() {
+            let itrace_path = itrace.path().to_path_buf();
+            for event in &commit_events {
+                itrace
+                    .write_commit_group(event)
+                    .map_err(|source| SimulatorError::ItraceIo {
+                        path: itrace_path.clone(),
+                        source,
+                    })?;
+            }
+        }
+
         if self.difftest.needs_check_context() {
             let context = self.cpu_context()?;
-            if let Err(error) = self.difftest.step_and_check(commit_count, &context) {
+            let result = if needs_difftest_sync {
+                self.difftest.step_and_sync(difftest_sync_prefix, &context)
+            } else {
+                self.difftest.step_and_check(commit_count, &context)
+            };
+
+            if let Err(error) = result {
                 let error = SimulatorError::Difftest(error);
                 report::print_difftest_report(&error);
                 self.state = SimulatorState::Abort;
@@ -270,8 +320,16 @@ impl Simulator {
             return;
         }
 
+        let previous_commit_count = self.pending_commit_count;
         self.pending_commit_count += commit_count;
         self.pending_finish |= event.has_finish();
+        self.pending_commit_events.push(event);
+        if let Some(prefix_count) = event.difftest_sync_prefix_count() {
+            if !self.pending_difftest_sync {
+                self.pending_difftest_sync_prefix = previous_commit_count + prefix_count;
+            }
+            self.pending_difftest_sync = true;
+        }
     }
 
     fn on_difftest_context(&mut self, context: crate::cpu::NpcCpuContext) {
@@ -422,6 +480,11 @@ extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
     let _ = simulator.pmem_write(addr, len, data);
 }
 
+extern "C" fn simulator_time_read() -> u64 {
+    let simulator = unsafe { &*active_simulator() };
+    simulator.statistics.cycle()
+}
+
 extern "C" fn simulator_on_difftest_commit(event: *const ffi::NpcCommitGroupEvent) {
     if event.is_null() {
         return;
@@ -437,8 +500,15 @@ extern "C" fn simulator_on_difftest_commit(event: *const ffi::NpcCommitGroupEven
     simulator.on_difftest_commit(CommitGroupEvent::new(
         event.valid_mask,
         event.finish_mask,
+        event.mem_valid_mask,
+        event.mem_write_mask,
         event.pc,
         event.inst,
+        event.raw_inst,
+        event.inst_len,
+        event.next_pc,
+        event.mem_addr,
+        event.mem_size,
     ));
 }
 

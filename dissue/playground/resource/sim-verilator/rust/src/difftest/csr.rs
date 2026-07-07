@@ -89,15 +89,15 @@ pub(crate) const CSR_DIFF_SPECS: [CsrDiffSpec; 10] = [
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mie,
-        diff: false,
+        diff: true,
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mip,
-        diff: false,
+        diff: true,
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mscratch,
-        diff: false,
+        diff: true,
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mcycle,

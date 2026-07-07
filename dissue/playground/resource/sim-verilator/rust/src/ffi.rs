@@ -9,8 +9,15 @@ pub struct NpcSim {
 pub struct NpcCommitGroupEvent {
     pub valid_mask: u32,
     pub finish_mask: u32,
+    pub mem_valid_mask: u32,
+    pub mem_write_mask: u32,
     pub pc: [u32; 2],
     pub inst: [u32; 2],
+    pub raw_inst: [u32; 2],
+    pub inst_len: [u32; 2],
+    pub next_pc: [u32; 2],
+    pub mem_addr: [u32; 2],
+    pub mem_size: [u32; 2],
 }
 
 #[allow(dead_code)]
@@ -20,6 +27,7 @@ pub struct NpcDpiCallbacks {
     pub on_difftest_context: Option<extern "C" fn(*const crate::cpu::NpcCpuContext)>,
     pub pmem_read: Option<extern "C" fn(u32, u32) -> u32>,
     pub pmem_write: Option<extern "C" fn(addr: u32, len: u32, data: u32)>,
+    pub time_read: Option<extern "C" fn() -> u64>,
     pub cache_hit: Option<extern "C" fn(hit: u8)>,
     pub issue_queue_perf:
         Option<extern "C" fn(issue_count: u8, occupancy: u8, block_ready: u8, block_operand: u8)>,

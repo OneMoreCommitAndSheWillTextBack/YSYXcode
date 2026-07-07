@@ -99,6 +99,23 @@ impl DiffTest {
         };
     }
 
+    pub fn step_and_sync(&mut self, steps: u64, context: &CpuContext) -> DifftestResult<()> {
+        match &mut self.state {
+            DifftestState::Disabled => {}
+            DifftestState::Detached(backend) => {
+                backend.copy_context_to_ref(context);
+            }
+            DifftestState::Attached(backend) => {
+                if steps > 0 {
+                    backend.exec(steps);
+                }
+                backend.copy_context_to_ref(context);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn step_and_check(&mut self, steps: u64, context: &CpuContext) -> DifftestResult<()> {
         let DifftestState::Attached(backend) = &mut self.state else {
             return Ok(());

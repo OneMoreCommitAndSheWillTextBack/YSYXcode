@@ -15,7 +15,18 @@ private[decoder] object RviMemDecode extends DecodeGroup {
     LBU -> load(size = MemSize.byte, unsigned = true),
     LHU -> load(size = MemSize.half, unsigned = true),
     SB  -> store(size = MemSize.byte),
-    SH  -> store(size = MemSize.half),
-    SW  -> store(size = MemSize.word)
+    SH        -> store(size = MemSize.half),
+    SW        -> store(size = MemSize.word),
+    LR_W      -> atomic(LsuOp.lr, readsRs2 = false),
+    SC_W      -> atomic(LsuOp.sc),
+    AMOSWAP_W -> atomic(LsuOp.amoSwap),
+    AMOADD_W  -> atomic(LsuOp.amoAdd),
+    AMOXOR_W  -> atomic(LsuOp.amoXor),
+    AMOAND_W  -> atomic(LsuOp.amoAnd),
+    AMOOR_W   -> atomic(LsuOp.amoOr),
+    AMOMIN_W  -> atomic(LsuOp.amoMin),
+    AMOMAX_W  -> atomic(LsuOp.amoMax),
+    AMOMINU_W -> atomic(LsuOp.amoMinu),
+    AMOMAXU_W -> atomic(LsuOp.amoMaxu)
   )
 }

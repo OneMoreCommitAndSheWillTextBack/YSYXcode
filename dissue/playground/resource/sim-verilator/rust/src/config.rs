@@ -69,6 +69,7 @@ pub struct SimulatorConfig {
     pub reset_cycles: u32,
     pub enable_wave: bool,
     pub wave_path: Option<PathBuf>,
+    pub itrace_path: Option<PathBuf>,
     pub difftest_on: bool,
     pub difftest_ref: Option<DifftestRef>,
 }
@@ -81,6 +82,7 @@ impl Default for SimulatorConfig {
             reset_cycles: 30,
             enable_wave: false,
             wave_path: None,
+            itrace_path: None,
             difftest_on: false,
             difftest_ref: None,
         }
@@ -109,6 +111,9 @@ impl SimulatorConfig {
                 "--wave-path" => {
                     config.enable_wave = true;
                     config.wave_path = args.next().map(PathBuf::from);
+                }
+                "--itrace-path" => {
+                    config.itrace_path = args.next().map(PathBuf::from);
                 }
                 "--diff" | "--difftest-ref" => {
                     if let Some(value) = args.next() {

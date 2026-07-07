@@ -18,10 +18,13 @@ private[decoder] case class NpcDecode(
   rfWen:    Boolean = false,
   isLoad:   Boolean = false,
   isStore:  Boolean = false,
+  isAmo:    Boolean = false,
   isEbreak: Boolean = false,
   isEcall:  Boolean = false,
   isMret:   Boolean = false,
   isSret:   Boolean = false,
+  isFence:  Boolean = false,
+  isSfence: Boolean = false,
   isCsr:    Boolean = false,
   memSize:  Int = 0,
   memUnsigned: Boolean = false) {
@@ -37,12 +40,15 @@ private[decoder] case class NpcDecode(
     bool(rfWen),
     bool(isLoad),
     bool(isStore),
+    bool(isAmo),
     memSize.U(3.W),
     bool(memUnsigned),
     bool(isEbreak),
     bool(isEcall),
     bool(isMret),
     bool(isSret),
+    bool(isFence),
+    bool(isSfence),
     bool(isCsr)
   )
 
@@ -61,13 +67,16 @@ private[decoder] object DecodeIndex {
   val rfWen       = 7
   val isLoad      = 8
   val isStore     = 9
-  val memSize     = 10
-  val memUnsigned = 11
-  val isEbreak    = 12
-  val isEcall     = 13
-  val isMret      = 14
-  val isSret      = 15
-  val isCsr       = 16
+  val isAmo       = 10
+  val memSize     = 11
+  val memUnsigned = 12
+  val isEbreak    = 13
+  val isEcall     = 14
+  val isMret      = 15
+  val isSret      = 16
+  val isFence     = 17
+  val isSfence    = 18
+  val isCsr       = 19
 }
 
 private[decoder] trait DecodeGroup {
@@ -146,6 +155,17 @@ private[decoder] object DecodeDsl {
       memSize = size
     ).signals
 
+  def atomic(op: UInt, readsRs2: Boolean = true): List[UInt] =
+    NpcDecode(
+      src1 = SrcType.reg,
+      src2 = if (readsRs2) SrcType.reg else SrcType.none,
+      fu = FuType.lsu,
+      op = op,
+      rfWen = true,
+      isAmo = true,
+      memSize = MemSize.word
+    ).signals
+
   def branch(op: UInt): List[UInt] =
     NpcDecode(
       src1 = SrcType.reg,
@@ -206,9 +226,27 @@ private[decoder] object DecodeDsl {
       isSret = true
     ).signals
 
+  def fence(sfence: Boolean = false): List[UInt] =
+    NpcDecode(
+      fu = FuType.alu,
+      op = AluOp.add,
+      isFence = true,
+      isSfence = sfence
+    ).signals
+
   def csr(op: UInt): List[UInt] =
     NpcDecode(
       src1 = SrcType.reg,
+      fu = FuType.csr,
+      op = op,
+      rfWen = true,
+      isCsr = true
+    ).signals
+
+  def csrImm(op: UInt): List[UInt] =
+    NpcDecode(
+      src1 = SrcType.imm,
+      immSel = ImmSel.z,
       fu = FuType.csr,
       op = op,
       rfWen = true,

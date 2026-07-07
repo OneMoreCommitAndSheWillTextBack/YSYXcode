@@ -17,6 +17,7 @@ class HalfwordEntry(cfg: ICacheConfig) extends Bundle {
   val bits      = UInt(16.W)
   val blockAddr = UInt(cfg.addrWidth.W)
   val pred      = new FetchPred(cfg)
+  val exception = new top.bundle.FetchException(cfg.addrWidth)
 }
 
 class HalfwordSplitter(cfg: ICacheConfig) extends Module {
@@ -56,6 +57,10 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
     })
     io.entries(i).blockAddr := io.resp.meta.blockAddr
     io.entries(i).pred      := io.resp.meta.pred
+    io.entries(i).exception := io.resp.exception
+    when(io.resp.exception.valid) {
+      io.entries(i).exception.tval := io.entries(i).pc
+    }
   }
 }
 
@@ -156,6 +161,11 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val firstNeed  = Mux(firstIsRVC, 1.U(needWidth.W), 2.U(needWidth.W))
   val firstReady = io.count >= firstNeed
   val firstRaw   = Mux(firstIsRVC, Cat(0.U(16.W), h0.bits), Cat(h1.bits, h0.bits))
+  val firstException = Wire(new top.bundle.FetchException(cfg.addrWidth))
+  firstException := h0.exception
+  when(!firstIsRVC && h1.exception.valid) {
+    firstException := h1.exception
+  }
 
   val secondLow  = Mux(firstIsRVC, h1.bits, h2.bits)
   val secondHigh = Mux(firstIsRVC, h2.bits, h3.bits)
@@ -167,6 +177,14 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val totalNeed   = firstNeed + secondNeed
   val secondReady = firstReady && io.count >= totalNeed
   val secondRaw   = Mux(secondIsRVC, Cat(0.U(16.W), secondLow), Cat(secondHigh, secondLow))
+  val secondException = Wire(new top.bundle.FetchException(cfg.addrWidth))
+  secondException := Mux(firstIsRVC, h1.exception, h2.exception)
+  when(!secondIsRVC) {
+    val highException = Mux(firstIsRVC, h2.exception, h3.exception)
+    when(highException.valid) {
+      secondException := highException
+    }
+  }
 
   val firstPredHit  = h0.pred.valid && h0.pred.cfiOffset === cfiOffset(h0.pc)
   val secondPredHit = secondPred.valid && secondPred.cfiOffset === cfiOffset(secondPc)
@@ -196,8 +214,9 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.out.bits.insts(0).bits.predTaken  := firstPredTaken
   io.out.bits.insts(0).bits.predNpc    := Mux(firstPredTaken, h0.pred.target, firstFallThrough)
   io.out.bits.insts(0).bits.predTarget := Mux(firstPredHit, h0.pred.target, 0.U)
+  io.out.bits.insts(0).bits.exception  := firstException
 
-  io.out.bits.insts(1).valid           := secondOutValid && !firstPredTaken
+  io.out.bits.insts(1).valid           := secondOutValid && !firstPredTaken && !firstException.valid
   io.out.bits.insts(1).bits.pc         := secondPc
   io.out.bits.insts(1).bits.inst       := secondExpander.io.out.bits
   io.out.bits.insts(1).bits.rawInst    := secondRaw
@@ -206,6 +225,7 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.out.bits.insts(1).bits.predTaken  := secondPredTaken
   io.out.bits.insts(1).bits.predNpc    := Mux(secondPredTaken, secondPred.target, secondFallThrough)
   io.out.bits.insts(1).bits.predTarget := Mux(secondPredHit, secondPred.target, 0.U)
+  io.out.bits.insts(1).bits.exception  := secondException
 
   val packetPredTaken =
     (io.out.bits.insts(0).valid && firstPredTaken) ||

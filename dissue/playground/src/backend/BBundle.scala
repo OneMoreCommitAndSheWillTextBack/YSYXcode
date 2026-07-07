@@ -23,6 +23,7 @@ class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val rfWen       = Bool()
   val isLoad      = Bool()
   val isStore     = Bool()
+  val isAmo       = Bool()
   val cfi         = UInt(CfiType.width.W)
   val memSize     = UInt(3.W)
   val memUnsigned = Bool()
@@ -30,6 +31,8 @@ class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isEcall     = Bool()
   val isMret      = Bool()
   val isSret      = Bool()
+  val isFence     = Bool()
+  val isSfence    = Bool()
   val isCsr       = Bool()
   val csrAddr     = UInt(CsrAddr.width.W)
   val csrWen      = Bool()
@@ -39,7 +42,7 @@ class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
     exception.valid || isEcall
 
   def isRetireOnly: Bool =
-    hasTrapAtRetire || isMret || isSret
+    hasTrapAtRetire || isMret || isSret || isFence
 
   def needsIssue: Bool =
     valid && !isRetireOnly
@@ -97,6 +100,13 @@ class RetireStore(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val size  = UInt(3.W)
 }
 
+class RetireMemory(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid = Bool()
+  val write = Bool()
+  val addr  = UInt(cfg.addrWidth.W)
+  val size  = UInt(3.W)
+}
+
 class RetireControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val redirectValid  = Bool()
   val redirectTarget = UInt(cfg.addrWidth.W)
@@ -111,6 +121,7 @@ class RetireLane(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val nextPc    = UInt(cfg.addrWidth.W)
   val rf        = new CommitRegWrite(cfg)
   val store     = new RetireStore(cfg)
+  val memory    = new RetireMemory(cfg)
   val control   = new RetireControl(cfg)
   val exception = new RetireException(cfg)
   val finish    = Bool()
@@ -142,6 +153,7 @@ class IssuePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val rfWen       = Bool()
   val isLoad      = Bool()
   val isStore     = Bool()
+  val isAmo       = Bool()
   val cfi         = UInt(CfiType.width.W)
   val memSize     = UInt(3.W)
   val memUnsigned = Bool()
@@ -201,6 +213,7 @@ class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val rfWen          = Bool()
   val isLoad         = Bool()
   val isStore        = Bool()
+  val isAmo          = Bool()
   val cfi            = UInt(CfiType.width.W)
   val memSize        = UInt(3.W)
   val memUnsigned    = Bool()
@@ -208,6 +221,8 @@ class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isEcall        = Bool()
   val isMret         = Bool()
   val isSret         = Bool()
+  val isFence        = Bool()
+  val isSfence       = Bool()
   val result         = UInt(cfg.dataWidth.W)
   val storeAddr      = UInt(cfg.addrWidth.W)
   val storeData      = UInt(cfg.dataWidth.W)

@@ -42,10 +42,20 @@ class CsrStatus(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val mretTarget = UInt(cfg.addrWidth.W)
   val sretTarget = UInt(cfg.addrWidth.W)
   val mstatus    = UInt(cfg.dataWidth.W)
+  val satp       = UInt(cfg.dataWidth.W)
   val mtvec      = UInt(cfg.dataWidth.W)
   val stvec      = UInt(cfg.dataWidth.W)
   val medeleg    = UInt(cfg.dataWidth.W)
   val mideleg    = UInt(cfg.dataWidth.W)
+  val mie        = UInt(cfg.dataWidth.W)
+  val mip        = UInt(cfg.dataWidth.W)
+}
+
+class CsrInterruptPending extends Bundle {
+  val msip = Bool()
+  val mtip = Bool()
+  val meip = Bool()
+  val seip = Bool()
 }
 
 class CsrTrackerAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -72,6 +82,7 @@ class CsrFileIO(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val trap        = Input(new CsrTrapCommit(cfg))
   val mret        = Input(new CsrMretCommit(cfg))
   val sret        = Input(new CsrSretCommit(cfg))
+  val interrupt   = Input(new CsrInterruptPending)
   val retireCount = Input(UInt(log2Ceil(cfg.commitWidth + 1).W))
   val status      = Output(new CsrStatus(cfg))
 }

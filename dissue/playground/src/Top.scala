@@ -1,9 +1,12 @@
 package top
 
 import chisel3._
+import chisel3.util.Decoupled
 import top.backend.Backend
-import top.bundle.FrontendToBackend
+import top.backend.csr.CsrInterruptPending
+import top.bundle.{DataMemReq, DataMemResp, FrontendToBackend, InstMemReq, InstMemResp}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
+import top.device.DeviceBus
 import top.frontend.Frontend
 import top.frontend.bundle.BpuUpdate
 import top.mem.Mem
@@ -55,13 +58,20 @@ class Core(resetVector: BigInt) extends Module {
   require(backendCfg.issueWidth == 2, "Core bridge currently assumes the frontend produces two slots")
 
   val io = IO(new Bundle {
-    val interrupt = Input(Bool())
-    val master    = new AxiPort
+    val interrupt = Input(new CsrInterruptPending)
+
+    val imemReq  = Decoupled(new InstMemReq(memCfg.addrWidth))
+    val imemResp = Flipped(Decoupled(new InstMemResp(memCfg.fetchBytes)))
+
+    val dmemReq  = Decoupled(new DataMemReq(memCfg.addrWidth, memCfg.axiDataWidth))
+    val dmemResp = Flipped(Decoupled(new DataMemResp(memCfg.axiDataWidth)))
   })
 
   val frontend       = Module(new Frontend(resetVector, frontendCfg))
   val backend        = Module(new Backend(resetVector, backendCfg))
-  val mem            = Module(new Mem(memCfg))
+
+  frontend.io.csrStatus := backend.io.csrStatus
+  backend.io.interrupt := io.interrupt
 
   frontend.io.trapRedirect.valid := backend.io.redirect.trapRedirect.valid
   frontend.io.trapRedirect.value := backend.io.redirect.trapRedirect.target
@@ -94,20 +104,46 @@ class Core(resetVector: BigInt) extends Module {
     backend.io.frontend.bits.insts(i).bits.predTaken  := frontend.io.fetch.bits.insts(i).bits.predTaken
     backend.io.frontend.bits.insts(i).bits.predNpc    := frontend.io.fetch.bits.insts(i).bits.predNpc
     backend.io.frontend.bits.insts(i).bits.predTarget := frontend.io.fetch.bits.insts(i).bits.predTarget
+    backend.io.frontend.bits.insts(i).bits.exception  := frontend.io.fetch.bits.insts(i).bits.exception
   }
 
-  mem.io.imemReq.valid             := frontend.io.cacheRefillReq.valid
-  mem.io.imemReq.bits.addr         := frontend.io.cacheRefillReq.bits.addr
-  frontend.io.cacheRefillReq.ready := mem.io.imemReq.ready
+  io.imemReq.valid                 := frontend.io.cacheRefillReq.valid
+  io.imemReq.bits.addr             := frontend.io.cacheRefillReq.bits.addr
+  frontend.io.cacheRefillReq.ready := io.imemReq.ready
 
-  frontend.io.cacheRefillResp.valid     := mem.io.imemResp.valid
-  frontend.io.cacheRefillResp.bits.data := mem.io.imemResp.bits.data
-  mem.io.imemResp.ready                 := frontend.io.cacheRefillResp.ready
+  frontend.io.cacheRefillResp.valid          := io.imemResp.valid
+  frontend.io.cacheRefillResp.bits.data      := io.imemResp.bits.data
+  frontend.io.cacheRefillResp.bits.exception := 0.U.asTypeOf(frontend.io.cacheRefillResp.bits.exception)
+  io.imemResp.ready                          := frontend.io.cacheRefillResp.ready
 
-  mem.io.dmemReq <> backend.io.dmemReq
-  backend.io.dmemResp <> mem.io.dmemResp
+  private val dmemRespToFrontend  = RegInit(false.B)
+  private val dmemOutstanding     = RegInit(false.B)
+  private val backendDmemSelected = !dmemOutstanding && backend.io.dmemReq.valid
+  private val frontendPtwSelected = !dmemOutstanding && !backend.io.dmemReq.valid && frontend.io.ptwReq.valid
 
-  io.master <> mem.io.axi
+  io.dmemReq.valid := backendDmemSelected || frontendPtwSelected
+  io.dmemReq.bits  := Mux(backendDmemSelected, backend.io.dmemReq.bits, frontend.io.ptwReq.bits)
+
+  backend.io.dmemReq.ready  := !dmemOutstanding && io.dmemReq.ready
+  frontend.io.ptwReq.ready  := frontendPtwSelected && io.dmemReq.ready
+
+  backend.io.dmemResp.valid := dmemOutstanding && !dmemRespToFrontend && io.dmemResp.valid
+  backend.io.dmemResp.bits  := io.dmemResp.bits
+  frontend.io.ptwResp.valid := dmemOutstanding && dmemRespToFrontend && io.dmemResp.valid
+  frontend.io.ptwResp.bits  := io.dmemResp.bits
+  io.dmemResp.ready         := Mux(
+    dmemRespToFrontend,
+    frontend.io.ptwResp.ready,
+    backend.io.dmemResp.ready
+  )
+
+  when(io.dmemReq.fire) {
+    dmemOutstanding    := true.B
+    dmemRespToFrontend := frontendPtwSelected
+  }.elsewhen(io.dmemResp.fire) {
+    dmemOutstanding    := false.B
+    dmemRespToFrontend := false.B
+  }
 }
 
 class Top(target: Target = Target.Npc) extends Module {
@@ -120,9 +156,25 @@ class Top(target: Target = Target.Npc) extends Module {
     val slave     = Flipped(new AxiPort)
   })
 
-  val core = Module(new Core(resetVector))
-  core.io.interrupt := io.interrupt
-  io.master <> core.io.master
+  private val memCfg = MemConfig()
+
+  val core    = Module(new Core(resetVector))
+  val mem     = Module(new Mem(memCfg))
+  val devices = Module(new DeviceBus(memCfg))
+
+  devices.io.externalInterrupt := io.interrupt
+  core.io.interrupt            := devices.io.interrupt
+
+  mem.io.imemReq <> core.io.imemReq
+  core.io.imemResp <> mem.io.imemResp
+
+  devices.io.coreReq <> core.io.dmemReq
+  core.io.dmemResp <> devices.io.coreResp
+
+  mem.io.dmemReq <> devices.io.memReq
+  devices.io.memResp <> mem.io.dmemResp
+
+  io.master <> mem.io.axi
 
   io.slave.awready := false.B
   io.slave.wready  := false.B

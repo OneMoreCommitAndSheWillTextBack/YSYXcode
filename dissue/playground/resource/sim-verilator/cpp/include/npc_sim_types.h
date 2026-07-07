@@ -8,8 +8,15 @@
 typedef struct NpcCommitGroupEvent {
   uint32_t valid_mask;
   uint32_t finish_mask;
+  uint32_t mem_valid_mask;
+  uint32_t mem_write_mask;
   uint32_t pc[2];
   uint32_t inst[2];
+  uint32_t raw_inst[2];
+  uint32_t inst_len[2];
+  uint32_t next_pc[2];
+  uint32_t mem_addr[2];
+  uint32_t mem_size[2];
 } NpcCommitGroupEvent;
 
 typedef struct NpcGprContext {
@@ -69,6 +76,7 @@ typedef struct NpcDpiCallbacks {
   void (*on_difftest_context)(const NpcCpuContext *context);
   uint32_t (*pmem_read)(uint32_t addr, uint32_t len);
   void (*pmem_write)(uint32_t addr, uint32_t len, uint32_t data);
+  uint64_t (*time_read)();
   void (*cache_hit)(uint8_t hit);
   void (*issue_queue_perf)(uint8_t issue_count, uint8_t occupancy,
                            uint8_t block_ready, uint8_t block_operand);

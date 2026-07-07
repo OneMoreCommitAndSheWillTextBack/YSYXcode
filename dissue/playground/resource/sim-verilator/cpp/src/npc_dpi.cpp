@@ -12,12 +12,25 @@ uint32_t dpi_word(const svBitVecVal *bits, uint32_t index) {
 
 } // namespace
 
-extern "C" void npc_difftest_commit(int valid_mask, int finish_mask, int pc0,
-                                    int inst0, int pc1, int inst1) {
+extern "C" void npc_difftest_commit(int valid_mask, int finish_mask,
+                                    int mem_valid_mask, int mem_write_mask,
+                                    int pc0, int inst0, int raw_inst0,
+                                    int inst_len0, int next_pc0, int mem_addr0,
+                                    int mem_size0, int pc1, int inst1,
+                                    int raw_inst1, int inst_len1, int next_pc1,
+                                    int mem_addr1, int mem_size1) {
   NpcHostBridge::difftest_commit(
       static_cast<uint32_t>(valid_mask), static_cast<uint32_t>(finish_mask),
+      static_cast<uint32_t>(mem_valid_mask),
+      static_cast<uint32_t>(mem_write_mask),
       static_cast<uint32_t>(pc0), static_cast<uint32_t>(inst0),
-      static_cast<uint32_t>(pc1), static_cast<uint32_t>(inst1));
+      static_cast<uint32_t>(raw_inst0), static_cast<uint32_t>(inst_len0),
+      static_cast<uint32_t>(next_pc0), static_cast<uint32_t>(mem_addr0),
+      static_cast<uint32_t>(mem_size0),
+      static_cast<uint32_t>(pc1), static_cast<uint32_t>(inst1),
+      static_cast<uint32_t>(raw_inst1), static_cast<uint32_t>(inst_len1),
+      static_cast<uint32_t>(next_pc1), static_cast<uint32_t>(mem_addr1),
+      static_cast<uint32_t>(mem_size1));
 }
 
 extern "C" void npc_difftest_context(int valid, int pc, int priv,
@@ -88,6 +101,8 @@ extern "C" void npc_pmem_write(int addr, int len, int data) {
                             static_cast<uint32_t>(len),
                             static_cast<uint32_t>(data));
 }
+
+extern "C" uint64_t npc_time_read() { return NpcHostBridge::time_read(); }
 
 extern "C" void npc_cache_hit(char hit) {
   NpcHostBridge::cache_hit(static_cast<uint8_t>(hit));

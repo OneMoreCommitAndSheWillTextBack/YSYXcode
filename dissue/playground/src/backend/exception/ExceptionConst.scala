@@ -23,6 +23,13 @@ object ExceptionCause {
   val loadPageFault       = 13.U(width.W)
   val storePageFault      = 15.U(width.W)
 
+  val supervisorSoftwareInterrupt = 1.U(width.W)
+  val machineSoftwareInterrupt    = 3.U(width.W)
+  val supervisorTimerInterrupt    = 5.U(width.W)
+  val machineTimerInterrupt       = 7.U(width.W)
+  val supervisorExternalInterrupt = 9.U(width.W)
+  val machineExternalInterrupt    = 11.U(width.W)
+
   def ecallFrom(mode: UInt): UInt =
     MuxLookup(mode, ecallFromM)(
       Seq(

@@ -2,7 +2,9 @@ package top.frontend
 
 import chisel3._
 import chisel3.util.{Decoupled, MuxCase, Valid}
-import top.config.FrontendConfig
+import top.backend.csr.CsrStatus
+import top.bundle.{DataMemReq, DataMemResp}
+import top.config.{BackendConfig, FrontendConfig}
 import top.frontend.Bpu.Bpu
 import top.frontend.bundle.{BpuUpdate, ICacheRefillReq, ICacheRefillResp, PcRedirect}
 import top.frontend.ifetch.{FetchPacket, IFetch}
@@ -13,6 +15,8 @@ class Frontend(
   resetVector: BigInt = BigInt("80000000", 16),
   cfg:         FrontendConfig = FrontendConfig())
     extends Module {
+  private val backendCfg = BackendConfig(addrWidth = cfg.addrWidth)
+
   val io = IO(new Bundle {
     val trapRedirect   = Input(new PcRedirect)
     val branchRedirect = Input(new PcRedirect)
@@ -24,6 +28,10 @@ class Frontend(
 
     val cacheRefillReq  = Decoupled(new ICacheRefillReq(cfg.addrWidth))
     val cacheRefillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
+
+    val ptwReq    = Decoupled(new DataMemReq(backendCfg.addrWidth, backendCfg.dataWidth))
+    val ptwResp   = Flipped(Decoupled(new DataMemResp(backendCfg.dataWidth)))
+    val csrStatus = Input(new CsrStatus(backendCfg))
   })
 
   val pcGen  = Module(
@@ -35,6 +43,7 @@ class Frontend(
   )
   val ifetch = Module(new IFetch(cfg.icache, cfg.ifetch))
   val iCache = Module(new ICache(cfg.icache))
+  val refillMmu = Module(new ICacheRefillMmu(cfg.icache, backendCfg))
   val bpu    = Module(new Bpu(cfg.bpu))
 
   val redirect = Wire(new PcRedirect)
@@ -70,9 +79,20 @@ class Frontend(
 
   ifetch.io.icacheReq <> iCache.io.req
   ifetch.io.icacheResp <> iCache.io.resp
+  iCache.io.flush := redirect.valid
+
+  refillMmu.io.csrStatus := io.csrStatus
+  iCache.io.refillReq <> refillMmu.io.refillReq
+  iCache.io.refillResp <> refillMmu.io.refillResp
+  io.cacheRefillReq <> refillMmu.io.physReq
+  refillMmu.io.physResp <> io.cacheRefillResp
+  io.ptwReq.valid          := refillMmu.io.ptwReq.valid
+  io.ptwReq.bits           := refillMmu.io.ptwReq.bits
+  refillMmu.io.ptwReq.ready := io.ptwReq.ready
+  refillMmu.io.ptwResp.valid := io.ptwResp.valid
+  refillMmu.io.ptwResp.bits  := io.ptwResp.bits
+  io.ptwResp.ready           := refillMmu.io.ptwResp.ready
 
   io.pc := pcGen.io.pc
   io.fetch <> ifetch.io.fetch
-  io.cacheRefillReq <> iCache.io.refillReq
-  io.cacheRefillResp <> iCache.io.refillResp
 }
