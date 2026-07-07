@@ -60,8 +60,8 @@ class DifftestMonitor(
       Mux(io.csrTrap.toSupervisor, PrivMode.S, PrivMode.M),
       Mux(
         io.csrMret.valid,
-        CsrArch.mretPriv(committedCsr(CsrAddr.mstatus)),
-        Mux(io.csrSret.valid, CsrArch.sretPriv(committedCsr(CsrAddr.mstatus)), priv)
+        CsrArch.mretPriv(committedCsr(CsrAddr.of("mstatus"))),
+        Mux(io.csrSret.valid, CsrArch.sretPriv(committedCsr(CsrAddr.of("mstatus"))), priv)
       )
     )
   private val nextPc       = Mux(io.context.valid, io.context.pc, pc)

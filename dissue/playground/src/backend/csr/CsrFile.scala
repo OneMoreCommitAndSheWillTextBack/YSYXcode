@@ -28,17 +28,17 @@ class CsrFile(
   when(io.trap.valid) {
     priv := Mux(io.trap.toSupervisor, PrivMode.S, PrivMode.M)
   }.elsewhen(io.mret.valid) {
-    priv := CsrArch.mretPriv(committed(CsrAddr.mstatus))
+    priv := CsrArch.mretPriv(committed(CsrAddr.of("mstatus")))
   }.elsewhen(io.sret.valid) {
-    priv := CsrArch.sretPriv(committed(CsrAddr.mstatus))
+    priv := CsrArch.sretPriv(committed(CsrAddr.of("mstatus")))
   }
 
   io.status.priv.mode  := priv
-  io.status.mretTarget := current(CsrAddr.mepc)
-  io.status.sretTarget := current(CsrAddr.sepc)
-  io.status.mstatus    := current(CsrAddr.mstatus)
-  io.status.mtvec      := current(CsrAddr.mtvec)
-  io.status.stvec      := current(CsrAddr.stvec)
-  io.status.medeleg    := current(CsrAddr.medeleg)
-  io.status.mideleg    := current(CsrAddr.mideleg)
+  io.status.mretTarget := current(CsrAddr.of("mepc"))
+  io.status.sretTarget := current(CsrAddr.of("sepc"))
+  io.status.mstatus    := current(CsrAddr.of("mstatus"))
+  io.status.mtvec      := current(CsrAddr.of("mtvec"))
+  io.status.stvec      := current(CsrAddr.of("stvec"))
+  io.status.medeleg    := current(CsrAddr.of("medeleg"))
+  io.status.mideleg    := current(CsrAddr.of("mideleg"))
 }

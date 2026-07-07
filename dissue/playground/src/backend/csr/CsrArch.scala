@@ -50,11 +50,11 @@ object CsrArch {
     val next = commitValues(current, commit, cfg)
 
     val afterReturn = next.withValue(
-      CsrAddr.mstatus,
+      CsrAddr.of("mstatus"),
       Mux(
         mret.valid,
-        mretMstatus(next(CsrAddr.mstatus), cfg),
-        Mux(sret.valid, sretMstatus(next(CsrAddr.mstatus), cfg), next(CsrAddr.mstatus))
+        mretMstatus(next(CsrAddr.of("mstatus")), cfg),
+        Mux(sret.valid, sretMstatus(next(CsrAddr.of("mstatus")), cfg), next(CsrAddr.of("mstatus")))
       )
     )
 
@@ -62,18 +62,18 @@ object CsrArch {
     val trapToMachine    = trap.valid && !trap.toSupervisor
     val trapMstatusValue = Mux(
       trap.toSupervisor,
-      trapSstatus(afterReturn(CsrAddr.mstatus), priv, cfg),
-      trapMstatus(afterReturn(CsrAddr.mstatus), priv, cfg)
+      trapSstatus(afterReturn(CsrAddr.of("mstatus")), priv, cfg),
+      trapMstatus(afterReturn(CsrAddr.of("mstatus")), priv, cfg)
     )
 
     afterReturn.withAddrValues(
-      CsrAddr.mstatus -> Mux(trap.valid, trapMstatusValue, afterReturn(CsrAddr.mstatus)),
-      CsrAddr.mepc    -> Mux(trapToMachine, canonicalEpc(trap.epc, cfg), afterReturn(CsrAddr.mepc)),
-      CsrAddr.sepc    -> Mux(trapToSupervisor, canonicalEpc(trap.epc, cfg), afterReturn(CsrAddr.sepc)),
-      CsrAddr.mcause  -> Mux(trapToMachine, trap.cause, afterReturn(CsrAddr.mcause)),
-      CsrAddr.mtval   -> Mux(trapToMachine, trap.tval, afterReturn(CsrAddr.mtval)),
-      CsrAddr.scause  -> Mux(trapToSupervisor, trap.cause, afterReturn(CsrAddr.scause)),
-      CsrAddr.stval   -> Mux(trapToSupervisor, trap.tval, afterReturn(CsrAddr.stval))
+      CsrAddr.of("mstatus") -> Mux(trap.valid, trapMstatusValue, afterReturn(CsrAddr.of("mstatus"))),
+      CsrAddr.of("mepc")    -> Mux(trapToMachine, canonicalEpc(trap.epc, cfg), afterReturn(CsrAddr.of("mepc"))),
+      CsrAddr.of("sepc")    -> Mux(trapToSupervisor, canonicalEpc(trap.epc, cfg), afterReturn(CsrAddr.of("sepc"))),
+      CsrAddr.of("mcause")  -> Mux(trapToMachine, trap.cause, afterReturn(CsrAddr.of("mcause"))),
+      CsrAddr.of("mtval")   -> Mux(trapToMachine, trap.tval, afterReturn(CsrAddr.of("mtval"))),
+      CsrAddr.of("scause")  -> Mux(trapToSupervisor, trap.cause, afterReturn(CsrAddr.of("scause"))),
+      CsrAddr.of("stval")   -> Mux(trapToSupervisor, trap.tval, afterReturn(CsrAddr.of("stval")))
     )
   }
 
@@ -164,41 +164,41 @@ object CsrArch {
       next.withValue(spec.name, writeRawValue(spec, current, valid, addr, wdata, cfg))
     }
 
-    val mstatusAfterRaw     = afterRaw(CsrAddr.mstatus)
+    val mstatusAfterRaw     = afterRaw(CsrAddr.of("mstatus"))
     val mstatusAfterVirtual = Mux(
-      hit(CsrAddr.sstatus, addr, valid),
+      hit(CsrAddr.of("sstatus"), addr, valid),
       maskWrite(mstatusAfterRaw, wdata, Sstatus.writeMask, cfg),
       mstatusAfterRaw
     )
 
-    val mieAfterRaw     = afterRaw(CsrAddr.mie)
-    val sieMask         = delegatedMask(afterRaw(CsrAddr.mideleg), CsrInterrupt.sieMask, cfg)
+    val mieAfterRaw     = afterRaw(CsrAddr.of("mie"))
+    val sieMask         = delegatedMask(afterRaw(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
     val mieAfterVirtual = Mux(
-      hit(CsrAddr.sie, addr, valid),
+      hit(CsrAddr.of("sie"), addr, valid),
       (mieAfterRaw & ~sieMask).asUInt | (wdata & sieMask),
       mieAfterRaw
     )
 
-    val mipAfterMip     = afterRaw(CsrAddr.mip)
-    val sipMask         = delegatedMask(afterRaw(CsrAddr.mideleg), CsrInterrupt.writableSipMask, cfg)
+    val mipAfterMip     = afterRaw(CsrAddr.of("mip"))
+    val sipMask         = delegatedMask(afterRaw(CsrAddr.of("mideleg")), CsrInterrupt.writableSipMask, cfg)
     val mipAfterVirtual = Mux(
-      hit(CsrAddr.sip, addr, valid),
+      hit(CsrAddr.of("sip"), addr, valid),
       (mipAfterMip & ~sipMask).asUInt | (wdata & sipMask),
       mipAfterMip
     )
 
     afterRaw.withAddrValues(
-      CsrAddr.mstatus -> mstatusAfterVirtual,
-      CsrAddr.mie     -> mieAfterVirtual,
-      CsrAddr.mip     -> mipAfterVirtual
+      CsrAddr.of("mstatus") -> mstatusAfterVirtual,
+      CsrAddr.of("mie")     -> mieAfterVirtual,
+      CsrAddr.of("mip")     -> mipAfterVirtual
     )
   }
 
   private def readValue(spec: CsrSpec, values: CsrArchValues, cfg: BackendConfig): UInt =
     spec.name match {
-      case "sstatus"                       => values(CsrAddr.mstatus) & data(Sstatus.visibleMask, cfg)
-      case "sie"                           => values(CsrAddr.mie) & delegatedMask(values(CsrAddr.mideleg), CsrInterrupt.sieMask, cfg)
-      case "sip"                           => values(CsrAddr.mip) & delegatedMask(values(CsrAddr.mideleg), CsrInterrupt.sieMask, cfg)
+      case "sstatus"                       => values(CsrAddr.of("mstatus")) & data(Sstatus.visibleMask, cfg)
+      case "sie"                           => values(CsrAddr.of("mie")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
+      case "sip"                           => values(CsrAddr.of("mip")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
       case "cycle" | "time"                =>
         values("mcycle")
       case "instret"                       =>
@@ -262,19 +262,19 @@ object CsrArch {
 
     !isCount ||
     priv === PrivMode.M ||
-    (priv === PrivMode.S && (values(CsrAddr.mcounteren) & bit).orR) ||
-    (priv === PrivMode.U && (values(CsrAddr.mcounteren) & bit).orR && (values(CsrAddr.scounteren) & bit).orR)
+    (priv === PrivMode.S && (values(CsrAddr.of("mcounteren")) & bit).orR) ||
+    (priv === PrivMode.U && (values(CsrAddr.of("mcounteren")) & bit).orR && (values(CsrAddr.of("scounteren")) & bit).orR)
   }
 
   private def counterBit(addr: UInt): UInt =
     MuxLookup(addr, 0.U(CsrCounter.counterenMask.bitLength.W))(
       Seq(
-        CsrAddr(CsrAddr.cycle)    -> 1.U,
-        CsrAddr(CsrAddr.time)     -> 2.U,
-        CsrAddr(CsrAddr.instret)  -> 4.U,
-        CsrAddr(CsrAddr.cycleh)   -> 1.U,
-        CsrAddr(CsrAddr.timeh)    -> 2.U,
-        CsrAddr(CsrAddr.instreth) -> 4.U
+        CsrAddr("cycle")    -> 1.U,
+        CsrAddr("time")     -> 2.U,
+        CsrAddr("instret")  -> 4.U,
+        CsrAddr("cycleh")   -> 1.U,
+        CsrAddr("timeh")    -> 2.U,
+        CsrAddr("instreth") -> 4.U
       )
     )
 
