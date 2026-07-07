@@ -48,6 +48,7 @@ typedef struct {
 // #define isa_mmu_check(vaddr, len, type) (MMU_DIRECT)
 #include "csr/csr-irq.h"
 #include "csr/machine-id.h"
+#include "csr/mcounteren.h"
 #include "csr/misa.h"
 #include "csr/mstatus.h"
 

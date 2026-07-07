@@ -1,9 +1,9 @@
 #include "../local-include/csr.h"
 #include "../local-include/trap-cause.h"
 #include "csr-xmacro.h"
-#include <cpu/difftest.h>
 #include "debug.h"
 #include "isa-def.h"
+#include <cpu/difftest.h>
 #include <device/clint.h>
 #include <isa.h>
 #include <stdint.h>
@@ -171,7 +171,6 @@ void riscv_csr_set_mip_pending(uint32_t mask, bool pending) {
   cpu.INTR = (software_mip_pending & MIP_MTIP) != 0;
 }
 
-#define ZICNTR_COUNTEREN_MASK 0x7u
 #define ZICNTR_MCOUNTINHIBIT_MASK 0x5u
 
 static uint32_t csr_read_mcounteren(void) {
@@ -181,7 +180,7 @@ static uint32_t csr_read_mcounteren(void) {
 
 static void csr_write_mcounteren(uint32_t data) {
   difftest_skip_ref();
-  cpu.csr.mcounteren = data & ZICNTR_COUNTEREN_MASK;
+  cpu.csr.mcounteren = data & MCOUNTEREN_MASK;
 }
 
 static uint32_t csr_read_scounteren(void) {
@@ -191,7 +190,7 @@ static uint32_t csr_read_scounteren(void) {
 
 static void csr_write_scounteren(uint32_t data) {
   difftest_skip_ref();
-  cpu.csr.scounteren = data & ZICNTR_COUNTEREN_MASK;
+  cpu.csr.scounteren = data & MCOUNTEREN_MASK;
 }
 
 static uint32_t csr_read_mcountinhibit(void) {
@@ -204,9 +203,7 @@ static void csr_write_mcountinhibit(uint32_t data) {
   cpu.csr.mcountinhibit = data & ZICNTR_MCOUNTINHIBIT_MASK;
 }
 
-static uint64_t zicntr_inst_counter(void) {
-  return g_nr_guest_inst;
-}
+static uint64_t zicntr_inst_counter(void) { return g_nr_guest_inst; }
 
 static uint32_t virt_csr_cycle_read(void) {
   difftest_skip_ref();

@@ -583,6 +583,15 @@ static bool csr_check_access(Decode *s, uint32_t csr_num, bool write,
     return false;
   }
 
+  if (!write) {
+    uint32_t counteren_bit = counteren_bit_from_csr(csr_num);
+    if (!counteren_allows(cpu.priv, cpu.csr.mcounteren, cpu.csr.scounteren,
+                          counteren_bit)) {
+      raise_illegal_csr_access(s, csr_num, op, "counter disabled", false);
+      return false;
+    }
+  }
+
   return true;
 }
 
