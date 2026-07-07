@@ -20,6 +20,7 @@ object ImmSel {
   val b    = 3.U(width.W)
   val j    = 4.U(width.W)
   val u    = 5.U(width.W)
+  val z    = 6.U(width.W)
 }
 
 object FuType {

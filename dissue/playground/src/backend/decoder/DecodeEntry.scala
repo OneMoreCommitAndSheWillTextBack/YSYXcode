@@ -242,4 +242,14 @@ private[decoder] object DecodeDsl {
       rfWen = true,
       isCsr = true
     ).signals
+
+  def csrImm(op: UInt): List[UInt] =
+    NpcDecode(
+      src1 = SrcType.imm,
+      immSel = ImmSel.z,
+      fu = FuType.csr,
+      op = op,
+      rfWen = true,
+      isCsr = true
+    ).signals
 }

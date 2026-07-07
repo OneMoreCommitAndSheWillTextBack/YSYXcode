@@ -30,6 +30,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   private val immB = Cat(Fill(19, inst(31)), inst(31), inst(7), inst(30, 25), inst(11, 8), 0.U(1.W))
   private val immJ = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
   private val immU = Cat(inst(31, 12), 0.U(12.W))
+  private val immZ = Cat(0.U(27.W), inst(19, 15))
 
   io.out             := 0.U.asTypeOf(new DecodePacket(cfg))
   io.out.valid       := true.B
@@ -47,7 +48,8 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
       ImmSel.s -> immS,
       ImmSel.b -> immB,
       ImmSel.j -> immJ,
-      ImmSel.u -> immU
+      ImmSel.u -> immU,
+      ImmSel.z -> immZ
     )
   )
   io.out.src1Type    := decoded(DecodeIndex.src1Type)
@@ -69,9 +71,12 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.isSfence    := decoded(DecodeIndex.isSfence).asBool
   io.out.isCsr       := isCsr
   io.out.csrAddr     := inst(31, 20)
+  private val csrUsesZimm  = decoded(DecodeIndex.src1Type) === SrcType.imm
+  private val csrSetClear  = decoded(DecodeIndex.fuOp) === CsrOp.rs || decoded(DecodeIndex.fuOp) === CsrOp.rc
+  private val csrScWriteEn = Mux(csrUsesZimm, immZ =/= 0.U, rs1 =/= 0.U)
   io.out.csrWen      := isCsr && (
     decoded(DecodeIndex.fuOp) === CsrOp.rw ||
-      ((decoded(DecodeIndex.fuOp) === CsrOp.rs || decoded(DecodeIndex.fuOp) === CsrOp.rc) && rs1 =/= 0.U)
+      (csrSetClear && csrScWriteEn)
   )
   val fetchException = Wire(new ExceptionInfo(cfg))
   fetchException.valid     := io.in.exception.valid
