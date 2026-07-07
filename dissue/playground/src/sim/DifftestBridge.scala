@@ -15,15 +15,25 @@ class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val validMask  = io.retire.validMask.pad(32)
   private val finishMask = io.retire.finishMask.pad(32)
+  private val memValidMask =
+    VecInit((0 until cfg.commitWidth).map(i => io.retire.lanes(i).memory.valid)).asUInt.pad(32)
+  private val memWriteMask =
+    VecInit((0 until cfg.commitWidth).map(i => io.retire.lanes(i).memory.write)).asUInt.pad(32)
 
   NpcDifftestCommit.callWithEnable(
     io.retire.validMask.orR,
     validMask,
     finishMask,
+    memValidMask,
+    memWriteMask,
     io.retire.lanes(0).fetch.pc,
     io.retire.lanes(0).fetch.inst,
+    io.retire.lanes(0).memory.addr,
+    io.retire.lanes(0).memory.size.pad(32),
     io.retire.lanes(1).fetch.pc,
-    io.retire.lanes(1).fetch.inst
+    io.retire.lanes(1).fetch.inst,
+    io.retire.lanes(1).memory.addr,
+    io.retire.lanes(1).memory.size.pad(32)
   )
 
   NpcDifftestContext.callWithEnable(

@@ -21,8 +21,12 @@ NpcHostBridge::~NpcHostBridge() {
 }
 
 void NpcHostBridge::difftest_commit(uint32_t valid_mask, uint32_t finish_mask,
-                                    uint32_t pc0, uint32_t inst0,
-                                    uint32_t pc1, uint32_t inst1) {
+                                    uint32_t mem_valid_mask,
+                                    uint32_t mem_write_mask, uint32_t pc0,
+                                    uint32_t inst0, uint32_t mem_addr0,
+                                    uint32_t mem_size0, uint32_t pc1,
+                                    uint32_t inst1, uint32_t mem_addr1,
+                                    uint32_t mem_size1) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.on_difftest_commit == nullptr) {
@@ -32,8 +36,12 @@ void NpcHostBridge::difftest_commit(uint32_t valid_mask, uint32_t finish_mask,
   NpcCommitGroupEvent event = {
       valid_mask,
       finish_mask,
+      mem_valid_mask,
+      mem_write_mask,
       {pc0, pc1},
       {inst0, inst1},
+      {mem_addr0, mem_addr1},
+      {mem_size0, mem_size1},
   };
   bridge->callbacks_.on_difftest_commit(&event);
 }

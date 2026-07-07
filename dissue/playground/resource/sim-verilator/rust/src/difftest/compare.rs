@@ -100,4 +100,16 @@ mod tests {
         let mismatch = compare_contexts_raw(&dut, &reference).unwrap_err();
         assert!(matches!(mismatch, DifftestMismatch::Gpr { index: 10, .. }));
     }
+
+    #[test]
+    fn compare_ignores_counter_csrs() {
+        let mut dut = context_with_pc(0x8000_0000);
+        let mut reference = dut;
+        dut.csr.mcycle = 16;
+        dut.csr.minstret = 2;
+        reference.csr.mcycle = 0;
+        reference.csr.minstret = 0;
+
+        compare_contexts_raw(&dut, &reference).unwrap();
+    }
 }

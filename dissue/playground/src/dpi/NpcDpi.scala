@@ -9,10 +9,16 @@ object NpcDifftestCommit extends DPIClockedVoidFunctionImport {
     Seq(
       "validMask",
       "finishMask",
+      "memValidMask",
+      "memWriteMask",
       "pc0",
       "inst0",
+      "memAddr0",
+      "memSize0",
       "pc1",
-      "inst1"
+      "inst1",
+      "memAddr1",
+      "memSize1"
     )
   )
 }

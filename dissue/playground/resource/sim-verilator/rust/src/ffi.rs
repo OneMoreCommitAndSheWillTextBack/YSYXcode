@@ -9,8 +9,12 @@ pub struct NpcSim {
 pub struct NpcCommitGroupEvent {
     pub valid_mask: u32,
     pub finish_mask: u32,
+    pub mem_valid_mask: u32,
+    pub mem_write_mask: u32,
     pub pc: [u32; 2],
     pub inst: [u32; 2],
+    pub mem_addr: [u32; 2],
+    pub mem_size: [u32; 2],
 }
 
 #[allow(dead_code)]

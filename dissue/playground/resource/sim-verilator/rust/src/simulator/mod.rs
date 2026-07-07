@@ -96,6 +96,8 @@ pub struct Simulator {
     latest_context: Option<CpuContext>,
     pending_commit_count: u64,
     pending_finish: bool,
+    pending_difftest_sync: bool,
+    pending_difftest_sync_prefix: u64,
 }
 
 impl Simulator {
@@ -114,6 +116,8 @@ impl Simulator {
             latest_context: None,
             pending_commit_count: 0,
             pending_finish: false,
+            pending_difftest_sync: false,
+            pending_difftest_sync_prefix: 0,
         });
         let callbacks = ffi::NpcDpiCallbacks {
             on_difftest_commit: Some(simulator_on_difftest_commit),
@@ -160,6 +164,8 @@ impl Simulator {
         self.latest_context = None;
         self.pending_commit_count = 0;
         self.pending_finish = false;
+        self.pending_difftest_sync = false;
+        self.pending_difftest_sync_prefix = 0;
 
         {
             let Some(cpu) = self.cpu.as_mut() else {
@@ -223,8 +229,12 @@ impl Simulator {
     fn process_difftest_events(&mut self) -> SimulatorResult<()> {
         let commit_count = self.pending_commit_count;
         let has_finish = self.pending_finish;
+        let needs_difftest_sync = self.pending_difftest_sync;
+        let difftest_sync_prefix = self.pending_difftest_sync_prefix;
         self.pending_commit_count = 0;
         self.pending_finish = false;
+        self.pending_difftest_sync = false;
+        self.pending_difftest_sync_prefix = 0;
 
         if commit_count == 0 {
             return Ok(());
@@ -238,7 +248,13 @@ impl Simulator {
 
         if self.difftest.needs_check_context() {
             let context = self.cpu_context()?;
-            if let Err(error) = self.difftest.step_and_check(commit_count, &context) {
+            let result = if needs_difftest_sync {
+                self.difftest.step_and_sync(difftest_sync_prefix, &context)
+            } else {
+                self.difftest.step_and_check(commit_count, &context)
+            };
+
+            if let Err(error) = result {
                 let error = SimulatorError::Difftest(error);
                 report::print_difftest_report(&error);
                 self.state = SimulatorState::Abort;
@@ -271,8 +287,15 @@ impl Simulator {
             return;
         }
 
+        let previous_commit_count = self.pending_commit_count;
         self.pending_commit_count += commit_count;
         self.pending_finish |= event.has_finish();
+        if let Some(prefix_count) = event.difftest_sync_prefix_count() {
+            if !self.pending_difftest_sync {
+                self.pending_difftest_sync_prefix = previous_commit_count + prefix_count;
+            }
+            self.pending_difftest_sync = true;
+        }
     }
 
     fn on_difftest_context(&mut self, context: crate::cpu::NpcCpuContext) {
@@ -443,8 +466,11 @@ extern "C" fn simulator_on_difftest_commit(event: *const ffi::NpcCommitGroupEven
     simulator.on_difftest_commit(CommitGroupEvent::new(
         event.valid_mask,
         event.finish_mask,
+        event.mem_valid_mask,
         event.pc,
         event.inst,
+        event.mem_addr,
+        event.mem_size,
     ));
 }
 

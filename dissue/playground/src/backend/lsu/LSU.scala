@@ -267,6 +267,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
         io.writeback.valid       := true.B
         io.writeback.bits.robIdx := reqReg.robIdx
         io.writeback.bits.result := io.dmemResp.bits.data
+        io.writeback.bits.storeAddr := paddrReg
         when(io.dmemResp.bits.fault) {
           io.writeback.bits.exception := ExceptionInfo.raise(ExceptionCause.loadAccessFault, vaddrReg, cfg)
         }

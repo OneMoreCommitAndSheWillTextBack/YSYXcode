@@ -4,8 +4,11 @@
 #include "svdpi.h"
 #include <cstdint>
 
-extern "C" void npc_difftest_commit(int valid_mask, int finish_mask, int pc0,
-                                    int inst0, int pc1, int inst1);
+extern "C" void npc_difftest_commit(int valid_mask, int finish_mask,
+                                    int mem_valid_mask, int mem_write_mask,
+                                    int pc0, int inst0, int mem_addr0,
+                                    int mem_size0, int pc1, int inst1,
+                                    int mem_addr1, int mem_size1);
 extern "C" void npc_difftest_context(int valid, int pc, int priv,
                                      const svBitVecVal *csr,
                                      const svBitVecVal *gpr);

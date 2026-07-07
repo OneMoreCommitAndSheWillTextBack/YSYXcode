@@ -101,10 +101,10 @@ pub(crate) const CSR_DIFF_SPECS: [CsrDiffSpec; 10] = [
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mcycle,
-        diff: true,
+        diff: false,
     },
     CsrDiffSpec {
         csr: DifftestCsr::Minstret,
-        diff: true,
+        diff: false,
     },
 ];

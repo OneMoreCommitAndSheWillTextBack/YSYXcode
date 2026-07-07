@@ -270,6 +270,11 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.retire.lanes(i).store.data              := io.rob(i).bits.storeData
     io.retire.lanes(i).store.mask              := io.rob(i).bits.storeMask
     io.retire.lanes(i).store.size              := io.rob(i).bits.memSize
+    io.retire.lanes(i).memory.valid :=
+      normalCommit(i) && (io.rob(i).bits.isLoad || io.rob(i).bits.isStore || io.rob(i).bits.isAmo)
+    io.retire.lanes(i).memory.write := normalCommit(i) && (io.rob(i).bits.isStore || io.rob(i).bits.isAmo)
+    io.retire.lanes(i).memory.addr             := io.rob(i).bits.storeAddr
+    io.retire.lanes(i).memory.size             := io.rob(i).bits.memSize
     io.retire.lanes(i).control.redirectValid   := normalCommit(i) && redirectCandidate(i)
     io.retire.lanes(i).control.redirectTarget  := io.rob(i).bits.redirectTarget
     io.retire.lanes(i).control.branchTaken     := io.rob(i).bits.branchTaken

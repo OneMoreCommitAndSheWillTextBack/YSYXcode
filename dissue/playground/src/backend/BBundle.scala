@@ -100,6 +100,13 @@ class RetireStore(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val size  = UInt(3.W)
 }
 
+class RetireMemory(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid = Bool()
+  val write = Bool()
+  val addr  = UInt(cfg.addrWidth.W)
+  val size  = UInt(3.W)
+}
+
 class RetireControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val redirectValid  = Bool()
   val redirectTarget = UInt(cfg.addrWidth.W)
@@ -114,6 +121,7 @@ class RetireLane(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val nextPc    = UInt(cfg.addrWidth.W)
   val rf        = new CommitRegWrite(cfg)
   val store     = new RetireStore(cfg)
+  val memory    = new RetireMemory(cfg)
   val control   = new RetireControl(cfg)
   val exception = new RetireException(cfg)
   val finish    = Bool()
