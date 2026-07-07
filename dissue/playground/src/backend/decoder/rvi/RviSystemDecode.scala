@@ -13,8 +13,11 @@ private[decoder] object RviSystemDecode extends DecodeGroup {
     CSRRW  -> csr(CsrOp.rw),
     CSRRS  -> csr(CsrOp.rs),
     CSRRC  -> csr(CsrOp.rc),
+    FENCE  -> fence(),
+    FENCE_I -> fence(),
     ECALL  -> ecall,
     EBREAK -> ebreak,
+    SFENCE_VMA -> fence(sfence = true),
     SRET   -> sret,
     MRET   -> mret
   )

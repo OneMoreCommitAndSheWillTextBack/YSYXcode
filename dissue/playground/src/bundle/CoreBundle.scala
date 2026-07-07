@@ -29,6 +29,14 @@ class FetchInstPayload(addrWidth: Int = 32) extends Bundle {
   val predTaken  = Bool()
   val predNpc    = UInt(addrWidth.W)
   val predTarget = UInt(addrWidth.W)
+
+  val exception = new FetchException(addrWidth)
+}
+
+class FetchException(addrWidth: Int = 32) extends Bundle {
+  val valid = Bool()
+  val cause = UInt(5.W)
+  val tval  = UInt(addrWidth.W)
 }
 
 class FrontendToBackend(issueWidth: Int = 2, addrWidth: Int = 32) extends Bundle {

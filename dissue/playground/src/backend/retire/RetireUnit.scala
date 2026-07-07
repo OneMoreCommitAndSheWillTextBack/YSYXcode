@@ -4,15 +4,19 @@ import chisel3._
 import chisel3.util.{Decoupled, Mux1H, PopCount, PriorityEncoderOH, Valid}
 import top.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreTrackerCommit}
 import top.backend.csr.{
+  CsrArch,
   CsrCommit,
   CsrContextUpdate,
+  CsrInterrupt,
   CsrMretCommit,
   CsrSretCommit,
   CsrStatus,
   CsrTrackerCommit,
-  CsrTrapCommit
+  CsrTrapCommit,
+  Mstatus,
+  PrivMode
 }
-import top.backend.exception.{TrapLane, TrapUnit}
+import top.backend.exception.{ExceptionCause, ExceptionInfo, TrapLane, TrapUnit}
 import top.bundle.{BackendToFrontend, CfiType, DataMemReq}
 import top.config.BackendConfig
 
@@ -61,7 +65,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     laneBoundary(i) :=
       redirectCandidate(i) || trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
-        (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
+        io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
 
     preRetire(i) :=
       io.rob(i).valid &&
@@ -113,6 +117,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     trapUnit.io.lanes(i).isEcall   := io.rob(i).bits.isEcall
     trapUnit.io.lanes(i).isMret    := io.rob(i).bits.isMret
     trapUnit.io.lanes(i).isSret    := io.rob(i).bits.isSret
+    trapUnit.io.lanes(i).isSfence  := io.rob(i).bits.isSfence
   }
 
   private val trapRetire   = trapUnit.io.trapMask.asBools
@@ -124,22 +129,106 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   }
 
   private val redirectCommit = Wire(Vec(cfg.commitWidth, Bool()))
+  private val barrierCommit  = Wire(Vec(cfg.commitWidth, Bool()))
   for (i <- 0 until cfg.commitWidth) {
     redirectCommit(i) := normalCommit(i) && redirectCandidate(i)
+    barrierCommit(i)  := normalCommit(i) && (io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen))
   }
 
-  io.csrTrap := trapUnit.io.trap
-  io.csrMret := trapUnit.io.mret
-  io.csrSret := trapUnit.io.sret
+  private val frontendRedirectCommit = VecInit((0 until cfg.commitWidth).map(i => redirectCommit(i) || barrierCommit(i)))
+  private val frontendRedirectTarget = VecInit((0 until cfg.commitWidth).map { i =>
+    Mux(redirectCommit(i), io.rob(i).bits.redirectTarget, nextPc(i))
+  })
 
-  io.redirect.trapRedirect.valid  := trapUnit.io.redirect.valid
-  io.redirect.trapRedirect.target := trapUnit.io.redirect.target
+  private def csrBit(bit: Int): UInt =
+    (1.U(cfg.dataWidth.W) << bit)(cfg.dataWidth - 1, 0)
 
-  private val redirectGrantOH = PriorityEncoderOH(redirectCommit.asUInt).asBools
-  io.redirect.branchRedirect.valid  := redirectCommit.asUInt.orR
+  private def bitPending(bits: UInt, bit: Int): Bool =
+    (bits & csrBit(bit)).orR
+
+  private val pendingEnabled = io.csrStatus.mip & io.csrStatus.mie
+  private val machinePending = pendingEnabled & ~io.csrStatus.mideleg
+  private val supervisorPending = pendingEnabled & io.csrStatus.mideleg
+
+  private val machineGlobal =
+    io.csrStatus.priv.mode =/= PrivMode.M || io.csrStatus.mstatus(Mstatus.mieBit)
+  private val supervisorGlobal =
+    io.csrStatus.priv.mode === PrivMode.U ||
+      (io.csrStatus.priv.mode === PrivMode.S && io.csrStatus.mstatus(Mstatus.sieBit))
+
+  private val mMeip = bitPending(machinePending, CsrInterrupt.meipBit)
+  private val mMsip = bitPending(machinePending, CsrInterrupt.msipBit)
+  private val mMtip = bitPending(machinePending, CsrInterrupt.mtipBit)
+  private val mSeip = bitPending(machinePending, CsrInterrupt.seipBit)
+  private val mSsip = bitPending(machinePending, CsrInterrupt.ssipBit)
+  private val mStip = bitPending(machinePending, CsrInterrupt.stipBit)
+
+  private val sSeip = bitPending(supervisorPending, CsrInterrupt.seipBit)
+  private val sSsip = bitPending(supervisorPending, CsrInterrupt.ssipBit)
+  private val sStip = bitPending(supervisorPending, CsrInterrupt.stipBit)
+
+  private val machineInterruptValid =
+    machineGlobal && (mMeip || mMsip || mMtip || mSeip || mSsip || mStip)
+  private val supervisorInterruptValid =
+    supervisorGlobal && (sSeip || sSsip || sStip)
+
+  private val machineInterruptCause = Mux(
+    mMeip,
+    ExceptionCause.machineExternalInterrupt,
+    Mux(
+      mMsip,
+      ExceptionCause.machineSoftwareInterrupt,
+      Mux(
+        mMtip,
+        ExceptionCause.machineTimerInterrupt,
+        Mux(
+          mSeip,
+          ExceptionCause.supervisorExternalInterrupt,
+          Mux(mSsip, ExceptionCause.supervisorSoftwareInterrupt, ExceptionCause.supervisorTimerInterrupt)
+        )
+      )
+    )
+  )
+  private val supervisorInterruptCause = Mux(
+    sSeip,
+    ExceptionCause.supervisorExternalInterrupt,
+    Mux(sSsip, ExceptionCause.supervisorSoftwareInterrupt, ExceptionCause.supervisorTimerInterrupt)
+  )
+  private val interruptToSupervisor = !machineInterruptValid && supervisorInterruptValid
+  private val interruptCause = Mux(machineInterruptValid, machineInterruptCause, supervisorInterruptCause)
+  private val interruptInfo  = ExceptionInfo.interrupt(interruptCause, cfg)
+
+  private val canTakeInterrupt =
+    !trapUnit.io.redirect.valid &&
+      !frontendRedirectCommit.asUInt.orR &&
+      canRetire.asUInt.orR &&
+      (machineInterruptValid || supervisorInterruptValid)
+
+  private val interruptTarget = CsrArch.trapVector(
+    interruptToSupervisor,
+    io.csrStatus.mtvec,
+    io.csrStatus.stvec,
+    interruptInfo.cause,
+    true.B,
+    cfg
+  )
+
+  io.csrTrap.valid        := trapUnit.io.trap.valid || canTakeInterrupt
+  io.csrTrap.toSupervisor := Mux(trapUnit.io.trap.valid, trapUnit.io.trap.toSupervisor, interruptToSupervisor)
+  io.csrTrap.epc          := Mux(trapUnit.io.trap.valid, trapUnit.io.trap.epc, io.retire.finalPc)
+  io.csrTrap.cause        := Mux(trapUnit.io.trap.valid, trapUnit.io.trap.cause, interruptInfo.csrCause)
+  io.csrTrap.tval         := Mux(trapUnit.io.trap.valid, trapUnit.io.trap.tval, 0.U)
+  io.csrMret             := trapUnit.io.mret
+  io.csrSret             := trapUnit.io.sret
+
+  io.redirect.trapRedirect.valid  := trapUnit.io.redirect.valid || canTakeInterrupt
+  io.redirect.trapRedirect.target := Mux(trapUnit.io.redirect.valid, trapUnit.io.redirect.target, interruptTarget)
+
+  private val redirectGrantOH = PriorityEncoderOH(frontendRedirectCommit.asUInt).asBools
+  io.redirect.branchRedirect.valid  := frontendRedirectCommit.asUInt.orR
   io.redirect.branchRedirect.target := Mux1H(
     redirectGrantOH,
-    io.rob.map(_.bits.redirectTarget)
+    frontendRedirectTarget
   )
 
   private val bpuUpdateValid   = Wire(Vec(cfg.commitWidth, Bool()))
@@ -224,8 +313,8 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   io.context.valid := io.retire.validMask.orR
   io.context.pc    := Mux(
-    trapUnit.io.trap.valid,
-    trapUnit.io.redirect.target,
+    io.redirect.trapRedirect.valid,
+    io.redirect.trapRedirect.target,
     Mux(trapUnit.io.mret.valid || trapUnit.io.sret.valid, trapUnit.io.redirect.target, io.retire.finalPc)
   )
 
@@ -253,6 +342,6 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   assert(PopCount(trapRetire) <= 1.U)
   assert(PopCount(mretRetire) <= 1.U)
   assert(PopCount(sretRetire) <= 1.U)
-  assert(PopCount(VecInit(Seq(trapUnit.io.trap.valid, trapUnit.io.mret.valid, trapUnit.io.sret.valid))) <= 1.U)
+  assert(PopCount(VecInit(Seq(io.csrTrap.valid, trapUnit.io.mret.valid, trapUnit.io.sret.valid))) <= 1.U)
   assert(!(io.redirect.trapRedirect.valid && io.redirect.branchRedirect.valid))
 }

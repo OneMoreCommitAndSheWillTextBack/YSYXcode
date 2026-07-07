@@ -3,7 +3,7 @@ package top.frontend.bundle
 import chisel3._
 import chisel3.util.{log2Ceil, Cat, Valid}
 import top.config._
-import top.bundle.CfiType
+import top.bundle.{CfiType, FetchException}
 
 // the bundle cross module in the frontend
 
@@ -17,6 +17,8 @@ class FetchInst extends Bundle {
   val predTaken  = Bool()
   val predNpc    = UInt(32.W)
   val predTarget = UInt(32.W)
+
+  val exception = new FetchException(32)
 }
 
 class PcRedirect extends Bundle {
@@ -53,6 +55,7 @@ class ICacheResp(cfg: ICacheConfig) extends Bundle {
   val meta = new IFetchBlockMeta(cfg)
   val data = UInt((cfg.fetchBytes * 8).W)
   val hit  = Bool()
+  val exception = new FetchException(cfg.addrWidth)
 }
 
 class ICacheRefillReq(addrWidth: Int = 32) extends Bundle {
@@ -63,6 +66,7 @@ class ICacheRefillResp(fetchBytes: Int = 8) extends Bundle {
   require(fetchBytes > 0 && (fetchBytes & (fetchBytes - 1)) == 0, "fetchBytes must be a power of two")
 
   val data = UInt((fetchBytes * 8).W)
+  val exception = new FetchException(32)
 }
 
 object ICacheReq {

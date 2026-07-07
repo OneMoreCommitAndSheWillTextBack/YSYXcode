@@ -6,7 +6,7 @@ import top.bundle._
 import top.config.BackendConfig
 
 import top.backend.bundle.{DecodePacket, IssuePortStatus, IssueWakeup, RetireGroup, RobWritebackPacket}
-import top.backend.csr.{CsrFile, CsrTracker}
+import top.backend.csr.{CsrFile, CsrInterruptPending, CsrStatus, CsrTracker}
 import top.backend.decoder._
 import top.backend.dispatch.{Dispatch, Scoreboard}
 import top.backend.exception.ExceptionInfo
@@ -33,6 +33,8 @@ class Backend(
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
 
     val retire = Output(new RetireGroup(cfg))
+    val csrStatus = Output(new CsrStatus(cfg))
+    val interrupt = Input(new CsrInterruptPending)
   })
 
   private val slotIdxWidth   = math.max(log2Ceil(cfg.issueWidth), 1)
@@ -53,6 +55,7 @@ class Backend(
   val difftest     = Module(new DifftestMonitor(resetVector, cfg))
 
   io.redirect := retire.io.redirect
+  io.csrStatus := csrFile.io.status
 
   private val flush =
     retire.io.redirect.trapRedirect.valid ||
@@ -169,6 +172,7 @@ class Backend(
   csrFile.io.trap         := retire.io.csrTrap
   csrFile.io.mret         := retire.io.csrMret
   csrFile.io.sret         := retire.io.csrSret
+  csrFile.io.interrupt    := io.interrupt
   csrFile.io.retireCount  := PopCount(retire.io.retire.validMask)
   retire.io.csrStatus     := csrFile.io.status
   csrTracker.io.commit    := retire.io.csrTrackerCommit
@@ -180,6 +184,7 @@ class Backend(
   csrTracker.io.flush     := flush
   issueQueue.io.flush     := flush
   lsu.io.flush            := flush
+  lsu.io.csrStatus        := csrFile.io.status
 
   difftest.io.retire    := retire.io.retire
   difftest.io.regWrite  := retire.io.regWrite
@@ -246,6 +251,7 @@ class Backend(
   private val dmemIdle :: dmemLoadResp :: dmemStoreResp :: Nil = Enum(3)
   private val dmemState                                        = RegInit(dmemIdle)
   private val dropLoadResp                                     = RegInit(false.B)
+  private val dmemRespToLsu                                    = RegInit(false.B)
 
   val dmemCanAcceptReq     = dmemState === dmemIdle
   val loadRespOutstanding  = dmemState === dmemLoadResp
@@ -261,20 +267,23 @@ class Backend(
   lsu.io.dmemReq.ready    := lsuReqSelected && io.dmemReq.ready
   retire.io.dmemReq.ready := retireReqSelected && io.dmemReq.ready
 
-  val loadRespMustDrop = dropLoadResp || (flush && loadRespOutstanding)
+  val dmemRespOutstanding = loadRespOutstanding || storeRespOutstanding
+  val loadRespMustDrop    = dmemRespToLsu && (dropLoadResp || (flush && loadRespOutstanding))
 
-  lsu.io.dmemResp.valid := loadRespOutstanding && io.dmemResp.valid && !loadRespMustDrop
+  lsu.io.dmemResp.valid := dmemRespOutstanding && dmemRespToLsu && io.dmemResp.valid && !loadRespMustDrop
   lsu.io.dmemResp.bits  := io.dmemResp.bits
   io.dmemResp.ready     := Mux(
-    loadRespOutstanding,
+    dmemRespToLsu,
     Mux(loadRespMustDrop, true.B, lsu.io.dmemResp.ready),
     storeRespOutstanding
   )
 
   when(io.dmemReq.fire) {
-    dmemState := Mux(io.dmemReq.bits.write, dmemStoreResp, dmemLoadResp)
+    dmemState     := Mux(io.dmemReq.bits.write, dmemStoreResp, dmemLoadResp)
+    dmemRespToLsu := lsuReqSelected
   }.elsewhen((loadRespOutstanding || storeRespOutstanding) && io.dmemResp.fire) {
-    dmemState := dmemIdle
+    dmemState     := dmemIdle
+    dmemRespToLsu := false.B
   }
 
   when(io.dmemResp.fire) {

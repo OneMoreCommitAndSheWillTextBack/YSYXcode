@@ -49,9 +49,10 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   for (i <- 0 until cfg.issueQueueEntries) {
     val ready       = entries(i).src1.ready && entries(i).src2.ready
     val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
+    val amoBlocked  = entries(i).isAmo && entries(i).robIdx =/= io.robHead
     val csrBlocked  = entries(i).isCsr && io.csrQuery(i).hasOlderSameAddrWriter
     val memPipe     = entries(i).fuType === FuType.lsu
-    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !csrBlocked
+    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoBlocked && !csrBlocked
 
     io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad
     io.storeQuery(i).robIdx := entries(i).robIdx

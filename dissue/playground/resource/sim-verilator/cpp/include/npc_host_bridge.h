@@ -18,6 +18,7 @@ public:
   static void difftest_context(const NpcCpuContext *context);
   static uint32_t pmem_read(uint32_t addr, uint32_t len);
   static void pmem_write(uint32_t addr, uint32_t len, uint32_t data);
+  static uint64_t time_read();
   static void cache_hit(uint8_t hit);
   static void issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
                                uint8_t block_ready, uint8_t block_operand);

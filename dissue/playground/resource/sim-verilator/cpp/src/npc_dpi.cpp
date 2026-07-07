@@ -89,6 +89,8 @@ extern "C" void npc_pmem_write(int addr, int len, int data) {
                             static_cast<uint32_t>(data));
 }
 
+extern "C" uint64_t npc_time_read() { return NpcHostBridge::time_read(); }
+
 extern "C" void npc_cache_hit(char hit) {
   NpcHostBridge::cache_hit(static_cast<uint8_t>(hit));
 }

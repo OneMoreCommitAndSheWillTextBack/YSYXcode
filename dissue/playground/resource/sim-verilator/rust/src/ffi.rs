@@ -20,6 +20,7 @@ pub struct NpcDpiCallbacks {
     pub on_difftest_context: Option<extern "C" fn(*const crate::cpu::NpcCpuContext)>,
     pub pmem_read: Option<extern "C" fn(u32, u32) -> u32>,
     pub pmem_write: Option<extern "C" fn(addr: u32, len: u32, data: u32)>,
+    pub time_read: Option<extern "C" fn() -> u64>,
     pub cache_hit: Option<extern "C" fn(hit: u8)>,
     pub issue_queue_perf:
         Option<extern "C" fn(issue_count: u8, occupancy: u8, block_ready: u8, block_operand: u8)>,

@@ -11,6 +11,7 @@ class ICacheIO(cfg: ICacheConfig) extends Bundle {
   val resp       = Decoupled(new ICacheResp(cfg))
   val refillReq  = Decoupled(new ICacheRefillReq(cfg.addrWidth))
   val refillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
+  val flush      = Input(Bool())
 }
 
 object ICacheState extends ChiselEnum {
@@ -38,6 +39,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
 
   val state    = RegInit(ICacheState.SIdle)
   val validReg = RegInit(false.B)
+  val killMiss = RegInit(false.B)
 
   val missReq = Reg(new ICacheReq(cfg))
   val missSet = Reg(UInt(cfg.setIdxBits.W))
@@ -69,6 +71,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
 
   when(state === ICacheState.SIdle) {
     when(io.req.fire) {
+      killMiss := false.B
       when(hit) {
         validReg := true.B
       }.otherwise {
@@ -87,6 +90,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     when(io.refillResp.fire) {
       state    := ICacheState.SIdle
       validReg := true.B
+      killMiss := false.B
     }
   }
 
@@ -95,18 +99,35 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
       respReg.data := hitData
       respReg.meta := io.req.bits.meta
       respReg.hit  := true.B
+      respReg.exception.valid := false.B
+      respReg.exception.cause := 0.U
+      respReg.exception.tval  := 0.U
     }.otherwise {
       missReq := io.req.bits
       missSet := reqSet
       missTag := reqTag
     }
   }.elsewhen(state === ICacheState.SRefillResp && io.refillResp.fire) {
-    respReg.data := io.refillResp.bits.data
-    respReg.meta := missReq.meta
-    respReg.hit  := false.B
+    respReg.data      := io.refillResp.bits.data
+    respReg.meta      := missReq.meta
+    respReg.hit       := false.B
+    respReg.exception := io.refillResp.bits.exception
+    when(io.refillResp.bits.exception.valid) {
+      respReg.exception.tval := missReq.meta.pc
+    }
   }
 
-  when(state === ICacheState.SRefillResp && io.refillResp.fire) {
+  when(io.flush) {
+    validArray := VecInit(Seq.fill(cfg.sets)(false.B))
+    when(!(state === ICacheState.SRefillResp && io.refillResp.fire)) {
+      validReg := false.B
+    }
+    when(state =/= ICacheState.SIdle) {
+      killMiss := true.B
+    }
+  }
+
+  when(state === ICacheState.SRefillResp && io.refillResp.fire && !io.refillResp.bits.exception.valid && !killMiss && !io.flush) {
     validArray(missSet) := true.B
     tagArray(missSet)   := missTag
     dataArray(missSet)  := io.refillResp.bits.data

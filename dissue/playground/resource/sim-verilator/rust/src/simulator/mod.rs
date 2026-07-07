@@ -120,6 +120,7 @@ impl Simulator {
             on_difftest_context: Some(simulator_on_difftest_context),
             pmem_read: Some(simulator_pmem_read),
             pmem_write: Some(simulator_pmem_write),
+            time_read: Some(simulator_time_read),
             cache_hit: Some(simulator_cache_hit),
             issue_queue_perf: Some(simulator_issue_queue_perf),
             div_perf: Some(simulator_div_perf),
@@ -420,6 +421,11 @@ extern "C" fn simulator_pmem_read(addr: u32, len: u32) -> u32 {
 extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
     let simulator = unsafe { &mut *active_simulator() };
     let _ = simulator.pmem_write(addr, len, data);
+}
+
+extern "C" fn simulator_time_read() -> u64 {
+    let simulator = unsafe { &*active_simulator() };
+    simulator.statistics.cycle()
 }
 
 extern "C" fn simulator_on_difftest_commit(event: *const ffi::NpcCommitGroupEvent) {

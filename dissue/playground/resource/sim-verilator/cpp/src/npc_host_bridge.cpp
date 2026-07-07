@@ -69,6 +69,16 @@ void NpcHostBridge::pmem_write(uint32_t addr, uint32_t len, uint32_t data) {
   bridge->callbacks_.pmem_write(addr, len, data);
 }
 
+uint64_t NpcHostBridge::time_read() {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.time_read == nullptr) {
+    return 0;
+  }
+
+  return bridge->callbacks_.time_read();
+}
+
 void NpcHostBridge::cache_hit(uint8_t hit) {
   NpcHostBridge *bridge = active_bridge();
 

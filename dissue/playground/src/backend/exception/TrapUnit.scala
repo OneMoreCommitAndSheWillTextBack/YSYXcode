@@ -14,6 +14,7 @@ class TrapLane(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isEcall   = Bool()
   val isMret    = Bool()
   val isSret    = Bool()
+  val isSfence  = Bool()
 }
 
 class TrapUnit(cfg: BackendConfig = BackendConfig()) extends Module {
@@ -43,14 +44,18 @@ class TrapUnit(cfg: BackendConfig = BackendConfig()) extends Module {
       io.lanes(i).isSret &&
         (io.csrStatus.priv.mode === PrivMode.U ||
           (io.csrStatus.priv.mode === PrivMode.S && io.csrStatus.mstatus(Mstatus.tsrBit)))
+    val sfenceIllegal =
+      io.lanes(i).isSfence &&
+        (io.csrStatus.priv.mode === PrivMode.U ||
+          (io.csrStatus.priv.mode === PrivMode.S && io.csrStatus.mstatus(Mstatus.tvmBit)))
 
     io.laneException(i)       := Mux(
       io.lanes(i).exception.valid,
       io.lanes(i).exception,
-      Mux(mretIllegal || sretIllegal, illegalMretException, ecallException)
+      Mux(mretIllegal || sretIllegal || sfenceIllegal, illegalMretException, ecallException)
     )
     io.laneException(i).valid :=
-      io.lanes(i).valid && (io.lanes(i).exception.valid || io.lanes(i).isEcall || mretIllegal || sretIllegal)
+      io.lanes(i).valid && (io.lanes(i).exception.valid || io.lanes(i).isEcall || mretIllegal || sretIllegal || sfenceIllegal)
 
     laneTrap(i) := io.laneException(i).valid
     laneMret(i) := io.lanes(i).valid && io.lanes(i).isMret && !mretIllegal && !io.lanes(i).exception.valid

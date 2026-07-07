@@ -57,6 +57,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.rfWen       := decoded(DecodeIndex.rfWen).asBool && rd =/= 0.U
   io.out.isLoad      := decoded(DecodeIndex.isLoad).asBool
   io.out.isStore     := decoded(DecodeIndex.isStore).asBool
+  io.out.isAmo       := decoded(DecodeIndex.isAmo).asBool
   io.out.cfi         := decoded(DecodeIndex.cfi)
   io.out.memSize     := decoded(DecodeIndex.memSize)
   io.out.memUnsigned := decoded(DecodeIndex.memUnsigned).asBool
@@ -64,14 +65,26 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.isEcall     := decoded(DecodeIndex.isEcall).asBool
   io.out.isMret      := decoded(DecodeIndex.isMret).asBool
   io.out.isSret      := decoded(DecodeIndex.isSret).asBool
+  io.out.isFence     := decoded(DecodeIndex.isFence).asBool
+  io.out.isSfence    := decoded(DecodeIndex.isSfence).asBool
   io.out.isCsr       := isCsr
   io.out.csrAddr     := inst(31, 20)
   io.out.csrWen      := isCsr && (
     decoded(DecodeIndex.fuOp) === CsrOp.rw ||
       ((decoded(DecodeIndex.fuOp) === CsrOp.rs || decoded(DecodeIndex.fuOp) === CsrOp.rc) && rs1 =/= 0.U)
   )
-  io.out.exception   := ExceptionInfo.none(cfg)
+  val fetchException = Wire(new ExceptionInfo(cfg))
+  fetchException.valid     := io.in.exception.valid
+  fetchException.interrupt := false.B
+  fetchException.cause     := io.in.exception.cause
+  fetchException.tval      := io.in.exception.tval
+
+  io.out.exception   := fetchException
   when(!legal) {
-    io.out.exception := ExceptionInfo.raise(ExceptionCause.illegalInstr, io.in.rawInst, cfg)
+    io.out.exception := ExceptionInfo.keepFirst(
+      fetchException,
+      ExceptionInfo.raise(ExceptionCause.illegalInstr, io.in.rawInst, cfg),
+      cfg
+    )
   }
 }
