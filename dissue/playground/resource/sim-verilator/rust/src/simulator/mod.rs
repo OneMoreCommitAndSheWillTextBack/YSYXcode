@@ -24,7 +24,7 @@ use chrono::Local;
 use std::{fs, io, path::PathBuf};
 
 const MBASE: u32 = 0x8000_0000;
-const PMEM_SIZE: usize = 128 * 1024 * 1024;
+const PMEM_SIZE: usize = 512 * 1024 * 1024;
 const MAX_NO_COMMIT_CYCLES: u32 = 20000;
 // const DEFAULT_IMAGE: [u32; 13] = [
 //     0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513, 0x00008067, 0xff410113, 0x00000517,
@@ -103,6 +103,7 @@ pub struct Simulator {
     pending_difftest_sync: bool,
     pending_difftest_sync_prefix: u64,
     pending_commit_events: Vec<CommitGroupEvent>,
+    pending_memory_error: Option<MemoryError>,
 }
 
 impl Simulator {
@@ -137,6 +138,7 @@ impl Simulator {
             pending_difftest_sync: false,
             pending_difftest_sync_prefix: 0,
             pending_commit_events: Vec::new(),
+            pending_memory_error: None,
         });
         let callbacks = ffi::NpcDpiCallbacks {
             on_difftest_commit: Some(simulator_on_difftest_commit),
@@ -186,6 +188,7 @@ impl Simulator {
         self.pending_difftest_sync = false;
         self.pending_difftest_sync_prefix = 0;
         self.pending_commit_events.clear();
+        self.pending_memory_error = None;
 
         {
             let Some(cpu) = self.cpu.as_mut() else {
@@ -216,6 +219,10 @@ impl Simulator {
 
         cpu.step();
         self.perf.on_cycle();
+        if let Some(error) = self.pending_memory_error.take() {
+            self.state = SimulatorState::Abort;
+            return Err(SimulatorError::Memory(error));
+        }
         self.process_difftest_events()?;
         Ok(())
     }
@@ -433,6 +440,16 @@ impl Simulator {
         let len = dpi_memory_len(addr, len)?;
         self.memory.write(addr, &data.to_le_bytes()[..len])
     }
+
+    fn abort_memory_access(&mut self, error: MemoryError) {
+        if self.pending_memory_error.is_some() {
+            return;
+        }
+
+        print_pmem_access_error(&error, self.latest_context.map(|context| context.pc));
+        self.pending_memory_error = Some(error);
+        self.state = SimulatorState::Abort;
+    }
 }
 
 fn default_image_bytes() -> Vec<u8> {
@@ -462,6 +479,28 @@ fn dpi_memory_len(addr: u32, len: u32) -> Result<usize, MemoryError> {
     }
 }
 
+fn print_pmem_access_error(error: &MemoryError, pc: Option<u32>) {
+    let pc_suffix = pc
+        .map(|pc| format!(" at pc = 0x{pc:08x}"))
+        .unwrap_or_default();
+
+    match error {
+        MemoryError::Unmapped { addr, len } | MemoryError::OutOfBounds { addr, len, .. } => {
+            let pmem_end = MBASE + PMEM_SIZE as u32 - 1;
+            eprintln!(
+                "{}address = 0x{addr:08x} len = {len} is out of bound of pmem [0x{MBASE:08x}, 0x{pmem_end:08x}]{pc_suffix}{}",
+                ANSI_FG_RED, ANSI_RESET
+            );
+        }
+        _ => {
+            eprintln!(
+                "{}pmem access error: {error:?}{pc_suffix}{}",
+                ANSI_FG_RED, ANSI_RESET
+            );
+        }
+    }
+}
+
 fn set_active_simulator(simulator: *mut Simulator) {
     unsafe { ACTIVE_SIMULATOR = simulator };
 }
@@ -471,13 +510,31 @@ fn active_simulator() -> *mut Simulator {
 }
 
 extern "C" fn simulator_pmem_read(addr: u32, len: u32) -> u32 {
-    let simulator = unsafe { &*active_simulator() };
-    simulator.pmem_read(addr, len).unwrap_or(0)
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return 0;
+    }
+
+    let simulator = unsafe { &mut *simulator };
+    match simulator.pmem_read(addr, len) {
+        Ok(data) => data,
+        Err(error) => {
+            simulator.abort_memory_access(error);
+            0
+        }
+    }
 }
 
 extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
-    let simulator = unsafe { &mut *active_simulator() };
-    let _ = simulator.pmem_write(addr, len, data);
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+
+    let simulator = unsafe { &mut *simulator };
+    if let Err(error) = simulator.pmem_write(addr, len, data) {
+        simulator.abort_memory_access(error);
+    }
 }
 
 extern "C" fn simulator_time_read() -> u64 {
