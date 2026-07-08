@@ -1,9 +1,5 @@
 use crate::cpu::{CpuContext, CsrContext, PrivMode};
 
-const MISA_RV32_IMAC_SU: u32 = 0x4014_1105;
-const MVENDORID_YSYX: u32 = 0x7973_7978;
-const MARCHID_YSYX: u32 = 0x016f_bca7;
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub(super) struct RiscvDifftestContext {
@@ -96,16 +92,39 @@ impl From<CsrContext> for RiscvDifftestCsr {
     fn from(csr: CsrContext) -> Self {
         Self {
             mepc: csr.mepc,
-            misa: MISA_RV32_IMAC_SU,
+            sepc: csr.sepc,
+            misa: csr.misa,
             mstatus: csr.mstatus,
+            mstatush: csr.mstatush,
             mcause: csr.mcause,
             mtval: csr.mtval,
             mtvec: csr.mtvec,
             mscratch: csr.mscratch,
-            mvendorid: MVENDORID_YSYX,
-            marchid: MARCHID_YSYX,
+            satp: csr.satp,
+            medeleg: csr.medeleg,
+            mideleg: csr.mideleg,
+            mvendorid: csr.mvendorid,
+            marchid: csr.marchid,
+            mhartid: csr.mhartid,
+            mimpid: csr.mimpid,
+            pmpaddr0: csr.pmpaddr0,
+            pmpaddr1: csr.pmpaddr1,
+            pmpaddr2: csr.pmpaddr2,
+            pmpaddr3: csr.pmpaddr3,
+            pmpaddr4: csr.pmpaddr4,
+            pmpaddr5: csr.pmpaddr5,
+            pmpaddr6: csr.pmpaddr6,
+            pmpaddr7: csr.pmpaddr7,
+            pmpcfg0: csr.pmpcfg0,
+            pmpcfg1: csr.pmpcfg1,
+            scause: csr.scause,
+            stval: csr.stval,
+            sscratch: csr.sscratch,
+            stvec: csr.stvec,
             mie: csr.mie,
-            ..Self::default()
+            mcounteren: csr.mcounteren,
+            scounteren: csr.scounteren,
+            mcountinhibit: csr.mcountinhibit,
         }
     }
 }
@@ -123,6 +142,33 @@ impl From<RiscvDifftestCsr> for CsrContext {
             mscratch: raw.mscratch,
             mcycle: 0,
             minstret: 0,
+            sepc: raw.sepc,
+            misa: raw.misa,
+            mstatush: raw.mstatush,
+            satp: raw.satp,
+            medeleg: raw.medeleg,
+            mideleg: raw.mideleg,
+            mvendorid: raw.mvendorid,
+            marchid: raw.marchid,
+            mhartid: raw.mhartid,
+            mimpid: raw.mimpid,
+            pmpaddr0: raw.pmpaddr0,
+            pmpaddr1: raw.pmpaddr1,
+            pmpaddr2: raw.pmpaddr2,
+            pmpaddr3: raw.pmpaddr3,
+            pmpaddr4: raw.pmpaddr4,
+            pmpaddr5: raw.pmpaddr5,
+            pmpaddr6: raw.pmpaddr6,
+            pmpaddr7: raw.pmpaddr7,
+            pmpcfg0: raw.pmpcfg0,
+            pmpcfg1: raw.pmpcfg1,
+            scause: raw.scause,
+            stval: raw.stval,
+            sscratch: raw.sscratch,
+            stvec: raw.stvec,
+            mcounteren: raw.mcounteren,
+            scounteren: raw.scounteren,
+            mcountinhibit: raw.mcountinhibit,
         }
     }
 }
