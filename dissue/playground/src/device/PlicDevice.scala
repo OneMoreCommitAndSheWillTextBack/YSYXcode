@@ -2,12 +2,11 @@ package top.device
 
 import chisel3._
 import chisel3.util.Cat
-import top.bundle.DataMemReq
 import top.config.MemConfig
 
 class PlicDevice(cfg: MemConfig = MemConfig()) extends Module {
   val io = IO(new Bundle {
-    val req        = Input(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth))
+    val req        = Input(new DeviceReq(cfg.addrWidth, cfg.axiDataWidth))
     val writeValid = Input(Bool())
     val readData   = Output(UInt(cfg.axiDataWidth.W))
 
@@ -33,10 +32,10 @@ class PlicDevice(cfg: MemConfig = MemConfig()) extends Module {
     bytes.asUInt
   }
 
-  private val priority1Hit = offset === (DeviceConst.plicPriorityBase + 4).U
-  private val pendingHit   = offset === DeviceConst.plicPendingBase.U
-  private val enableMHit   = offset === DeviceConst.plicEnableBase.U
-  private val enableSHit   = offset === (DeviceConst.plicEnableBase + DeviceConst.plicEnableStride).U
+  private val priority1Hit  = offset === (DeviceConst.plicPriorityBase + 4).U
+  private val pendingHit    = offset === DeviceConst.plicPendingBase.U
+  private val enableMHit    = offset === DeviceConst.plicEnableBase.U
+  private val enableSHit    = offset === (DeviceConst.plicEnableBase + DeviceConst.plicEnableStride).U
   private val thresholdMHit = offset === DeviceConst.plicContextBase.U
   private val claimMHit     = offset === (DeviceConst.plicContextBase + 4).U
   private val thresholdSHit = offset === (DeviceConst.plicContextBase + DeviceConst.plicContextStride).U

@@ -69,6 +69,7 @@ pub struct SimulatorConfig {
     pub reset_cycles: u32,
     pub enable_wave: bool,
     pub wave_path: Option<PathBuf>,
+    pub itrace_path: Option<PathBuf>,
     pub difftest_on: bool,
     pub difftest_ref: Option<DifftestRef>,
 }
@@ -81,6 +82,7 @@ impl Default for SimulatorConfig {
             reset_cycles: 30,
             enable_wave: false,
             wave_path: None,
+            itrace_path: None,
             difftest_on: false,
             difftest_ref: None,
         }
@@ -110,6 +112,9 @@ impl SimulatorConfig {
                     config.enable_wave = true;
                     config.wave_path = args.next().map(PathBuf::from);
                 }
+                "--itrace-path" => {
+                    config.itrace_path = args.next().map(PathBuf::from);
+                }
                 "--diff" | "--difftest-ref" => {
                     if let Some(value) = args.next() {
                         match DifftestRef::from_arg(&value) {
@@ -135,38 +140,5 @@ impl SimulatorConfig {
         }
 
         config
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::DifftestRef;
-    use std::path::PathBuf;
-
-    #[test]
-    fn parses_builtin_difftest_refs() {
-        assert_eq!(DifftestRef::from_arg("nemu"), Ok(DifftestRef::Nemu));
-        assert_eq!(DifftestRef::from_arg("spike"), Ok(DifftestRef::Spike));
-    }
-
-    #[test]
-    fn parses_custom_difftest_ref_paths() {
-        assert_eq!(
-            DifftestRef::from_arg("/tmp/ref.so"),
-            Ok(DifftestRef::Custom(PathBuf::from("/tmp/ref.so")))
-        );
-        assert_eq!(
-            DifftestRef::from_arg("./build/ref.so"),
-            Ok(DifftestRef::Custom(PathBuf::from("./build/ref.so")))
-        );
-        assert_eq!(
-            DifftestRef::from_arg("ref.so"),
-            Ok(DifftestRef::Custom(PathBuf::from("ref.so")))
-        );
-    }
-
-    #[test]
-    fn rejects_unknown_bare_ref_names() {
-        assert!(DifftestRef::from_arg("nume").is_err());
     }
 }

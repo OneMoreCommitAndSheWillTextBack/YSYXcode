@@ -1,150 +1,10 @@
 package top
 
 import chisel3._
-import chisel3.util.Decoupled
-import top.backend.Backend
-import top.backend.csr.CsrInterruptPending
-import top.bundle.{DataMemReq, DataMemResp, FrontendToBackend, InstMemReq, InstMemResp}
-import top.config.{BackendConfig, FrontendConfig, MemConfig}
-import top.device.DeviceBus
-import top.frontend.Frontend
-import top.frontend.bundle.BpuUpdate
-import top.mem.Mem
-
-final class AxiPort extends Bundle {
-  val awready = Input(Bool())
-  val awvalid = Output(Bool())
-  val awaddr  = Output(UInt(32.W))
-  val awid    = Output(UInt(4.W))
-  val awlen   = Output(UInt(8.W))
-  val awsize  = Output(UInt(3.W))
-  val awburst = Output(UInt(2.W))
-
-  val wready = Input(Bool())
-  val wvalid = Output(Bool())
-  val wdata  = Output(UInt(32.W))
-  val wstrb  = Output(UInt(4.W))
-  val wlast  = Output(Bool())
-
-  val bready = Output(Bool())
-  val bvalid = Input(Bool())
-  val bresp  = Input(UInt(2.W))
-  val bid    = Input(UInt(4.W))
-
-  val arready = Input(Bool())
-  val arvalid = Output(Bool())
-  val araddr  = Output(UInt(32.W))
-  val arid    = Output(UInt(4.W))
-  val arlen   = Output(UInt(8.W))
-  val arsize  = Output(UInt(3.W))
-  val arburst = Output(UInt(2.W))
-
-  val rready = Output(Bool())
-  val rvalid = Input(Bool())
-  val rresp  = Input(UInt(2.W))
-  val rdata  = Input(UInt(32.W))
-  val rlast  = Input(Bool())
-  val rid    = Input(UInt(4.W))
-}
-
-class Core(resetVector: BigInt) extends Module {
-  private val frontendCfg = FrontendConfig()
-  private val backendCfg  = BackendConfig()
-  private val memCfg      = MemConfig()
-
-  require(backendCfg.addrWidth == frontendCfg.addrWidth, "frontend/backend addrWidth must match")
-  require(backendCfg.addrWidth == memCfg.addrWidth, "backend/mem addrWidth must match")
-  require(backendCfg.dataWidth == memCfg.axiDataWidth, "backend dataWidth must match memory data width")
-  require(backendCfg.issueWidth == 2, "Core bridge currently assumes the frontend produces two slots")
-
-  val io = IO(new Bundle {
-    val interrupt = Input(new CsrInterruptPending)
-
-    val imemReq  = Decoupled(new InstMemReq(memCfg.addrWidth))
-    val imemResp = Flipped(Decoupled(new InstMemResp(memCfg.fetchBytes)))
-
-    val dmemReq  = Decoupled(new DataMemReq(memCfg.addrWidth, memCfg.axiDataWidth))
-    val dmemResp = Flipped(Decoupled(new DataMemResp(memCfg.axiDataWidth)))
-  })
-
-  val frontend       = Module(new Frontend(resetVector, frontendCfg))
-  val backend        = Module(new Backend(resetVector, backendCfg))
-
-  frontend.io.csrStatus := backend.io.csrStatus
-  backend.io.interrupt := io.interrupt
-
-  frontend.io.trapRedirect.valid := backend.io.redirect.trapRedirect.valid
-  frontend.io.trapRedirect.value := backend.io.redirect.trapRedirect.target
-
-  frontend.io.branchRedirect.valid := backend.io.redirect.branchRedirect.valid
-  frontend.io.branchRedirect.value := backend.io.redirect.branchRedirect.target
-
-  frontend.io.predRedirect.valid := backend.io.redirect.predRedirect.valid
-  frontend.io.predRedirect.value := backend.io.redirect.predRedirect.target
-
-  frontend.io.bpuUpdate.valid        := backend.io.redirect.bpuUpdate.valid
-  frontend.io.bpuUpdate.bits         := 0.U.asTypeOf(new BpuUpdate(frontendCfg.bpu))
-  frontend.io.bpuUpdate.bits.pc      := backend.io.redirect.bpuUpdate.bits.pc
-  frontend.io.bpuUpdate.bits.cfiType := backend.io.redirect.bpuUpdate.bits.cfiType
-  frontend.io.bpuUpdate.bits.taken   := backend.io.redirect.bpuUpdate.bits.taken
-  frontend.io.bpuUpdate.bits.target  := backend.io.redirect.bpuUpdate.bits.target
-  frontend.io.bpuUpdate.bits.instLen := backend.io.redirect.bpuUpdate.bits.instLen
-
-  backend.io.frontend.valid := frontend.io.fetch.valid
-  backend.io.frontend.bits  := 0.U.asTypeOf(new FrontendToBackend(backendCfg.issueWidth, backendCfg.addrWidth))
-  frontend.io.fetch.ready   := backend.io.frontend.ready
-
-  for (i <- 0 until backendCfg.issueWidth) {
-    backend.io.frontend.bits.insts(i).valid           := frontend.io.fetch.bits.insts(i).valid
-    backend.io.frontend.bits.insts(i).bits.pc         := frontend.io.fetch.bits.insts(i).bits.pc
-    backend.io.frontend.bits.insts(i).bits.inst       := frontend.io.fetch.bits.insts(i).bits.inst
-    backend.io.frontend.bits.insts(i).bits.rawInst    := frontend.io.fetch.bits.insts(i).bits.rawInst
-    backend.io.frontend.bits.insts(i).bits.isRVC      := frontend.io.fetch.bits.insts(i).bits.isRVC
-    backend.io.frontend.bits.insts(i).bits.instLen    := frontend.io.fetch.bits.insts(i).bits.instLen
-    backend.io.frontend.bits.insts(i).bits.predTaken  := frontend.io.fetch.bits.insts(i).bits.predTaken
-    backend.io.frontend.bits.insts(i).bits.predNpc    := frontend.io.fetch.bits.insts(i).bits.predNpc
-    backend.io.frontend.bits.insts(i).bits.predTarget := frontend.io.fetch.bits.insts(i).bits.predTarget
-    backend.io.frontend.bits.insts(i).bits.exception  := frontend.io.fetch.bits.insts(i).bits.exception
-  }
-
-  io.imemReq.valid                 := frontend.io.cacheRefillReq.valid
-  io.imemReq.bits.addr             := frontend.io.cacheRefillReq.bits.addr
-  frontend.io.cacheRefillReq.ready := io.imemReq.ready
-
-  frontend.io.cacheRefillResp.valid          := io.imemResp.valid
-  frontend.io.cacheRefillResp.bits.data      := io.imemResp.bits.data
-  frontend.io.cacheRefillResp.bits.exception := 0.U.asTypeOf(frontend.io.cacheRefillResp.bits.exception)
-  io.imemResp.ready                          := frontend.io.cacheRefillResp.ready
-
-  private val dmemRespToFrontend  = RegInit(false.B)
-  private val dmemOutstanding     = RegInit(false.B)
-  private val backendDmemSelected = !dmemOutstanding && backend.io.dmemReq.valid
-  private val frontendPtwSelected = !dmemOutstanding && !backend.io.dmemReq.valid && frontend.io.ptwReq.valid
-
-  io.dmemReq.valid := backendDmemSelected || frontendPtwSelected
-  io.dmemReq.bits  := Mux(backendDmemSelected, backend.io.dmemReq.bits, frontend.io.ptwReq.bits)
-
-  backend.io.dmemReq.ready  := !dmemOutstanding && io.dmemReq.ready
-  frontend.io.ptwReq.ready  := frontendPtwSelected && io.dmemReq.ready
-
-  backend.io.dmemResp.valid := dmemOutstanding && !dmemRespToFrontend && io.dmemResp.valid
-  backend.io.dmemResp.bits  := io.dmemResp.bits
-  frontend.io.ptwResp.valid := dmemOutstanding && dmemRespToFrontend && io.dmemResp.valid
-  frontend.io.ptwResp.bits  := io.dmemResp.bits
-  io.dmemResp.ready         := Mux(
-    dmemRespToFrontend,
-    frontend.io.ptwResp.ready,
-    backend.io.dmemResp.ready
-  )
-
-  when(io.dmemReq.fire) {
-    dmemOutstanding    := true.B
-    dmemRespToFrontend := frontendPtwSelected
-  }.elsewhen(io.dmemResp.fire) {
-    dmemOutstanding    := false.B
-    dmemRespToFrontend := false.B
-  }
-}
+import top.bus.AxiXbar
+import top.bus.axi.AxiPort
+import top.config.MemConfig
+import top.core.Core
 
 class Top(target: Target = Target.Npc) extends Module {
   override def desiredName: String = "ysyx_24100007"
@@ -158,23 +18,14 @@ class Top(target: Target = Target.Npc) extends Module {
 
   private val memCfg = MemConfig()
 
-  val core    = Module(new Core(resetVector))
-  val mem     = Module(new Mem(memCfg))
-  val devices = Module(new DeviceBus(memCfg))
+  val core = Module(new Core(resetVector))
+  val xbar = Module(new AxiXbar(memCfg))
 
-  devices.io.externalInterrupt := io.interrupt
-  core.io.interrupt            := devices.io.interrupt
+  xbar.io.externalInterrupt := io.interrupt
+  core.io.interrupt         := xbar.io.interrupt
 
-  mem.io.imemReq <> core.io.imemReq
-  core.io.imemResp <> mem.io.imemResp
-
-  devices.io.coreReq <> core.io.dmemReq
-  core.io.dmemResp <> devices.io.coreResp
-
-  mem.io.dmemReq <> devices.io.memReq
-  devices.io.memResp <> mem.io.dmemResp
-
-  io.master <> mem.io.axi
+  xbar.io.core <> core.io.axi
+  io.master <> xbar.io.mem
 
   io.slave.awready := false.B
   io.slave.wready  := false.B

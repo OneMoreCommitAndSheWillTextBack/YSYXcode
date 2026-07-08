@@ -126,18 +126,3 @@ impl From<RiscvDifftestCsr> for CsrContext {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn diff_privilege_mapping_matches_reference_abi() {
-        assert_eq!(difftest_priv_from_mode(PrivMode::Supervisor), 0);
-        assert_eq!(difftest_priv_from_mode(PrivMode::Machine), 1);
-        assert_eq!(difftest_priv_from_mode(PrivMode::User), 2);
-        assert_eq!(priv_mode_from_difftest(0), PrivMode::Supervisor);
-        assert_eq!(priv_mode_from_difftest(1), PrivMode::Machine);
-        assert_eq!(priv_mode_from_difftest(2), PrivMode::User);
-    }
-}

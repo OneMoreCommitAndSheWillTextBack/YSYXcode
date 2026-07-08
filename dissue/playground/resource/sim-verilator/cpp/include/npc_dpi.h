@@ -6,8 +6,10 @@
 
 extern "C" void npc_difftest_commit(int valid_mask, int finish_mask,
                                     int mem_valid_mask, int mem_write_mask,
-                                    int pc0, int inst0, int mem_addr0,
+                                    int pc0, int inst0, int raw_inst0,
+                                    int inst_len0, int next_pc0, int mem_addr0,
                                     int mem_size0, int pc1, int inst1,
+                                    int raw_inst1, int inst_len1, int next_pc1,
                                     int mem_addr1, int mem_size1);
 extern "C" void npc_difftest_context(int valid, int pc, int priv,
                                      const svBitVecVal *csr,

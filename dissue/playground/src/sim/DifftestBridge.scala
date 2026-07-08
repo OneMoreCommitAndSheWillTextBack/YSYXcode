@@ -1,7 +1,7 @@
 package top.sim
 
 import chisel3._
-import top.backend.bundle.RetireGroup
+import top.core.backend.bundle.RetireGroup
 import top.config.BackendConfig
 import top.dpi.{NpcCacheHit, NpcDifftestCommit, NpcDifftestContext}
 
@@ -28,10 +28,16 @@ class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
     memWriteMask,
     io.retire.lanes(0).fetch.pc,
     io.retire.lanes(0).fetch.inst,
+    io.retire.lanes(0).fetch.rawInst,
+    io.retire.lanes(0).fetch.instLen.pad(32),
+    io.retire.lanes(0).nextPc,
     io.retire.lanes(0).memory.addr,
     io.retire.lanes(0).memory.size.pad(32),
     io.retire.lanes(1).fetch.pc,
     io.retire.lanes(1).fetch.inst,
+    io.retire.lanes(1).fetch.rawInst,
+    io.retire.lanes(1).fetch.instLen.pad(32),
+    io.retire.lanes(1).nextPc,
     io.retire.lanes(1).memory.addr,
     io.retire.lanes(1).memory.size.pad(32)
   )

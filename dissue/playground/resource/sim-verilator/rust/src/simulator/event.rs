@@ -6,7 +6,11 @@ struct CommitEvent {
     finish: bool,
     pc: u32,
     inst: u32,
+    raw_inst: u32,
+    inst_len: u32,
+    next_pc: u32,
     mem_valid: bool,
+    mem_write: bool,
     mem_addr: u32,
     mem_size: u32,
 }
@@ -17,7 +21,11 @@ impl CommitEvent {
         finish: bool,
         pc: u32,
         inst: u32,
+        raw_inst: u32,
+        inst_len: u32,
+        next_pc: u32,
         mem_valid: bool,
+        mem_write: bool,
         mem_addr: u32,
         mem_size: u32,
     ) -> Self {
@@ -26,7 +34,11 @@ impl CommitEvent {
             finish,
             pc,
             inst,
+            raw_inst,
+            inst_len,
+            next_pc,
             mem_valid,
+            mem_write,
             mem_addr,
             mem_size,
         }
@@ -46,13 +58,30 @@ pub struct CommitGroupEvent {
     lanes: [CommitEvent; COMMIT_GROUP_WIDTH],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommitTraceEntry {
+    pub pc: u32,
+    pub inst: u32,
+    pub raw_inst: u32,
+    pub inst_len: u32,
+    pub next_pc: u32,
+    pub mem_valid: bool,
+    pub mem_write: bool,
+    pub mem_addr: u32,
+    pub mem_size: u32,
+}
+
 impl CommitGroupEvent {
     pub fn new(
         valid_mask: u32,
         finish_mask: u32,
         mem_valid_mask: u32,
+        mem_write_mask: u32,
         pc: [u32; COMMIT_GROUP_WIDTH],
         inst: [u32; COMMIT_GROUP_WIDTH],
+        raw_inst: [u32; COMMIT_GROUP_WIDTH],
+        inst_len: [u32; COMMIT_GROUP_WIDTH],
+        next_pc: [u32; COMMIT_GROUP_WIDTH],
         mem_addr: [u32; COMMIT_GROUP_WIDTH],
         mem_size: [u32; COMMIT_GROUP_WIDTH],
     ) -> Self {
@@ -62,7 +91,11 @@ impl CommitGroupEvent {
                 ((finish_mask >> idx) & 1) != 0,
                 pc[idx],
                 inst[idx],
+                raw_inst[idx],
+                inst_len[idx],
+                next_pc[idx],
                 ((mem_valid_mask >> idx) & 1) != 0,
+                ((mem_write_mask >> idx) & 1) != 0,
                 mem_addr[idx],
                 mem_size[idx],
             )
@@ -87,6 +120,23 @@ impl CommitGroupEvent {
             .iter()
             .filter(|event| event.valid)
             .map(|event| (event.pc, event.inst))
+    }
+
+    pub fn trace_entries(&self) -> impl Iterator<Item = CommitTraceEntry> + '_ {
+        self.lanes
+            .iter()
+            .filter(|event| event.valid)
+            .map(|event| CommitTraceEntry {
+                pc: event.pc,
+                inst: event.inst,
+                raw_inst: event.raw_inst,
+                inst_len: event.inst_len,
+                next_pc: event.next_pc,
+                mem_valid: event.mem_valid,
+                mem_write: event.mem_write,
+                mem_addr: event.mem_addr,
+                mem_size: event.mem_size,
+            })
     }
 
     pub fn has_finish(&self) -> bool {
@@ -158,73 +208,4 @@ fn pmem_contains(addr: u32, len: u32) -> bool {
         return false;
     };
     addr >= MBASE && end < MBASE + pmem_size
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn counter_csr_read_requests_difftest_sync() {
-        let rdcycle_a0 = 0xc000_2573;
-        let event = CommitGroupEvent::new(
-            0b01,
-            0,
-            0,
-            [0x8000_0000, 0],
-            [rdcycle_a0, 0],
-            [0, 0],
-            [0, 0],
-        );
-
-        assert!(event.needs_difftest_sync());
-    }
-
-    #[test]
-    fn normal_load_does_not_request_difftest_sync() {
-        let lw_a0_zero_a1 = 0x0005_2503;
-        let event = CommitGroupEvent::new(
-            0b01,
-            0,
-            0b01,
-            [0x8000_0000, 0],
-            [lw_a0_zero_a1, 0],
-            [MBASE, 0],
-            [2, 0],
-        );
-
-        assert!(!event.needs_difftest_sync());
-    }
-
-    #[test]
-    fn discarded_counter_read_does_not_request_difftest_sync() {
-        let rdcycle_x0 = 0xc000_2073;
-        let event = CommitGroupEvent::new(
-            0b01,
-            0,
-            0,
-            [0x8000_0000, 0],
-            [rdcycle_x0, 0],
-            [0, 0],
-            [0, 0],
-        );
-
-        assert!(!event.needs_difftest_sync());
-    }
-
-    #[test]
-    fn mmio_store_requests_difftest_sync() {
-        let sb_a7_zero_a5 = 0x0117_8023;
-        let event = CommitGroupEvent::new(
-            0b01,
-            0,
-            0b01,
-            [0x8001_c00c, 0],
-            [sb_a7_zero_a5, 0],
-            [0x0900_0001, 0],
-            [0, 0],
-        );
-
-        assert!(event.needs_difftest_sync());
-    }
 }

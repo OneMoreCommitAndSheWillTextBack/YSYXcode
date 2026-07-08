@@ -2,7 +2,7 @@ package top.sim
 
 import chisel3._
 import chisel3.util.Cat
-import top.backend.csr.CsrSpec
+import top.core.backend.csr.CsrSpec
 import top.config.BackendConfig
 
 class DifftestCsrState(cfg: BackendConfig = BackendConfig()) extends Bundle {

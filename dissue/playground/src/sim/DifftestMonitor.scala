@@ -2,8 +2,8 @@ package top.sim
 
 import chisel3._
 import chisel3.util.{MuxCase, PopCount, Valid}
-import top.backend.bundle.{CommitRegWrite, RetireGroup}
-import top.backend.csr.{
+import top.core.backend.bundle.{CommitRegWrite, RetireGroup}
+import top.core.backend.csr.{
   CsrArch,
   CsrArchValues,
   CsrAddr,

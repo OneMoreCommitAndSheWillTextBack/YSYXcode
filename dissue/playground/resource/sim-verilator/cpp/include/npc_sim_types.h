@@ -12,6 +12,9 @@ typedef struct NpcCommitGroupEvent {
   uint32_t mem_write_mask;
   uint32_t pc[2];
   uint32_t inst[2];
+  uint32_t raw_inst[2];
+  uint32_t inst_len[2];
+  uint32_t next_pc[2];
   uint32_t mem_addr[2];
   uint32_t mem_size[2];
 } NpcCommitGroupEvent;
