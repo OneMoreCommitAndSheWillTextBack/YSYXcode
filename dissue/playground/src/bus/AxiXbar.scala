@@ -155,7 +155,7 @@ class AxiXbar(cfg: MemConfig = MemConfig()) extends Module {
   }
 
   private val currentWriteDevice = Mux(writeRouteValid, writeRouteDevice, awToDevice)
-  private val writeRouteKnown    = writeRouteValid || coreAwFire
+  private val writeRouteKnown    = writeRouteValid || io.core.awvalid
   private val devCanAcceptW      = !devWValid && !devBValid && (devAwValid || devAwFire)
 
   io.core.wready := Mux(
