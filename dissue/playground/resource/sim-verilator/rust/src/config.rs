@@ -68,6 +68,7 @@ pub struct SimulatorConfig {
     pub image: Option<PathBuf>,
     pub reset_cycles: u32,
     pub enable_wave: bool,
+    pub wave_after: Option<u64>,
     pub wave_path: Option<PathBuf>,
     pub itrace_path: Option<PathBuf>,
     pub difftest_on: bool,
@@ -81,6 +82,7 @@ impl Default for SimulatorConfig {
             image: None,
             reset_cycles: 30,
             enable_wave: false,
+            wave_after: None,
             wave_path: None,
             itrace_path: None,
             difftest_on: false,
@@ -93,6 +95,8 @@ impl SimulatorConfig {
     pub fn from_env() -> Self {
         let mut config = Self::default();
         let mut args = env::args().skip(1);
+        let mut explicit_wave = false;
+        let mut wave_after_requested = false;
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
@@ -106,8 +110,29 @@ impl SimulatorConfig {
                     }
                 }
                 "--wave" => {
+                    explicit_wave = true;
                     config.enable_wave = true;
                 }
+                "--wave-after" => match args.next() {
+                    Some(value) => {
+                        wave_after_requested = true;
+                        match value.parse::<u64>() {
+                            Ok(wave_after) if wave_after > 0 => {
+                                config.wave_after = Some(wave_after);
+                            }
+                            _ => {
+                                eprintln!(
+                                    "[Error] --wave-after expects a positive integer, got `{}`.",
+                                    value
+                                );
+                            }
+                        }
+                    }
+                    None => {
+                        wave_after_requested = true;
+                        eprintln!("[Error] Missing value after {}", arg);
+                    }
+                },
                 "--wave-path" => {
                     config.enable_wave = true;
                     config.wave_path = args.next().map(PathBuf::from);
@@ -137,6 +162,10 @@ impl SimulatorConfig {
                     eprintln!("[Error] Unknown args {}", arg.as_str());
                 }
             }
+        }
+
+        if wave_after_requested && !explicit_wave {
+            config.enable_wave = false;
         }
 
         config

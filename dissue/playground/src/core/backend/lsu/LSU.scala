@@ -118,6 +118,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
 
   io.busy := state =/= sIdle
 
+  translator.io.flush := io.flush
   translator.io.req.valid         := canAcceptInput && io.in.valid && needsTranslate
   translator.io.req.bits          := 0.U.asTypeOf(new MmuTranslateReq(cfg))
   translator.io.req.bits.vaddr    := addr

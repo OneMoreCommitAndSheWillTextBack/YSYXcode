@@ -35,6 +35,7 @@ class ICacheRefillMmu(
 
   private val translator = Module(new Sv32Translator(backendCfg))
 
+  translator.io.flush           := false.B
   translator.io.req.valid        := state === sIdle && io.refillReq.valid
   translator.io.req.bits         := 0.U.asTypeOf(new MmuTranslateReq(backendCfg))
   translator.io.req.bits.vaddr   := io.refillReq.bits.addr

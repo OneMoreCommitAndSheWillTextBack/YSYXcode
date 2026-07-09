@@ -165,6 +165,7 @@ impl Simulator {
             .init_wave(wave_path)?;
 
         simulator.finish_config();
+        crate::Log!("Finish Simulator Config");
 
         Ok(simulator)
     }
@@ -227,6 +228,27 @@ impl Simulator {
         Ok(())
     }
 
+    fn enable_wave_after_threshold(&mut self) {
+        if self.config.enable_wave {
+            return;
+        }
+
+        let Some(wave_after) = self.config.wave_after else {
+            return;
+        };
+
+        let cycle = self.statistics.cycle();
+        if cycle <= wave_after {
+            return;
+        }
+
+        if let Some(cpu) = self.cpu.as_mut() {
+            cpu.enable_wave();
+            self.config.enable_wave = true;
+            crate::Log!("enable wave at cycle {}", cycle);
+        }
+    }
+
     pub fn execute(&mut self, times: u64) -> SimulatorResult<()> {
         for _ in 0..times {
             match self.state {
@@ -234,6 +256,8 @@ impl Simulator {
                 SimulatorState::End => return Ok(()),
                 SimulatorState::Abort => return Err(SimulatorError::SimulateAbort),
             }
+
+            self.enable_wave_after_threshold();
 
             if self
                 .statistics

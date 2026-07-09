@@ -9,6 +9,8 @@ import top.config.BackendConfig
 
 class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
+    val flush = Input(Bool())
+
     val req  = Flipped(Decoupled(new MmuTranslateReq(cfg)))
     val resp = Decoupled(new MmuTranslateResp(cfg))
 
@@ -124,7 +126,9 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
 
   io.memResp.ready := state === sPte1Resp || state === sPte0Resp
 
-  when(state === sIdle) {
+  when(io.flush) {
+    state := sIdle
+  }.elsewhen(state === sIdle) {
     when(io.req.fire) {
       reqReg                := io.req.bits
       respReg.paddr         := io.req.bits.vaddr
