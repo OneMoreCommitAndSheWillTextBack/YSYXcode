@@ -249,6 +249,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
             io.writeback.valid       := true.B
             io.writeback.bits.robIdx := reqReg.robIdx
             io.writeback.bits.result := 1.U
+            io.writeback.bits.storeAddr := translator.io.resp.bits.paddr
             io.wakeup.valid          := true.B
             io.wakeup.robIdx         := reqReg.robIdx
             io.wakeup.data           := 1.U
@@ -288,12 +289,14 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
         when(io.dmemResp.bits.fault) {
           io.writeback.valid          := true.B
           io.writeback.bits.robIdx    := reqReg.robIdx
+          io.writeback.bits.storeAddr := paddrReg
           io.writeback.bits.exception := ExceptionInfo.raise(accessFaultCause(reqReg), vaddrReg, cfg)
           state                       := sIdle
         }.elsewhen(isLrOp(reqReg)) {
           io.writeback.valid       := true.B
           io.writeback.bits.robIdx := reqReg.robIdx
           io.writeback.bits.result := io.dmemResp.bits.data
+          io.writeback.bits.storeAddr := paddrReg
           io.wakeup.valid          := true.B
           io.wakeup.robIdx         := reqReg.robIdx
           io.wakeup.data           := io.dmemResp.bits.data
@@ -314,6 +317,9 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
         io.writeback.valid       := true.B
         io.writeback.bits.robIdx := reqReg.robIdx
         io.writeback.bits.result := Mux(isScOp(reqReg), 0.U, amoOldReg)
+        io.writeback.bits.storeAddr := paddrReg
+        io.writeback.bits.storeData := amoStoreData
+        io.writeback.bits.storeMask := ((1 << dataBytes) - 1).U(dataBytes.W)
         when(io.dmemResp.bits.fault) {
           io.writeback.bits.exception := ExceptionInfo.raise(ExceptionCause.storeAccessFault, vaddrReg, cfg)
         }

@@ -447,7 +447,7 @@ module axi_memory (
         end
 
         READ: begin
-          if (io_rready) begin
+          if (io_rready && !read_done) begin
             // update the current addr when read data handshake
             case (arburst_i)
               FIXED: begin
@@ -516,7 +516,7 @@ module axi_memory (
   // 参与综合，就感觉无所谓了
   always @(posedge clk) begin
     if (state_current == READ) begin
-      if (io_rready) begin
+      if (io_rready && !read_done) begin
         // 握手的时候更新
         if (|mmio_read_lane_hit) begin
           data_output <= mmio_read_data;
@@ -538,9 +538,9 @@ module axi_memory (
     end
   end
 
-  assign io_rdata  = (read_valid) ? data_output : 32'b0;
-  assign io_rvalid = read_valid;
-  assign io_rlast  = read_done;
+  assign io_rdata  = (state_current == READ && read_valid) ? data_output : 32'b0;
+  assign io_rvalid = (state_current == READ) && read_valid;
+  assign io_rlast  = (state_current == READ) && read_done;
 
   // --------------------------
   // WRITE PART

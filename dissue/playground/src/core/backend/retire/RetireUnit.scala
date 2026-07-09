@@ -270,9 +270,12 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.retire.lanes(i).store.data              := io.rob(i).bits.storeData
     io.retire.lanes(i).store.mask              := io.rob(i).bits.storeMask
     io.retire.lanes(i).store.size              := io.rob(i).bits.memSize
+    val isLr = io.rob(i).bits.isAmo && io.rob(i).bits.fetch.rawInst(31, 27) === "b00010".U
+    val isSc = io.rob(i).bits.isAmo && io.rob(i).bits.fetch.rawInst(31, 27) === "b00011".U
+    val amoWritesMemory = io.rob(i).bits.isAmo && !isLr && !(isSc && io.rob(i).bits.result =/= 0.U)
     io.retire.lanes(i).memory.valid :=
       normalCommit(i) && (io.rob(i).bits.isLoad || io.rob(i).bits.isStore || io.rob(i).bits.isAmo)
-    io.retire.lanes(i).memory.write := normalCommit(i) && (io.rob(i).bits.isStore || io.rob(i).bits.isAmo)
+    io.retire.lanes(i).memory.write := normalCommit(i) && (io.rob(i).bits.isStore || amoWritesMemory)
     io.retire.lanes(i).memory.addr             := io.rob(i).bits.storeAddr
     io.retire.lanes(i).memory.size             := io.rob(i).bits.memSize
     io.retire.lanes(i).control.redirectValid   := normalCommit(i) && redirectCandidate(i)
