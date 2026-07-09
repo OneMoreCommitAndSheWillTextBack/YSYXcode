@@ -2,12 +2,11 @@ package top.device
 
 import chisel3._
 import chisel3.util.Cat
-import top.bundle.DataMemReq
 import top.config.MemConfig
 
 class ClintDevice(cfg: MemConfig = MemConfig()) extends Module {
   val io = IO(new Bundle {
-    val req        = Input(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth))
+    val req        = Input(new DeviceReq(cfg.addrWidth, cfg.axiDataWidth))
     val writeValid = Input(Bool())
     val readData   = Output(UInt(cfg.axiDataWidth.W))
 
@@ -37,7 +36,7 @@ class ClintDevice(cfg: MemConfig = MemConfig()) extends Module {
     bytes.asUInt
   }
 
-  private val msipHit      = clintOffset === DeviceConst.clintMsipBase.U
+  private val msipHit       = clintOffset === DeviceConst.clintMsipBase.U
   private val mtimecmpLoHit = clintOffset === DeviceConst.clintMtimecmpBase.U
   private val mtimecmpHiHit = clintOffset === (DeviceConst.clintMtimecmpBase + 4).U
   private val mtimeLoHit    = clintOffset === DeviceConst.clintMtimeBase.U

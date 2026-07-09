@@ -41,12 +41,19 @@ pub fn show_trace(config: &SimulatorConfig) {
             format!("{}OFF{}", ANSI_FG_RED, ANSI_RESET)
         }
     };
+    let wave_state = if config.enable_wave {
+        state(true)
+    } else if let Some(cycle) = config.wave_after {
+        format!("{}AFTER({cycle}){}", ANSI_FG_GREEN, ANSI_RESET)
+    } else {
+        state(false)
+    };
 
     eprintln!(
         "{}trace: wave={}{} {}itrace={}{} {}difftest={}{}",
         ANSI_FG_BLUE,
         ANSI_RESET,
-        state(config.enable_wave),
+        wave_state,
         ANSI_FG_BLUE,
         ANSI_RESET,
         state(config.itrace_path.is_some()),

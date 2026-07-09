@@ -1,7 +1,7 @@
 package top.sim
 
 import chisel3._
-import top.backend.bundle.RetireGroup
+import top.core.backend.bundle.RetireGroup
 import top.config.BackendConfig
 import top.dpi.{NpcCacheHit, NpcDifftestCommit, NpcDifftestContext}
 

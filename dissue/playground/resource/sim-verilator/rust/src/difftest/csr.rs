@@ -12,6 +12,8 @@ enum DifftestCsr {
     Mscratch,
     Mcycle,
     Minstret,
+    Medeleg,
+    Mideleg,
 }
 
 impl DifftestCsr {
@@ -27,6 +29,8 @@ impl DifftestCsr {
             Self::Mscratch => "mscratch",
             Self::Mcycle => "mcycle",
             Self::Minstret => "minstret",
+            Self::Medeleg => "medeleg",
+            Self::Mideleg => "mideleg",
         }
     }
 
@@ -42,6 +46,8 @@ impl DifftestCsr {
             Self::Mscratch => csr.mscratch,
             Self::Mcycle => csr.mcycle,
             Self::Minstret => csr.minstret,
+            Self::Medeleg => csr.medeleg,
+            Self::Mideleg => csr.mideleg,
         }
     }
 }
@@ -66,7 +72,7 @@ impl CsrDiffSpec {
     }
 }
 
-pub(crate) const CSR_DIFF_SPECS: [CsrDiffSpec; 10] = [
+pub(crate) const CSR_DIFF_SPECS: [CsrDiffSpec; 12] = [
     CsrDiffSpec {
         csr: DifftestCsr::Mstatus,
         diff: true,
@@ -97,6 +103,14 @@ pub(crate) const CSR_DIFF_SPECS: [CsrDiffSpec; 10] = [
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mscratch,
+        diff: true,
+    },
+    CsrDiffSpec {
+        csr: DifftestCsr::Medeleg,
+        diff: true,
+    },
+    CsrDiffSpec {
+        csr: DifftestCsr::Mideleg,
         diff: true,
     },
     CsrDiffSpec {
