@@ -3,7 +3,8 @@ mod itrace;
 mod report;
 mod statistics;
 
-pub use event::{AsyncInterruptEvent, CommitGroupEvent};
+use event::AsyncInterruptEvent;
+pub use event::CommitGroupEvent;
 
 use itrace::Itrace;
 use statistics::Statistics;
@@ -349,6 +350,7 @@ impl Simulator {
         if self.difftest.needs_check_context() {
             let context = self.cpu_context()?;
             let result = if needs_difftest_sync {
+                // The synchronized DUT context already includes any interrupt taken at this boundary.
                 self.difftest.step_and_sync(difftest_sync_prefix, &context)
             } else if let Some(interrupt) = async_interrupt {
                 self.difftest.step_raise_interrupt_and_check(

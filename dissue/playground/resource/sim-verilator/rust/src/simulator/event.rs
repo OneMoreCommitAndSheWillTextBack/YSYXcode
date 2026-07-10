@@ -57,7 +57,7 @@ impl CommitEvent {
 pub const COMMIT_GROUP_WIDTH: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AsyncInterruptEvent {
+pub(super) struct AsyncInterruptEvent {
     cause: u32,
     epc: u32,
 }
@@ -67,11 +67,11 @@ impl AsyncInterruptEvent {
         (valid != 0).then_some(Self { cause, epc })
     }
 
-    pub fn cause(self) -> u32 {
+    pub(super) fn cause(self) -> u32 {
         self.cause
     }
 
-    pub fn epc(self) -> u32 {
+    pub(super) fn epc(self) -> u32 {
         self.epc
     }
 }
@@ -177,7 +177,7 @@ impl CommitGroupEvent {
         self.lanes.iter().any(|event| event.valid && event.finish)
     }
 
-    pub fn async_interrupt(&self) -> Option<AsyncInterruptEvent> {
+    pub(super) fn async_interrupt(&self) -> Option<AsyncInterruptEvent> {
         self.async_interrupt
     }
 
