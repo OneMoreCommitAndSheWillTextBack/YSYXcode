@@ -123,3 +123,7 @@ extern "C" void npc_div_perf(int cycles, char special) {
   NpcHostBridge::div_perf(static_cast<uint32_t>(cycles),
                           static_cast<uint8_t>(special));
 }
+
+extern "C" void npc_bpu_perf(char correct) {
+  NpcHostBridge::bpu_perf(static_cast<uint8_t>(correct));
+}

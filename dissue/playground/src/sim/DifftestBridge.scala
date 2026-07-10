@@ -4,7 +4,7 @@ import chisel3._
 import top.config.BackendConfig
 import top.core.backend.bundle.RetireGroup
 import top.core.backend.csr.CsrTrapCommit
-import top.dpi.{NpcCacheHit, NpcDifftestCommit, NpcDifftestContext}
+import top.dpi.{NpcBpuPerf, NpcCacheHit, NpcDifftestCommit, NpcDifftestContext}
 
 class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
   require(cfg.commitWidth == 2, "Difftest DPI currently exposes exactly two retire lanes")
@@ -67,5 +67,17 @@ class CacheHitBridge extends Module {
   NpcCacheHit.callWithEnable(
     io.cacheFire,
     io.cacheHit
+  )
+}
+
+class BpuPerfBridge extends Module {
+  val io = IO(new Bundle {
+    val valid   = Input(Bool())
+    val correct = Input(Bool())
+  })
+
+  NpcBpuPerf.callWithEnable(
+    io.valid,
+    io.correct
   )
 }

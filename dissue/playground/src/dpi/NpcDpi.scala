@@ -75,3 +75,12 @@ object NpcDivPerf extends DPIClockedVoidFunctionImport {
     )
   )
 }
+
+object NpcBpuPerf extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_bpu_perf"
+  override def inputNames:   Option[Seq[String]] = Some(
+    Seq(
+      "correct"
+    )
+  )
+}

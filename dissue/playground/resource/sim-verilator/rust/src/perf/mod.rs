@@ -31,6 +31,10 @@ impl Perf {
         self.counters.div_perf(cycles, special);
     }
 
+    pub fn bpu_prediction(&mut self, correct: bool) {
+        self.counters.bpu_prediction(correct);
+    }
+
     pub fn cacherate(&mut self) -> f64 {
         self.counters.cache_hit_rate()
     }
@@ -77,6 +81,18 @@ impl Perf {
 
     pub fn div_average_cycles(&self) -> f64 {
         self.counters.div_average_cycles()
+    }
+
+    pub fn bpu_predictions(&self) -> u64 {
+        self.counters.bpu_predictions()
+    }
+
+    pub fn bpu_correct_predictions(&self) -> u64 {
+        self.counters.bpu_correct_predictions()
+    }
+
+    pub fn bpu_accuracy(&self) -> f64 {
+        self.counters.bpu_accuracy()
     }
 
     pub fn on_cycle(&mut self) {}

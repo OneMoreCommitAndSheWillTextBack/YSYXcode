@@ -123,3 +123,12 @@ void NpcHostBridge::div_perf(uint32_t cycles, uint8_t special) {
   }
   bridge->callbacks_.div_perf(cycles, special);
 }
+
+void NpcHostBridge::bpu_perf(uint8_t correct) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.bpu_perf == nullptr) {
+    return;
+  }
+  bridge->callbacks_.bpu_perf(correct);
+}

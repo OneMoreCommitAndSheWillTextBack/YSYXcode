@@ -31,6 +31,7 @@ public:
   static void issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
                                uint8_t block_ready, uint8_t block_operand);
   static void div_perf(uint32_t cycles, uint8_t special);
+  static void bpu_perf(uint8_t correct);
 
 private:
   NpcDpiCallbacks callbacks_{};

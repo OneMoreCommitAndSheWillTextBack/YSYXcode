@@ -1,7 +1,11 @@
+mod callbacks;
+mod difftest_events;
 mod event;
 mod itrace;
+mod pmem;
 mod report;
 mod statistics;
+mod timer;
 
 use event::AsyncInterruptEvent;
 pub use event::CommitGroupEvent;
@@ -13,33 +17,19 @@ use crate::{
     config::SimulatorConfig,
     cpu::{Cpu, CpuContext, CpuError, CsrContext},
     difftest::{DiffTest, DifftestError},
-    ffi,
     memory::{Memory, MemoryError},
     perf::{Perf, PerfCounters},
     sdb::SdbError,
     sim_log,
     simulator::SimulatorState::Running,
-    SimulatorResult, ACTIVE_SIMULATOR,
+    SimulatorResult,
 };
 use chrono::Local;
-use std::{fs, io, path::PathBuf};
+use std::{io, path::PathBuf};
 
 const MBASE: u32 = 0x8000_0000;
 const PMEM_SIZE: usize = 512 * 1024 * 1024;
 const MAX_NO_COMMIT_CYCLES: u32 = 20000;
-// const DEFAULT_IMAGE: [u32; 13] = [
-//     0x00000413, 0x00009117, 0xffc10113, 0x00c000ef, 0x00000513, 0x00008067, 0xff410113, 0x00000517,
-//     0x01450513, 0x00112423, 0xfe9ff0ef, 0x00050513, 0x00100073,
-// ];
-
-const DEFAULT_IMAGE: [u32; 5] = [
-    0x00000297, // auipc t0,0
-    0x00028823, // sb  zero,16(t0)
-    0x0102c503, // lbu a0,16(t0)
-    0x00100073, // ebreak (used as nemu_trap)
-    0xdeadbeef, // some data
-];
-
 const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_FG_BLUE: &str = "\x1b[34m";
 const ANSI_FG_GREEN: &str = "\x1b[32m";
@@ -128,6 +118,7 @@ pub struct Simulator {
     pending_async_interrupts: Vec<PendingAsyncInterrupt>,
     pending_commit_events: Vec<CommitGroupEvent>,
     pending_memory_error: Option<MemoryError>,
+    timer: Option<timer::SimTimer>,
 }
 
 impl Simulator {
@@ -164,19 +155,11 @@ impl Simulator {
             pending_async_interrupts: Vec::new(),
             pending_commit_events: Vec::new(),
             pending_memory_error: None,
+            timer: None,
         });
-        let callbacks = ffi::NpcDpiCallbacks {
-            on_difftest_commit: Some(simulator_on_difftest_commit),
-            on_difftest_context: Some(simulator_on_difftest_context),
-            pmem_read: Some(simulator_pmem_read),
-            pmem_write: Some(simulator_pmem_write),
-            time_read: Some(simulator_time_read),
-            cache_hit: Some(simulator_cache_hit),
-            issue_queue_perf: Some(simulator_issue_queue_perf),
-            div_perf: Some(simulator_div_perf),
-        };
+        let callbacks = callbacks::build_callbacks();
         simulator.cpu = Some(Cpu::connect(&callbacks)?);
-        set_active_simulator(&mut *simulator as *mut Self);
+        callbacks::set_active_simulator(&mut *simulator as *mut Self);
         crate::Log!("Init Cpu Successful");
 
         simulator.memory.register_ram("pmem", MBASE, PMEM_SIZE)?;
@@ -208,6 +191,7 @@ impl Simulator {
     }
 
     pub fn reset(&mut self) -> SimulatorResult<()> {
+        self.timer = Some(timer::SimTimer::new());
         self.latest_context = None;
         self.pending_commit_count = 0;
         self.pending_finish = false;
@@ -303,123 +287,6 @@ impl Simulator {
         Ok(())
     }
 
-    fn process_difftest_events(&mut self) -> SimulatorResult<()> {
-        let commit_count = self.pending_commit_count;
-        let has_finish = self.pending_finish;
-        let needs_difftest_sync = self.pending_difftest_sync;
-        let difftest_sync_prefix = self.pending_difftest_sync_prefix;
-        let pending_async_interrupts = std::mem::take(&mut self.pending_async_interrupts);
-        self.pending_commit_count = 0;
-        self.pending_finish = false;
-        self.pending_difftest_sync = false;
-        self.pending_difftest_sync_prefix = 0;
-        let commit_events = std::mem::take(&mut self.pending_commit_events);
-
-        if commit_count == 0 {
-            return Ok(());
-        }
-
-        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
-            return Ok(());
-        }
-
-        let async_interrupt =
-            match terminal_async_interrupt(&pending_async_interrupts, commit_count) {
-                Ok(interrupt) => interrupt,
-                Err(error) => {
-                    report::print_difftest_report(&error);
-                    self.state = SimulatorState::Abort;
-                    return Err(error);
-                }
-            };
-
-        self.statistics.on_commits(commit_count);
-
-        if let Some(itrace) = self.itrace.as_mut() {
-            let itrace_path = itrace.path().to_path_buf();
-            for event in &commit_events {
-                itrace
-                    .write_commit_group(event)
-                    .map_err(|source| SimulatorError::ItraceIo {
-                        path: itrace_path.clone(),
-                        source,
-                    })?;
-            }
-        }
-
-        if self.difftest.needs_check_context() {
-            let context = self.cpu_context()?;
-            let result = if needs_difftest_sync {
-                // The synchronized DUT context already includes any interrupt taken at this boundary.
-                self.difftest.step_and_sync(difftest_sync_prefix, &context)
-            } else if let Some(interrupt) = async_interrupt {
-                self.difftest.step_raise_interrupt_and_check(
-                    commit_count,
-                    interrupt.cause(),
-                    interrupt.epc(),
-                    &context,
-                )
-            } else {
-                self.difftest.step_and_check(commit_count, &context)
-            };
-
-            if let Err(error) = result {
-                let error = SimulatorError::Difftest(error);
-                report::print_difftest_report(&error);
-                self.state = SimulatorState::Abort;
-                return Err(error);
-            }
-        }
-
-        if has_finish {
-            let context = self.cpu_context()?;
-            self.state = if context.gpr[10] == 0 {
-                eprintln!("{}HIT GOOD TRAP{}", ANSI_FG_GREEN, ANSI_RESET);
-                SimulatorState::End
-            } else {
-                eprintln!("{}HIT BAD TRAP{}", ANSI_FG_RED, ANSI_RESET);
-                SimulatorState::Abort
-            };
-        }
-
-        Ok(())
-    }
-
-    fn on_difftest_commit(&mut self, event: CommitGroupEvent) {
-        let commit_count = event.valid_count();
-
-        if commit_count == 0 {
-            return;
-        }
-
-        if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
-            return;
-        }
-
-        let previous_commit_count = self.pending_commit_count;
-        self.pending_commit_count += commit_count;
-        self.pending_finish |= event.has_finish();
-        if let Some(interrupt) = event.async_interrupt() {
-            self.pending_async_interrupts.push(PendingAsyncInterrupt {
-                event: interrupt,
-                commits_at_interrupt: self.pending_commit_count,
-            });
-        }
-        self.pending_commit_events.push(event);
-        if let Some(prefix_count) = event.difftest_sync_prefix_count() {
-            if !self.pending_difftest_sync {
-                self.pending_difftest_sync_prefix = previous_commit_count + prefix_count;
-            }
-            self.pending_difftest_sync = true;
-        }
-    }
-
-    fn on_difftest_context(&mut self, context: crate::cpu::NpcCpuContext) {
-        if let Some(context) = context.into_context() {
-            self.latest_context = Some(context);
-        }
-    }
-
     pub fn wave_close(&mut self) {
         if let Some(cpu) = self.cpu.as_mut() {
             cpu.close_wave();
@@ -458,6 +325,12 @@ impl Simulator {
             self.perf.div_average_cycles(),
             self.perf.div_special_operations()
         );
+        crate::Log!(
+            "BPU: predictions: {}, correct: {}, accuracy: {:.2}%",
+            self.perf.bpu_predictions(),
+            self.perf.bpu_correct_predictions(),
+            self.perf.bpu_accuracy() * 100.0
+        );
     }
 
     pub fn cpu_gpr(&mut self) -> SimulatorResult<[u32; 32]> {
@@ -481,247 +354,11 @@ impl Simulator {
     pub fn difftest_detach(&mut self) {
         self.difftest.detach();
     }
-
-    fn load_image(&mut self) -> SimulatorResult<usize> {
-        let image = match self.config.image.as_ref() {
-            Some(path) => {
-                crate::Log!("Image Path is {}", path.display());
-                fs::read(path).map_err(|source| SimulatorError::ImageIo {
-                    path: path.clone(),
-                    source,
-                })?
-            }
-            None => {
-                crate::Log!("No Image Path Specific, Using Default Image");
-                default_image_bytes()
-            }
-        };
-
-        self.memory.write(MBASE, &image)?;
-        self.difftest.sync_memory(MBASE, &image)?;
-        crate::Log!("Image Load finished",);
-        Ok(image.len())
-    }
-
-    fn pmem_read(&self, addr: u32, len: u32) -> Result<u32, MemoryError> {
-        let len = dpi_memory_len(addr, len)?;
-
-        let mut data = [0_u8; 4];
-        self.memory.read(addr, &mut data[..len])?;
-        Ok(u32::from_le_bytes(data))
-    }
-
-    fn pmem_write(&mut self, addr: u32, len: u32, data: u32) -> Result<(), MemoryError> {
-        let len = dpi_memory_len(addr, len)?;
-        self.memory.write(addr, &data.to_le_bytes()[..len])
-    }
-
-    fn abort_memory_access(&mut self, error: MemoryError) {
-        if self.pending_memory_error.is_some() {
-            return;
-        }
-
-        print_pmem_access_error(&error, self.latest_context.map(|context| context.pc));
-        self.pending_memory_error = Some(error);
-        self.state = SimulatorState::Abort;
-    }
-}
-
-fn default_image_bytes() -> Vec<u8> {
-    let mut image = Vec::with_capacity(DEFAULT_IMAGE.len() * size_of::<u32>());
-
-    for inst in DEFAULT_IMAGE {
-        image.extend_from_slice(&inst.to_le_bytes());
-    }
-
-    image
 }
 
 impl Drop for Simulator {
     fn drop(&mut self) {
         self.cpu.take();
-        set_active_simulator(std::ptr::null_mut());
+        callbacks::set_active_simulator(std::ptr::null_mut());
     }
-}
-
-fn terminal_async_interrupt(
-    pending: &[PendingAsyncInterrupt],
-    total_commits: u64,
-) -> SimulatorResult<Option<AsyncInterruptEvent>> {
-    let [interrupt] = pending else {
-        return if pending.is_empty() {
-            Ok(None)
-        } else {
-            Err(SimulatorError::MultipleAsyncInterrupts {
-                count: pending.len(),
-                total_commits,
-            })
-        };
-    };
-
-    if interrupt.commits_at_interrupt != total_commits {
-        return Err(SimulatorError::NonTerminalAsyncInterrupt {
-            cause: interrupt.event.cause(),
-            epc: interrupt.event.epc(),
-            commits_at_interrupt: interrupt.commits_at_interrupt,
-            total_commits,
-        });
-    }
-
-    Ok(Some(interrupt.event))
-}
-
-fn dpi_memory_len(addr: u32, len: u32) -> Result<usize, MemoryError> {
-    match len {
-        1 | 2 | 4 => Ok(len as usize),
-        _ => Err(MemoryError::Unmapped {
-            addr: addr,
-            len: len as usize,
-        }),
-    }
-}
-
-fn print_pmem_access_error(error: &MemoryError, pc: Option<u32>) {
-    let pc_suffix = pc
-        .map(|pc| format!(" at pc = 0x{pc:08x}"))
-        .unwrap_or_default();
-
-    match error {
-        MemoryError::Unmapped { addr, len } | MemoryError::OutOfBounds { addr, len, .. } => {
-            let pmem_end = MBASE + PMEM_SIZE as u32 - 1;
-            eprintln!(
-                "{}address = 0x{addr:08x} len = {len} is out of bound of pmem [0x{MBASE:08x}, 0x{pmem_end:08x}]{pc_suffix}{}",
-                ANSI_FG_RED, ANSI_RESET
-            );
-        }
-        _ => {
-            eprintln!(
-                "{}pmem access error: {error:?}{pc_suffix}{}",
-                ANSI_FG_RED, ANSI_RESET
-            );
-        }
-    }
-}
-
-fn set_active_simulator(simulator: *mut Simulator) {
-    unsafe { ACTIVE_SIMULATOR = simulator };
-}
-
-fn active_simulator() -> *mut Simulator {
-    unsafe { ACTIVE_SIMULATOR }
-}
-
-extern "C" fn simulator_pmem_read(addr: u32, len: u32) -> u32 {
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return 0;
-    }
-
-    let simulator = unsafe { &mut *simulator };
-    match simulator.pmem_read(addr, len) {
-        Ok(data) => data,
-        Err(error) => {
-            simulator.abort_memory_access(error);
-            0
-        }
-    }
-}
-
-extern "C" fn simulator_pmem_write(addr: u32, len: u32, data: u32) {
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return;
-    }
-
-    let simulator = unsafe { &mut *simulator };
-    if let Err(error) = simulator.pmem_write(addr, len, data) {
-        simulator.abort_memory_access(error);
-    }
-}
-
-extern "C" fn simulator_time_read() -> u64 {
-    let simulator = unsafe { &*active_simulator() };
-    simulator.statistics.cycle()
-}
-
-extern "C" fn simulator_on_difftest_commit(event: *const ffi::NpcCommitGroupEvent) {
-    if event.is_null() {
-        return;
-    }
-
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return;
-    }
-
-    let event = unsafe { &*event };
-    let simulator = unsafe { &mut *simulator };
-    simulator.on_difftest_commit(CommitGroupEvent::new(
-        event.valid_mask,
-        event.finish_mask,
-        event.mem_valid_mask,
-        event.mem_write_mask,
-        event.pc,
-        event.inst,
-        event.raw_inst,
-        event.inst_len,
-        event.next_pc,
-        event.mem_addr,
-        event.mem_size,
-        event.async_intr_valid,
-        event.async_intr_cause,
-        event.async_intr_epc,
-    ));
-}
-
-extern "C" fn simulator_on_difftest_context(context: *const crate::cpu::NpcCpuContext) {
-    if context.is_null() {
-        return;
-    }
-
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return;
-    }
-
-    let context = unsafe { *context };
-    let simulator = unsafe { &mut *simulator };
-    simulator.on_difftest_context(context);
-}
-
-extern "C" fn simulator_cache_hit(hit: u8) {
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return;
-    }
-    let simulator = unsafe { &mut *simulator };
-
-    simulator.perf.cachehit(hit != 0);
-}
-
-extern "C" fn simulator_issue_queue_perf(
-    issue_count: u8,
-    occupancy: u8,
-    block_ready: u8,
-    block_operand: u8,
-) {
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return;
-    }
-    let simulator = unsafe { &mut *simulator };
-
-    simulator
-        .perf
-        .issue_queue_perf(issue_count, occupancy, block_ready != 0, block_operand != 0);
-}
-
-extern "C" fn simulator_div_perf(cycles: u32, special: u8) {
-    let simulator = active_simulator();
-    if simulator.is_null() {
-        return;
-    }
-    let simulator = unsafe { &mut *simulator };
-
-    simulator.perf.div_perf(cycles, special != 0);
 }
