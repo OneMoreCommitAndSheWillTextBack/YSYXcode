@@ -28,7 +28,7 @@ class CsrFile(
     CsrInterrupt.effectiveMip(next(CsrAddr.of("mip")), io.interrupt, cfg)
   )
 
-  io.read.data       := CsrArch.readValue(io.read.addr, nextWithInterrupts, cfg)
+  io.read.data       := CsrArch.readValue(io.read.addr, nextWithInterrupts, io.mtime, cfg)
   io.read.readLegal  := CsrArch.readLegal(io.read.addr, priv, currentWithInterrupts)
   io.read.writeLegal := CsrArch.writeLegal(io.read.addr, priv, currentWithInterrupts)
 

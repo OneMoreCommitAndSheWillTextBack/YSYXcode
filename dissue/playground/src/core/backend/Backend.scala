@@ -35,6 +35,7 @@ class Backend(
     val retire    = Output(new RetireGroup(cfg))
     val csrStatus = Output(new CsrStatus(cfg))
     val interrupt = Input(new CsrInterruptPending)
+    val mtime     = Input(UInt(64.W))
   })
 
   private val slotIdxWidth   = math.max(log2Ceil(cfg.issueWidth), 1)
@@ -173,6 +174,7 @@ class Backend(
   csrFile.io.mret         := retire.io.csrMret
   csrFile.io.sret         := retire.io.csrSret
   csrFile.io.interrupt    := io.interrupt
+  csrFile.io.mtime        := io.mtime
   csrFile.io.retireCount  := PopCount(retire.io.retire.validMask)
   retire.io.csrStatus     := csrFile.io.status
   csrTracker.io.commit    := retire.io.csrTrackerCommit
