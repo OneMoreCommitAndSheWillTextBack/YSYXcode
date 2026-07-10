@@ -19,6 +19,13 @@ main:
   li t0, CLINT_MSIP
   li t1, 1
   sw t1, 0(t0)
+  fence iorw, iorw
+
+  csrr t2, mip
+  andi t2, t2, MIE_MSIE
+  bnez t2, 1f
+  TEST_FAIL 3
+1:
 
   li t0, MIE_MSIE
   csrw mie, t0
@@ -49,6 +56,12 @@ trap_handler:
 1:
   li t0, CLINT_MSIP
   sw zero, 0(t0)
+  fence iorw, iorw
+  csrr t2, mip
+  andi t2, t2, MIE_MSIE
+  beqz t2, 2f
+  TEST_FAIL 21
+2:
   csrw mie, zero
   csrr t0, mstatus
   li t1, MSTATUS_MIE

@@ -18,21 +18,48 @@ const C_DIFF: &str = "\x1b[31m";
 const C_SKIP: &str = "\x1b[90m";
 
 pub(super) fn print_difftest_report(error: &SimulatorError) {
-    let SimulatorError::Difftest(DifftestError::Mismatch {
-        pc,
-        mismatch,
-        dut,
-        reference,
-    }) = error
-    else {
-        return;
-    };
-
-    eprintln!("{C_HDR}[difftest] context mismatch after DUT pc 0x{pc:08x}{C_RESET}");
-    print_mismatch_summary(mismatch);
-    print_pc_summary(dut, reference);
-    print_gpr_table(dut, reference);
-    print_csr_table(dut, reference);
+    match error {
+        SimulatorError::MultipleAsyncInterrupts {
+            count,
+            total_commits,
+        } => {
+            eprintln!(
+                "{C_DIFF}[difftest] invalid retire batch: {count} asynchronous interrupts were attached to {total_commits} committed instructions{C_RESET}"
+            );
+        }
+        SimulatorError::NonTerminalAsyncInterrupt {
+            cause,
+            epc,
+            commits_at_interrupt,
+            total_commits,
+        } => {
+            eprintln!(
+                "{C_DIFF}[difftest] invalid interrupt position: cause=0x{cause:08x}, epc=0x{epc:08x}, commits at interrupt={commits_at_interrupt}, commits in batch={total_commits}{C_RESET}"
+            );
+        }
+        SimulatorError::Difftest(DifftestError::InterruptEpcMismatch {
+            cause,
+            expected_epc,
+            reference_pc,
+        }) => {
+            eprintln!(
+                "{C_DIFF}[difftest] interrupt boundary mismatch: cause=0x{cause:08x}, DUT epc=0x{expected_epc:08x}, REF pc=0x{reference_pc:08x}{C_RESET}"
+            );
+        }
+        SimulatorError::Difftest(DifftestError::Mismatch {
+            pc,
+            mismatch,
+            dut,
+            reference,
+        }) => {
+            eprintln!("{C_HDR}[difftest] context mismatch after DUT pc 0x{pc:08x}{C_RESET}");
+            print_mismatch_summary(mismatch);
+            print_pc_summary(dut, reference);
+            print_gpr_table(dut, reference);
+            print_csr_table(dut, reference);
+        }
+        _ => {}
+    }
 }
 
 fn print_mismatch_summary(mismatch: &DifftestMismatch) {

@@ -1,6 +1,7 @@
 package top.core.backend.csr
 
 import chisel3._
+import top.config.BackendConfig
 
 object PrivMode {
   val width = 2
@@ -125,6 +126,23 @@ object CsrInterrupt {
 
   val writableMidelegMask: BigInt =
     bit(ssipBit) | bit(stipBit) | bit(seipBit)
+
+  private val hardwarePendingMask: BigInt =
+    bit(msipBit) | bit(mtipBit) | bit(meipBit) | bit(seipBit)
+
+  def effectiveMip(
+    rawMip:    UInt,
+    interrupt: CsrInterruptPending,
+    cfg:       BackendConfig = BackendConfig()
+  ): UInt = {
+    val hardwarePending =
+      (interrupt.msip.asUInt << msipBit) |
+        (interrupt.mtip.asUInt << mtipBit) |
+        (interrupt.meip.asUInt << meipBit) |
+        (interrupt.seip.asUInt << seipBit)
+
+    (rawMip & ~hardwarePendingMask.U(cfg.dataWidth.W)).asUInt | hardwarePending
+  }
 }
 
 object CsrDelegation {

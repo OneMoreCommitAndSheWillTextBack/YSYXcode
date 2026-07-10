@@ -13,8 +13,6 @@ NO_DIFF_TESTS := a-ext \
 	a-amo-minmax-unsigned \
 	a-misaligned-trap \
 	device-clint-time \
-	device-clint-msip-interrupt \
-	device-clint-mtip-interrupt \
 	device-plic-basic \
 	sv32-basic \
 	sv32-ad-bit-page-fault \

@@ -3,7 +3,7 @@ mod itrace;
 mod report;
 mod statistics;
 
-pub use event::CommitGroupEvent;
+pub use event::{AsyncInterruptEvent, CommitGroupEvent};
 
 use itrace::Itrace;
 use statistics::Statistics;
@@ -50,9 +50,25 @@ pub enum SimulatorError {
     Sdb(SdbError),
     Cpu(CpuError),
     Difftest(DifftestError),
-    ImageIo { path: PathBuf, source: io::Error },
-    ItraceIo { path: PathBuf, source: io::Error },
+    ImageIo {
+        path: PathBuf,
+        source: io::Error,
+    },
+    ItraceIo {
+        path: PathBuf,
+        source: io::Error,
+    },
     CpuNotConnected,
+    MultipleAsyncInterrupts {
+        count: usize,
+        total_commits: u64,
+    },
+    NonTerminalAsyncInterrupt {
+        cause: u32,
+        epc: u32,
+        commits_at_interrupt: u64,
+        total_commits: u64,
+    },
     SimulateAbort,
     ReachMaxNoCommitCyc,
 }
@@ -62,6 +78,12 @@ pub enum SimulatorState {
     Stop,
     Abort,
     End,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PendingAsyncInterrupt {
+    event: AsyncInterruptEvent,
+    commits_at_interrupt: u64,
 }
 
 impl From<MemoryError> for SimulatorError {
@@ -102,6 +124,7 @@ pub struct Simulator {
     pending_finish: bool,
     pending_difftest_sync: bool,
     pending_difftest_sync_prefix: u64,
+    pending_async_interrupts: Vec<PendingAsyncInterrupt>,
     pending_commit_events: Vec<CommitGroupEvent>,
     pending_memory_error: Option<MemoryError>,
 }
@@ -137,6 +160,7 @@ impl Simulator {
             pending_finish: false,
             pending_difftest_sync: false,
             pending_difftest_sync_prefix: 0,
+            pending_async_interrupts: Vec::new(),
             pending_commit_events: Vec::new(),
             pending_memory_error: None,
         });
@@ -188,6 +212,7 @@ impl Simulator {
         self.pending_finish = false;
         self.pending_difftest_sync = false;
         self.pending_difftest_sync_prefix = 0;
+        self.pending_async_interrupts.clear();
         self.pending_commit_events.clear();
         self.pending_memory_error = None;
 
@@ -282,6 +307,7 @@ impl Simulator {
         let has_finish = self.pending_finish;
         let needs_difftest_sync = self.pending_difftest_sync;
         let difftest_sync_prefix = self.pending_difftest_sync_prefix;
+        let pending_async_interrupts = std::mem::take(&mut self.pending_async_interrupts);
         self.pending_commit_count = 0;
         self.pending_finish = false;
         self.pending_difftest_sync = false;
@@ -295,6 +321,16 @@ impl Simulator {
         if !matches!(self.state, SimulatorState::Running | SimulatorState::Stop) {
             return Ok(());
         }
+
+        let async_interrupt =
+            match terminal_async_interrupt(&pending_async_interrupts, commit_count) {
+                Ok(interrupt) => interrupt,
+                Err(error) => {
+                    report::print_difftest_report(&error);
+                    self.state = SimulatorState::Abort;
+                    return Err(error);
+                }
+            };
 
         self.statistics.on_commits(commit_count);
 
@@ -314,6 +350,13 @@ impl Simulator {
             let context = self.cpu_context()?;
             let result = if needs_difftest_sync {
                 self.difftest.step_and_sync(difftest_sync_prefix, &context)
+            } else if let Some(interrupt) = async_interrupt {
+                self.difftest.step_raise_interrupt_and_check(
+                    commit_count,
+                    interrupt.cause(),
+                    interrupt.epc(),
+                    &context,
+                )
             } else {
                 self.difftest.step_and_check(commit_count, &context)
             };
@@ -354,6 +397,12 @@ impl Simulator {
         let previous_commit_count = self.pending_commit_count;
         self.pending_commit_count += commit_count;
         self.pending_finish |= event.has_finish();
+        if let Some(interrupt) = event.async_interrupt() {
+            self.pending_async_interrupts.push(PendingAsyncInterrupt {
+                event: interrupt,
+                commits_at_interrupt: self.pending_commit_count,
+            });
+        }
         self.pending_commit_events.push(event);
         if let Some(prefix_count) = event.difftest_sync_prefix_count() {
             if !self.pending_difftest_sync {
@@ -493,6 +542,33 @@ impl Drop for Simulator {
     }
 }
 
+fn terminal_async_interrupt(
+    pending: &[PendingAsyncInterrupt],
+    total_commits: u64,
+) -> SimulatorResult<Option<AsyncInterruptEvent>> {
+    let [interrupt] = pending else {
+        return if pending.is_empty() {
+            Ok(None)
+        } else {
+            Err(SimulatorError::MultipleAsyncInterrupts {
+                count: pending.len(),
+                total_commits,
+            })
+        };
+    };
+
+    if interrupt.commits_at_interrupt != total_commits {
+        return Err(SimulatorError::NonTerminalAsyncInterrupt {
+            cause: interrupt.event.cause(),
+            epc: interrupt.event.epc(),
+            commits_at_interrupt: interrupt.commits_at_interrupt,
+            total_commits,
+        });
+    }
+
+    Ok(Some(interrupt.event))
+}
+
 fn dpi_memory_len(addr: u32, len: u32) -> Result<usize, MemoryError> {
     match len {
         1 | 2 | 4 => Ok(len as usize),
@@ -590,6 +666,9 @@ extern "C" fn simulator_on_difftest_commit(event: *const ffi::NpcCommitGroupEven
         event.next_pc,
         event.mem_addr,
         event.mem_size,
+        event.async_intr_valid,
+        event.async_intr_cause,
+        event.async_intr_epc,
     ));
 }
 

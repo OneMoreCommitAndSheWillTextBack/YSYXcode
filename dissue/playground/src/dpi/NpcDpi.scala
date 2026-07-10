@@ -24,7 +24,10 @@ object NpcDifftestCommit extends DPIClockedVoidFunctionImport {
       "instLen1",
       "nextPc1",
       "memAddr1",
-      "memSize1"
+      "memSize1",
+      "asyncIntrValid",
+      "asyncIntrCause",
+      "asyncIntrEpc"
     )
   )
 }

@@ -99,7 +99,8 @@ pub(crate) const CSR_DIFF_SPECS: [CsrDiffSpec; 12] = [
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mip,
-        diff: true,
+        // The reference has no CLINT/PLIC; accesses synchronize the full DUT context instead.
+        diff: false,
     },
     CsrDiffSpec {
         csr: DifftestCsr::Mscratch,

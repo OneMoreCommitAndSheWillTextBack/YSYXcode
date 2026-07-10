@@ -1,5 +1,8 @@
 use super::{MBASE, PMEM_SIZE};
 
+const CSR_SIP: u32 = 0x144;
+const CSR_MIP: u32 = 0x344;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct CommitEvent {
     valid: bool,
@@ -54,8 +57,29 @@ impl CommitEvent {
 pub const COMMIT_GROUP_WIDTH: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AsyncInterruptEvent {
+    cause: u32,
+    epc: u32,
+}
+
+impl AsyncInterruptEvent {
+    fn from_raw(valid: u32, cause: u32, epc: u32) -> Option<Self> {
+        (valid != 0).then_some(Self { cause, epc })
+    }
+
+    pub fn cause(self) -> u32 {
+        self.cause
+    }
+
+    pub fn epc(self) -> u32 {
+        self.epc
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CommitGroupEvent {
     lanes: [CommitEvent; COMMIT_GROUP_WIDTH],
+    async_interrupt: Option<AsyncInterruptEvent>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,6 +108,9 @@ impl CommitGroupEvent {
         next_pc: [u32; COMMIT_GROUP_WIDTH],
         mem_addr: [u32; COMMIT_GROUP_WIDTH],
         mem_size: [u32; COMMIT_GROUP_WIDTH],
+        async_intr_valid: u32,
+        async_intr_cause: u32,
+        async_intr_epc: u32,
     ) -> Self {
         let lanes = std::array::from_fn(|idx| {
             CommitEvent::new(
@@ -101,7 +128,14 @@ impl CommitGroupEvent {
             )
         });
 
-        Self { lanes }
+        Self {
+            lanes,
+            async_interrupt: AsyncInterruptEvent::from_raw(
+                async_intr_valid,
+                async_intr_cause,
+                async_intr_epc,
+            ),
+        }
     }
 
     pub fn valid_count(&self) -> u64 {
@@ -143,6 +177,10 @@ impl CommitGroupEvent {
         self.lanes.iter().any(|event| event.valid && event.finish)
     }
 
+    pub fn async_interrupt(&self) -> Option<AsyncInterruptEvent> {
+        self.async_interrupt
+    }
+
     pub fn needs_difftest_sync(&self) -> bool {
         self.difftest_sync_prefix_count().is_some()
     }
@@ -174,11 +212,19 @@ fn instruction_needs_difftest_sync(inst: u32) -> bool {
     let funct3 = (inst >> 12) & 0x7;
     let rd = (inst >> 7) & 0x1f;
 
-    is_counter_csr(csr) && csr_read_writes_rd(funct3, rd)
+    if !is_csr_access(funct3) {
+        return false;
+    }
+
+    is_interrupt_pending_csr(csr) || (is_counter_csr(csr) && rd != 0)
 }
 
-fn csr_read_writes_rd(funct3: u32, rd: u32) -> bool {
-    rd != 0 && matches!(funct3, 0b001 | 0b010 | 0b011 | 0b101 | 0b110 | 0b111)
+fn is_csr_access(funct3: u32) -> bool {
+    matches!(funct3, 0b001 | 0b010 | 0b011 | 0b101 | 0b110 | 0b111)
+}
+
+fn is_interrupt_pending_csr(csr: u32) -> bool {
+    matches!(csr, CSR_SIP | CSR_MIP)
 }
 
 fn is_counter_csr(csr: u32) -> bool {
@@ -208,4 +254,38 @@ fn pmem_contains(addr: u32, len: u32) -> bool {
         return false;
     };
     addr >= MBASE && end < MBASE + pmem_size
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn csr_instruction(csr: u32, funct3: u32, rd: u32) -> u32 {
+        (csr << 20) | (rd << 7) | (funct3 << 12) | 0b1110011
+    }
+
+    #[test]
+    fn pending_interrupt_csrs_always_require_sync() {
+        let csrrw_x0_mip = csr_instruction(CSR_MIP, 0b001, 0);
+        let csrrs_x0_sip = csr_instruction(CSR_SIP, 0b010, 0);
+
+        assert!(instruction_needs_difftest_sync(csrrw_x0_mip));
+        assert!(instruction_needs_difftest_sync(csrrs_x0_sip));
+    }
+
+    #[test]
+    fn unrelated_csr_access_does_not_require_sync() {
+        let csrrw_mie = csr_instruction(0x304, 0b001, 1);
+
+        assert!(!instruction_needs_difftest_sync(csrrw_mie));
+    }
+
+    #[test]
+    fn counter_sync_only_matters_when_the_value_is_observed() {
+        let csrrs_x0_cycle = csr_instruction(0xc00, 0b010, 0);
+        let csrrs_x1_cycle = csr_instruction(0xc00, 0b010, 1);
+
+        assert!(!instruction_needs_difftest_sync(csrrs_x0_cycle));
+        assert!(instruction_needs_difftest_sync(csrrs_x1_cycle));
+    }
 }

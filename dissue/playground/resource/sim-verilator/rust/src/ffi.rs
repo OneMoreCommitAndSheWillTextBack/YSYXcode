@@ -18,6 +18,9 @@ pub struct NpcCommitGroupEvent {
     pub next_pc: [u32; 2],
     pub mem_addr: [u32; 2],
     pub mem_size: [u32; 2],
+    pub async_intr_valid: u32,
+    pub async_intr_cause: u32,
+    pub async_intr_epc: u32,
 }
 
 #[allow(dead_code)]

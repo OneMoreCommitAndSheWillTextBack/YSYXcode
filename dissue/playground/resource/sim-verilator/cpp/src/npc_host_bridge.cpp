@@ -20,16 +20,14 @@ NpcHostBridge::~NpcHostBridge() {
   }
 }
 
-void NpcHostBridge::difftest_commit(uint32_t valid_mask, uint32_t finish_mask,
-                                    uint32_t mem_valid_mask,
-                                    uint32_t mem_write_mask, uint32_t pc0,
-                                    uint32_t inst0, uint32_t raw_inst0,
-                                    uint32_t inst_len0, uint32_t next_pc0,
-                                    uint32_t mem_addr0, uint32_t mem_size0,
-                                    uint32_t pc1, uint32_t inst1,
-                                    uint32_t raw_inst1, uint32_t inst_len1,
-                                    uint32_t next_pc1, uint32_t mem_addr1,
-                                    uint32_t mem_size1) {
+void NpcHostBridge::difftest_commit(
+    uint32_t valid_mask, uint32_t finish_mask, uint32_t mem_valid_mask,
+    uint32_t mem_write_mask, uint32_t pc0, uint32_t inst0, uint32_t raw_inst0,
+    uint32_t inst_len0, uint32_t next_pc0, uint32_t mem_addr0,
+    uint32_t mem_size0, uint32_t pc1, uint32_t inst1, uint32_t raw_inst1,
+    uint32_t inst_len1, uint32_t next_pc1, uint32_t mem_addr1,
+    uint32_t mem_size1, uint32_t async_intr_valid,
+    uint32_t async_intr_cause, uint32_t async_intr_epc) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.on_difftest_commit == nullptr) {
@@ -48,6 +46,9 @@ void NpcHostBridge::difftest_commit(uint32_t valid_mask, uint32_t finish_mask,
       {next_pc0, next_pc1},
       {mem_addr0, mem_addr1},
       {mem_size0, mem_size1},
+      async_intr_valid,
+      async_intr_cause,
+      async_intr_epc,
   };
   bridge->callbacks_.on_difftest_commit(&event);
 }

@@ -32,7 +32,7 @@ class Backend(
     val dmemReq  = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
 
-    val retire = Output(new RetireGroup(cfg))
+    val retire    = Output(new RetireGroup(cfg))
     val csrStatus = Output(new CsrStatus(cfg))
     val interrupt = Input(new CsrInterruptPending)
   })
@@ -54,7 +54,7 @@ class Backend(
   val retire       = Module(new RetireUnit(cfg))
   val difftest     = Module(new DifftestMonitor(resetVector, cfg))
 
-  io.redirect := retire.io.redirect
+  io.redirect  := retire.io.redirect
   io.csrStatus := csrFile.io.status
 
   private val flush =
@@ -192,6 +192,7 @@ class Backend(
   difftest.io.csrTrap   := retire.io.csrTrap
   difftest.io.csrMret   := retire.io.csrMret
   difftest.io.csrSret   := retire.io.csrSret
+  difftest.io.interrupt := io.interrupt
   difftest.io.context   := retire.io.context
 
   issueQueue.io.robHead := rob.io.head
