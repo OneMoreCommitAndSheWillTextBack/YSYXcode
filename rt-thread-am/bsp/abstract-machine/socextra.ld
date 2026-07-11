@@ -43,8 +43,6 @@ SECTIONS {
 }
 INSERT AFTER .data;
 
-
-
 SECTIONS {
   .bss.extra : {
     . = ALIGN(8);
