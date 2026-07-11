@@ -20,6 +20,8 @@ private[decoder] object RviSystemDecode extends DecodeGroup {
     FENCE_I -> fence(),
     ECALL  -> ecall,
     EBREAK -> ebreak,
+    // WFI currently returns immediately through the retire-only fence path.
+    WFI    -> fence(),
     SFENCE_VMA -> fence(sfence = true),
     SRET   -> sret,
     MRET   -> mret
