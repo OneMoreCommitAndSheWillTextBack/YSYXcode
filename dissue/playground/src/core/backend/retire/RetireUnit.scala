@@ -19,6 +19,7 @@ import top.core.backend.csr.{
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo, TrapLane, TrapUnit}
 import top.core.bundle.{BackendToFrontend, CfiType, DataMemReq}
 import top.config.BackendConfig
+import top.sim.BpuPerfBridge
 
 class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
@@ -126,6 +127,12 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   private val normalCommit = Wire(Vec(cfg.commitWidth, Bool()))
   for (i <- 0 until cfg.commitWidth) {
     normalCommit(i) := canRetire(i) && !trapRetire(i) && !mretRetire(i) && !sretRetire(i)
+  }
+
+  private val bpuPerf = Seq.fill(cfg.commitWidth)(Module(new BpuPerfBridge))
+  for (i <- 0 until cfg.commitWidth) {
+    bpuPerf(i).io.valid   := !reset.asBool && normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
+    bpuPerf(i).io.correct := io.rob(i).bits.fetch.predNpc === nextPc(i)
   }
 
   private val redirectCommit = Wire(Vec(cfg.commitWidth, Bool()))

@@ -1,24 +1,27 @@
 package top.sim
 
 import chisel3._
-import top.core.backend.bundle.RetireGroup
 import top.config.BackendConfig
-import top.dpi.{NpcCacheHit, NpcDifftestCommit, NpcDifftestContext}
+import top.core.backend.bundle.RetireGroup
+import top.core.backend.csr.CsrTrapCommit
+import top.dpi.{NpcBpuPerf, NpcCacheHit, NpcDifftestCommit, NpcDifftestContext}
 
 class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
   require(cfg.commitWidth == 2, "Difftest DPI currently exposes exactly two retire lanes")
 
   val io = IO(new Bundle {
     val retire  = Input(new RetireGroup(cfg))
+    val csrTrap = Input(new CsrTrapCommit(cfg))
     val context = Input(new DifftestCpuContext(cfg))
   })
 
-  private val validMask  = io.retire.validMask.pad(32)
-  private val finishMask = io.retire.finishMask.pad(32)
-  private val memValidMask =
+  private val validMask      = io.retire.validMask.pad(32)
+  private val finishMask     = io.retire.finishMask.pad(32)
+  private val memValidMask   =
     VecInit((0 until cfg.commitWidth).map(i => io.retire.lanes(i).memory.valid)).asUInt.pad(32)
-  private val memWriteMask =
+  private val memWriteMask   =
     VecInit((0 until cfg.commitWidth).map(i => io.retire.lanes(i).memory.write)).asUInt.pad(32)
+  private val asyncIntrValid = io.csrTrap.valid && io.csrTrap.cause(cfg.dataWidth - 1)
 
   NpcDifftestCommit.callWithEnable(
     io.retire.validMask.orR,
@@ -39,7 +42,10 @@ class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
     io.retire.lanes(1).fetch.instLen.pad(32),
     io.retire.lanes(1).nextPc,
     io.retire.lanes(1).memory.addr,
-    io.retire.lanes(1).memory.size.pad(32)
+    io.retire.lanes(1).memory.size.pad(32),
+    Mux(asyncIntrValid, 1.U(32.W), 0.U(32.W)),
+    io.csrTrap.cause,
+    io.csrTrap.epc
   )
 
   NpcDifftestContext.callWithEnable(
@@ -61,5 +67,17 @@ class CacheHitBridge extends Module {
   NpcCacheHit.callWithEnable(
     io.cacheFire,
     io.cacheHit
+  )
+}
+
+class BpuPerfBridge extends Module {
+  val io = IO(new Bundle {
+    val valid   = Input(Bool())
+    val correct = Input(Bool())
+  })
+
+  NpcBpuPerf.callWithEnable(
+    io.valid,
+    io.correct
   )
 }

@@ -15,6 +15,7 @@ class AxiXbar(cfg: MemConfig = MemConfig()) extends Module {
 
     val externalInterrupt = Input(Bool())
     val interrupt         = Output(new CsrInterruptPending)
+    val mtime             = Output(UInt(64.W))
   })
 
   private def inRange(addr: UInt, base: BigInt, size: BigInt): Bool =
@@ -56,6 +57,7 @@ class AxiXbar(cfg: MemConfig = MemConfig()) extends Module {
   io.interrupt.mtip := clint.io.mtip
   io.interrupt.meip := plic.io.meip
   io.interrupt.seip := plic.io.seip
+  io.mtime          := clint.io.mtime
 
   private val readRouteValid  = RegInit(false.B)
   private val readRouteDevice = RegInit(false.B)

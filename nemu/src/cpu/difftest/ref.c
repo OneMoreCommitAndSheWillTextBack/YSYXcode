@@ -86,7 +86,9 @@ __EXPORT void difftest_probe_mem(vaddr_t addr, difftest_mem_probe_t *result,
 
 __EXPORT void difftest_exec(uint64_t n) { cpu_exec(n); }
 
-__EXPORT void difftest_raise_intr(word_t NO) { assert(0); }
+__EXPORT void difftest_raise_intr(uint32_t cause) {
+  cpu.pc = isa_raise_intr(cause, cpu.pc);
+}
 
 __EXPORT void difftest_init(int port) {
   void init_mem();

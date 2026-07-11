@@ -24,7 +24,10 @@ object NpcDifftestCommit extends DPIClockedVoidFunctionImport {
       "instLen1",
       "nextPc1",
       "memAddr1",
-      "memSize1"
+      "memSize1",
+      "asyncIntrValid",
+      "asyncIntrCause",
+      "asyncIntrEpc"
     )
   )
 }
@@ -69,6 +72,15 @@ object NpcDivPerf extends DPIClockedVoidFunctionImport {
     Seq(
       "cycles",
       "special"
+    )
+  )
+}
+
+object NpcBpuPerf extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_bpu_perf"
+  override def inputNames:   Option[Seq[String]] = Some(
+    Seq(
+      "correct"
     )
   )
 }

@@ -17,6 +17,9 @@ typedef struct NpcCommitGroupEvent {
   uint32_t next_pc[2];
   uint32_t mem_addr[2];
   uint32_t mem_size[2];
+  uint32_t async_intr_valid;
+  uint32_t async_intr_cause;
+  uint32_t async_intr_epc;
 } NpcCommitGroupEvent;
 
 typedef struct NpcGprContext {
@@ -81,6 +84,7 @@ typedef struct NpcDpiCallbacks {
   void (*issue_queue_perf)(uint8_t issue_count, uint8_t occupancy,
                            uint8_t block_ready, uint8_t block_operand);
   void (*div_perf)(uint32_t cycles, uint8_t special);
+  void (*bpu_perf)(uint8_t correct);
 } NpcDpiCallbacks;
 
 #endif

@@ -11,6 +11,8 @@ pub struct PerfCounters {
     div_operations: u64,
     div_cycles: u64,
     div_special_operations: u64,
+    bpu_predictions: u64,
+    bpu_correct_predictions: u64,
 }
 
 impl PerfCounters {
@@ -52,6 +54,11 @@ impl PerfCounters {
         if special {
             self.div_special_operations += 1;
         }
+    }
+
+    pub fn bpu_prediction(&mut self, correct: bool) {
+        self.bpu_predictions += 1;
+        self.bpu_correct_predictions += if correct { 1 } else { 0 };
     }
 
     pub fn cache_hit_rate(&mut self) -> f64 {
@@ -117,6 +124,22 @@ impl PerfCounters {
             0.0
         } else {
             self.div_cycles as f64 / self.div_operations as f64
+        }
+    }
+
+    pub fn bpu_predictions(&self) -> u64 {
+        self.bpu_predictions
+    }
+
+    pub fn bpu_correct_predictions(&self) -> u64 {
+        self.bpu_correct_predictions
+    }
+
+    pub fn bpu_accuracy(&self) -> f64 {
+        if self.bpu_predictions == 0 {
+            0.0
+        } else {
+            self.bpu_correct_predictions as f64 / self.bpu_predictions as f64
         }
     }
 

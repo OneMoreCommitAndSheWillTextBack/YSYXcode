@@ -32,9 +32,10 @@ class Backend(
     val dmemReq  = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
 
-    val retire = Output(new RetireGroup(cfg))
+    val retire    = Output(new RetireGroup(cfg))
     val csrStatus = Output(new CsrStatus(cfg))
     val interrupt = Input(new CsrInterruptPending)
+    val mtime     = Input(UInt(64.W))
   })
 
   private val slotIdxWidth   = math.max(log2Ceil(cfg.issueWidth), 1)
@@ -54,7 +55,7 @@ class Backend(
   val retire       = Module(new RetireUnit(cfg))
   val difftest     = Module(new DifftestMonitor(resetVector, cfg))
 
-  io.redirect := retire.io.redirect
+  io.redirect  := retire.io.redirect
   io.csrStatus := csrFile.io.status
 
   private val flush =
@@ -173,6 +174,7 @@ class Backend(
   csrFile.io.mret         := retire.io.csrMret
   csrFile.io.sret         := retire.io.csrSret
   csrFile.io.interrupt    := io.interrupt
+  csrFile.io.mtime        := io.mtime
   csrFile.io.retireCount  := PopCount(retire.io.retire.validMask)
   retire.io.csrStatus     := csrFile.io.status
   csrTracker.io.commit    := retire.io.csrTrackerCommit
@@ -192,6 +194,7 @@ class Backend(
   difftest.io.csrTrap   := retire.io.csrTrap
   difftest.io.csrMret   := retire.io.csrMret
   difftest.io.csrSret   := retire.io.csrSret
+  difftest.io.interrupt := io.interrupt
   difftest.io.context   := retire.io.context
 
   issueQueue.io.robHead := rob.io.head

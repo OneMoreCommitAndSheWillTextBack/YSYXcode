@@ -101,9 +101,14 @@ object CsrArch {
     next
   }
 
-  def readValue(addr: UInt, values: CsrArchValues, cfg: BackendConfig = BackendConfig()): UInt =
+  def readValue(
+    addr:   UInt,
+    values: CsrArchValues,
+    mtime:  UInt,
+    cfg:    BackendConfig = BackendConfig()
+  ): UInt =
     MuxLookup(addr, 0.U(cfg.dataWidth.W))(
-      CsrSpec.supported.map(spec => CsrAddr(spec.addr) -> readValue(spec, values, cfg))
+      CsrSpec.supported.map(spec => CsrAddr(spec.addr) -> readValue(spec, values, mtime, cfg))
     )
 
   def readLegal(addr: UInt, priv: UInt, values: CsrArchValues): Bool =
@@ -194,18 +199,22 @@ object CsrArch {
     )
   }
 
-  private def readValue(spec: CsrSpec, values: CsrArchValues, cfg: BackendConfig): UInt =
+  private def readValue(spec: CsrSpec, values: CsrArchValues, mtime: UInt, cfg: BackendConfig): UInt =
     spec.name match {
-      case "sstatus"                       => values(CsrAddr.of("mstatus")) & data(Sstatus.visibleMask, cfg)
-      case "sie"                           => values(CsrAddr.of("mie")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
-      case "sip"                           => values(CsrAddr.of("mip")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
-      case "cycle" | "time"                =>
+      case "sstatus"             => values(CsrAddr.of("mstatus")) & data(Sstatus.visibleMask, cfg)
+      case "sie"                 => values(CsrAddr.of("mie")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
+      case "sip"                 => values(CsrAddr.of("mip")) & delegatedMask(values(CsrAddr.of("mideleg")), CsrInterrupt.sieMask, cfg)
+      case "cycle"               =>
         values("mcycle")
-      case "instret"                       =>
+      case "time"                =>
+        mtime(31, 0)
+      case "instret"             =>
         values("minstret")
-      case "cycleh" | "timeh" | "instreth" =>
+      case "timeh"               =>
+        mtime(63, 32)
+      case "cycleh" | "instreth" =>
         0.U(cfg.dataWidth.W)
-      case name                            =>
+      case name                  =>
         values
           .get(name)
           .getOrElse(throw new IllegalArgumentException(s"CSR ${spec.name} has no stored state or read behavior"))
@@ -263,7 +272,9 @@ object CsrArch {
     !isCount ||
     priv === PrivMode.M ||
     (priv === PrivMode.S && (values(CsrAddr.of("mcounteren")) & bit).orR) ||
-    (priv === PrivMode.U && (values(CsrAddr.of("mcounteren")) & bit).orR && (values(CsrAddr.of("scounteren")) & bit).orR)
+    (priv === PrivMode.U && (values(CsrAddr.of("mcounteren")) & bit).orR && (values(
+      CsrAddr.of("scounteren")
+    ) & bit).orR)
   }
 
   private def counterBit(addr: UInt): UInt =

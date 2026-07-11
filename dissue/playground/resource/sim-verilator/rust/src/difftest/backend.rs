@@ -22,6 +22,7 @@ pub(super) struct RefBackend {
     memcpy: DifftestMemcpy,
     regcpy: DifftestRegcpy,
     exec: DifftestExec,
+    intr: DifftestIntr,
 }
 
 impl RefBackend {
@@ -46,6 +47,7 @@ impl RefBackend {
                 memcpy: load_symbol(handle, path, b"difftest_memcpy\0")?,
                 regcpy: load_symbol(handle, path, b"difftest_regcpy\0")?,
                 exec: load_symbol(handle, path, b"difftest_exec\0")?,
+                intr: load_symbol(handle, path, b"difftest_raise_intr\0")?,
             }
         };
 
@@ -93,6 +95,10 @@ impl RefBackend {
     pub(super) fn exec(&mut self, n: u64) {
         unsafe { (self.exec)(n) };
     }
+
+    pub(super) fn raise_interrupt(&mut self, cause: u32) {
+        unsafe { (self.intr)(cause) };
+    }
 }
 
 impl fmt::Debug for RefBackend {
@@ -116,6 +122,7 @@ type DifftestMemcpy = unsafe extern "C" fn(addr: u32, buf: *mut c_void, n: usize
 type DifftestRegcpy = unsafe extern "C" fn(dut: *mut c_void, direction: c_int);
 type DifftestExec = unsafe extern "C" fn(n: u64);
 type DifftestInit = unsafe extern "C" fn(port: c_int);
+type DifftestIntr = unsafe extern "C" fn(cause: u32);
 
 unsafe fn load_symbol<T: Copy>(
     handle: NonNull<c_void>,

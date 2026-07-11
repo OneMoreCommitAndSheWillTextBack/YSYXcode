@@ -18,6 +18,9 @@ pub struct NpcCommitGroupEvent {
     pub next_pc: [u32; 2],
     pub mem_addr: [u32; 2],
     pub mem_size: [u32; 2],
+    pub async_intr_valid: u32,
+    pub async_intr_cause: u32,
+    pub async_intr_epc: u32,
 }
 
 #[allow(dead_code)]
@@ -32,6 +35,7 @@ pub struct NpcDpiCallbacks {
     pub issue_queue_perf:
         Option<extern "C" fn(issue_count: u8, occupancy: u8, block_ready: u8, block_operand: u8)>,
     pub div_perf: Option<extern "C" fn(cycles: u32, special: u8)>,
+    pub bpu_perf: Option<extern "C" fn(correct: u8)>,
 }
 
 #[allow(dead_code)]

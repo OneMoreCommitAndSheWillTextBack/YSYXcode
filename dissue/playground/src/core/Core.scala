@@ -22,6 +22,7 @@ class Core(resetVector: BigInt) extends Module {
 
   val io = IO(new Bundle {
     val interrupt = Input(new CsrInterruptPending)
+    val mtime     = Input(UInt(64.W))
     val axi       = new AxiPort
   })
 
@@ -31,6 +32,7 @@ class Core(resetVector: BigInt) extends Module {
 
   frontend.io.csrStatus := backend.io.csrStatus
   backend.io.interrupt  := io.interrupt
+  backend.io.mtime      := io.mtime
 
   frontend.io.trapRedirect.valid := backend.io.redirect.trapRedirect.valid
   frontend.io.trapRedirect.value := backend.io.redirect.trapRedirect.target

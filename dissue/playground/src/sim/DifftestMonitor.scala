@@ -4,11 +4,13 @@ import chisel3._
 import chisel3.util.{MuxCase, PopCount, Valid}
 import top.core.backend.bundle.{CommitRegWrite, RetireGroup}
 import top.core.backend.csr.{
+  CsrAddr,
   CsrArch,
   CsrArchValues,
-  CsrAddr,
   CsrCommit,
   CsrContextUpdate,
+  CsrInterrupt,
+  CsrInterruptPending,
   CsrMretCommit,
   CsrSpec,
   CsrSretCommit,
@@ -28,6 +30,7 @@ class DifftestMonitor(
     val csrTrap   = Input(new CsrTrapCommit(cfg))
     val csrMret   = Input(new CsrMretCommit(cfg))
     val csrSret   = Input(new CsrSretCommit(cfg))
+    val interrupt = Input(new CsrInterruptPending)
     val context   = Input(new CsrContextUpdate(cfg))
   })
 
@@ -48,23 +51,32 @@ class DifftestMonitor(
     )
   }
 
-  private val currentCsr = CsrArchValues.fromVec(csrRegs)
+  private val currentRawCsr = CsrArchValues.fromVec(csrRegs)
 
-  private val retireCount  = PopCount(io.retire.validMask)
-  private val committedCsr = CsrArch.commitValues(currentCsr, io.csrCommit, cfg)
-  private val archNextCsr  = CsrArch.nextValues(currentCsr, io.csrCommit, io.csrTrap, io.csrMret, io.csrSret, priv, cfg)
-  private val nextCsr      = CsrArch.countedValues(archNextCsr, retireCount, cfg)
-  private val nextPriv     =
+  private val retireCount      = PopCount(io.retire.validMask)
+  private val committedRawCsr  = CsrArch.commitValues(currentRawCsr, io.csrCommit, cfg)
+  private val archNextRawCsr   =
+    CsrArch.nextValues(currentRawCsr, io.csrCommit, io.csrTrap, io.csrMret, io.csrSret, priv, cfg)
+  private val nextRawCsr       = CsrArch.countedValues(archNextRawCsr, retireCount, cfg)
+  private val nextReportedCsr  = nextRawCsr.withValue(
+    CsrAddr.of("mip"),
+    CsrInterrupt.effectiveMip(nextRawCsr(CsrAddr.of("mip")), io.interrupt, cfg)
+  )
+  private val resetReportedCsr = resetCsr.withValue(
+    CsrAddr.of("mip"),
+    CsrInterrupt.effectiveMip(resetCsr(CsrAddr.of("mip")), io.interrupt, cfg)
+  )
+  private val nextPriv         =
     Mux(
       io.csrTrap.valid,
       Mux(io.csrTrap.toSupervisor, PrivMode.S, PrivMode.M),
       Mux(
         io.csrMret.valid,
-        CsrArch.mretPriv(committedCsr(CsrAddr.of("mstatus"))),
-        Mux(io.csrSret.valid, CsrArch.sretPriv(committedCsr(CsrAddr.of("mstatus"))), priv)
+        CsrArch.mretPriv(committedRawCsr(CsrAddr.of("mstatus"))),
+        Mux(io.csrSret.valid, CsrArch.sretPriv(committedRawCsr(CsrAddr.of("mstatus"))), priv)
       )
     )
-  private val nextPc       = Mux(io.context.valid, io.context.pc, pc)
+  private val nextPc           = Mux(io.context.valid, io.context.pc, pc)
 
   private def writeCsrReport(report: DifftestCsrState, values: CsrArchValues): Unit = {
     for ((name, idx) <- CsrSpec.difftestExport.zipWithIndex) {
@@ -81,22 +93,23 @@ class DifftestMonitor(
   for (idx <- 0 until 32) {
     reportContext.gpr(idx) := Mux(reset.asBool, 0.U, nextGpr(idx))
   }
-  writeCsrReport(reportContext.csr, nextCsr)
+  writeCsrReport(reportContext.csr, nextReportedCsr)
   when(reset.asBool) {
-    writeCsrReport(reportContext.csr, resetCsr)
+    writeCsrReport(reportContext.csr, resetReportedCsr)
   }
 
   private val bridge = Module(new DifftestBridge(cfg))
   bridge.io.retire  := io.retire
+  bridge.io.csrTrap := io.csrTrap
   bridge.io.context := reportContext
 
   when(hasCommit) {
     gpr     := nextGpr
-    csrRegs := VecInit(nextCsr.values)
+    csrRegs := VecInit(nextRawCsr.values)
     priv    := nextPriv
     pc      := nextPc
   }.otherwise {
-    csrRegs(CsrSpec.stateIndex("mcycle"))   := nextCsr("mcycle")
-    csrRegs(CsrSpec.stateIndex("minstret")) := nextCsr("minstret")
+    csrRegs(CsrSpec.stateIndex("mcycle"))   := nextRawCsr("mcycle")
+    csrRegs(CsrSpec.stateIndex("minstret")) := nextRawCsr("minstret")
   }
 }

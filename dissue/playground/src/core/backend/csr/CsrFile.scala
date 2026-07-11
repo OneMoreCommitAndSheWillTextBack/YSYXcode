@@ -15,29 +15,20 @@ class CsrFile(
   private val priv    = RegInit(PrivMode.M)
   private val current = CsrArchValues.fromVec(regs)
 
-  private def mipWithInterrupts(mip: UInt): UInt = {
-    val hardwareMask =
-      (BigInt(1) << CsrInterrupt.msipBit) |
-        (BigInt(1) << CsrInterrupt.mtipBit) |
-        (BigInt(1) << CsrInterrupt.meipBit) |
-        (BigInt(1) << CsrInterrupt.seipBit)
-    val pending =
-      (io.interrupt.msip.asUInt << CsrInterrupt.msipBit) |
-        (io.interrupt.mtip.asUInt << CsrInterrupt.mtipBit) |
-        (io.interrupt.meip.asUInt << CsrInterrupt.meipBit) |
-        (io.interrupt.seip.asUInt << CsrInterrupt.seipBit)
+  private val currentWithInterrupts = current.withValue(
+    CsrAddr.of("mip"),
+    CsrInterrupt.effectiveMip(current(CsrAddr.of("mip")), io.interrupt, cfg)
+  )
 
-    (mip & ~hardwareMask.U(cfg.dataWidth.W)).asUInt | pending
-  }
+  private val committed          = CsrArch.commitValues(currentWithInterrupts, io.commit, cfg)
+  private val nextArch           = CsrArch.nextValues(currentWithInterrupts, io.commit, io.trap, io.mret, io.sret, priv, cfg)
+  private val next               = CsrArch.countedValues(nextArch, io.retireCount, cfg)
+  private val nextWithInterrupts = next.withValue(
+    CsrAddr.of("mip"),
+    CsrInterrupt.effectiveMip(next(CsrAddr.of("mip")), io.interrupt, cfg)
+  )
 
-  private val currentWithInterrupts = current.withValue(CsrAddr.of("mip"), mipWithInterrupts(current(CsrAddr.of("mip"))))
-
-  private val committed = CsrArch.commitValues(currentWithInterrupts, io.commit, cfg)
-  private val nextArch  = CsrArch.nextValues(currentWithInterrupts, io.commit, io.trap, io.mret, io.sret, priv, cfg)
-  private val next      = CsrArch.countedValues(nextArch, io.retireCount, cfg)
-  private val nextWithInterrupts = next.withValue(CsrAddr.of("mip"), mipWithInterrupts(next(CsrAddr.of("mip"))))
-
-  io.read.data       := CsrArch.readValue(io.read.addr, nextWithInterrupts, cfg)
+  io.read.data       := CsrArch.readValue(io.read.addr, nextWithInterrupts, io.mtime, cfg)
   io.read.readLegal  := CsrArch.readLegal(io.read.addr, priv, currentWithInterrupts)
   io.read.writeLegal := CsrArch.writeLegal(io.read.addr, priv, currentWithInterrupts)
 

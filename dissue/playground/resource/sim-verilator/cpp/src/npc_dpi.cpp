@@ -18,19 +18,23 @@ extern "C" void npc_difftest_commit(int valid_mask, int finish_mask,
                                     int inst_len0, int next_pc0, int mem_addr0,
                                     int mem_size0, int pc1, int inst1,
                                     int raw_inst1, int inst_len1, int next_pc1,
-                                    int mem_addr1, int mem_size1) {
+                                    int mem_addr1, int mem_size1,
+                                    int async_intr_valid, int async_intr_cause,
+                                    int async_intr_epc) {
   NpcHostBridge::difftest_commit(
       static_cast<uint32_t>(valid_mask), static_cast<uint32_t>(finish_mask),
       static_cast<uint32_t>(mem_valid_mask),
-      static_cast<uint32_t>(mem_write_mask),
-      static_cast<uint32_t>(pc0), static_cast<uint32_t>(inst0),
-      static_cast<uint32_t>(raw_inst0), static_cast<uint32_t>(inst_len0),
-      static_cast<uint32_t>(next_pc0), static_cast<uint32_t>(mem_addr0),
-      static_cast<uint32_t>(mem_size0),
+      static_cast<uint32_t>(mem_write_mask), static_cast<uint32_t>(pc0),
+      static_cast<uint32_t>(inst0), static_cast<uint32_t>(raw_inst0),
+      static_cast<uint32_t>(inst_len0), static_cast<uint32_t>(next_pc0),
+      static_cast<uint32_t>(mem_addr0), static_cast<uint32_t>(mem_size0),
       static_cast<uint32_t>(pc1), static_cast<uint32_t>(inst1),
       static_cast<uint32_t>(raw_inst1), static_cast<uint32_t>(inst_len1),
       static_cast<uint32_t>(next_pc1), static_cast<uint32_t>(mem_addr1),
-      static_cast<uint32_t>(mem_size1));
+      static_cast<uint32_t>(mem_size1),
+      static_cast<uint32_t>(async_intr_valid),
+      static_cast<uint32_t>(async_intr_cause),
+      static_cast<uint32_t>(async_intr_epc));
 }
 
 extern "C" void npc_difftest_context(int valid, int pc, int priv,
@@ -118,4 +122,8 @@ extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,
 extern "C" void npc_div_perf(int cycles, char special) {
   NpcHostBridge::div_perf(static_cast<uint32_t>(cycles),
                           static_cast<uint8_t>(special));
+}
+
+extern "C" void npc_bpu_perf(char correct) {
+  NpcHostBridge::bpu_perf(static_cast<uint8_t>(correct));
 }

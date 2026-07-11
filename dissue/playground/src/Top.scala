@@ -23,6 +23,7 @@ class Top(target: Target = Target.Npc) extends Module {
 
   xbar.io.externalInterrupt := io.interrupt
   core.io.interrupt         := xbar.io.interrupt
+  core.io.mtime             := xbar.io.mtime
 
   xbar.io.core <> core.io.axi
   io.master <> xbar.io.mem

@@ -83,6 +83,7 @@ class CsrFileIO(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val mret        = Input(new CsrMretCommit(cfg))
   val sret        = Input(new CsrSretCommit(cfg))
   val interrupt   = Input(new CsrInterruptPending)
+  val mtime       = Input(UInt(64.W))
   val retireCount = Input(UInt(log2Ceil(cfg.commitWidth + 1).W))
   val status      = Output(new CsrStatus(cfg))
 }
