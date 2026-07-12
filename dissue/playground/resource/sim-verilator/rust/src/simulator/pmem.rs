@@ -1,4 +1,7 @@
-use super::{Simulator, SimulatorError, SimulatorState, ANSI_FG_RED, ANSI_RESET, MBASE, PMEM_SIZE};
+use super::{
+    CommitGroupEvent, Simulator, SimulatorError, SimulatorState, ANSI_FG_RED, ANSI_RESET, MBASE,
+    PMEM_SIZE,
+};
 use crate::memory::MemoryError;
 use std::fs;
 
@@ -46,6 +49,21 @@ impl Simulator {
             self.memory.read(addr, &mut buffer[..len])?;
             self.difftest.sync_memory(addr, &buffer[..len])?;
             offset += len;
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn sync_difftest_store_conditionals(
+        &mut self,
+        events: &[CommitGroupEvent],
+    ) -> Result<(), SimulatorError> {
+        for event in events {
+            for (addr, len) in event.store_conditional_pmem_regions_to_sync() {
+                let mut data = [0; 4];
+                self.memory.read(addr, &mut data[..len])?;
+                self.difftest.sync_memory(addr, &data[..len])?;
+            }
         }
 
         Ok(())
