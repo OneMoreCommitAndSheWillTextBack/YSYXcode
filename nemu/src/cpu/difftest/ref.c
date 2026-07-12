@@ -20,9 +20,14 @@
 #include <memory/paddr.h>
 #include <memory/vaddr.h>
 #include <stdint.h>
+#include <string.h>
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
   if (direction == DIFFTEST_TO_REF) {
+    if (in_pmem(addr) && (uint64_t)addr + n <= (uint64_t)PMEM_RIGHT + 1) {
+      memcpy(guest_to_host(addr), buf, n);
+      return;
+    }
     for (int i = 0; i < n; i++){
       paddr_write(addr + i, 1, *((uint8_t *)buf + i));
     }

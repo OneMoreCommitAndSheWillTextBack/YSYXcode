@@ -52,6 +52,10 @@ impl CommitEvent {
             && (instruction_needs_difftest_sync(self.inst)
                 || memory_access_needs_difftest_sync(self.mem_valid, self.mem_addr, self.mem_size))
     }
+
+    fn is_store_conditional(self) -> bool {
+        is_store_conditional(self.inst)
+    }
 }
 
 pub const COMMIT_GROUP_WIDTH: usize = 2;
@@ -185,6 +189,29 @@ impl CommitGroupEvent {
         self.difftest_sync_prefix_count().is_some()
     }
 
+    pub(super) fn has_store_conditional(&self) -> bool {
+        self.store_conditional_gpr_mask() != 0
+    }
+
+    pub(super) fn store_conditional_gpr_mask(&self) -> u32 {
+        self.lanes
+            .iter()
+            .filter(|event| event.valid && event.is_store_conditional())
+            .fold(0, |mask, event| mask | (1 << ((event.inst >> 7) & 0x1f)))
+    }
+
+    pub(super) fn store_conditional_pmem_regions_to_sync(
+        &self,
+    ) -> impl Iterator<Item = (u32, usize)> + '_ {
+        self.lanes.iter().filter_map(|event| {
+            let should_sync = event.valid && event.mem_valid && event.is_store_conditional();
+            let len = mem_access_len(event.mem_size);
+
+            (should_sync && pmem_contains(event.mem_addr, len))
+                .then_some((event.mem_addr, len as usize))
+        })
+    }
+
     pub fn difftest_sync_prefix_count(&self) -> Option<u64> {
         let mut count = 0;
         for event in self.lanes {
@@ -217,6 +244,16 @@ fn instruction_needs_difftest_sync(inst: u32) -> bool {
     }
 
     is_interrupt_pending_csr(csr) || (is_counter_csr(csr) && rd != 0)
+}
+
+fn is_store_conditional(inst: u32) -> bool {
+    const OPCODE_AMO: u32 = 0b0101111;
+    const FUNCT3_WORD: u32 = 0b010;
+    const FUNCT5_SC: u32 = 0b00011;
+
+    (inst & 0x7f) == OPCODE_AMO
+        && ((inst >> 12) & 0x7) == FUNCT3_WORD
+        && ((inst >> 27) & 0x1f) == FUNCT5_SC
 }
 
 fn is_csr_access(funct3: u32) -> bool {
@@ -287,5 +324,41 @@ mod tests {
 
         assert!(!instruction_needs_difftest_sync(csrrs_x0_cycle));
         assert!(instruction_needs_difftest_sync(csrrs_x1_cycle));
+    }
+
+    #[test]
+    fn store_conditional_is_identified_for_post_execution_sync() {
+        assert!(is_store_conditional(0x18e4_a6af));
+        assert!(!is_store_conditional(0x1004_a7af));
+        assert!(!is_store_conditional(0x0000_002f));
+    }
+
+    #[test]
+    fn failed_store_conditional_still_requests_memory_resynchronization() {
+        let event = CommitGroupEvent::new(
+            1,
+            0,
+            1,
+            0,
+            [0, 0],
+            [0x18e4_a6af, 0],
+            [0x18e4_a6af, 0],
+            [4, 0],
+            [4, 0],
+            [MBASE, 0],
+            [2, 0],
+            0,
+            0,
+            0,
+        );
+
+        assert!(event.has_store_conditional());
+        assert_eq!(event.store_conditional_gpr_mask(), 1 << 13);
+        assert_eq!(
+            event
+                .store_conditional_pmem_regions_to_sync()
+                .collect::<Vec<_>>(),
+            vec![(MBASE, 4)]
+        );
     }
 }

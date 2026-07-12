@@ -8,7 +8,7 @@ pub(crate) use csr::CSR_DIFF_SPECS;
 
 use crate::{config::DifftestRef, cpu::CpuContext};
 use backend::RefBackend;
-use compare::compare_contexts;
+use compare::{compare_contexts, compare_contexts_except_gprs};
 use std::{mem, os::raw::c_int, path::PathBuf};
 
 const DEFAULT_DIFFTEST_PORT: c_int = 1234;
@@ -128,7 +128,7 @@ impl DiffTest {
     }
 
     pub fn step_and_check(&mut self, steps: u64, context: &CpuContext) -> DifftestResult<()> {
-        self.step_interrupt_and_check(steps, None, context)
+        self.step_interrupt_and_check(steps, None, context, 0, false)
     }
 
     pub fn step_raise_interrupt_and_check(
@@ -142,7 +142,31 @@ impl DiffTest {
             cause,
             expected_epc,
         };
-        self.step_interrupt_and_check(steps, Some(interrupt), context)
+        self.step_interrupt_and_check(steps, Some(interrupt), context, 0, false)
+    }
+
+    pub fn step_and_check_except_gprs_and_sync(
+        &mut self,
+        steps: u64,
+        context: &CpuContext,
+        ignored_gpr_mask: u32,
+    ) -> DifftestResult<()> {
+        self.step_interrupt_and_check(steps, None, context, ignored_gpr_mask, true)
+    }
+
+    pub fn step_raise_interrupt_and_check_except_gprs_and_sync(
+        &mut self,
+        steps: u64,
+        cause: u32,
+        expected_epc: u32,
+        context: &CpuContext,
+        ignored_gpr_mask: u32,
+    ) -> DifftestResult<()> {
+        let interrupt = InterruptInjection {
+            cause,
+            expected_epc,
+        };
+        self.step_interrupt_and_check(steps, Some(interrupt), context, ignored_gpr_mask, true)
     }
 
     fn step_interrupt_and_check(
@@ -150,6 +174,8 @@ impl DiffTest {
         steps: u64,
         interrupt: Option<InterruptInjection>,
         context: &CpuContext,
+        ignored_gpr_mask: u32,
+        sync_context: bool,
     ) -> DifftestResult<()> {
         let DifftestState::Attached(backend) = &mut self.state else {
             return Ok(());
@@ -174,6 +200,16 @@ impl DiffTest {
         }
 
         let reference = backend.copy_context_from_ref();
-        compare_contexts(context, &reference)
+        if ignored_gpr_mask == 0 {
+            compare_contexts(context, &reference)?;
+        } else {
+            compare_contexts_except_gprs(context, &reference, ignored_gpr_mask)?;
+        }
+
+        if sync_context {
+            backend.copy_context_to_ref(context);
+        }
+
+        Ok(())
     }
 }

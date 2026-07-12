@@ -1,4 +1,7 @@
-use super::{Simulator, SimulatorError, SimulatorState, ANSI_FG_RED, ANSI_RESET, MBASE, PMEM_SIZE};
+use super::{
+    CommitGroupEvent, Simulator, SimulatorError, SimulatorState, ANSI_FG_RED, ANSI_RESET, MBASE,
+    PMEM_SIZE,
+};
 use crate::memory::MemoryError;
 use std::fs;
 
@@ -9,6 +12,7 @@ const DEFAULT_IMAGE: [u32; 5] = [
     0x00100073, // ebreak (used as nemu_trap)
     0xdeadbeef, // some data
 ];
+const DIFFTEST_SYNC_CHUNK_SIZE: usize = 1024 * 1024;
 
 impl Simulator {
     pub(super) fn load_image(&mut self) -> Result<usize, SimulatorError> {
@@ -27,9 +31,42 @@ impl Simulator {
         };
 
         self.memory.write(MBASE, &image)?;
-        self.difftest.sync_memory(MBASE, &image)?;
         crate::Log!("Image Load finished",);
         Ok(image.len())
+    }
+
+    pub(super) fn sync_pmem_to_difftest(&mut self) -> Result<(), SimulatorError> {
+        if !self.difftest.needs_attach_context() {
+            return Ok(());
+        }
+
+        let mut buffer = vec![0; DIFFTEST_SYNC_CHUNK_SIZE];
+        let mut offset = 0;
+
+        while offset < PMEM_SIZE {
+            let len = (PMEM_SIZE - offset).min(buffer.len());
+            let addr = MBASE + offset as u32;
+            self.memory.read(addr, &mut buffer[..len])?;
+            self.difftest.sync_memory(addr, &buffer[..len])?;
+            offset += len;
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn sync_difftest_store_conditionals(
+        &mut self,
+        events: &[CommitGroupEvent],
+    ) -> Result<(), SimulatorError> {
+        for event in events {
+            for (addr, len) in event.store_conditional_pmem_regions_to_sync() {
+                let mut data = [0; 4];
+                self.memory.read(addr, &mut data[..len])?;
+                self.difftest.sync_memory(addr, &data[..len])?;
+            }
+        }
+
+        Ok(())
     }
 
     pub(super) fn pmem_read(&self, addr: u32, len: u32) -> Result<u32, MemoryError> {

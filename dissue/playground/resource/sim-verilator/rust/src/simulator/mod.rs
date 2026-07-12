@@ -164,6 +164,8 @@ impl Simulator {
 
         simulator.memory.register_ram("pmem", MBASE, PMEM_SIZE)?;
         simulator.load_image()?;
+        simulator.sync_pmem_to_difftest()?;
+        crate::Log!("Finish sync the pmem");
 
         let wave_path = simulator.config.wave_path.as_deref();
         simulator

@@ -16,6 +16,10 @@ impl Simulator {
         self.pending_difftest_sync = false;
         self.pending_difftest_sync_prefix = 0;
         let commit_events = std::mem::take(&mut self.pending_commit_events);
+        let store_conditional_gpr_mask = commit_events
+            .iter()
+            .fold(0, |mask, event| mask | event.store_conditional_gpr_mask());
+        let has_store_conditional = store_conditional_gpr_mask != 0;
 
         if commit_count == 0 {
             return Ok(());
@@ -54,6 +58,23 @@ impl Simulator {
             let result = if needs_difftest_sync {
                 // The synchronized DUT context already includes any interrupt taken at this boundary.
                 self.difftest.step_and_sync(difftest_sync_prefix, &context)
+            } else if has_store_conditional {
+                if let Some(interrupt) = async_interrupt {
+                    self.difftest
+                        .step_raise_interrupt_and_check_except_gprs_and_sync(
+                            commit_count,
+                            interrupt.cause(),
+                            interrupt.epc(),
+                            &context,
+                            store_conditional_gpr_mask,
+                        )
+                } else {
+                    self.difftest.step_and_check_except_gprs_and_sync(
+                        commit_count,
+                        &context,
+                        store_conditional_gpr_mask,
+                    )
+                }
             } else if let Some(interrupt) = async_interrupt {
                 self.difftest.step_raise_interrupt_and_check(
                     commit_count,
@@ -70,6 +91,10 @@ impl Simulator {
                 report::print_difftest_report(&error);
                 self.state = SimulatorState::Abort;
                 return Err(error);
+            }
+
+            if has_store_conditional {
+                self.sync_difftest_store_conditionals(&commit_events)?;
             }
         }
 
