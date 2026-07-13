@@ -20,6 +20,7 @@ public:
   void enable();
   void disable();
   void close();
+  void abandon();
   void dump(uint64_t time);
 
 private:

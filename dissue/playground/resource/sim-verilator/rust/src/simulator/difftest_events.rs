@@ -1,27 +1,50 @@
 use super::{
-    report, CommitGroupEvent, PendingAsyncInterrupt, Simulator, SimulatorError, SimulatorState,
-    ANSI_FG_GREEN, ANSI_FG_RED, ANSI_RESET,
+    report, CommitGroupEvent, PendingAsyncInterrupt, PendingDifftestEvents, Simulator,
+    SimulatorError, SimulatorState, ANSI_FG_GREEN, ANSI_FG_RED, ANSI_RESET,
 };
 use crate::{cpu::NpcCpuContext, SimulatorResult};
 
+impl PendingDifftestEvents {
+    pub(super) fn clear(&mut self) {
+        self.commit_count = 0;
+        self.finish = false;
+        self.sync_prefix = None;
+        self.async_interrupts.clear();
+        self.commit_events.clear();
+    }
+
+    fn record_commit(&mut self, event: CommitGroupEvent) {
+        let previous_commit_count = self.commit_count;
+        self.commit_count += event.valid_count();
+        self.finish |= event.has_finish();
+
+        if let Some(interrupt) = event.async_interrupt() {
+            self.async_interrupts.push(PendingAsyncInterrupt {
+                event: interrupt,
+                commits_at_interrupt: self.commit_count,
+            });
+        }
+
+        if let Some(prefix_count) = event.difftest_sync_prefix_count() {
+            if self.sync_prefix.is_none() {
+                self.sync_prefix = Some(previous_commit_count + prefix_count);
+            }
+        }
+
+        self.commit_events.push(event);
+    }
+}
+
 impl Simulator {
     pub(super) fn process_difftest_events(&mut self) -> SimulatorResult<()> {
-        let commit_count = self.pending_commit_count;
-        let has_finish = self.pending_finish;
-        let needs_difftest_sync = self.pending_difftest_sync;
-        let difftest_sync_prefix = self.pending_difftest_sync_prefix;
-        let pending_async_interrupts = std::mem::take(&mut self.pending_async_interrupts);
-        self.pending_commit_count = 0;
-        self.pending_finish = false;
-        self.pending_difftest_sync = false;
-        self.pending_difftest_sync_prefix = 0;
-        let commit_events = std::mem::take(&mut self.pending_commit_events);
-        let store_conditional_gpr_mask = commit_events
+        let pending = std::mem::take(&mut self.pending_difftest_events);
+        let store_conditional_gpr_mask = pending
+            .commit_events
             .iter()
             .fold(0, |mask, event| mask | event.store_conditional_gpr_mask());
         let has_store_conditional = store_conditional_gpr_mask != 0;
 
-        if commit_count == 0 {
+        if pending.commit_count == 0 {
             return Ok(());
         }
 
@@ -30,7 +53,7 @@ impl Simulator {
         }
 
         let async_interrupt =
-            match terminal_async_interrupt(&pending_async_interrupts, commit_count) {
+            match terminal_async_interrupt(&pending.async_interrupts, pending.commit_count) {
                 Ok(interrupt) => interrupt,
                 Err(error) => {
                     report::print_difftest_report(&error);
@@ -39,11 +62,11 @@ impl Simulator {
                 }
             };
 
-        self.statistics.on_commits(commit_count);
+        self.statistics.on_commits(pending.commit_count);
 
         if let Some(itrace) = self.itrace.as_mut() {
             let itrace_path = itrace.path().to_path_buf();
-            for event in &commit_events {
+            for event in &pending.commit_events {
                 itrace
                     .write_commit_group(event)
                     .map_err(|source| SimulatorError::ItraceIo {
@@ -55,14 +78,14 @@ impl Simulator {
 
         if self.difftest.needs_check_context() {
             let context = self.cpu_context()?;
-            let result = if needs_difftest_sync {
+            let result = if let Some(difftest_sync_prefix) = pending.sync_prefix {
                 // The synchronized DUT context already includes any interrupt taken at this boundary.
                 self.difftest.step_and_sync(difftest_sync_prefix, &context)
             } else if has_store_conditional {
                 if let Some(interrupt) = async_interrupt {
                     self.difftest
                         .step_raise_interrupt_and_check_except_gprs_and_sync(
-                            commit_count,
+                            pending.commit_count,
                             interrupt.cause(),
                             interrupt.epc(),
                             &context,
@@ -70,20 +93,20 @@ impl Simulator {
                         )
                 } else {
                     self.difftest.step_and_check_except_gprs_and_sync(
-                        commit_count,
+                        pending.commit_count,
                         &context,
                         store_conditional_gpr_mask,
                     )
                 }
             } else if let Some(interrupt) = async_interrupt {
                 self.difftest.step_raise_interrupt_and_check(
-                    commit_count,
+                    pending.commit_count,
                     interrupt.cause(),
                     interrupt.epc(),
                     &context,
                 )
             } else {
-                self.difftest.step_and_check(commit_count, &context)
+                self.difftest.step_and_check(pending.commit_count, &context)
             };
 
             if let Err(error) = result {
@@ -94,17 +117,15 @@ impl Simulator {
             }
 
             if has_store_conditional {
-                self.sync_difftest_store_conditionals(&commit_events)?;
+                self.sync_difftest_store_conditionals(&pending.commit_events)?;
             }
         }
 
-        if has_finish {
+        if pending.finish {
             let context = self.cpu_context()?;
             self.state = if context.gpr[10] == 0 {
-                eprintln!("{}HIT GOOD TRAP{}", ANSI_FG_GREEN, ANSI_RESET);
                 SimulatorState::End
             } else {
-                eprintln!("{}HIT BAD TRAP{}", ANSI_FG_RED, ANSI_RESET);
                 SimulatorState::Abort
             };
         }
@@ -123,22 +144,7 @@ impl Simulator {
             return;
         }
 
-        let previous_commit_count = self.pending_commit_count;
-        self.pending_commit_count += commit_count;
-        self.pending_finish |= event.has_finish();
-        if let Some(interrupt) = event.async_interrupt() {
-            self.pending_async_interrupts.push(PendingAsyncInterrupt {
-                event: interrupt,
-                commits_at_interrupt: self.pending_commit_count,
-            });
-        }
-        self.pending_commit_events.push(event);
-        if let Some(prefix_count) = event.difftest_sync_prefix_count() {
-            if !self.pending_difftest_sync {
-                self.pending_difftest_sync_prefix = previous_commit_count + prefix_count;
-            }
-            self.pending_difftest_sync = true;
-        }
+        self.pending_difftest_events.record_commit(event);
     }
 
     pub(super) fn on_difftest_context(&mut self, context: NpcCpuContext) {

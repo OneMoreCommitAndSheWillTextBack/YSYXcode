@@ -1,11 +1,16 @@
 mod context;
+mod lightsss_controller;
 mod wave;
 
 pub use context::{CpuContext, CsrContext, NpcCpuContext, PrivMode};
 pub use wave::WaveConfig;
 
-use crate::ffi;
-use std::{ffi::CString, path::Path, ptr::NonNull};
+use crate::{
+    config::WaveMode,
+    cpu::lightsss_controller::{CheckpointRole, LightsssController},
+    ffi,
+};
+use std::{ffi::CString, fmt, ptr::NonNull};
 
 #[derive(Debug)]
 pub enum CpuError {
@@ -14,9 +19,22 @@ pub enum CpuError {
     ContextUnavailable,
 }
 
+impl fmt::Display for CpuError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CreateFailed => write!(formatter, "failed to create the CPU simulator"),
+            Self::InvalidWavePath => write!(formatter, "wave path contains a NUL byte"),
+            Self::ContextUnavailable => write!(formatter, "CPU context is unavailable"),
+        }
+    }
+}
+
+impl std::error::Error for CpuError {}
+
 pub struct Cpu {
     raw: NonNull<ffi::NpcSim>,
     wave: WaveConfig,
+    lightsss: LightsssController,
 }
 
 impl Cpu {
@@ -27,6 +45,7 @@ impl Cpu {
         Ok(Self {
             raw,
             wave: WaveConfig::default(),
+            lightsss: LightsssController::new(),
         })
     }
 
@@ -42,8 +61,8 @@ impl Cpu {
         self.raw.as_ptr()
     }
 
-    pub fn init_wave(&mut self, path: Option<&Path>) -> Result<(), CpuError> {
-        let path_buf = path.map(Path::to_path_buf);
+    pub fn init_wave(&mut self, cfg: WaveConfig) -> Result<(), CpuError> {
+        let path_buf = cfg.path.clone();
         let path = match path_buf.as_ref() {
             Some(path) => Some(
                 CString::new(path.to_string_lossy().as_bytes())
@@ -59,9 +78,48 @@ impl Cpu {
             )
         };
 
+        self.wave = cfg;
         self.wave.path = path_buf;
         self.wave.opened = true;
+        if let WaveMode::Lightsss {
+            max_checkpoints, ..
+        } = self.wave.mode
+        {
+            self.lightsss.set_max_checkpoints(max_checkpoints);
+        }
         Ok(())
+    }
+
+    pub fn wave_update(&mut self, cycle: u64) {
+        if self.wave.enabled {
+            return;
+        }
+
+        match self.wave.mode {
+            WaveMode::After { cycle: after } => {
+                if cycle > after {
+                    self.enable_wave();
+                }
+            }
+            WaveMode::Lightsss { gap, .. } => {
+                if cycle != 0 && cycle % gap == 0 {
+                    match self.lightsss.add_checkpoints(cycle) {
+                        Ok(CheckpointRole::Parent) => {}
+                        Ok(CheckpointRole::RecoveryChild { result_tx: _ }) => {
+                            self.enable_wave();
+                        }
+                        Err(error) => {
+                            crate::LogError!(
+                                "failed to create lightsss checkpoint at cycle {}: {}",
+                                cycle,
+                                error
+                            );
+                        }
+                    }
+                }
+            }
+            WaveMode::Disabled | WaveMode::Immediate => {}
+        }
     }
 
     pub fn enable_wave(&mut self) {
@@ -98,10 +156,41 @@ impl Cpu {
         self.wave.enabled = false;
         self.wave.opened = false;
     }
+
+    pub fn terminal(&mut self) {
+        if matches!(self.wave.mode, WaveMode::Lightsss { .. }) {
+            match self.lightsss.wake() {
+                Ok(Some(_)) => {
+                    self.handoff_wave_to_checkpoint();
+                    return;
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    crate::LogError!("failed to wake lightsss checkpoint: {}", error);
+                }
+            }
+        }
+
+        self.shutdown_lightsss();
+        self.close_wave();
+    }
+
+    pub fn shutdown_lightsss(&mut self) {
+        if let Err(error) = self.lightsss.shutdown() {
+            crate::LogError!("failed to shut down lightsss checkpoints: {}", error);
+        }
+    }
+
+    fn handoff_wave_to_checkpoint(&mut self) {
+        unsafe { ffi::npc_sim_abandon_wave(self.raw.as_ptr()) };
+        self.wave.enabled = false;
+        self.wave.opened = false;
+    }
 }
 
 impl Drop for Cpu {
     fn drop(&mut self) {
+        self.shutdown_lightsss();
         unsafe { ffi::npc_sim_delete(self.raw.as_ptr()) };
     }
 }

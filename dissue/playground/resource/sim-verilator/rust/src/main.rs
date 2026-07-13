@@ -21,7 +21,7 @@ fn main() {
     let config = SimulatorConfig::from_env();
 
     if let Err(error) = run_simulator(config) {
-        eprintln!("{error:?}");
+        eprintln!("[Error] {}", error.display());
         std::process::exit(1);
     }
 }
@@ -40,6 +40,6 @@ fn run_simulator(config: SimulatorConfig) -> SimulatorResult<()> {
     };
 
     simulator.generat_report();
-    simulator.wave_close();
+    simulator.shutdown();
     return res;
 }

@@ -48,4 +48,5 @@ unsafe extern "C" {
     pub fn npc_sim_enable_wave(sim: *mut NpcSim);
     pub fn npc_sim_disable_wave(sim: *mut NpcSim);
     pub fn npc_sim_close_wave(sim: *mut NpcSim);
+    pub fn npc_sim_abandon_wave(sim: *mut NpcSim);
 }

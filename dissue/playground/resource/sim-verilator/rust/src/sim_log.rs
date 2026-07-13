@@ -1,15 +1,23 @@
-use crate::config::SimulatorConfig;
+use crate::config::{SimulatorConfig, WaveMode};
 use std::fmt;
 
 const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_FG_BLUE: &str = "\x1b[34m";
 const ANSI_FG_GREEN: &str = "\x1b[32m";
 const ANSI_FG_RED: &str = "\x1b[31m";
+const ANSI_FG_ORANGE: &str = "\x1b[38;5;208m";
 
 pub fn log(file: &str, line: u32, func: &str, args: fmt::Arguments<'_>) {
     eprintln!(
         "{}[{}:{} {}] {}{}",
         ANSI_FG_BLUE, file, line, func, args, ANSI_RESET
+    );
+}
+
+pub fn log_error(file: &str, line: u32, func: &str, args: fmt::Arguments<'_>) {
+    eprintln!(
+        "{}[{}:{} {}] {}{}",
+        ANSI_FG_ORANGE, file, line, func, args, ANSI_RESET
     );
 }
 
@@ -32,6 +40,25 @@ macro_rules! Log {
     }};
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! LogError {
+    ($($arg:tt)*) => {{
+        fn __npc_log_error_func_marker() {}
+        let full_name = std::any::type_name_of_val(&__npc_log_error_func_marker);
+        let func_name = full_name
+            .strip_suffix("::__npc_log_error_func_marker")
+            .unwrap_or(full_name);
+
+        $crate::sim_log::log_error(
+            file!(),
+            line!(),
+            func_name,
+            format_args!($($arg)*),
+        );
+    }};
+}
+
 pub fn show_trace(config: &SimulatorConfig) {
     crate::Log!("trace show");
     let state = |enabled| {
@@ -41,12 +68,17 @@ pub fn show_trace(config: &SimulatorConfig) {
             format!("{}OFF{}", ANSI_FG_RED, ANSI_RESET)
         }
     };
-    let wave_state = if config.enable_wave {
-        state(true)
-    } else if let Some(cycle) = config.wave_after {
-        format!("{}AFTER({cycle}){}", ANSI_FG_GREEN, ANSI_RESET)
-    } else {
-        state(false)
+    let wave_state = match config.wave_config.mode {
+        WaveMode::Disabled => state(false),
+        WaveMode::Immediate => state(true),
+        WaveMode::After { cycle } => format!("{}AFTER({cycle}){}", ANSI_FG_GREEN, ANSI_RESET),
+        WaveMode::Lightsss {
+            gap,
+            max_checkpoints,
+        } => format!(
+            "{}LIGHTSSS(gap={gap}, checkpoints={max_checkpoints}){}",
+            ANSI_FG_GREEN, ANSI_RESET
+        ),
     };
 
     eprintln!(

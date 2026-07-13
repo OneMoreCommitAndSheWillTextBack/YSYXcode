@@ -36,6 +36,12 @@ void NpcWave::close() {
   }
 }
 
+void NpcWave::abandon() {
+  // A lightsss child owns the duplicated trace after a process handoff.
+  trace_.release();
+  enable_ = false;
+}
+
 void NpcWave::dump(uint64_t time) {
   if (!enable_ || trace_ == nullptr) {
     return;

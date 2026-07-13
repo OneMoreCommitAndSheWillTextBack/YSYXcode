@@ -96,9 +96,9 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
 
   when(state === ICacheState.SIdle && io.req.fire) {
     when(hit) {
-      respReg.data := hitData
-      respReg.meta := io.req.bits.meta
-      respReg.hit  := true.B
+      respReg.data            := hitData
+      respReg.meta            := io.req.bits.meta
+      respReg.hit             := true.B
       respReg.exception.valid := false.B
       respReg.exception.cause := 0.U
       respReg.exception.tval  := 0.U
@@ -127,7 +127,9 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     }
   }
 
-  when(state === ICacheState.SRefillResp && io.refillResp.fire && !io.refillResp.bits.exception.valid && !killMiss && !io.flush) {
+  when(
+    state === ICacheState.SRefillResp && io.refillResp.fire && !io.refillResp.bits.exception.valid && !killMiss && !io.flush
+  ) {
     validArray(missSet) := true.B
     tagArray(missSet)   := missTag
     dataArray(missSet)  := io.refillResp.bits.data

@@ -9,7 +9,7 @@ pub(crate) use csr::CSR_DIFF_SPECS;
 use crate::{config::DifftestRef, cpu::CpuContext};
 use backend::RefBackend;
 use compare::{compare_contexts, compare_contexts_except_gprs};
-use std::{mem, os::raw::c_int, path::PathBuf};
+use std::{fmt, mem, os::raw::c_int, path::PathBuf};
 
 const DEFAULT_DIFFTEST_PORT: c_int = 1234;
 
@@ -40,6 +40,44 @@ pub enum DifftestError {
         reference: CpuContext,
     },
 }
+
+impl fmt::Display for DifftestError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReferenceNotLoaded => write!(formatter, "difftest reference is not loaded"),
+            Self::InvalidReferencePath { path } => {
+                write!(formatter, "invalid difftest reference path `{}`", path.display())
+            }
+            Self::LoadFailed { path, message } => write!(
+                formatter,
+                "failed to load difftest reference `{}`: {message}",
+                path.display()
+            ),
+            Self::MissingSymbol {
+                path,
+                symbol,
+                message,
+            } => write!(
+                formatter,
+                "difftest reference `{}` is missing symbol `{symbol}`: {message}",
+                path.display()
+            ),
+            Self::InterruptEpcMismatch {
+                cause,
+                expected_epc,
+                reference_pc,
+            } => write!(
+                formatter,
+                "interrupt 0x{cause:08x} expected EPC 0x{expected_epc:08x}, reference PC is 0x{reference_pc:08x}"
+            ),
+            Self::Mismatch { pc, mismatch, .. } => {
+                write!(formatter, "difftest mismatch at PC 0x{pc:08x}: {mismatch}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for DifftestError {}
 
 pub type DifftestResult<T> = Result<T, DifftestError>;
 
