@@ -3,7 +3,7 @@ mod lightsss_controller;
 mod wave;
 
 pub use context::{CpuContext, CsrContext, NpcCpuContext, PrivMode};
-pub use wave::WaveConfig;
+pub use wave::WaveSession;
 
 use crate::{
     config::WaveMode,
@@ -33,7 +33,7 @@ impl std::error::Error for CpuError {}
 
 pub struct Cpu {
     raw: NonNull<ffi::NpcSim>,
-    wave: WaveConfig,
+    wave: WaveSession,
     lightsss: LightsssController,
 }
 
@@ -44,7 +44,7 @@ impl Cpu {
 
         Ok(Self {
             raw,
-            wave: WaveConfig::default(),
+            wave: WaveSession::default(),
             lightsss: LightsssController::new(),
         })
     }
@@ -61,8 +61,8 @@ impl Cpu {
         self.raw.as_ptr()
     }
 
-    pub fn init_wave(&mut self, cfg: WaveConfig) -> Result<(), CpuError> {
-        let path_buf = cfg.path.clone();
+    pub fn init_wave(&mut self, session: WaveSession) -> Result<(), CpuError> {
+        let path_buf = session.path.clone();
         let path = match path_buf.as_ref() {
             Some(path) => Some(
                 CString::new(path.to_string_lossy().as_bytes())
@@ -78,7 +78,7 @@ impl Cpu {
             )
         };
 
-        self.wave = cfg;
+        self.wave = session;
         self.wave.path = path_buf;
         self.wave.opened = true;
         if let WaveMode::Lightsss {

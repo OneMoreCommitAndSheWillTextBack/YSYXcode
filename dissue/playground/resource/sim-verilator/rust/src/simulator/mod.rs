@@ -15,7 +15,7 @@ use statistics::Statistics;
 
 use crate::{
     config::{SimulatorConfig, WaveMode},
-    cpu::{Cpu, CpuContext, CpuError, CsrContext, WaveConfig as CpuWaveConfig},
+    cpu::{Cpu, CpuContext, CpuError, CsrContext, WaveSession},
     difftest::{DiffTest, DifftestError},
     memory::{Memory, MemoryError},
     perf::{Perf, PerfCounters},
@@ -201,7 +201,7 @@ impl Simulator {
             None => None,
         };
 
-        let wave_config = CpuWaveConfig::from(&config.wave_config);
+        let wave_session = WaveSession::from(&config.wave_config);
         let mut simulator = Box::new(Self {
             config,
             memory: Memory::new(),
@@ -230,7 +230,7 @@ impl Simulator {
             .cpu
             .as_mut()
             .ok_or(SimulatorError::CpuNotConnected)?
-            .init_wave(wave_config)?;
+            .init_wave(wave_session)?;
 
         simulator.finish_config();
         crate::Log!("Finish Simulator Config");
