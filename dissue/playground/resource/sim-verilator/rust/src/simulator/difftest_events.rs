@@ -1,6 +1,6 @@
 use super::{
     report, CommitGroupEvent, PendingAsyncInterrupt, PendingDifftestEvents, Simulator,
-    SimulatorError, SimulatorState, ANSI_FG_GREEN, ANSI_FG_RED, ANSI_RESET,
+    SimulatorError, SimulatorState,
 };
 use crate::{cpu::NpcCpuContext, SimulatorResult};
 
