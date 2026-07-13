@@ -62,17 +62,35 @@ fn looks_like_path(arg: &str) -> bool {
         || arg.ends_with(".so")
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaveMode {
+    Disabled,
+    Immediate,
+    After { cycle: u64 },
+    Lightsss { gap: u64, max_checkpoints: usize },
+}
+
+impl Default for WaveMode {
+    fn default() -> Self {
+        Self::Disabled
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct WaveConfig {
+    pub path: Option<PathBuf>,
+    pub mode: WaveMode,
+}
+
 #[derive(Debug, Clone)]
 pub struct SimulatorConfig {
     pub batch: bool,
     pub image: Option<PathBuf>,
     pub reset_cycles: u32,
-    pub enable_wave: bool,
-    pub wave_after: Option<u64>,
-    pub wave_path: Option<PathBuf>,
     pub itrace_path: Option<PathBuf>,
     pub difftest_on: bool,
     pub difftest_ref: Option<DifftestRef>,
+    pub wave_config: WaveConfig,
 }
 
 impl Default for SimulatorConfig {
@@ -81,12 +99,10 @@ impl Default for SimulatorConfig {
             batch: false,
             image: None,
             reset_cycles: 30,
-            enable_wave: false,
-            wave_after: None,
-            wave_path: None,
             itrace_path: None,
             difftest_on: false,
             difftest_ref: None,
+            wave_config: WaveConfig::default(),
         }
     }
 }
@@ -96,7 +112,9 @@ impl SimulatorConfig {
         let mut config = Self::default();
         let mut args = env::args().skip(1);
         let mut explicit_wave = false;
-        let mut wave_after_requested = false;
+        let mut wave_after = None;
+        let mut lightsss_gap = None;
+        let mut lightsss_max_checkpoints = None;
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
@@ -111,31 +129,57 @@ impl SimulatorConfig {
                 }
                 "--wave" => {
                     explicit_wave = true;
-                    config.enable_wave = true;
                 }
                 "--wave-after" => match args.next() {
-                    Some(value) => {
-                        wave_after_requested = true;
-                        match value.parse::<u64>() {
-                            Ok(wave_after) if wave_after > 0 => {
-                                config.wave_after = Some(wave_after);
-                            }
-                            _ => {
-                                eprintln!(
-                                    "[Error] --wave-after expects a positive integer, got `{}`.",
-                                    value
-                                );
-                            }
+                    Some(value) => match value.parse::<u64>() {
+                        Ok(after_cycle) if after_cycle > 0 => {
+                            wave_after = Some(after_cycle);
                         }
-                    }
+                        _ => {
+                            eprintln!(
+                                "[Error] --wave-after expects a positive integer, got `{}`.",
+                                value
+                            );
+                        }
+                    },
                     None => {
-                        wave_after_requested = true;
+                        eprintln!("[Error] Missing value after {}", arg);
+                    }
+                },
+                "--lightsss-gap" => match args.next() {
+                    Some(value) => match value.parse::<u64>() {
+                        Ok(gap) if gap > 0 => {
+                            lightsss_gap = Some(gap);
+                        }
+                        _ => {
+                            eprintln!(
+                                "[Error] --lightsss-gap expects a positive integer, got `{}`.",
+                                value
+                            );
+                        }
+                    },
+                    None => {
+                        eprintln!("[Error] Missing value after {}", arg);
+                    }
+                },
+                "--lightsss-max-checkpoints" => match args.next() {
+                    Some(value) => match value.parse::<usize>() {
+                        Ok(max_checkpoints) if max_checkpoints > 0 => {
+                            lightsss_max_checkpoints = Some(max_checkpoints);
+                        }
+                        _ => {
+                            eprintln!(
+                                "[Error] --lightsss-max-checkpoints expects a positive integer, got `{}`.",
+                                value
+                            );
+                        }
+                    },
+                    None => {
                         eprintln!("[Error] Missing value after {}", arg);
                     }
                 },
                 "--wave-path" => {
-                    config.enable_wave = true;
-                    config.wave_path = args.next().map(PathBuf::from);
+                    config.wave_config.path = args.next().map(PathBuf::from);
                 }
                 "--itrace-path" => {
                     config.itrace_path = args.next().map(PathBuf::from);
@@ -164,10 +208,65 @@ impl SimulatorConfig {
             }
         }
 
-        if wave_after_requested && !explicit_wave {
-            config.enable_wave = false;
-        }
+        config.wave_config.mode = resolve_wave_mode(
+            explicit_wave,
+            config.wave_config.path.is_some(),
+            wave_after,
+            lightsss_gap,
+            lightsss_max_checkpoints,
+        );
 
         config
+    }
+}
+
+fn resolve_wave_mode(
+    explicit_wave: bool,
+    has_wave_path: bool,
+    wave_after: Option<u64>,
+    lightsss_gap: Option<u64>,
+    lightsss_max_checkpoints: Option<usize>,
+) -> WaveMode {
+    let lightsss_requested = lightsss_gap.is_some() || lightsss_max_checkpoints.is_some();
+
+    if explicit_wave {
+        if wave_after.is_some() || lightsss_requested {
+            eprintln!("[Error] --wave cannot be combined with another wave mode.");
+            return WaveMode::Disabled;
+        }
+        return WaveMode::Immediate;
+    }
+
+    if wave_after.is_some() && lightsss_requested {
+        eprintln!("[Error] Cannot use --wave-after and lightsss at the same time.");
+        return WaveMode::Disabled;
+    }
+
+    if let Some(cycle) = wave_after {
+        return WaveMode::After { cycle };
+    }
+
+    if lightsss_requested {
+        return match (lightsss_gap, lightsss_max_checkpoints) {
+            (Some(gap), Some(max_checkpoints)) => WaveMode::Lightsss {
+                gap,
+                max_checkpoints,
+            },
+            (Some(_), None) => {
+                eprintln!("[Error] --lightsss-gap requires --lightsss-max-checkpoints.");
+                WaveMode::Disabled
+            }
+            (None, Some(_)) => {
+                eprintln!("[Error] --lightsss-max-checkpoints requires --lightsss-gap.");
+                WaveMode::Disabled
+            }
+            (None, None) => WaveMode::Disabled,
+        };
+    }
+
+    if has_wave_path {
+        WaveMode::Immediate
+    } else {
+        WaveMode::Disabled
     }
 }

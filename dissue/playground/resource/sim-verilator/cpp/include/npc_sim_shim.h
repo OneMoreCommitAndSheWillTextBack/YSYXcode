@@ -19,6 +19,7 @@ void npc_sim_init_wave(NpcSim *sim, const char *path);
 void npc_sim_enable_wave(NpcSim *sim);
 void npc_sim_disable_wave(NpcSim *sim);
 void npc_sim_close_wave(NpcSim *sim);
+void npc_sim_abandon_wave(NpcSim *sim);
 
 #ifdef __cplusplus
 }

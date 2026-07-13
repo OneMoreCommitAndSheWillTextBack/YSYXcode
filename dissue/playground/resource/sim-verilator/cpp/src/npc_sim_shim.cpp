@@ -55,3 +55,11 @@ extern "C" void npc_sim_close_wave(NpcSim *sim) {
 
   sim->close_wave();
 }
+
+extern "C" void npc_sim_abandon_wave(NpcSim *sim) {
+  if (sim == nullptr) {
+    return;
+  }
+
+  sim->abandon_wave();
+}

@@ -55,3 +55,5 @@ void NpcSim::enable_wave() { wave_.enable(); }
 void NpcSim::disable_wave() { wave_.disable(); }
 
 void NpcSim::close_wave() { wave_.close(); }
+
+void NpcSim::abandon_wave() { wave_.abandon(); }

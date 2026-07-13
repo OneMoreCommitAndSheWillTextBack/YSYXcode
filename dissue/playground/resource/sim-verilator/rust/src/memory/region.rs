@@ -1,4 +1,5 @@
 use super::MemoryBlock;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MemoryError {
@@ -8,6 +9,37 @@ pub enum MemoryError {
     Unmapped { addr: u32, len: usize },
     OutOfBounds { name: String, addr: u32, len: usize },
 }
+
+impl fmt::Display for MemoryError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroLength { name } => {
+                write!(formatter, "memory region `{name}` has zero length")
+            }
+            Self::AddressOverflow { name } => {
+                write!(
+                    formatter,
+                    "memory region `{name}` exceeds the address space"
+                )
+            }
+            Self::Overlap { name, existing } => {
+                write!(formatter, "memory region `{name}` overlaps `{existing}`")
+            }
+            Self::Unmapped { addr, len } => {
+                write!(
+                    formatter,
+                    "unmapped memory access at 0x{addr:08x} (length {len})"
+                )
+            }
+            Self::OutOfBounds { name, addr, len } => write!(
+                formatter,
+                "memory access at 0x{addr:08x} (length {len}) is outside region `{name}`"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for MemoryError {}
 
 #[derive(Debug)]
 pub struct MemoryRegion {

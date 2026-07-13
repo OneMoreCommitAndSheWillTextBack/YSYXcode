@@ -1,5 +1,6 @@
 use super::{DifftestError, DifftestResult, CSR_DIFF_SPECS};
 use crate::cpu::{CpuContext, PrivMode};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DifftestMismatch {
@@ -21,6 +22,39 @@ pub enum DifftestMismatch {
         dut: u32,
         reference: u32,
     },
+}
+
+impl fmt::Display for DifftestMismatch {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Pc { dut, reference } => write!(
+                formatter,
+                "program counter differs: DUT=0x{dut:08x}, reference=0x{reference:08x}"
+            ),
+            Self::Gpr {
+                index,
+                dut,
+                reference,
+            } => write!(
+                formatter,
+                "x{index} differs: DUT=0x{dut:08x}, reference=0x{reference:08x}"
+            ),
+            Self::Priv { dut, reference } => {
+                write!(
+                    formatter,
+                    "privilege mode differs: DUT={dut:?}, reference={reference:?}"
+                )
+            }
+            Self::Csr {
+                name,
+                dut,
+                reference,
+            } => write!(
+                formatter,
+                "CSR `{name}` differs: DUT=0x{dut:08x}, reference=0x{reference:08x}"
+            ),
+        }
+    }
 }
 
 pub(super) fn compare_contexts(dut: &CpuContext, reference: &CpuContext) -> DifftestResult<()> {

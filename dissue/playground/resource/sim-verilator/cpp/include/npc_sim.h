@@ -28,6 +28,7 @@ public:
   void enable_wave();
   void disable_wave();
   void close_wave();
+  void abandon_wave();
 
 private:
   NpcHostBridge bridge_;
