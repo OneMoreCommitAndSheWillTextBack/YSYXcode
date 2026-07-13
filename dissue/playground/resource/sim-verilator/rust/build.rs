@@ -1,7 +1,5 @@
 use std::{
     env,
-    ffi::OsStr,
-    fs,
     path::{Path, PathBuf},
     process::{Command, ExitStatus},
 };
@@ -10,8 +8,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=NPC_LINK_VERILATOR");
     println!("cargo:rerun-if-env-changed=NPC_VERILATOR_TOP");
     println!("cargo:rerun-if-env-changed=NPC_VERILATOR_OBJ_DIR");
-    println!("cargo:rerun-if-env-changed=NPC_SIM_CPP_DIR");
-    println!("cargo:rerun-if-env-changed=VERILATOR_ROOT");
+    println!("cargo:rerun-if-env-changed=NPC_SIM_NATIVE_LIB");
 
     if env::var_os("NPC_LINK_VERILATOR").is_none() {
         return;
@@ -24,9 +21,16 @@ fn main() {
             .join("../../../..")
             .join("build/verilator/obj_dir")
     });
-    let cpp_dir = env_path("NPC_SIM_CPP_DIR").unwrap_or_else(|| manifest_dir.join("../cpp"));
-    let verilator_root = env_path("VERILATOR_ROOT").unwrap_or_else(detect_verilator_root);
-    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let native_lib = env_path("NPC_SIM_NATIVE_LIB").unwrap_or_else(|| {
+        obj_dir
+            .parent()
+            .map(|dir| dir.join("libnpc_sim_native.a"))
+            .unwrap_or_else(|| {
+                manifest_dir
+                    .join("../../../..")
+                    .join("build/verilator/libnpc_sim_native.a")
+            })
+    });
 
     let model_mk = obj_dir.join(format!("V{top}.mk"));
     if !model_mk.exists() {
@@ -47,7 +51,14 @@ fn main() {
 
     build_verilated_model(&obj_dir, &top);
 
-    let native_lib = build_native_lib(&out_dir, &cpp_dir, &obj_dir, &verilator_root);
+    println!("cargo:rerun-if-changed={}", native_lib.display());
+    if !native_lib.exists() {
+        panic!(
+            "missing native simulator archive {}; run `make verilator-exec` first",
+            native_lib.display()
+        );
+    }
+
     let model_lib = obj_dir.join(format!("V{top}__ALL.a"));
     if !model_lib.exists() {
         panic!("missing Verilator model archive {}", model_lib.display());
@@ -74,103 +85,6 @@ fn build_verilated_model(obj_dir: &Path, top: &str) {
         .arg("-f")
         .arg(&makefile)
         .arg(&archive));
-}
-
-fn build_native_lib(
-    out_dir: &Path,
-    cpp_dir: &Path,
-    obj_dir: &Path,
-    verilator_root: &Path,
-) -> PathBuf {
-    fs::create_dir_all(out_dir).unwrap();
-
-    let include_dir = cpp_dir.join("include");
-    let verilator_include = verilator_root.join("include");
-    let verilator_vltstd = verilator_include.join("vltstd");
-    let includes = [
-        include_dir,
-        obj_dir.to_path_buf(),
-        verilator_include.clone(),
-        verilator_vltstd,
-    ];
-
-    let mut objects = Vec::new();
-    for source in [
-        cpp_dir.join("src/npc_cpu.cpp"),
-        cpp_dir.join("src/npc_dpi.cpp"),
-        cpp_dir.join("src/npc_host_bridge.cpp"),
-        cpp_dir.join("src/npc_sim.cpp"),
-        cpp_dir.join("src/npc_sim_shim.cpp"),
-        cpp_dir.join("src/npc_wave.cpp"),
-        verilator_include.join("verilated.cpp"),
-        verilator_include.join("verilated_dpi.cpp"),
-        verilator_include.join("verilated_threads.cpp"),
-        verilator_include.join("verilated_vcd_c.cpp"),
-    ] {
-        println!("cargo:rerun-if-changed={}", source.display());
-        let object = compile_cpp(&source, out_dir, &includes);
-        objects.push(object);
-    }
-
-    let native_lib = out_dir.join("libnpc_sim_native.a");
-    let ar = env::var_os("AR").unwrap_or_else(|| "ar".into());
-    let mut command = Command::new(ar);
-    command.arg("crs").arg(&native_lib);
-    for object in &objects {
-        command.arg(object);
-    }
-    run(&mut command);
-
-    native_lib
-}
-
-fn compile_cpp(source: &Path, out_dir: &Path, includes: &[PathBuf]) -> PathBuf {
-    if !source.exists() {
-        panic!("missing C++ source {}", source.display());
-    }
-
-    let stem = source
-        .file_stem()
-        .and_then(OsStr::to_str)
-        .unwrap_or("object");
-    let object = out_dir.join(format!("{stem}.o"));
-    let cxx = env::var_os("CXX").unwrap_or_else(|| "c++".into());
-    let mut command = Command::new(cxx);
-
-    command
-        .arg("-std=c++17")
-        .arg("-O2")
-        .arg("-fPIC")
-        .arg("-DVM_TRACE=1")
-        .arg("-DVM_TRACE_VCD=1")
-        .arg("-DVM_TRACE_FST=0")
-        .arg("-DVM_COVERAGE=0")
-        .arg("-DVM_SC=0")
-        .arg("-DVL_DEBUG=0");
-
-    for include in includes {
-        command.arg("-I").arg(include);
-    }
-
-    command.arg("-c").arg(source).arg("-o").arg(&object);
-    run(&mut command);
-    object
-}
-
-fn detect_verilator_root() -> PathBuf {
-    let output = Command::new("verilator")
-        .arg("--getenv")
-        .arg("VERILATOR_ROOT")
-        .output()
-        .unwrap_or_else(|error| panic!("failed to run verilator: {error}"));
-
-    if !output.status.success() {
-        panic_status("verilator --getenv VERILATOR_ROOT", output.status);
-    }
-
-    let root = String::from_utf8(output.stdout)
-        .unwrap_or_else(|error| panic!("invalid verilator root output: {error}"));
-    PathBuf::from(root.trim())
 }
 
 fn env_path(key: &str) -> Option<PathBuf> {
