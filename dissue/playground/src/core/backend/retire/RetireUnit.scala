@@ -65,10 +65,12 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     trapCandidate(i) := io.rob(i).valid && io.rob(i).bits.hasTrapAtRetire
 
+    // 这条指令是一个处理边界，在这条指令后面的控制流可能会改变
     laneBoundary(i) :=
       redirectCandidate(i) || trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
         io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
 
+    // can retire: rob.valid && preinst could retire
     preRetire(i) :=
       io.rob(i).valid &&
         (if (i == 0) true.B else preRetire(i - 1) && !laneBoundary(i - 1))
@@ -126,9 +128,11 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     trapUnit.io.lanes(i).isSfence  := io.rob(i).bits.isSfence
   }
 
-  private val trapRetire   = trapUnit.io.trapMask.asBools
-  private val mretRetire   = trapUnit.io.mretMask.asBools
-  private val sretRetire   = trapUnit.io.sretMask.asBools
+  private val trapRetire = trapUnit.io.trapMask.asBools
+  private val mretRetire = trapUnit.io.mretMask.asBools
+  private val sretRetire = trapUnit.io.sretMask.asBools
+
+  // no priv change
   private val normalCommit = Wire(Vec(cfg.commitWidth, Bool()))
   for (i <- 0 until cfg.commitWidth) {
     normalCommit(i) := canRetire(i) && !trapRetire(i) && !mretRetire(i) && !sretRetire(i)
@@ -186,7 +190,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   private val supervisorInterruptValid =
     supervisorGlobal && (sSeip || sSsip || sStip)
 
-  private val machineInterruptCause    = Mux(
+  private val machineInterruptCause = Mux(
     mMeip,
     ExceptionCause.machineExternalInterrupt,
     Mux(
@@ -203,15 +207,18 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
       )
     )
   )
+
   private val supervisorInterruptCause = Mux(
     sSeip,
     ExceptionCause.supervisorExternalInterrupt,
     Mux(sSsip, ExceptionCause.supervisorSoftwareInterrupt, ExceptionCause.supervisorTimerInterrupt)
   )
-  private val interruptToSupervisor    = !machineInterruptValid && supervisorInterruptValid
-  private val interruptCause           = Mux(machineInterruptValid, machineInterruptCause, supervisorInterruptCause)
-  private val interruptInfo            = ExceptionInfo.interrupt(interruptCause, cfg)
 
+  private val interruptToSupervisor = !machineInterruptValid && supervisorInterruptValid
+  private val interruptCause        = Mux(machineInterruptValid, machineInterruptCause, supervisorInterruptCause)
+  private val interruptInfo         = ExceptionInfo.interrupt(interruptCause, cfg)
+
+  // no priv change && no redir && at least one commit (for mepc)
   private val canTakeInterrupt =
     !trapUnit.io.redirect.valid &&
       !frontendRedirectCommit.asUInt.orR &&
