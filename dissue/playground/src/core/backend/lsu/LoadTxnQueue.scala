@@ -59,9 +59,9 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val freeEntryIdx = OHToUInt(freeEntryOH)
   private val hasFreeEntry = freeEntryOH.orR
 
-  // A flushed load can still be represented by a DCache MSHR waiter. Keep its
-  // tag reserved until that response is consumed, so it cannot alias a newer
-  // LoadTxnQueue entry after a redirect.
+  // Recovery removes the corresponding DCache waiter before releasing this
+  // tag. A canceled transaction therefore cannot leave a delayed response
+  // that aliases a newer LoadTxnQueue entry.
   private val tagInUse   = RegInit(VecInit(Seq.fill(tagCount)(false.B)))
   private val freeTagOH  = PriorityEncoderOH(VecInit(tagInUse.map(!_)).asUInt)
   private val hasFreeTag = freeTagOH.orR
@@ -79,6 +79,12 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   }).asUInt
   private val responseValid   = responseMatchOH.orR
   private val responseIdx     = OHToUInt(responseMatchOH)
+
+  private val killedByRecovery = Wire(Vec(entryCount, Bool()))
+  for (entry <- 0 until entryCount) {
+    killedByRecovery(entry) := valid(entry) && io.recover.valid &&
+      RobAge.isYounger(robIdx(entry), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+  }
 
   private val responseKilledByRecovery = responseValid && io.recover.valid &&
     RobAge.isYounger(robIdx(responseIdx), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
@@ -136,7 +142,7 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       when(responseFire && responseIdx === entry.U) {
         valid(entry) := false.B
       }
-      when(RobAge.isYounger(robIdx(entry), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)) {
+      when(killedByRecovery(entry)) {
         valid(entry) := false.B
       }
     }.otherwise {
@@ -162,6 +168,9 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       tagInUse(tag) := true.B
     }
     when(io.complete.fire && responseInRange && io.complete.bits.txnId === tag.U) {
+      tagInUse(tag) := false.B
+    }
+    when(VecInit((0 until entryCount).map(entry => killedByRecovery(entry) && txnId(entry) === tag.U)).asUInt.orR) {
       tagInUse(tag) := false.B
     }
   }
