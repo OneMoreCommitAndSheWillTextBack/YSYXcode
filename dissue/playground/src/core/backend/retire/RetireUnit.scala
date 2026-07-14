@@ -34,6 +34,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     val csrMret          = Output(new CsrMretCommit(cfg))
     val csrSret          = Output(new CsrSretCommit(cfg))
     val csrStatus        = Input(new CsrStatus(cfg))
+    val hold             = Input(Bool())
     val retire           = Output(new RetireGroup(cfg))
     val redirect         = Output(new BackendToFrontend(cfg.addrWidth))
 
@@ -65,14 +66,15 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     trapCandidate(i) := io.rob(i).valid && io.rob(i).bits.hasTrapAtRetire
 
-    // 这条指令是一个处理边界，在这条指令后面的控制流可能会改变
+    // Serializing instructions still form a retirement boundary. Branch recovery is handled by the execution-stage
+    // RecoveryUnit, so a resolved CFI no longer waits here before frontend redirect.
     laneBoundary(i) :=
-      redirectCandidate(i) || trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
+      trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
         io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
 
     // can retire: rob.valid && preinst could retire
     preRetire(i) :=
-      io.rob(i).valid &&
+      !io.hold && io.rob(i).valid &&
         (if (i == 0) true.B else preRetire(i - 1) && !laneBoundary(i - 1))
 
     val olderStore = orReduce((0 until i).map(j => preRetire(j) && io.rob(j).bits.isStore && !trapCandidate(j)))
@@ -144,19 +146,13 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     bpuPerf(i).io.correct := io.rob(i).bits.fetch.predNpc === nextPc(i)
   }
 
-  private val redirectCommit = Wire(Vec(cfg.commitWidth, Bool()))
-  private val barrierCommit  = Wire(Vec(cfg.commitWidth, Bool()))
+  private val barrierCommit = Wire(Vec(cfg.commitWidth, Bool()))
   for (i <- 0 until cfg.commitWidth) {
-    redirectCommit(i) := normalCommit(i) && redirectCandidate(i)
-    barrierCommit(i)  := normalCommit(i) && (io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen))
+    barrierCommit(i) := normalCommit(i) && (io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen))
   }
 
-  private val frontendRedirectCommit = VecInit(
-    (0 until cfg.commitWidth).map(i => redirectCommit(i) || barrierCommit(i))
-  )
-  private val frontendRedirectTarget = VecInit((0 until cfg.commitWidth).map { i =>
-    Mux(redirectCommit(i), io.rob(i).bits.redirectTarget, nextPc(i))
-  })
+  private val frontendRedirectCommit = VecInit((0 until cfg.commitWidth).map(i => barrierCommit(i)))
+  private val frontendRedirectTarget = VecInit((0 until cfg.commitWidth).map(i => nextPc(i)))
 
   private def csrBit(bit: Int): UInt =
     (1.U(cfg.dataWidth.W) << bit)(cfg.dataWidth - 1, 0)

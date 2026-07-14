@@ -3,6 +3,41 @@ package top.core.bundle
 import chisel3._
 import chisel3.util.Valid
 
+/** Identifies the youngest instruction that survives a selective backend recovery.
+  *
+  * Every live ROB entry at or before `robIdx` remains architecturally visible; later entries belong to the abandoned
+  * path. The boundary is intentionally independent of redirect target so backend structures can consume it without
+  * depending on frontend control flow.
+  */
+class RobRecovery(robIdxWidth: Int) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(robIdxWidth.W)
+}
+
+/** Common ROB-ring ordering helpers for speculative backend state. */
+object RobAge {
+  private def extend(index: UInt, width: Int): UInt = {
+    val extended = Wire(UInt(width.W))
+    extended := index
+    extended
+  }
+
+  def fromHead(index: UInt, head: UInt, entries: Int, robIdxWidth: Int): UInt = {
+    val width    = robIdxWidth + 1
+    val indexExt = extend(index, width)
+    val headExt  = extend(head, width)
+
+    Mux(
+      index >= head,
+      indexExt - headExt,
+      indexExt + entries.U(width.W) - headExt
+    )
+  }
+
+  def isYounger(index: UInt, boundary: UInt, head: UInt, entries: Int, robIdxWidth: Int): Bool =
+    fromHead(index, head, entries, robIdxWidth) > fromHead(boundary, head, entries, robIdxWidth)
+}
+
 object DataMemKind {
   val width = 2
 
@@ -123,6 +158,18 @@ class DataMemReq(addrWidth: Int = 32, dataWidth: Int = 32) extends Bundle {
   val txnId     = UInt(DataMemTxn.width.W)
   val cacheable = Bool()
   val kind      = UInt(DataMemKind.width.W)
+}
+
+/** Metadata that lets the internal memory path distinguish committed requests from speculative ones. */
+class DataMemOwner(robIdxWidth: Int) extends Bundle {
+  val squashable = Bool()
+  val robIdx     = UInt(robIdxWidth.W)
+}
+
+/** A backend data request together with the ROB instruction that owns it. */
+class OwnedDataMemReq(addrWidth: Int, dataWidth: Int, robIdxWidth: Int) extends Bundle {
+  val request = new DataMemReq(addrWidth, dataWidth)
+  val owner   = new DataMemOwner(robIdxWidth)
 }
 
 class DataMemResp(dataWidth: Int = 32) extends Bundle {

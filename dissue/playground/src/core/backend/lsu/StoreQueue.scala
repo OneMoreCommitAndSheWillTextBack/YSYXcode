@@ -3,6 +3,7 @@ package top.core.backend.lsu
 import chisel3._
 import chisel3.util.{Cat, PopCount}
 import top.config.BackendConfig
+import top.core.bundle.{RobAge, RobRecovery}
 import top.core.backend.bundle.{
   StoreForwardQuery,
   StoreQueueAlloc,
@@ -32,6 +33,7 @@ class StoreQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val query      = new StoreForwardQuery(cfg)
     val robHead    = Input(UInt(cfg.robIdxWidth.W))
     val flush      = Input(Bool())
+    val recover    = Input(new RobRecovery(cfg.robIdxWidth))
     val occupancy  = Output(UInt(math.max(chisel3.util.log2Ceil(entryCount + 1), 1).W))
     val perf       = Output(new StoreQueuePerf(cfg))
   })
@@ -155,6 +157,11 @@ class StoreQueue(cfg: BackendConfig = BackendConfig()) extends Module {
 
     when(io.flush) {
       when(!committed(entry) || drainHit(entry)) {
+        valid(entry) := false.B
+      }
+    }.elsewhen(io.recover.valid) {
+      when(drainHit(entry) || (!committed(entry) &&
+        RobAge.isYounger(robIdx(entry), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth))) {
         valid(entry) := false.B
       }
     }.otherwise {

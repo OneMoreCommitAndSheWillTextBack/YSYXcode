@@ -36,8 +36,12 @@ class Backend(
     val frontend = Flipped(Decoupled(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
     val redirect = Output(new BackendToFrontend(cfg.addrWidth))
 
-    val dmemReq  = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
+    val dmemReq  = Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
+
+    val recover     = Output(new RobRecovery(cfg.robIdxWidth))
+    val globalFlush = Output(Bool())
+    val robHead     = Output(UInt(cfg.robIdxWidth.W))
 
     val retire    = Output(new RetireGroup(cfg))
     val csrStatus = Output(new CsrStatus(cfg))
@@ -62,20 +66,40 @@ class Backend(
   val csrTracker = Module(new CsrTracker(cfg))
   val retire     = Module(new RetireUnit(cfg))
   val difftest   = Module(new DifftestMonitor(resetVector, cfg))
+  val recovery   = Module(new RecoveryUnit(cfg))
 
-  io.redirect  := retire.io.redirect
   io.csrStatus := csrFile.io.status
 
-  private val flush =
+  private val globalFlush =
     retire.io.redirect.trapRedirect.valid ||
       retire.io.redirect.branchRedirect.valid ||
       retire.io.redirect.predRedirect.valid
+
+  recovery.io.resolve := execute.io.resolve
+  recovery.io.robHead := rob.io.head
+
+  private val selectiveRecovery = Wire(new RobRecovery(cfg.robIdxWidth))
+  selectiveRecovery.valid  := recovery.io.recover.valid && !globalFlush
+  selectiveRecovery.robIdx := recovery.io.recover.robIdx
+
+  private val backendBlocked = globalFlush || selectiveRecovery.valid
+
+  io.recover     := selectiveRecovery
+  io.globalFlush := globalFlush
+  io.robHead     := rob.io.head
+  io.redirect    := retire.io.redirect
+  io.redirect.branchRedirect.valid := retire.io.redirect.branchRedirect.valid || selectiveRecovery.valid
+  io.redirect.branchRedirect.target := Mux(
+    retire.io.redirect.branchRedirect.valid,
+    retire.io.redirect.branchRedirect.target,
+    recovery.io.redirect.target
+  )
 
   private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
   private val pending  = RegInit(false.B)
   private val slotIdx  = RegInit(0.U(slotIdxWidth.W))
 
-  io.frontend.ready := !pending
+  io.frontend.ready := !pending && !backendBlocked
 
   val dispatchFetch  = Wire(Vec(cfg.dispatchWidth, Valid(new FetchInstPayload(cfg.addrWidth))))
   val dispatchDecode = Wire(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
@@ -94,7 +118,7 @@ class Backend(
     }
 
     decoder(lane).io.in := dispatchFetch(lane).bits
-    val slotValid        = pending && laneInRange(lane) && dispatchFetch(lane).valid
+    val slotValid        = pending && !backendBlocked && laneInRange(lane) && dispatchFetch(lane).valid
     val decodedException = Wire(new ExceptionInfo(cfg))
     decodedException       := decoder(lane).io.out.exception
     decodedException.valid := slotValid && decoder(lane).io.out.exception.valid
@@ -108,12 +132,14 @@ class Backend(
 
     val needsIssue = dispatchDecode(lane).needsIssue
 
-    dispatch.io.out(lane).ready := rob.io.alloc(lane).ready && (!needsIssue || issueQueue.io.enq(lane).ready)
+    dispatch.io.out(lane).ready := !backendBlocked && rob.io.alloc(lane).ready &&
+      (!needsIssue || issueQueue.io.enq(lane).ready)
 
-    rob.io.alloc(lane).valid       := dispatch.io.out(lane).valid && (!needsIssue || issueQueue.io.enq(lane).ready)
+    rob.io.alloc(lane).valid       := !backendBlocked && dispatch.io.out(lane).valid &&
+      (!needsIssue || issueQueue.io.enq(lane).ready)
     rob.io.alloc(lane).bits.decode := dispatchDecode(lane)
 
-    issueQueue.io.enq(lane).valid := dispatch.io.out(lane).valid && rob.io.alloc(lane).ready && needsIssue
+    issueQueue.io.enq(lane).valid := !backendBlocked && dispatch.io.out(lane).valid && rob.io.alloc(lane).ready && needsIssue
     issueQueue.io.enq(lane).bits  := dispatch.io.out(lane).bits
   }
 
@@ -128,7 +154,7 @@ class Backend(
   val nextSlotIdx   = slotIdx + consumedCount
   val packetDone    = (consumedCount =/= 0.U) && (nextSlotIdx >= cfg.issueWidth.U)
 
-  when(flush) {
+  when(backendBlocked) {
     pending := false.B
     slotIdx := 0.U
   }.elsewhen(!pending && io.frontend.fire) {
@@ -185,15 +211,25 @@ class Backend(
   csrFile.io.mtime       := io.mtime
   csrFile.io.retireCount := PopCount(retire.io.retire.validMask)
   retire.io.csrStatus    := csrFile.io.status
+  retire.io.hold         := selectiveRecovery.valid
   csrTracker.io.commit   := retire.io.csrTrackerCommit
   storeQueue.io.robHead  := rob.io.head
   csrTracker.io.robHead  := rob.io.head
-  rob.io.flush           := flush
-  scoreboard.io.flush    := flush
-  storeQueue.io.flush    := flush
-  csrTracker.io.flush    := flush
-  issueQueue.io.flush    := flush
-  lsu.io.flush           := flush
+  rob.io.flush           := globalFlush
+  rob.io.recover         := selectiveRecovery
+  scoreboard.io.flush    := globalFlush
+  scoreboard.io.recover  := selectiveRecovery
+  scoreboard.io.robHead  := rob.io.head
+  scoreboard.io.producerEntries := rob.io.producerEntries
+  storeQueue.io.flush    := globalFlush
+  storeQueue.io.recover  := selectiveRecovery
+  csrTracker.io.flush    := globalFlush
+  csrTracker.io.recover  := selectiveRecovery
+  issueQueue.io.flush    := globalFlush
+  issueQueue.io.recover  := selectiveRecovery
+  lsu.io.flush           := globalFlush
+  lsu.io.recover         := selectiveRecovery
+  lsu.io.robHead         := rob.io.head
   lsu.io.csrStatus       := csrFile.io.status
 
   difftest.io.retire    := retire.io.retire
@@ -222,16 +258,18 @@ class Backend(
   storeQueue.io.update.data   := lsu.io.storeUpdate.bits.data
   storeQueue.io.update.mask   := lsu.io.storeUpdate.bits.mask
 
-  execute.io.flush := flush
+  execute.io.flush   := globalFlush
+  execute.io.recover := selectiveRecovery
+  execute.io.robHead := rob.io.head
   execute.io.csrRead <> csrFile.io.read
   for (port <- 0 until cfg.intIssueWidth) {
-    issueQueue.io.intIssue(port).ready := execute.io.in(port).ready
-    execute.io.in(port).valid          := issueQueue.io.intIssue(port).valid
+    issueQueue.io.intIssue(port).ready := execute.io.in(port).ready && !backendBlocked
+    execute.io.in(port).valid          := issueQueue.io.intIssue(port).valid && !backendBlocked
     execute.io.in(port).bits           := ExuRequest.fromIssue(issueQueue.io.intIssue(port).bits, cfg)
   }
 
-  issueQueue.io.memIssue.ready := lsu.io.in.ready
-  lsu.io.in.valid              := issueQueue.io.memIssue.valid
+  issueQueue.io.memIssue.ready := lsu.io.in.ready && !backendBlocked
+  lsu.io.in.valid              := issueQueue.io.memIssue.valid && !backendBlocked
   lsu.io.in.bits               := issueQueue.io.memIssue.bits
 
   for (i    <- 0 until cfg.writebackWidth) {
@@ -279,8 +317,11 @@ class Backend(
   private val retireReqSelected       = retire.io.dmemReq.valid && !storeRequestOutstanding
   private val lsuReqSelected          = !retire.io.dmemReq.valid && lsu.io.dmemReq.valid
 
-  io.dmemReq.valid := lsuReqSelected || retireReqSelected
-  io.dmemReq.bits  := Mux(lsuReqSelected, lsu.io.dmemReq.bits, retire.io.dmemReq.bits)
+  io.dmemReq.valid                  := lsuReqSelected || retireReqSelected
+  io.dmemReq.bits                   := 0.U.asTypeOf(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
+  io.dmemReq.bits.request           := Mux(lsuReqSelected, lsu.io.dmemReq.bits, retire.io.dmemReq.bits)
+  io.dmemReq.bits.owner.squashable  := lsuReqSelected
+  io.dmemReq.bits.owner.robIdx      := lsu.io.dmemReqRobIdx
 
   lsu.io.dmemReq.ready    := lsuReqSelected && io.dmemReq.ready
   retire.io.dmemReq.ready := retireReqSelected && io.dmemReq.ready

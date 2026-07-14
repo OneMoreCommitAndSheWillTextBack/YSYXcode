@@ -5,6 +5,7 @@ import chisel3.util.{Decoupled, Mux1H, MuxLookup, PopCount}
 import top.core.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, StoreTrackerQuery}
 import top.core.backend.csr.CsrTrackerQuery
 import top.core.backend.decoder.FuType
+import top.core.bundle.{CfiType, RobAge, RobRecovery}
 import top.config.BackendConfig
 import top.dpi.NpcIssueQueuePerf
 
@@ -21,6 +22,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val intIssue     = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
     val memIssue     = Decoupled(new IssuePacket(cfg))
     val flush        = Input(Bool())
+    val recover      = Input(new RobRecovery(cfg.robIdxWidth))
   })
 
   private val entries    = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
@@ -52,7 +54,13 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val amoBlocked  = entries(i).isAmo && entries(i).robIdx =/= io.robHead
     val csrBlocked  = entries(i).isCsr && io.csrQuery(i).hasOlderSameAddrWriter
     val memPipe     = entries(i).fuType === FuType.lsu
-    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoBlocked && !csrBlocked
+    val cfiAge      = RobAge.fromHead(entries(i).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+    val cfiBlocked  = entries(i).cfi =/= CfiType.none && VecInit((0 until cfg.issueQueueEntries).map { other =>
+      valid(other) && entries(other).cfi =/= CfiType.none &&
+        RobAge.fromHead(entries(other).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth) < cfiAge
+    }).asUInt.orR
+    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoBlocked && !csrBlocked &&
+      !cfiBlocked && !io.flush && !io.recover.valid
 
     io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad
     io.storeQuery(i).robIdx := entries(i).robIdx
@@ -112,7 +120,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val noIssue             = issueCountThisCycle === 0.U
 
   NpcIssueQueuePerf.callWithEnable(
-    !reset.asBool && !io.flush,
+    !reset.asBool && !io.flush && !io.recover.valid,
     issueCountThisCycle.pad(32),
     occupancy.pad(32),
     noIssue && hasReadyEntry,
@@ -123,7 +131,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   for (enqIdx <- 0 until cfg.dispatchWidth) {
     val previousEnqsValid =
       if (enqIdx == 0) true.B else io.enq.take(enqIdx).map(_.valid).reduce(_ && _)
-    io.enq(enqIdx).ready := (freeCount > enqIdx.U) && previousEnqsValid
+    io.enq(enqIdx).ready := !io.flush && !io.recover.valid && (freeCount > enqIdx.U) && previousEnqsValid
   }
 
   private val enqOH = Wire(Vec(cfg.dispatchWidth, Vec(cfg.issueQueueEntries, Bool())))
@@ -186,6 +194,10 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   for (i <- 0 until cfg.issueQueueEntries) {
     when(io.flush) {
       valid(i) := false.B
+    }.elsewhen(io.recover.valid) {
+      when(RobAge.isYounger(entries(i).robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)) {
+        valid(i) := false.B
+      }
     }.otherwise {
       for (wakeup <- allWakeups) {
         when(valid(i) && wakeup.valid) {

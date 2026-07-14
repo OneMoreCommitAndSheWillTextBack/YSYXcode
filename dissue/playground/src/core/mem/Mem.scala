@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util.{Decoupled, Enum, MuxCase}
 import top.bus.axi.AxiPort
 import top.config.MemConfig
-import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, InstMemReq, InstMemResp}
+import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, InstMemReq, InstMemResp, OwnedDataMemReq, RobRecovery}
 import top.device.DeviceConst
 
 /** Owns the physical memory hierarchy below Core.
@@ -13,15 +13,20 @@ import top.device.DeviceConst
   * AXI accessors. The AXI master is deliberately single-outstanding, so response routing only needs one owner register
   * for reads and one for writes.
   */
-class Mem(cfg: MemConfig = MemConfig()) extends Module {
+class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   private val readOwnerInst :: readOwnerDcache :: readOwnerBypass :: readOwnerPtw :: Nil = Enum(4)
+  private val robIdxWidth = math.max(chisel3.util.log2Ceil(robEntries), 1)
 
   val io = IO(new Bundle {
     val imemReq  = Flipped(Decoupled(new InstMemReq(cfg.addrWidth)))
     val imemResp = Decoupled(new InstMemResp(cfg.fetchBytes))
 
-    val dmemReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
+    val dmemReq  = Flipped(Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.axiDataWidth, robIdxWidth)))
     val dmemResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
+
+    val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(robIdxWidth))
+    val robHead = Input(UInt(robIdxWidth.W))
 
     val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
     val ptwResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
@@ -40,7 +45,7 @@ class Mem(cfg: MemConfig = MemConfig()) extends Module {
       inRange(addr, DeviceConst.plicBase, DeviceConst.plicSize)
 
   val refill       = Module(new AxiReadRefill(cfg))
-  val dcache       = Module(new DCache(cfg.dcache, cfg))
+  val dcache       = Module(new DCache(cfg.dcache, cfg, robEntries))
   val bypassAccess = Module(new AxiDataAccess(cfg))
   val ptwAccess    = Module(new AxiDataAccess(cfg))
   val axiMaster    = Module(new AxiMaster(cfg))
@@ -48,14 +53,18 @@ class Mem(cfg: MemConfig = MemConfig()) extends Module {
   refill.io.req <> io.imemReq
   io.imemResp <> refill.io.resp
 
-  private val routeToDcache = io.dmemReq.bits.cacheable && io.dmemReq.bits.kind === DataMemKind.normal &&
-    !isDevice(io.dmemReq.bits.addr)
+  private val routeToDcache = io.dmemReq.bits.request.cacheable && io.dmemReq.bits.request.kind === DataMemKind.normal &&
+    !isDevice(io.dmemReq.bits.request.addr)
 
   dcache.io.req.valid       := io.dmemReq.valid && routeToDcache
   dcache.io.req.bits        := io.dmemReq.bits
   bypassAccess.io.req.valid := io.dmemReq.valid && !routeToDcache
-  bypassAccess.io.req.bits  := io.dmemReq.bits
+  bypassAccess.io.req.bits  := io.dmemReq.bits.request
   io.dmemReq.ready          := Mux(routeToDcache, dcache.io.req.ready, bypassAccess.io.req.ready)
+
+  dcache.io.flush   := io.flush
+  dcache.io.recover := io.recover
+  dcache.io.robHead := io.robHead
 
   ptwAccess.io.req <> io.ptwReq
   io.ptwResp <> ptwAccess.io.resp

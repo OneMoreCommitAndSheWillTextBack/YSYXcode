@@ -2,11 +2,12 @@ package top.core.backend.exu
 
 import chisel3._
 import chisel3.util.{Decoupled, MuxLookup, Valid}
-import top.core.backend.bundle.{IssuePortStatus, IssueWakeup, RobWritebackPacket}
+import top.core.backend.bundle.{BranchResolve, IssuePortStatus, IssueWakeup, RobWritebackPacket}
 import top.core.backend.csr.{CsrOp, CsrReadPort}
 import top.core.backend.decoder.FuType
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
 import top.core.backend.fu.{ALU, BRU, CSR, DIV, JMP, MUL}
+import top.core.bundle.{CfiType, RobAge, RobRecovery}
 import top.config.BackendConfig
 
 class IntExeUnit(
@@ -16,11 +17,14 @@ class IntExeUnit(
   val io = IO(new Bundle {
     val in      = Flipped(Decoupled(new ExuRequest(cfg)))
     val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(cfg.robIdxWidth))
+    val robHead = Input(UInt(cfg.robIdxWidth.W))
     val status  = Output(new IssuePortStatus)
     val csrRead = new CsrReadPort(cfg)
 
     val writeback = Valid(new RobWritebackPacket(cfg))
     val wakeup    = Output(new IssueWakeup(cfg))
+    val resolve   = Output(Valid(new BranchResolve(cfg)))
   })
 
   private def has(kind: ExuFuKind): Boolean =
@@ -48,6 +52,13 @@ class IntExeUnit(
   // Keep this single-writeback port quiet while DIV owns it; MUL can still be pipelined when DIV is idle.
   private val immediateFuReady    = !longLatencyOutValid && !divBusy
 
+  private val mulMeta0 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
+  private val mulMeta1 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
+  private val divMeta  = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
+
+  private def killedByRecovery(robIdx: UInt): Bool =
+    io.recover.valid && RobAge.isYounger(robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+
   io.status.alu := has(ExuFuKind.Alu).B && immediateFuReady
   io.status.mul := has(ExuFuKind.Mul).B && mulInReady && !divBusy
   io.status.div := has(ExuFuKind.Div).B && divInReady
@@ -70,15 +81,15 @@ class IntExeUnit(
 
   mul.foreach { unit =>
     unit.io.flush        := io.flush
-    unit.io.in.valid     := io.in.fire && isMulReq && !io.flush
+    unit.io.in.valid     := io.in.fire && isMulReq && !io.flush && !io.recover.valid
     unit.io.in.bits.src1 := io.in.bits.src1
     unit.io.in.bits.src2 := io.in.bits.src2
     unit.io.in.bits.op   := io.in.bits.fuOp
   }
 
   div.foreach { unit =>
-    unit.io.flush        := io.flush
-    unit.io.in.valid     := io.in.fire && isDivReq && !io.flush
+    unit.io.flush        := io.flush || (divMeta.valid && killedByRecovery(divMeta.bits.robIdx))
+    unit.io.in.valid     := io.in.fire && isDivReq && !io.flush && !io.recover.valid
     unit.io.in.bits.src1 := io.in.bits.src1
     unit.io.in.bits.src2 := io.in.bits.src2
     unit.io.in.bits.op   := io.in.bits.fuOp
@@ -108,11 +119,8 @@ class IntExeUnit(
     unit.io.writeEnable := io.in.bits.csrWen
   }
 
-  private val mulMeta0 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
-  private val mulMeta1 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
-  private val mulIssue = io.in.fire && isMulReq && !io.flush
-  private val divMeta  = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
-  private val divIssue = io.in.fire && isDivReq && !io.flush
+  private val mulIssue = io.in.fire && isMulReq && !io.flush && !io.recover.valid
+  private val divIssue = io.in.fire && isDivReq && !io.flush && !io.recover.valid
 
   private val mulIssueResult = Wire(new ExuResult(cfg))
   mulIssueResult               := 0.U.asTypeOf(new ExuResult(cfg))
@@ -137,7 +145,8 @@ class IntExeUnit(
     mulMeta1.valid := false.B
     divMeta.valid  := false.B
   }.otherwise {
-    mulMeta1 := mulMeta0
+    mulMeta1.valid := mulMeta0.valid && !killedByRecovery(mulMeta0.bits.robIdx)
+    mulMeta1.bits  := mulMeta0.bits
 
     mulMeta0.valid := mulIssue
     mulMeta0.bits  := mulIssueResult
@@ -145,13 +154,13 @@ class IntExeUnit(
     when(divIssue) {
       divMeta.valid := true.B
       divMeta.bits  := divIssueResult
-    }.elsewhen(divOutValid) {
+    }.elsewhen(divOutValid || (divMeta.valid && killedByRecovery(divMeta.bits.robIdx))) {
       divMeta.valid := false.B
     }
   }
 
   private val exuResult = Wire(Valid(new ExuResult(cfg)))
-  exuResult.valid := io.in.fire && !io.flush && !isMulReq && !isDivReq
+  exuResult.valid := io.in.fire && !io.flush && !io.recover.valid && !isMulReq && !isDivReq
   exuResult.bits  := 0.U.asTypeOf(new ExuResult(cfg))
 
   private val csrReadNeeded  =
@@ -214,9 +223,32 @@ class IntExeUnit(
   divResult.bits        := divMeta.bits
   divResult.bits.result := div.map(_.io.out.bits).getOrElse(0.U(cfg.dataWidth.W))
 
+  private val liveDivResult = divResult.valid && !killedByRecovery(divResult.bits.robIdx)
+  private val liveMulResult = mulResult.valid && !killedByRecovery(mulResult.bits.robIdx)
+  private val liveExuResult = exuResult.valid && !killedByRecovery(exuResult.bits.robIdx)
+
   private val writebackResult = Wire(Valid(new ExuResult(cfg)))
-  writebackResult.valid := divResult.valid || mulResult.valid || exuResult.valid
-  writebackResult.bits  := Mux(divResult.valid, divResult.bits, Mux(mulResult.valid, mulResult.bits, exuResult.bits))
+  writebackResult.valid := liveDivResult || liveMulResult || liveExuResult
+  writebackResult.bits  := Mux(liveDivResult, divResult.bits, Mux(liveMulResult, mulResult.bits, exuResult.bits))
+
+  private val resolveInput = Wire(Valid(new BranchResolve(cfg)))
+  resolveInput := 0.U.asTypeOf(Valid(new BranchResolve(cfg)))
+  resolveInput.valid              := liveExuResult && io.in.bits.cfi =/= CfiType.none
+  resolveInput.bits.robIdx        := io.in.bits.robIdx
+  resolveInput.bits.pc            := io.in.bits.fetch.pc
+  resolveInput.bits.cfiType       := io.in.bits.cfi
+  resolveInput.bits.predNpc       := io.in.bits.fetch.predNpc
+  resolveInput.bits.actualNpc     := exuResult.bits.redirectTarget
+  resolveInput.bits.taken         := exuResult.bits.branchTaken
+  resolveInput.bits.branchTarget  := exuResult.bits.branchTarget
+  resolveInput.bits.instLen       := io.in.bits.fetch.instLen
+
+  private val resolveReg = RegInit(0.U.asTypeOf(Valid(new BranchResolve(cfg))))
+  when(io.flush) {
+    resolveReg.valid := false.B
+  }.otherwise {
+    resolveReg := resolveInput
+  }
 
   io.writeback.valid               := writebackResult.valid
   io.writeback.bits                := 0.U.asTypeOf(new RobWritebackPacket(cfg))
@@ -236,6 +268,7 @@ class IntExeUnit(
   io.wakeup.valid  := writebackResult.valid && writebackResult.bits.rfWen
   io.wakeup.robIdx := writebackResult.bits.robIdx
   io.wakeup.data   := writebackResult.bits.result
+  io.resolve       := resolveReg
 
   assert(!io.in.fire || supports(io.in.bits.fuType), s"${params.name} accepted an unsupported FU type")
 }

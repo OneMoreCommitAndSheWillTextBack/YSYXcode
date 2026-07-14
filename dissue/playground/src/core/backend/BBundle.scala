@@ -4,9 +4,8 @@ import chisel3._
 import top.core.backend.csr.CsrAddr
 import top.core.backend.decoder.{FuOp, FuType, SrcType}
 import top.core.backend.exception.ExceptionInfo
-import top.core.bundle.FetchInstPayload
+import top.core.bundle.{CfiType, FetchInstPayload}
 import top.config.BackendConfig
-import top.core.bundle.CfiType
 
 class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid       = Bool()
@@ -258,6 +257,30 @@ class RobWritebackPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val csrWen         = Bool()
   val csrWdata       = UInt(cfg.dataWidth.W)
   val exception      = new ExceptionInfo(cfg)
+}
+
+/** Control-flow outcome produced by an execution unit.
+  *
+  * This is deliberately separate from ROB writeback: recovery consumes it as soon as execution has resolved the
+  * control-flow instruction, while retirement later consumes the same outcome retained in the ROB for BPU training.
+  */
+class BranchResolve(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val robIdx       = UInt(cfg.robIdxWidth.W)
+  val pc           = UInt(cfg.addrWidth.W)
+  val cfiType      = UInt(CfiType.width.W)
+  val predNpc      = UInt(cfg.addrWidth.W)
+  val actualNpc    = UInt(cfg.addrWidth.W)
+  val taken        = Bool()
+  val branchTarget = UInt(cfg.addrWidth.W)
+  val instLen      = UInt(3.W)
+}
+
+/** The portion of a ROB entry needed to reconstruct register dependencies after selective recovery. */
+class RobProducerEntry(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+  val rd     = UInt(5.W)
+  val rfWen  = Bool()
 }
 
 class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {

@@ -2,6 +2,7 @@ package top.core.backend.csr
 
 import chisel3._
 import top.config.BackendConfig
+import top.core.bundle.{RobAge, RobRecovery}
 
 class CsrTracker(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
@@ -10,6 +11,7 @@ class CsrTracker(cfg: BackendConfig = BackendConfig()) extends Module {
     val query   = Vec(cfg.issueQueueEntries, new CsrTrackerQuery(cfg))
     val robHead = Input(UInt(cfg.robIdxWidth.W))
     val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(cfg.robIdxWidth))
   })
 
   private val valid  = RegInit(VecInit(Seq.fill(cfg.robEntries)(false.B)))
@@ -85,6 +87,10 @@ class CsrTracker(cfg: BackendConfig = BackendConfig()) extends Module {
   for (entry <- 0 until cfg.robEntries) {
     when(io.flush) {
       valid(entry) := false.B
+    }.elsewhen(io.recover.valid) {
+      when(RobAge.isYounger(robIdx(entry), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)) {
+        valid(entry) := false.B
+      }
     }.otherwise {
       when(commitHit(entry)) {
         valid(entry) := false.B

@@ -4,15 +4,16 @@ import chisel3._
 import chisel3.util.{Cat, Decoupled, Fill, Mux1H, OHToUInt, PopCount, PriorityEncoderOH, Valid}
 import top.bus.axi.{AxiBurst, AxiResp}
 import top.config.{DCacheConfig, MemConfig}
-import top.core.bundle.{DataMemReq, DataMemResp}
+import top.core.bundle.{DataMemOwner, DataMemReq, DataMemResp, OwnedDataMemReq, RobAge, RobRecovery}
 import top.core.mem.bundle.{AxiMasterReadReq, AxiMasterReadResp, AxiMasterWriteReq, AxiMasterWriteResp}
 
-class DCacheWaiter(cfg: DCacheConfig) extends Bundle {
+class DCacheWaiter(cfg: DCacheConfig, robIdxWidth: Int) extends Bundle {
   val valid      = Bool()
   val txnId      = UInt(top.core.bundle.DataMemTxn.width.W)
   val byteOffset = UInt(cfg.offsetBits.W)
   val size       = UInt(3.W)
   val unsigned   = Bool()
+  val owner      = new DataMemOwner(robIdxWidth)
 }
 
 class DCachePerf(cfg: DCacheConfig) extends Bundle {
@@ -36,9 +37,15 @@ class DCachePerf(cfg: DCacheConfig) extends Bundle {
   * One AXI refill can be active at a time. MSHRs still retain a second miss so tag hits can complete while the active
   * refill waits for memory.
   */
-class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()) extends Module {
+class DCache(
+  cfg:        DCacheConfig = DCacheConfig(),
+  memCfg:     MemConfig = MemConfig(),
+  robEntries: Int = 16)
+    extends Module {
   require(cfg.addrWidth == memCfg.addrWidth, "DCache and memory address widths must match")
   require(cfg.dataWidth == memCfg.axiDataWidth, "DCache and AXI data widths must match")
+
+  private val robIdxWidth = math.max(chisel3.util.log2Ceil(robEntries), 1)
 
   private val dataBytes        = cfg.dataWidth / 8
   private val beats            = cfg.beatCount
@@ -52,8 +59,12 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   private val mshrResponding = 2.U(2.W)
 
   val io = IO(new Bundle {
-    val req  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth)))
+    val req  = Flipped(Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, robIdxWidth)))
     val resp = Decoupled(new DataMemResp(cfg.dataWidth))
+
+    val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(robIdxWidth))
+    val robHead = Input(UInt(robIdxWidth.W))
 
     val axiReadReq   = Decoupled(new AxiMasterReadReq(memCfg.addrWidth, memCfg.axiIdWidth))
     val axiReadResp  = Flipped(Decoupled(new AxiMasterReadResp(memCfg.axiDataWidth, memCfg.axiIdWidth)))
@@ -92,20 +103,47 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   private val mshrBeatMask    = Reg(Vec(cfg.mshrEntries, UInt(beats.W)))
   private val mshrFault       = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
   private val mshrBeats       = Reg(Vec(cfg.mshrEntries, Vec(beats, UInt(cfg.dataWidth.W))))
-  private val mshrWaiters     = Reg(Vec(cfg.mshrEntries, Vec(cfg.waitersPerMshr, new DCacheWaiter(cfg))))
+  private val mshrWaiters     = Reg(Vec(cfg.mshrEntries, Vec(cfg.waitersPerMshr, new DCacheWaiter(cfg, robIdxWidth))))
   private val mshrWaiterCount = Reg(Vec(cfg.mshrEntries, UInt(waiterCountWidth.W)))
   private val mshrResponseIdx = Reg(Vec(cfg.mshrEntries, UInt(waiterIdxWidth.W)))
 
   private val hitRespValid = RegInit(false.B)
   private val hitResp      = Reg(new DataMemResp(cfg.dataWidth))
+  private val hitRespOwner = Reg(new DataMemOwner(robIdxWidth))
 
   private val storePending = RegInit(false.B)
   private val storeSent    = RegInit(false.B)
   private val storeReq     = Reg(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
 
-  private val reqSet       = setIndex(io.req.bits.addr)
-  private val reqTag       = tag(io.req.bits.addr)
-  private val reqBlockAddr = blockAddr(io.req.bits.addr)
+  private def ownerKilled(owner: DataMemOwner): Bool =
+    owner.squashable && (io.flush ||
+      (io.recover.valid && RobAge.isYounger(owner.robIdx, io.recover.robIdx, io.robHead, robEntries, robIdxWidth)))
+
+  private val retainedWaiterCount = Wire(Vec(cfg.mshrEntries, UInt(waiterCountWidth.W)))
+  private val retainedWaiters = Wire(
+    Vec(cfg.mshrEntries, Vec(cfg.waitersPerMshr, new DCacheWaiter(cfg, robIdxWidth)))
+  )
+
+  for (entry <- 0 until cfg.mshrEntries) {
+    val keep = Wire(Vec(cfg.waitersPerMshr, Bool()))
+    for (waiter <- 0 until cfg.waitersPerMshr) {
+      keep(waiter) := mshrWaiters(entry)(waiter).valid && !ownerKilled(mshrWaiters(entry)(waiter).owner)
+    }
+    retainedWaiterCount(entry) := PopCount(keep)
+
+    for (destination <- 0 until cfg.waitersPerMshr) {
+      val sourceOH = Wire(Vec(cfg.waitersPerMshr, Bool()))
+      for (source <- 0 until cfg.waitersPerMshr) {
+        val earlierCount = if (source == 0) 0.U else PopCount(keep.take(source))
+        sourceOH(source) := keep(source) && earlierCount === destination.U
+      }
+      retainedWaiters(entry)(destination) := Mux1H(sourceOH, mshrWaiters(entry))
+    }
+  }
+
+  private val reqSet       = setIndex(io.req.bits.request.addr)
+  private val reqTag       = tag(io.req.bits.request.addr)
+  private val reqBlockAddr = blockAddr(io.req.bits.request.addr)
   private val wayHits      = VecInit((0 until cfg.ways).map { way =>
     validArray(reqSet)(way) && tagArray(reqSet)(way) === reqTag
   })
@@ -148,7 +186,7 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   private val freeMshrIdx = OHToUInt(freeMshrOH)
 
   private val respondingOH     = VecInit((0 until cfg.mshrEntries).map { entry =>
-    mshrValid(entry) && mshrState(entry) === mshrResponding
+    mshrValid(entry) && mshrState(entry) === mshrResponding && mshrWaiterCount(entry) =/= 0.U
   }).asUInt
   private val hasResponding    = respondingOH.orR
   private val respondingIdx    = OHToUInt(respondingOH)
@@ -156,24 +194,27 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   private val respondingLine   = mshrBeats(respondingIdx).asUInt
 
   private val storeResponseReady = storePending && storeSent && io.axiWriteResp.valid
+  private val hitResponseVisible = hitRespValid && !io.flush && !io.recover.valid && !ownerKilled(hitRespOwner)
+  private val mshrResponseVisible = hasResponding && !io.flush && !io.recover.valid && !ownerKilled(respondingWaiter.owner)
+  private val storeResponseVisible = storeResponseReady && !hitResponseVisible && !mshrResponseVisible
   private val responseBusy       = hitRespValid || hasResponding || storeResponseReady
   private val readCanAllocate    = hasFreeMshr && hasVictim
   private val readReady          = Mux(hit, true.B, Mux(mshrMatch, matchWaiterSpace, readCanAllocate))
   private val writeReady         = !storePending && !mshrMatch
-  io.req.ready := !responseBusy && Mux(io.req.bits.write, writeReady, readReady)
+  io.req.ready := !io.flush && !io.recover.valid && !responseBusy && Mux(io.req.bits.request.write, writeReady, readReady)
 
   private val requestFire     = io.req.fire
-  private val requestLoad     = requestFire && !io.req.bits.write
+  private val requestLoad     = requestFire && !io.req.bits.request.write
   private val requestMiss     = requestLoad && !hit
   private val requestMerge    = requestLoad && !hit && mshrMatch
   private val requestAllocate = requestLoad && !hit && !mshrMatch
   private val activeMshr      = mshrValid.asUInt.orR
 
-  io.resp.valid := hitRespValid || hasResponding || storeResponseReady
+  io.resp.valid := hitResponseVisible || mshrResponseVisible || storeResponseVisible
   io.resp.bits  := 0.U.asTypeOf(new DataMemResp(cfg.dataWidth))
-  when(hitRespValid) {
+  when(hitResponseVisible) {
     io.resp.bits := hitResp
-  }.elsewhen(hasResponding) {
+  }.elsewhen(mshrResponseVisible) {
     io.resp.bits.data  := Mux(
       mshrFault(respondingIdx),
       0.U,
@@ -198,7 +239,7 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   private val hasReceiving = receivingOH.orR
   private val receivingIdx = OHToUInt(receivingOH)
 
-  io.axiReadReq.valid      := hasQueued && !hasReceiving
+  io.axiReadReq.valid      := hasQueued && !hasReceiving && !io.flush && !io.recover.valid
   io.axiReadReq.bits.addr  := mshrBlockAddr(queuedIdx)
   io.axiReadReq.bits.id    := 2.U(memCfg.axiIdWidth.W)
   io.axiReadReq.bits.len   := (beats - 1).U
@@ -220,7 +261,7 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   io.axiWriteReq.bits.data  := shiftedStoreData
   io.axiWriteReq.bits.strb  := shiftedStoreMask
   io.axiWriteReq.bits.last  := true.B
-  io.axiWriteResp.ready     := storeResponseReady && !hitRespValid && !hasResponding && io.resp.ready
+  io.axiWriteResp.ready     := storeResponseVisible && io.resp.ready
 
   private val refillFault    = mshrFault(receivingIdx) || io.axiReadResp.bits.resp =/= AxiResp.okay
   private val refillLast     = io.axiReadResp.bits.last || mshrBeatIndex(receivingIdx) === (beats - 1).U
@@ -240,7 +281,7 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   io.perf.bypass         := false.B
   io.perf.mshrAlloc      := requestAllocate
   io.perf.mshrMerge      := requestMerge
-  io.perf.mshrFullStall  := io.req.valid && !io.req.bits.write && !hit && !mshrMatch && !readCanAllocate
+  io.perf.mshrFullStall  := io.req.valid && !io.req.bits.request.write && !hit && !mshrMatch && !readCanAllocate
   io.perf.hitUnderMiss   := requestFire && hit && activeMshr
   io.perf.queuedMiss     := requestAllocate && activeMshr
   io.perf.refillStart    := io.axiReadReq.fire
@@ -258,22 +299,23 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
     }
   }
 
-  when(requestFire && hit && !io.req.bits.write) {
+  when(requestFire && hit && !io.req.bits.request.write) {
     hitRespValid  := true.B
-    hitResp.data  := lineDataAt(hitLineData, io.req.bits.addr(cfg.offsetBits - 1, 0))
+    hitResp.data  := lineDataAt(hitLineData, io.req.bits.request.addr(cfg.offsetBits - 1, 0))
     hitResp.fault := false.B
-    hitResp.txnId := io.req.bits.txnId
+    hitResp.txnId := io.req.bits.request.txnId
+    hitRespOwner  := io.req.bits.owner
   }
 
-  when(requestFire && io.req.bits.write) {
+  when(requestFire && io.req.bits.request.write) {
     storePending := true.B
     storeSent    := false.B
-    storeReq     := io.req.bits
+    storeReq     := io.req.bits.request
 
     when(hit) {
-      val lineOffset   = io.req.bits.addr(cfg.offsetBits - 1, 0)
-      val lineMask     = (io.req.bits.wmask << lineOffset)(cfg.lineBytes - 1, 0)
-      val lineData     = (io.req.bits.wdata << (lineOffset << 3))(cfg.blockBits - 1, 0)
+      val lineOffset   = io.req.bits.request.addr(cfg.offsetBits - 1, 0)
+      val lineMask     = (io.req.bits.request.wmask << lineOffset)(cfg.lineBytes - 1, 0)
+      val lineData     = (io.req.bits.request.wdata << (lineOffset << 3))(cfg.blockBits - 1, 0)
       val expandedMask = Cat((0 until cfg.lineBytes).reverse.map(byte => Fill(8, lineMask(byte))))
       dataArray(reqSet)(hitWay) := (hitLineData & ~expandedMask) | (lineData & expandedMask)
     }
@@ -291,10 +333,11 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
     mshrWaiterCount(freeMshrIdx)           := 1.U
     mshrResponseIdx(freeMshrIdx)           := 0.U
     mshrWaiters(freeMshrIdx)(0).valid      := true.B
-    mshrWaiters(freeMshrIdx)(0).txnId      := io.req.bits.txnId
-    mshrWaiters(freeMshrIdx)(0).byteOffset := io.req.bits.addr(cfg.offsetBits - 1, 0)
-    mshrWaiters(freeMshrIdx)(0).size       := io.req.bits.size
-    mshrWaiters(freeMshrIdx)(0).unsigned   := io.req.bits.unsigned
+    mshrWaiters(freeMshrIdx)(0).txnId      := io.req.bits.request.txnId
+    mshrWaiters(freeMshrIdx)(0).byteOffset := io.req.bits.request.addr(cfg.offsetBits - 1, 0)
+    mshrWaiters(freeMshrIdx)(0).size       := io.req.bits.request.size
+    mshrWaiters(freeMshrIdx)(0).unsigned   := io.req.bits.request.unsigned
+    mshrWaiters(freeMshrIdx)(0).owner      := io.req.bits.owner
     validArray(reqSet)(victimWay)          := false.B
   }
 
@@ -302,10 +345,11 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
     val waiterIndex = mshrWaiterCount(mshrMatchIdx)(waiterIdxWidth - 1, 0)
     mshrWaiterCount(mshrMatchIdx)                     := mshrWaiterCount(mshrMatchIdx) + 1.U
     mshrWaiters(mshrMatchIdx)(waiterIndex).valid      := true.B
-    mshrWaiters(mshrMatchIdx)(waiterIndex).txnId      := io.req.bits.txnId
-    mshrWaiters(mshrMatchIdx)(waiterIndex).byteOffset := io.req.bits.addr(cfg.offsetBits - 1, 0)
-    mshrWaiters(mshrMatchIdx)(waiterIndex).size       := io.req.bits.size
-    mshrWaiters(mshrMatchIdx)(waiterIndex).unsigned   := io.req.bits.unsigned
+    mshrWaiters(mshrMatchIdx)(waiterIndex).txnId      := io.req.bits.request.txnId
+    mshrWaiters(mshrMatchIdx)(waiterIndex).byteOffset := io.req.bits.request.addr(cfg.offsetBits - 1, 0)
+    mshrWaiters(mshrMatchIdx)(waiterIndex).size       := io.req.bits.request.size
+    mshrWaiters(mshrMatchIdx)(waiterIndex).unsigned   := io.req.bits.request.unsigned
+    mshrWaiters(mshrMatchIdx)(waiterIndex).owner      := io.req.bits.owner
   }
 
   when(io.axiReadReq.fire) {
@@ -319,8 +363,14 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
     mshrFault(receivingIdx)                              := refillFault
 
     when(refillLast) {
-      mshrState(receivingIdx)       := mshrResponding
-      mshrResponseIdx(receivingIdx) := 0.U
+      val discardRefill = mshrWaiterCount(receivingIdx) === 0.U ||
+        ((io.flush || io.recover.valid) && retainedWaiterCount(receivingIdx) === 0.U)
+      when(discardRefill) {
+        mshrValid(receivingIdx) := false.B
+      }.otherwise {
+        mshrState(receivingIdx)       := mshrResponding
+        mshrResponseIdx(receivingIdx) := 0.U
+      }
       when(!refillFault) {
         validArray(mshrSet(receivingIdx))(mshrWay(receivingIdx)) := true.B
         tagArray(mshrSet(receivingIdx))(mshrWay(receivingIdx))   := tag(mshrBlockAddr(receivingIdx))
@@ -337,9 +387,9 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
   }
 
   when(io.resp.fire) {
-    when(hitRespValid) {
+    when(hitResponseVisible) {
       hitRespValid := false.B
-    }.elsewhen(hasResponding) {
+    }.elsewhen(mshrResponseVisible) {
       val nextResponse = mshrResponseIdx(respondingIdx) +& 1.U
       when(nextResponse === mshrWaiterCount(respondingIdx)) {
         mshrValid(respondingIdx) := false.B
@@ -354,5 +404,29 @@ class DCache(cfg: DCacheConfig = DCacheConfig(), memCfg: MemConfig = MemConfig()
 
   when(io.axiWriteReq.fire) {
     storeSent := true.B
+  }
+
+  when(io.flush || io.recover.valid) {
+    when(hitRespValid && ownerKilled(hitRespOwner)) {
+      hitRespValid := false.B
+    }
+
+    for (entry <- 0 until cfg.mshrEntries) {
+      for (waiter <- 0 until cfg.waitersPerMshr) {
+        mshrWaiters(entry)(waiter) := retainedWaiters(entry)(waiter)
+      }
+      mshrWaiterCount(entry) := retainedWaiterCount(entry)
+      mshrResponseIdx(entry) := 0.U
+
+      val noRetainedWaiters = retainedWaiterCount(entry) === 0.U
+      when(mshrValid(entry) && noRetainedWaiters &&
+        (mshrState(entry) === mshrQueued || mshrState(entry) === mshrResponding)) {
+        mshrValid(entry) := false.B
+      }
+      when(mshrValid(entry) && noRetainedWaiters && mshrState(entry) === mshrReceiving &&
+        io.axiReadResp.fire && receivingIdx === entry.U && refillLast) {
+        mshrValid(entry) := false.B
+      }
+    }
   }
 }

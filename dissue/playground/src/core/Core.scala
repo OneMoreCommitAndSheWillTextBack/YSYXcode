@@ -1,13 +1,13 @@
 package top.core
 
 import chisel3._
-import chisel3.util.Queue
 import top.core.backend.Backend
 import top.core.backend.csr.CsrInterruptPending
 import top.bus.axi.AxiPort
 import top.core.bundle.{FrontendToBackend, MemPerfEvent}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
 import top.core.mem.Mem
+import top.core.mem.RecoverableDmemQueue
 import top.core.frontend.Frontend
 import top.core.frontend.bundle.BpuUpdate
 import top.sim.MemPerfBridge
@@ -30,9 +30,15 @@ class Core(resetVector: BigInt) extends Module {
 
   val frontend         = Module(new Frontend(resetVector, frontendCfg))
   val backend          = Module(new Backend(resetVector, backendCfg))
-  val mem              = Module(new Mem(memCfg))
+  val mem              = Module(new Mem(memCfg, backendCfg.robEntries))
   val dmemRequestQueue = Module(
-    new Queue(new top.core.bundle.DataMemReq(memCfg.addrWidth, memCfg.axiDataWidth), entries = 4)
+    new RecoverableDmemQueue(
+      addrWidth = memCfg.addrWidth,
+      dataWidth = memCfg.axiDataWidth,
+      robIdxWidth = backendCfg.robIdxWidth,
+      robEntries = backendCfg.robEntries,
+      depth = 4
+    )
   )
   val memPerf          = Module(new MemPerfBridge)
 
@@ -86,10 +92,16 @@ class Core(resetVector: BigInt) extends Module {
   dmemRequestQueue.io.enq.valid := backend.io.dmemReq.valid
   dmemRequestQueue.io.enq.bits  := backend.io.dmemReq.bits
   backend.io.dmemReq.ready      := dmemRequestQueue.io.enq.ready
+  dmemRequestQueue.io.flush     := backend.io.globalFlush
+  dmemRequestQueue.io.recover   := backend.io.recover
+  dmemRequestQueue.io.robHead   := backend.io.robHead
 
   mem.io.dmemReq.valid          := dmemRequestQueue.io.deq.valid
   mem.io.dmemReq.bits           := dmemRequestQueue.io.deq.bits
   dmemRequestQueue.io.deq.ready := mem.io.dmemReq.ready
+  mem.io.flush                   := backend.io.globalFlush
+  mem.io.recover                 := backend.io.recover
+  mem.io.robHead                 := backend.io.robHead
 
   backend.io.dmemResp.valid := mem.io.dmemResp.valid
   backend.io.dmemResp.bits  := mem.io.dmemResp.bits

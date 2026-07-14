@@ -1,7 +1,8 @@
 package top.core.backend.dispatch
 
 import chisel3._
-import top.core.backend.bundle.{ScoreboardAlloc, ScoreboardCommit, ScoreboardQuery}
+import top.core.backend.bundle.{RobProducerEntry, ScoreboardAlloc, ScoreboardCommit, ScoreboardQuery}
+import top.core.bundle.{RobAge, RobRecovery}
 import top.config.BackendConfig
 
 class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
@@ -10,10 +11,32 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
     val alloc  = Input(Vec(cfg.dispatchWidth, new ScoreboardAlloc(cfg)))
     val commit = Input(Vec(cfg.commitWidth, new ScoreboardCommit(cfg)))
     val flush  = Input(Bool())
+    val recover = Input(new RobRecovery(cfg.robIdxWidth))
+    val robHead = Input(UInt(cfg.robIdxWidth.W))
+    val producerEntries = Input(Vec(cfg.robEntries, new RobProducerEntry(cfg)))
   })
 
   private val busy     = RegInit(VecInit(Seq.fill(32)(false.B)))
   private val producer = Reg(Vec(32, UInt(cfg.robIdxWidth.W)))
+
+  private def recoveredProducer(register: Int): (Bool, UInt) = {
+    var selectedValid = false.B
+    var selectedAge   = 0.U((cfg.robIdxWidth + 1).W)
+    var selectedRob   = 0.U(cfg.robIdxWidth.W)
+
+    for (entry <- io.producerEntries) {
+      val candidate = entry.valid && entry.rfWen && entry.rd === register.U && entry.rd =/= 0.U &&
+        !RobAge.isYounger(entry.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+      val candidateAge = RobAge.fromHead(entry.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+      val replace      = candidate && (!selectedValid || candidateAge > selectedAge)
+
+      selectedValid = Mux(replace, true.B, selectedValid)
+      selectedAge   = Mux(replace, candidateAge, selectedAge)
+      selectedRob   = Mux(replace, entry.robIdx, selectedRob)
+    }
+
+    (selectedValid, selectedRob)
+  }
 
   for ((query, queryIdx) <- io.query.zipWithIndex) {
     val dispatchSlot = queryIdx / cfg.operandsPerInst
@@ -35,6 +58,12 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
   when(io.flush) {
     for (idx <- 0 until 32) {
       busy(idx) := false.B
+    }
+  }.elsewhen(io.recover.valid) {
+    for (register <- 0 until 32) {
+      val (hasProducer, producerRobIdx) = recoveredProducer(register)
+      busy(register)     := hasProducer
+      producer(register) := producerRobIdx
     }
   }.otherwise {
     for (commit <- io.commit) {

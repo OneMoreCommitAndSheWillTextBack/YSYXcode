@@ -6,7 +6,7 @@ import top.config.BackendConfig
 import top.core.backend.bundle.{IssueWakeup, RobWritebackPacket}
 import top.core.backend.decoder.MemSize
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
-import top.core.bundle.DataMemResp
+import top.core.bundle.{DataMemResp, RobAge, RobRecovery}
 
 class LoadTxnAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx      = UInt(cfg.robIdxWidth.W)
@@ -39,6 +39,8 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val writeback     = Valid(new RobWritebackPacket(cfg))
     val wakeup        = Output(new IssueWakeup(cfg))
     val flush         = Input(Bool())
+    val recover       = Input(new RobRecovery(cfg.robIdxWidth))
+    val robHead       = Input(UInt(cfg.robIdxWidth.W))
     val occupancy     = Output(UInt(math.max(chisel3.util.log2Ceil(entryCount + 1), 1).W))
     val empty         = Output(Bool())
   })
@@ -66,7 +68,7 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val allocTxnId = Wire(UInt(top.core.bundle.DataMemTxn.width.W))
   allocTxnId := OHToUInt(freeTagOH)
 
-  io.alloc.ready := hasFreeEntry && hasFreeTag && !io.flush
+  io.alloc.ready := hasFreeEntry && hasFreeTag && !io.flush && !io.recover.valid
   io.allocTxnId  := allocTxnId
   io.occupancy   := PopCount(valid)
   io.empty       := !valid.asUInt.orR
@@ -78,9 +80,12 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val responseValid   = responseMatchOH.orR
   private val responseIdx     = OHToUInt(responseMatchOH)
 
-  // Unknown load tags are stale responses from a flushed path. Acknowledge
-  // them so the DCache can retire its waiter and release the tag below.
-  io.complete.ready := io.flush || !responseValid || io.allowComplete
+  private val responseKilledByRecovery = responseValid && io.recover.valid &&
+    RobAge.isYounger(robIdx(responseIdx), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+
+  // Unknown tags and squashed owners are stale responses. Acknowledge them so the DCache can retire its waiter and
+  // the transaction tag can never alias a newer load.
+  io.complete.ready := io.flush || !responseValid || responseKilledByRecovery || io.allowComplete
 
   private val selectedForwardMask = forwardMask(responseIdx)
   private val expandedForwardMask = Cat((0 until dataBytes).reverse.map { byte =>
@@ -109,7 +114,7 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   }
 
   val responseResult = extendLoad(mergedData, size(responseIdx), unsigned(responseIdx))
-  val responseFire   = io.complete.valid && io.complete.ready && responseValid && !io.flush
+  val responseFire   = io.complete.valid && io.complete.ready && responseValid && !io.flush && !responseKilledByRecovery
 
   io.writeback.valid          := responseFire
   io.writeback.bits           := 0.U.asTypeOf(new RobWritebackPacket(cfg))
@@ -127,6 +132,13 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   for (entry <- 0 until entryCount) {
     when(io.flush) {
       valid(entry) := false.B
+    }.elsewhen(io.recover.valid) {
+      when(responseFire && responseIdx === entry.U) {
+        valid(entry) := false.B
+      }
+      when(RobAge.isYounger(robIdx(entry), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)) {
+        valid(entry) := false.B
+      }
     }.otherwise {
       when(responseFire && responseIdx === entry.U) {
         valid(entry) := false.B
