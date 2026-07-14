@@ -311,9 +311,9 @@ impl Simulator {
         for _ in 0..times {
             match self.state {
                 SimulatorState::Running | SimulatorState::Stop => {}
-                SimulatorState::End => return self.terminal(Ok(())),
+                SimulatorState::End => return Ok(()),
                 SimulatorState::Abort => {
-                    return self.terminal(Err(SimulatorError::SimulateAbort));
+                    return Err(SimulatorError::SimulateAbort);
                 }
             }
 
