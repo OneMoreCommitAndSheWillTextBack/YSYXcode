@@ -1,8 +1,8 @@
 package top.core.mem
 
 import chisel3._
-import chisel3.util.{Decoupled, Mux1H, PopCount}
-import top.core.bundle.{OwnedDataMemReq, RobAge, RobRecovery}
+import chisel3.util.{Decoupled, Mux1H, PopCount, Valid}
+import top.core.bundle.{DataMemTxn, OwnedDataMemReq, RobAge, RobRecovery}
 
 /** Small FIFO that can discard requests belonging to a recovered speculative path.
   *
@@ -28,6 +28,7 @@ class RecoverableDmemQueue(
     val flush   = Input(Bool())
     val recover = Input(new RobRecovery(robIdxWidth))
     val robHead = Input(UInt(robIdxWidth.W))
+    val cancel  = Output(Vec(depth, Valid(UInt(DataMemTxn.width.W))))
   })
 
   private val entries = Reg(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
@@ -47,6 +48,9 @@ class RecoverableDmemQueue(
   private val keep = Wire(Vec(depth, Bool()))
   for (index <- 0 until depth) {
     keep(index) := index.U < count && !discard(entries(index))
+    io.cancel(index).valid := squash && index.U < count && discard(entries(index)) &&
+      DataMemTxn.isLoad(entries(index).request.txnId)
+    io.cancel(index).bits := entries(index).request.txnId
   }
 
   private val compacted = Wire(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))

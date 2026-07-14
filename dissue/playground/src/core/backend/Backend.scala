@@ -38,6 +38,7 @@ class Backend(
 
     val dmemReq  = Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
     val dmemResp = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
+    val dmemCancel = Input(Vec(cfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
 
     val recover     = Output(new RobRecovery(cfg.robIdxWidth))
     val globalFlush = Output(Bool())
@@ -230,6 +231,7 @@ class Backend(
   lsu.io.flush           := globalFlush
   lsu.io.recover         := selectiveRecovery
   lsu.io.robHead         := rob.io.head
+  lsu.io.cancel          := io.dmemCancel
   lsu.io.csrStatus       := csrFile.io.status
 
   difftest.io.retire    := retire.io.retire

@@ -1,10 +1,10 @@
 package top.core.mem
 
 import chisel3._
-import chisel3.util.{Decoupled, Enum, MuxCase}
+import chisel3.util.{Decoupled, Enum, MuxCase, Valid}
 import top.bus.axi.AxiPort
 import top.config.MemConfig
-import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, InstMemReq, InstMemResp, OwnedDataMemReq, RobRecovery}
+import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, DataMemTxn, InstMemReq, InstMemResp, OwnedDataMemReq, RobRecovery}
 import top.device.DeviceConst
 
 /** Owns the physical memory hierarchy below Core.
@@ -27,6 +27,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     val flush   = Input(Bool())
     val recover = Input(new RobRecovery(robIdxWidth))
     val robHead = Input(UInt(robIdxWidth.W))
+    val dmemCancel = Output(Vec(DCache.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
 
     val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
     val ptwResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
@@ -65,6 +66,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   dcache.io.flush   := io.flush
   dcache.io.recover := io.recover
   dcache.io.robHead := io.robHead
+  io.dmemCancel     := dcache.io.cancel
 
   ptwAccess.io.req <> io.ptwReq
   io.ptwResp <> ptwAccess.io.resp

@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util.{Cat, Decoupled, Fill, Mux1H, OHToUInt, PopCount, PriorityEncoderOH, Valid}
 import top.bus.axi.{AxiBurst, AxiResp}
 import top.config.{DCacheConfig, MemConfig}
-import top.core.bundle.{DataMemOwner, DataMemReq, DataMemResp, OwnedDataMemReq, RobAge, RobRecovery}
+import top.core.bundle.{DataMemOwner, DataMemReq, DataMemResp, DataMemTxn, OwnedDataMemReq, RobAge, RobRecovery}
 import top.core.mem.bundle.{AxiMasterReadReq, AxiMasterReadResp, AxiMasterWriteReq, AxiMasterWriteResp}
 
 class DCacheWaiter(cfg: DCacheConfig, robIdxWidth: Int) extends Bundle {
@@ -30,6 +30,10 @@ class DCachePerf(cfg: DCacheConfig) extends Bundle {
   val refillComplete = Bool()
   val refillFault    = Bool()
   val mshrOccupancy  = UInt(math.max(chisel3.util.log2Ceil(cfg.mshrEntries + 1), 1).W)
+}
+
+object DCache {
+  def cancelPorts(cfg: DCacheConfig): Int = 1 + cfg.mshrEntries * cfg.waitersPerMshr
 }
 
 /** A write-through, no-write-allocate data cache.
@@ -65,6 +69,7 @@ class DCache(
     val flush   = Input(Bool())
     val recover = Input(new RobRecovery(robIdxWidth))
     val robHead = Input(UInt(robIdxWidth.W))
+    val cancel  = Output(Vec(DCache.cancelPorts(cfg), Valid(UInt(DataMemTxn.width.W))))
 
     val axiReadReq   = Decoupled(new AxiMasterReadReq(memCfg.addrWidth, memCfg.axiIdWidth))
     val axiReadResp  = Flipped(Decoupled(new AxiMasterReadResp(memCfg.axiDataWidth, memCfg.axiIdWidth)))
@@ -118,6 +123,18 @@ class DCache(
   private def ownerKilled(owner: DataMemOwner): Bool =
     owner.squashable && (io.flush ||
       (io.recover.valid && RobAge.isYounger(owner.robIdx, io.recover.robIdx, io.robHead, robEntries, robIdxWidth)))
+
+  io.cancel(0).valid := hitRespValid && ownerKilled(hitRespOwner) && DataMemTxn.isLoad(hitResp.txnId)
+  io.cancel(0).bits  := hitResp.txnId
+  for (entry <- 0 until cfg.mshrEntries) {
+    for (waiter <- 0 until cfg.waitersPerMshr) {
+      val cancelPort = 1 + entry * cfg.waitersPerMshr + waiter
+      val canceledWaiter = mshrWaiters(entry)(waiter)
+      io.cancel(cancelPort).valid := canceledWaiter.valid && ownerKilled(canceledWaiter.owner) &&
+        DataMemTxn.isLoad(canceledWaiter.txnId)
+      io.cancel(cancelPort).bits := canceledWaiter.txnId
+    }
+  }
 
   private val retainedWaiterCount = Wire(Vec(cfg.mshrEntries, UInt(waiterCountWidth.W)))
   private val retainedWaiters = Wire(

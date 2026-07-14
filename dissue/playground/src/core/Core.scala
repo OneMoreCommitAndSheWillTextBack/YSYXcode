@@ -1,13 +1,13 @@
 package top.core
 
 import chisel3._
+import chisel3.util.Valid
 import top.core.backend.Backend
 import top.core.backend.csr.CsrInterruptPending
 import top.bus.axi.AxiPort
-import top.core.bundle.{FrontendToBackend, MemPerfEvent}
+import top.core.bundle.{DataMemTxn, FrontendToBackend, MemPerfEvent}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
-import top.core.mem.Mem
-import top.core.mem.RecoverableDmemQueue
+import top.core.mem.{DCache, Mem, RecoverableDmemQueue}
 import top.core.frontend.Frontend
 import top.core.frontend.bundle.BpuUpdate
 import top.sim.MemPerfBridge
@@ -16,11 +16,16 @@ class Core(resetVector: BigInt) extends Module {
   private val frontendCfg = FrontendConfig()
   private val backendCfg  = BackendConfig()
   private val memCfg      = MemConfig()
+  private val dmemQueueDepth = 4
 
   require(backendCfg.addrWidth == frontendCfg.addrWidth, "frontend/backend addrWidth must match")
   require(backendCfg.addrWidth == memCfg.addrWidth, "backend/mem addrWidth must match")
   require(backendCfg.dataWidth == memCfg.axiDataWidth, "backend dataWidth must match memory data width")
   require(backendCfg.issueWidth == 2, "Core bridge currently assumes the frontend produces two slots")
+  require(
+    dmemQueueDepth + DCache.cancelPorts(memCfg.dcache) <= backendCfg.recoveryCancelPorts,
+    "BackendConfig.recoveryCancelPorts must cover dmem queue and DCache cancellation sources"
+  )
 
   val io = IO(new Bundle {
     val interrupt = Input(new CsrInterruptPending)
@@ -37,7 +42,7 @@ class Core(resetVector: BigInt) extends Module {
       dataWidth = memCfg.axiDataWidth,
       robIdxWidth = backendCfg.robIdxWidth,
       robEntries = backendCfg.robEntries,
-      depth = 4
+      depth = dmemQueueDepth
     )
   )
   val memPerf          = Module(new MemPerfBridge)
@@ -102,6 +107,18 @@ class Core(resetVector: BigInt) extends Module {
   mem.io.flush                   := backend.io.globalFlush
   mem.io.recover                 := backend.io.recover
   mem.io.robHead                 := backend.io.robHead
+
+  private val dmemCancel = Wire(Vec(backendCfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
+  for (port <- 0 until backendCfg.recoveryCancelPorts) {
+    dmemCancel(port) := 0.U.asTypeOf(Valid(UInt(DataMemTxn.width.W)))
+  }
+  for (port <- 0 until dmemQueueDepth) {
+    dmemCancel(port) := dmemRequestQueue.io.cancel(port)
+  }
+  for (port <- 0 until DCache.cancelPorts(memCfg.dcache)) {
+    dmemCancel(dmemQueueDepth + port) := mem.io.dmemCancel(port)
+  }
+  backend.io.dmemCancel := dmemCancel
 
   backend.io.dmemResp.valid := mem.io.dmemResp.valid
   backend.io.dmemResp.bits  := mem.io.dmemResp.bits

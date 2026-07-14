@@ -32,6 +32,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     val flush     = Input(Bool())
     val recover   = Input(new RobRecovery(cfg.robIdxWidth))
     val robHead   = Input(UInt(cfg.robIdxWidth.W))
+    val cancel    = Input(Vec(cfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
     val csrStatus = Input(new CsrStatus(cfg))
 
     val loadTxnOccupancy            = Output(UInt(math.max(chisel3.util.log2Ceil(cfg.loadTxnEntries + 1), 1).W))
@@ -278,6 +279,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   loadTxns.io.flush          := io.flush
   loadTxns.io.recover        := io.recover
   loadTxns.io.robHead        := io.robHead
+  loadTxns.io.cancel         := io.cancel
 
   translator.io.memResp.valid := io.dmemResp.valid && responseIsPtw
   translator.io.memResp.bits  := io.dmemResp.bits

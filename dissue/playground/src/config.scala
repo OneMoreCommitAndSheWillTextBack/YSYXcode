@@ -135,7 +135,8 @@ final case class BackendConfig(
   intIssueWidth:     Int = 2,
   writebackWidth:    Int = 3,
   issueQueueEntries: Int = 8,
-  loadTxnEntries: Int = 2) {
+  loadTxnEntries: Int = 2,
+  recoveryCancelPorts: Int = 16) {
   require(issueWidth > 0, "issueWidth must be positive")
   require(commitWidth > 0, "commitWidth must be positive")
   require(addrWidth > 0, "addrWidth must be positive")
@@ -146,6 +147,7 @@ final case class BackendConfig(
   require(writebackWidth >= intIssueWidth + 1, "writebackWidth must cover all integer execute ports and LSU")
   require(issueQueueEntries > 0, "issueQueueEntries must be positive")
   require(loadTxnEntries > 0, "loadTxnEntries must be positive")
+  require(recoveryCancelPorts > 0, "recoveryCancelPorts must be positive")
 
   val dispatchWidth:      Int = issueWidth
   val operandsPerInst:    Int = 2

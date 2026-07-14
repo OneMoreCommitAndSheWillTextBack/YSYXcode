@@ -6,7 +6,7 @@ import top.config.BackendConfig
 import top.core.backend.bundle.{IssueWakeup, RobWritebackPacket}
 import top.core.backend.decoder.MemSize
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
-import top.core.bundle.{DataMemResp, RobAge, RobRecovery}
+import top.core.bundle.{DataMemResp, DataMemTxn, RobAge, RobRecovery}
 
 class LoadTxnAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx      = UInt(cfg.robIdxWidth.W)
@@ -41,6 +41,9 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val flush         = Input(Bool())
     val recover       = Input(new RobRecovery(cfg.robIdxWidth))
     val robHead       = Input(UInt(cfg.robIdxWidth.W))
+    // A cancellation source may release a tag only after it has guaranteed that
+    // the corresponding request cannot produce a later response.
+    val cancel        = Input(Vec(cfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
     val occupancy     = Output(UInt(math.max(chisel3.util.log2Ceil(entryCount + 1), 1).W))
     val empty         = Output(Bool())
   })
@@ -59,9 +62,9 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val freeEntryIdx = OHToUInt(freeEntryOH)
   private val hasFreeEntry = freeEntryOH.orR
 
-  // Recovery removes the corresponding DCache waiter before releasing this
-  // tag. A canceled transaction therefore cannot leave a delayed response
-  // that aliases a newer LoadTxnQueue entry.
+  // Recovering the ROB entry alone is insufficient to reuse its tag: a bypass
+  // transaction may still return. Only completion or an explicit cancellation
+  // source is allowed to release the tag.
   private val tagInUse   = RegInit(VecInit(Seq.fill(tagCount)(false.B)))
   private val freeTagOH  = PriorityEncoderOH(VecInit(tagInUse.map(!_)).asUInt)
   private val hasFreeTag = freeTagOH.orR
@@ -73,7 +76,7 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   io.occupancy   := PopCount(valid)
   io.empty       := !valid.asUInt.orR
 
-  private val responseInRange = top.core.bundle.DataMemTxn.isLoad(io.complete.bits.txnId)
+  private val responseInRange = DataMemTxn.isLoad(io.complete.bits.txnId)
   private val responseMatchOH = VecInit((0 until entryCount).map { entry =>
     valid(entry) && txnId(entry) === io.complete.bits.txnId
   }).asUInt
@@ -170,7 +173,8 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     when(io.complete.fire && responseInRange && io.complete.bits.txnId === tag.U) {
       tagInUse(tag) := false.B
     }
-    when(VecInit((0 until entryCount).map(entry => killedByRecovery(entry) && txnId(entry) === tag.U)).asUInt.orR) {
+    val canceled = io.cancel.map(cancel => cancel.valid && cancel.bits === tag.U).reduce(_ || _)
+    when(canceled) {
       tagInUse(tag) := false.B
     }
   }
