@@ -315,7 +315,7 @@ class Backend(
   // Store responses use one fixed transaction tag, so retain the owning ROB
   // index until that response returns before accepting another store request.
   private val retireReqSelected       = retire.io.dmemReq.valid && !storeRequestOutstanding
-  private val lsuReqSelected          = !retire.io.dmemReq.valid && lsu.io.dmemReq.valid
+  private val lsuReqSelected          = !globalFlush && !retire.io.dmemReq.valid && lsu.io.dmemReq.valid
 
   io.dmemReq.valid                  := lsuReqSelected || retireReqSelected
   io.dmemReq.bits                   := 0.U.asTypeOf(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))

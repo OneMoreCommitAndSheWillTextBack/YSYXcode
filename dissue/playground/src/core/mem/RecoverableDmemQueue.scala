@@ -36,7 +36,9 @@ class RecoverableDmemQueue(
 
   io.deq.valid := count =/= 0.U && !squash
   io.deq.bits  := entries(0)
-  io.enq.ready := count < depth.U && !squash
+  // Do not let global flush influence ready: retirement may need to enqueue an older committed store in the same cycle
+  // that produces the flush. Recovery itself already blocks all backend producers.
+  io.enq.ready := count < depth.U && !io.recover.valid
 
   private def discard(entry: OwnedDataMemReq): Bool =
     entry.owner.squashable && (io.flush ||
@@ -53,7 +55,19 @@ class RecoverableDmemQueue(
     for (source <- 0 until depth) {
       sourceOH(source) := keep(source) && PopCount(keep.take(source)) === destination.U
     }
-    compacted(destination) := Mux1H(sourceOH, entries)
+      compacted(destination) := Mux1H(sourceOH, entries)
+  }
+
+  private val squashNext = Wire(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
+  for (index <- 0 until depth) {
+    squashNext(index) := compacted(index)
+  }
+  private val retainedCount = PopCount(keep)
+  private val squashEnqueue = io.enq.fire && !discard(io.enq.bits)
+  private val squashEnqueueIndex = Wire(UInt(entryIdxWidth.W))
+  squashEnqueueIndex := retainedCount(entryIdxWidth - 1, 0)
+  when(squashEnqueue) {
+    squashNext(squashEnqueueIndex) := io.enq.bits
   }
 
   private val afterDequeue = Wire(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
@@ -73,8 +87,8 @@ class RecoverableDmemQueue(
   }
 
   when(squash) {
-    entries := compacted
-    count   := PopCount(keep)
+    entries := squashNext
+    count   := retainedCount + squashEnqueue
   }.otherwise {
     entries := normalNext
     when(io.enq.fire && !io.deq.fire) {
