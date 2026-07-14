@@ -290,8 +290,9 @@ class DCache(
   private val requestCanAllocate = hasFreeMshr && hasVictim && mayIssueAxi(io.req.bits.owner)
   private val requestReady = Mux(hit, true.B, Mux(mshrMatch, matchWaiterSpace, requestCanAllocate))
 
-  // An eviction stream owns the single AXI writer until its response returns.
-  // Blocking new requests here keeps the selected victim stable for all beats.
+  // An eviction owns the single AXI writer until all of its beats are durable.
+  // Blocking new requests here keeps the selected victim stable throughout the
+  // writeback transaction sequence.
   io.req.ready := !io.flush && !io.recover.valid && !responseBusy && !hasEvicting &&
     !maintenanceWriteActive && !io.cleanInvalidate.valid && requestReady
 
@@ -381,15 +382,19 @@ class DCache(
     mshrWriteBeat(evictWriteIdx)
   )
 
+  // Write back one line beat per AXI transaction. This is valid AXI for every
+  // target, and it keeps the cache independent of a target's burst-write
+  // buffering policy. `writebackBeat` only advances after the corresponding B
+  // response, so the selected line remains recoverable until it is durable.
   io.axiWriteReq.valid      := writebackActive && !writebackAwaitResp && !io.flush && !io.recover.valid
   io.axiWriteReq.bits.addr  := writebackAddr + (writebackBeat << byteBeatShift)
   io.axiWriteReq.bits.id    := 2.U(memCfg.axiIdWidth.W)
-  io.axiWriteReq.bits.len   := (beats - 1).U
+  io.axiWriteReq.bits.len   := 0.U
   io.axiWriteReq.bits.size  := byteBeatShift.U
   io.axiWriteReq.bits.burst := AxiBurst.incr
   io.axiWriteReq.bits.data  := lineBeatAt(writebackLine, writebackBeat)
   io.axiWriteReq.bits.strb  := fullWriteMask
-  io.axiWriteReq.bits.last  := writebackBeat === lastBeat
+  io.axiWriteReq.bits.last  := true.B
   io.axiWriteResp.ready     := maintenanceWriteAwaitResp || hasEvictAwait
 
   private val refillFault    = mshrFault(receivingIdx) || io.axiReadResp.bits.resp =/= AxiResp.okay
@@ -526,36 +531,37 @@ class DCache(
 
   when(io.axiWriteReq.fire) {
     when(writebackFromMaintenance) {
-      when(maintenanceWriteBeat === lastBeat) {
-        maintenanceWriteAwaitResp := true.B
-      }.otherwise {
-        maintenanceWriteBeat := maintenanceWriteBeat + 1.U
-      }
+      maintenanceWriteAwaitResp := true.B
     }.elsewhen(writebackFromEviction) {
-      when(mshrWriteBeat(evictWriteIdx) === lastBeat) {
-        mshrWriteAwaitResp(evictWriteIdx) := true.B
-      }.otherwise {
-        mshrWriteBeat(evictWriteIdx) := mshrWriteBeat(evictWriteIdx) + 1.U
-      }
+      mshrWriteAwaitResp(evictWriteIdx) := true.B
     }
   }
 
   when(io.axiWriteResp.fire) {
     when(maintenanceWriteAwaitResp) {
-      maintenanceWriteActive    := false.B
       maintenanceWriteAwaitResp := false.B
-      maintenanceWriteBeat      := 0.U
+      when(maintenanceWriteBeat === lastBeat) {
+        maintenanceWriteActive := false.B
+        maintenanceWriteBeat   := 0.U
+      }.otherwise {
+        maintenanceWriteBeat := maintenanceWriteBeat + 1.U
+      }
     }.elsewhen(hasEvictAwait) {
       mshrWriteAwaitResp(evictAwaitIdx) := false.B
       when(io.axiWriteResp.bits.resp =/= AxiResp.okay) {
         mshrFault(evictAwaitIdx) := true.B
       }
-      val noWaitersAfterControl = (io.flush || io.recover.valid) && retainedWaiterCount(evictAwaitIdx) === 0.U
-      when(mshrWaiterCount(evictAwaitIdx) === 0.U || noWaitersAfterControl) {
-        mshrValid(evictAwaitIdx) := false.B
+      when(mshrWriteBeat(evictAwaitIdx) === lastBeat) {
+        val noWaitersAfterControl =
+          (io.flush || io.recover.valid) && retainedWaiterCount(evictAwaitIdx) === 0.U
+        when(mshrWaiterCount(evictAwaitIdx) === 0.U || noWaitersAfterControl) {
+          mshrValid(evictAwaitIdx) := false.B
+        }.otherwise {
+          mshrState(evictAwaitIdx)     := mshrQueued
+          mshrWriteBeat(evictAwaitIdx) := 0.U
+        }
       }.otherwise {
-        mshrState(evictAwaitIdx)     := mshrQueued
-        mshrWriteBeat(evictAwaitIdx) := 0.U
+        mshrWriteBeat(evictAwaitIdx) := mshrWriteBeat(evictAwaitIdx) + 1.U
       }
     }
   }
