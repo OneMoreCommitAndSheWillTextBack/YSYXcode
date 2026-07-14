@@ -233,6 +233,7 @@ class Backend(
   lsu.io.flush           := globalFlush
   lsu.io.recover         := selectiveRecovery
   lsu.io.robHead         := rob.io.head
+  lsu.io.unresolvedCfi   := rob.io.unresolvedCfi
   lsu.io.cancel          := io.dmemCancel
   lsu.io.csrStatus       := csrFile.io.status
 

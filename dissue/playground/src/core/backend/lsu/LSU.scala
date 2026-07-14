@@ -7,7 +7,16 @@ import top.core.backend.bundle.{IssuePacket, IssueWakeup, RobWritebackPacket, St
 import top.core.backend.csr.{CsrStatus, Mstatus, PrivMode}
 import top.core.backend.decoder.{LsuOp, MemSize}
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
-import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, DataMemTxn, RobAge, RobRecovery}
+import top.core.bundle.{
+  DataMemExternalization,
+  DataMemKind,
+  DataMemOwner,
+  DataMemReq,
+  DataMemResp,
+  DataMemTxn,
+  RobAge,
+  RobRecovery
+}
 import top.core.mmu.{MmuAccessType, MmuTranslateReq, Sv32Translator}
 
 /** Serializes address translation and atomics while allowing translated loads to wait in LoadTxnQueue. Store forwarding
@@ -32,6 +41,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     val flush     = Input(Bool())
     val recover   = Input(new RobRecovery(cfg.robIdxWidth))
     val robHead   = Input(UInt(cfg.robIdxWidth.W))
+    val unresolvedCfi = Input(Vec(cfg.robEntries, Bool()))
     val cancel    = Input(Vec(cfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
     val csrStatus = Input(new CsrStatus(cfg))
 
@@ -157,9 +167,27 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   private val inputIsStore        = isStoreOp(io.in.bits)
   private val inputIsAtomic       = io.in.bits.isAmo
   private val inputNeedsTranslate = (inputIsLoad || inputIsStore || inputIsAtomic) && !inputMisaligned
+  private val inputOwner          = Wire(new DataMemOwner(cfg.robIdxWidth))
+  inputOwner.squashable := true.B
+  inputOwner.robIdx     := io.in.bits.robIdx
+
+  // A younger memory operation must not occupy the request FIFO while it is
+  // waiting behind an unresolved branch. Otherwise it can hide an older load
+  // that is needed to resolve that branch, creating a FIFO head-of-line
+  // deadlock. DCache repeats this check at AXI issue as the final safety gate.
+  private val inputMayEnterMemoryQueue = !DataMemExternalization.hasOlderUnresolvedCfi(
+    inputOwner,
+    io.unresolvedCfi,
+    io.robHead,
+    cfg.robEntries,
+    cfg.robIdxWidth
+  )
+  private val inputNeedsExternalMemory = inputIsLoad || inputIsAtomic
+  private val inputMayStartMemory = !inputNeedsExternalMemory || inputMayEnterMemoryQueue
   private val atomicCanStart      = !inputIsAtomic || loadTxns.io.empty
   private val loadCanStart        = !inputIsLoad || loadTxns.io.alloc.ready
-  private val canAcceptInput      = state === sIdle && !io.flush && !io.recover.valid && atomicCanStart && loadCanStart
+  private val canAcceptInput      = state === sIdle && !io.flush && !io.recover.valid &&
+    inputMayStartMemory && atomicCanStart && loadCanStart
 
   io.busy             := state =/= sIdle
   io.loadTxnOccupancy := loadTxns.io.occupancy
