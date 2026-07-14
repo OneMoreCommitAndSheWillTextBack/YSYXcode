@@ -159,6 +159,7 @@ class DCache(
   private val mshrBlockAddr      = Reg(Vec(cfg.mshrEntries, UInt(cfg.addrWidth.W)))
   private val mshrSet            = Reg(Vec(cfg.mshrEntries, UInt(cfg.setIdxBits.W)))
   private val mshrWay            = Reg(Vec(cfg.mshrEntries, UInt(cfg.wayIdxBits.W)))
+  private val mshrOwner          = Reg(Vec(cfg.mshrEntries, new DataMemOwner(robIdxWidth)))
   private val mshrAxiAuthorized  = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
   private val mshrBeatIndex      = Reg(Vec(cfg.mshrEntries, UInt(beatIdxWidth.W)))
   private val mshrFault          = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
@@ -328,8 +329,7 @@ class DCache(
   }
 
   private val queuedOH = VecInit((0 until cfg.mshrEntries).map { entry =>
-    mshrValid(entry) && mshrState(entry) === mshrQueued && mshrAxiAuthorized(entry) &&
-      mshrWaiterCount(entry) =/= 0.U
+    mshrValid(entry) && mshrState(entry) === mshrQueued && mshrAxiAuthorized(entry) && mayIssueAxi(mshrOwner(entry))
   }).asUInt
   private val hasQueued = queuedOH.orR
   private val queuedIdx = OHToUInt(queuedOH)
@@ -340,7 +340,7 @@ class DCache(
   private val hasReceiving = receivingOH.orR
   private val receivingIdx = OHToUInt(receivingOH)
 
-  io.axiReadReq.valid      := hasQueued && !hasReceiving && !io.flush && !io.recover.valid
+  io.axiReadReq.valid      := hasQueued && !hasReceiving
   io.axiReadReq.bits.addr  := mshrBlockAddr(queuedIdx)
   io.axiReadReq.bits.id    := 2.U(memCfg.axiIdWidth.W)
   io.axiReadReq.bits.len   := (beats - 1).U
@@ -443,6 +443,7 @@ class DCache(
     mshrBlockAddr(freeMshrIdx)     := reqBlockAddr
     mshrSet(freeMshrIdx)           := reqSet
     mshrWay(freeMshrIdx)           := victimWay
+    mshrOwner(freeMshrIdx)         := io.req.bits.owner
     mshrAxiAuthorized(freeMshrIdx) := mayIssueAxi(io.req.bits.owner)
     mshrBeatIndex(freeMshrIdx)     := 0.U
     mshrFault(freeMshrIdx)         := false.B
@@ -620,8 +621,6 @@ class DCache(
 
   when(io.axiReadReq.fire) {
     assert(mshrAxiAuthorized(queuedIdx), "DCache refill must originate from an authorized request")
-    assert(mshrWaiterCount(queuedIdx) =/= 0.U, "DCache refill requires a live waiter")
-    assert(!io.flush && !io.recover.valid, "DCache refill must not launch during recovery")
   }
   when(io.req.fire && io.req.bits.request.write) {
     assert(!io.req.bits.owner.squashable, "speculative stores must not update the DCache")

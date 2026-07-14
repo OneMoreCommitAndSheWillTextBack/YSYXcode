@@ -182,7 +182,9 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     cfg.robEntries,
     cfg.robIdxWidth
   )
-  private val inputNeedsExternalMemory = inputIsLoad || inputIsAtomic
+  // A store itself drains at retirement, but translating its address can still
+  // require an uncached page-table read.
+  private val inputNeedsExternalMemory = inputIsLoad || inputIsStore || inputIsAtomic
   private val inputMayStartMemory = !inputNeedsExternalMemory || inputMayEnterMemoryQueue
   private val atomicCanStart      = !inputIsAtomic || loadTxns.io.empty
   private val loadCanStart        = !inputIsLoad || loadTxns.io.alloc.ready
