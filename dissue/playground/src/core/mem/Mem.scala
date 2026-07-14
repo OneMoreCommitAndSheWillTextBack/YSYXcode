@@ -3,9 +3,26 @@ package top.core.mem
 import chisel3._
 import chisel3.util.{Decoupled, Enum, MuxCase, Valid}
 import top.bus.axi.AxiPort
-import top.config.MemConfig
-import top.core.bundle.{DataMemExternalization, DataMemKind, DataMemReq, DataMemResp, DataMemTxn, InstMemReq, InstMemResp, OwnedDataMemReq, RobRecovery}
+import top.config.{DCacheConfig, MemConfig}
+import top.core.bundle.{
+  DataMemExternalization,
+  DataMemKind,
+  DataMemOwner,
+  DataMemReq,
+  DataMemResp,
+  DataMemTxn,
+  InstMemReq,
+  InstMemResp,
+  OwnedDataMemReq,
+  RobAge,
+  RobRecovery
+}
 import top.device.DeviceConst
+
+object Mem {
+  /** DCache cancellation sources plus one pre-AXI bypass cancellation source. */
+  def cancelPorts(dcache: DCacheConfig): Int = DCache.cancelPorts(dcache) + 1
+}
 
 /** Owns the physical memory hierarchy below Core.
   *
@@ -15,7 +32,8 @@ import top.device.DeviceConst
   */
 class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   private val readOwnerInst :: readOwnerDcache :: readOwnerBypass :: readOwnerPtw :: Nil = Enum(4)
-  private val robIdxWidth = math.max(chisel3.util.log2Ceil(robEntries), 1)
+  private val robIdxWidth       = math.max(chisel3.util.log2Ceil(robEntries), 1)
+  private val dcacheCancelPorts = DCache.cancelPorts(cfg.dcache)
 
   val io = IO(new Bundle {
     val imemReq  = Flipped(Decoupled(new InstMemReq(cfg.addrWidth)))
@@ -28,7 +46,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     val recover = Input(new RobRecovery(robIdxWidth))
     val robHead = Input(UInt(robIdxWidth.W))
     val unresolvedCfi = Input(Vec(robEntries, Bool()))
-    val dmemCancel = Output(Vec(DCache.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
+    val dmemCancel = Output(Vec(Mem.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
 
     val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
     val ptwResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
@@ -46,7 +64,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
       inRange(addr, DeviceConst.rtcBase, DeviceConst.rtcSize) ||
       inRange(addr, DeviceConst.plicBase, DeviceConst.plicSize)
 
-  private def mayIssueAxi(owner: top.core.bundle.DataMemOwner): Bool =
+  private def mayIssueAxi(owner: DataMemOwner): Bool =
     DataMemExternalization.mayIssueAxi(
       owner,
       io.unresolvedCfi,
@@ -57,11 +75,17 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
       io.recover
     )
 
+  private def ownerKilled(owner: DataMemOwner): Bool =
+    owner.squashable && (io.flush ||
+      (io.recover.valid && RobAge.isYounger(owner.robIdx, io.recover.robIdx, io.robHead, robEntries, robIdxWidth)))
+
   val refill       = Module(new AxiReadRefill(cfg))
   val dcache       = Module(new DCache(cfg.dcache, cfg, robEntries))
   val bypassAccess = Module(new AxiDataAccess(cfg))
   val ptwAccess    = Module(new AxiDataAccess(cfg))
   val axiMaster    = Module(new AxiMaster(cfg))
+
+  private val bypassOwner = RegInit(0.U.asTypeOf(new DataMemOwner(robIdxWidth)))
 
   refill.io.req <> io.imemReq
   io.imemResp <> refill.io.resp
@@ -97,9 +121,24 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   dcache.io.cleanInvalidate.valid := io.dmemReq.valid && !routeToDcache && bypassMayIssue &&
     needsAtomicCacheMaintenance
   dcache.io.cleanInvalidate.bits := io.dmemReq.bits.request.addr
-  io.dmemCancel     := dcache.io.cancel
+
+  when(bypassAccess.io.req.fire) {
+    bypassOwner := io.dmemReq.bits.owner
+  }
+
+  // A bypass request is still revocable until AxiDataAccess hands it to the
+  // shared AXI master. Re-check its ROB owner there, not just on enqueue.
+  bypassAccess.io.issuePermit := !bypassOwner.squashable || mayIssueAxi(bypassOwner)
+  bypassAccess.io.abort       := ownerKilled(bypassOwner)
+
+  for (port <- 0 until dcacheCancelPorts) {
+    io.dmemCancel(port) := dcache.io.cancel(port)
+  }
+  io.dmemCancel(dcacheCancelPorts) := bypassAccess.io.cancel
 
   ptwAccess.io.req <> io.ptwReq
+  ptwAccess.io.issuePermit := true.B
+  ptwAccess.io.abort       := false.B
   io.ptwResp <> ptwAccess.io.resp
 
   private val dcacheResponse = dcache.io.resp.valid

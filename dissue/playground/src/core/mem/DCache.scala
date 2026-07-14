@@ -171,6 +171,7 @@ class DCache(
   private val mshrEvictData      = Reg(Vec(cfg.mshrEntries, UInt(cfg.blockBits.W)))
   private val mshrWriteBeat      = Reg(Vec(cfg.mshrEntries, UInt(beatIdxWidth.W)))
   private val mshrWriteAwaitResp = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
+  private val mshrWritebackStarted = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
 
   private val hitRespValid = RegInit(false.B)
   private val hitResp      = Reg(new DataMemResp(cfg.dataWidth))
@@ -452,6 +453,7 @@ class DCache(
     mshrEvictData(freeMshrIdx)     := dataArray(reqSet)(victimWay)
     mshrWriteBeat(freeMshrIdx)     := 0.U
     mshrWriteAwaitResp(freeMshrIdx) := false.B
+    mshrWritebackStarted(freeMshrIdx) := false.B
 
     for (waiter <- 0 until cfg.waitersPerMshr) {
       mshrWaiters(freeMshrIdx)(waiter) := 0.U.asTypeOf(new DCacheWaiter(cfg, robIdxWidth))
@@ -534,6 +536,7 @@ class DCache(
       maintenanceWriteAwaitResp := true.B
     }.elsewhen(writebackFromEviction) {
       mshrWriteAwaitResp(evictWriteIdx) := true.B
+      mshrWritebackStarted(evictWriteIdx) := true.B
     }
   }
 
@@ -592,6 +595,19 @@ class DCache(
       mshrResponseIdx(entry) := 0.U
 
       val noRetainedWaiters = retainedWaiterCount(entry) === 0.U
+      val restoreUnstartedEviction = mshrValid(entry) && noRetainedWaiters &&
+        mshrState(entry) === mshrEvicting && !mshrWritebackStarted(entry)
+
+      // The victim has been removed from the arrays, but no writeback beat has
+      // reached AXI yet. A recovered request can therefore restore it exactly
+      // and leave no externally visible effect.
+      when(restoreUnstartedEviction) {
+        validArray(mshrSet(entry))(mshrWay(entry)) := true.B
+        dirtyArray(mshrSet(entry))(mshrWay(entry)) := true.B
+        tagArray(mshrSet(entry))(mshrWay(entry))   := tag(mshrEvictAddr(entry))
+        dataArray(mshrSet(entry))(mshrWay(entry))  := mshrEvictData(entry)
+        mshrValid(entry) := false.B
+      }
       when(mshrValid(entry) && noRetainedWaiters &&
         (mshrState(entry) === mshrQueued || mshrState(entry) === mshrResponding)) {
         mshrValid(entry) := false.B

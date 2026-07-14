@@ -7,7 +7,7 @@ import top.core.backend.csr.CsrInterruptPending
 import top.bus.axi.AxiPort
 import top.core.bundle.{DataMemTxn, FrontendToBackend, MemPerfEvent}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
-import top.core.mem.{DCache, Mem, RecoverableDmemQueue}
+import top.core.mem.{Mem, RecoverableDmemQueue}
 import top.core.frontend.Frontend
 import top.core.frontend.bundle.BpuUpdate
 import top.sim.MemPerfBridge
@@ -23,8 +23,8 @@ class Core(resetVector: BigInt) extends Module {
   require(backendCfg.dataWidth == memCfg.axiDataWidth, "backend dataWidth must match memory data width")
   require(backendCfg.issueWidth == 2, "Core bridge currently assumes the frontend produces two slots")
   require(
-    dmemQueueDepth + DCache.cancelPorts(memCfg.dcache) <= backendCfg.recoveryCancelPorts,
-    "BackendConfig.recoveryCancelPorts must cover dmem queue and DCache cancellation sources"
+    dmemQueueDepth + Mem.cancelPorts(memCfg.dcache) <= backendCfg.recoveryCancelPorts,
+    "BackendConfig.recoveryCancelPorts must cover dmem queue and memory cancellation sources"
   )
 
   val io = IO(new Bundle {
@@ -116,7 +116,7 @@ class Core(resetVector: BigInt) extends Module {
   for (port <- 0 until dmemQueueDepth) {
     dmemCancel(port) := dmemRequestQueue.io.cancel(port)
   }
-  for (port <- 0 until DCache.cancelPorts(memCfg.dcache)) {
+  for (port <- 0 until Mem.cancelPorts(memCfg.dcache)) {
     dmemCancel(dmemQueueDepth + port) := mem.io.dmemCancel(port)
   }
   backend.io.dmemCancel := dmemCancel
