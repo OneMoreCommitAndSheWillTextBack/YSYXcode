@@ -18,7 +18,8 @@ test-riscv32im: verilator-exec
 test-riscv32ima: verilator-exec
 	$(MAKE) -C test run EXT=riscv32ima
 
-tb testbench: test
+tb testbench: verilator-exec
+	$(MAKE) -C test run
 
 tb-list testbench-list:
 	$(MAKE) -C test list
