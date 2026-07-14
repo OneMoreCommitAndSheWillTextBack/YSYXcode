@@ -93,7 +93,7 @@ class DCache(
     val unresolvedCfi = Input(Vec(robEntries, Bool()))
     val cancel        = Output(Vec(DCache.cancelPorts(cfg), Valid(UInt(DataMemTxn.width.W))))
 
-    /** Clean and invalidate one line before an uncached atomic access. */
+    /** Clean and invalidate one line before an uncached coherent access. */
     val cleanInvalidate = Flipped(Decoupled(UInt(cfg.addrWidth.W)))
 
     val axiReadReq   = Decoupled(new AxiMasterReadReq(memCfg.addrWidth, memCfg.axiIdWidth))
