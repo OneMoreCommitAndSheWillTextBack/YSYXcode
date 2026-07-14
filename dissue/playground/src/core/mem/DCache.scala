@@ -130,7 +130,8 @@ class DCache(
     for (waiter <- 0 until cfg.waitersPerMshr) {
       val cancelPort = 1 + entry * cfg.waitersPerMshr + waiter
       val canceledWaiter = mshrWaiters(entry)(waiter)
-      io.cancel(cancelPort).valid := canceledWaiter.valid && ownerKilled(canceledWaiter.owner) &&
+      val waiterLive = mshrValid(entry) && waiter.U < mshrWaiterCount(entry) && canceledWaiter.valid
+      io.cancel(cancelPort).valid := waiterLive && ownerKilled(canceledWaiter.owner) &&
         DataMemTxn.isLoad(canceledWaiter.txnId)
       io.cancel(cancelPort).bits := canceledWaiter.txnId
     }
@@ -144,7 +145,8 @@ class DCache(
   for (entry <- 0 until cfg.mshrEntries) {
     val keep = Wire(Vec(cfg.waitersPerMshr, Bool()))
     for (waiter <- 0 until cfg.waitersPerMshr) {
-      keep(waiter) := mshrWaiters(entry)(waiter).valid && !ownerKilled(mshrWaiters(entry)(waiter).owner)
+      val waiterLive = mshrValid(entry) && waiter.U < mshrWaiterCount(entry) && mshrWaiters(entry)(waiter).valid
+      keep(waiter) := waiterLive && !ownerKilled(mshrWaiters(entry)(waiter).owner)
     }
     retainedWaiterCount(entry) := PopCount(keep)
 
