@@ -174,7 +174,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   // A younger memory operation must not occupy the request FIFO while it is
   // waiting behind an unresolved branch. Otherwise it can hide an older load
   // that is needed to resolve that branch, creating a FIFO head-of-line
-  // deadlock. DCache repeats this check at AXI issue as the final safety gate.
+  // deadlock.
   private val inputMayEnterMemoryQueue = !DataMemExternalization.hasOlderUnresolvedCfi(
     inputOwner,
     io.unresolvedCfi,
