@@ -79,7 +79,7 @@ class Backend(
   recovery.io.robHead := rob.io.head
 
   private val selectiveRecovery = Wire(new RobRecovery(cfg.robIdxWidth))
-  selectiveRecovery.valid  := recovery.io.recover.valid && !globalFlush
+  selectiveRecovery.valid  := recovery.io.recover.valid
   selectiveRecovery.robIdx := recovery.io.recover.robIdx
 
   private val backendBlocked = globalFlush || selectiveRecovery.valid

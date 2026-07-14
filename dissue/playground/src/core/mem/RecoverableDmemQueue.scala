@@ -19,6 +19,7 @@ class RecoverableDmemQueue(
   require(depth > 0, "RecoverableDmemQueue depth must be positive")
 
   private val countWidth = math.max(chisel3.util.log2Ceil(depth + 1), 1)
+  private val entryIdxWidth = math.max(chisel3.util.log2Ceil(depth), 1)
 
   val io = IO(new Bundle {
     val enq = Flipped(Decoupled(new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
@@ -64,8 +65,11 @@ class RecoverableDmemQueue(
   for (index <- 0 until depth) {
     normalNext(index) := Mux(io.deq.fire, afterDequeue(index), entries(index))
   }
+  private val enqueueIndex = Wire(UInt(entryIdxWidth.W))
+  private val enqueuePosition = Mux(io.deq.fire, count - 1.U, count)
+  enqueueIndex := enqueuePosition(entryIdxWidth - 1, 0)
   when(io.enq.fire) {
-    normalNext(Mux(io.deq.fire, count - 1.U, count)) := io.enq.bits
+    normalNext(enqueueIndex) := io.enq.bits
   }
 
   when(squash) {
