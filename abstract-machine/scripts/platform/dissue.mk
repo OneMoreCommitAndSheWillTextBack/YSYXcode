@@ -12,6 +12,8 @@ LDFLAGS   += -T $(AM_HOME)/scripts/linker.ld \
 LDFLAGS   += --gc-sections -e _start
 CFLAGS += -DMAINARGS=\"$(mainargs)\"
 
+.PHONY: $(AM_HOME)/am/src/riscv/dissue/trm.c
+
 CFLAGS += -I$(AM_HOME)/am/src/riscv/dissue/include
 
 ARGS = --image $(IMAGE).bin
