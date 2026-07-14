@@ -62,6 +62,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   private def isDevice(addr: UInt): Bool =
     inRange(addr, DeviceConst.clintBase, DeviceConst.clintSize) ||
       inRange(addr, DeviceConst.rtcBase, DeviceConst.rtcSize) ||
+      inRange(addr, DeviceConst.serialBase, DeviceConst.serialSize) ||
       inRange(addr, DeviceConst.plicBase, DeviceConst.plicSize)
 
   private def mayIssueAxi(owner: DataMemOwner): Bool =
