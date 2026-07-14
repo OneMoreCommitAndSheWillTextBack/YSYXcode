@@ -100,9 +100,20 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   private val bypassAtRobHead = !io.dmemReq.bits.owner.squashable || io.dmemReq.bits.owner.robIdx === io.robHead
   private val bypassMayIssue = mayIssueAxi(io.dmemReq.bits.owner) &&
     (!isArchitecturallyVisibleBypass || bypassAtRobHead)
-  private val needsAtomicCacheMaintenance = io.dmemReq.bits.request.kind === DataMemKind.atomic
+  private val bypassNeedsCacheMaintenance =
+    io.dmemReq.bits.request.kind === DataMemKind.atomic || io.dmemReq.bits.request.kind === DataMemKind.ptw
+  private val ptwNeedsCacheMaintenance    = !isDevice(io.ptwReq.bits.addr)
+
+  // A cacheable store may have modified a page table line that a PTW now needs
+  // to read through the uncached path. Give the PTW maintenance priority and
+  // make both bypass classes clean+invalidate before touching main memory.
+  private val ptwMaintenanceSelected = io.ptwReq.valid && ptwNeedsCacheMaintenance
+  private val bypassMaintenanceSelected = !ptwMaintenanceSelected && io.dmemReq.valid &&
+    !routeToDcache && bypassMayIssue && bypassNeedsCacheMaintenance
   private val bypassCanAccept = bypassMayIssue &&
-    (!needsAtomicCacheMaintenance || dcache.io.cleanInvalidate.ready)
+    (!bypassNeedsCacheMaintenance || (bypassMaintenanceSelected && dcache.io.cleanInvalidate.ready))
+  private val ptwCanAccept = !ptwNeedsCacheMaintenance ||
+    (ptwMaintenanceSelected && dcache.io.cleanInvalidate.ready)
 
   // MMIO and atomics can have side effects even for reads, so they wait for
   // ROB-head ownership in addition to the branch-resolution permit.
@@ -118,9 +129,12 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   dcache.io.recover := io.recover
   dcache.io.robHead := io.robHead
   dcache.io.unresolvedCfi := io.unresolvedCfi
-  dcache.io.cleanInvalidate.valid := io.dmemReq.valid && !routeToDcache && bypassMayIssue &&
-    needsAtomicCacheMaintenance
-  dcache.io.cleanInvalidate.bits := io.dmemReq.bits.request.addr
+  dcache.io.cleanInvalidate.valid := ptwMaintenanceSelected || bypassMaintenanceSelected
+  dcache.io.cleanInvalidate.bits := Mux(
+    ptwMaintenanceSelected,
+    io.ptwReq.bits.addr,
+    io.dmemReq.bits.request.addr
+  )
 
   when(bypassAccess.io.req.fire) {
     bypassOwner := io.dmemReq.bits.owner
@@ -136,7 +150,9 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   }
   io.dmemCancel(dcacheCancelPorts) := bypassAccess.io.cancel
 
-  ptwAccess.io.req <> io.ptwReq
+  ptwAccess.io.req.valid := io.ptwReq.valid && ptwCanAccept
+  ptwAccess.io.req.bits  := io.ptwReq.bits
+  io.ptwReq.ready        := ptwAccess.io.req.ready && ptwCanAccept
   ptwAccess.io.issuePermit := true.B
   ptwAccess.io.abort       := false.B
   io.ptwResp <> ptwAccess.io.resp
