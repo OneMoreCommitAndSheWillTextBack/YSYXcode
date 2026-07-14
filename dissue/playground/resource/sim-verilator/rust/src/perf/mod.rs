@@ -35,6 +35,21 @@ impl Perf {
         self.counters.bpu_prediction(correct);
     }
 
+    pub fn mem_perf(
+        &mut self,
+        events: u32,
+        mshr_occupancy: u32,
+        store_queue_occupancy: u32,
+        load_txn_occupancy: u32,
+    ) {
+        self.counters.mem_perf(
+            events,
+            mshr_occupancy,
+            store_queue_occupancy,
+            load_txn_occupancy,
+        );
+    }
+
     pub fn cacherate(&mut self) -> f64 {
         self.counters.cache_hit_rate()
     }
@@ -93,6 +108,26 @@ impl Perf {
 
     pub fn bpu_accuracy(&self) -> f64 {
         self.counters.bpu_accuracy()
+    }
+
+    pub fn mem_event(&self, index: usize) -> u64 {
+        self.counters.mem_event(index)
+    }
+
+    pub fn dcache_hit_rate(&self) -> f64 {
+        self.counters.dcache_hit_rate()
+    }
+
+    pub fn average_mshr_occupancy(&self) -> f64 {
+        self.counters.average_mshr_occupancy()
+    }
+
+    pub fn average_store_queue_occupancy(&self) -> f64 {
+        self.counters.average_store_queue_occupancy()
+    }
+
+    pub fn average_load_txn_occupancy(&self) -> f64 {
+        self.counters.average_load_txn_occupancy()
     }
 
     pub fn on_cycle(&mut self) {}

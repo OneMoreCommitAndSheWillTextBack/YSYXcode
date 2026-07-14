@@ -91,6 +91,7 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
     when(io.axiReadResp.fire) {
       respReg.data  := loadData
       respReg.fault := io.axiReadResp.bits.resp =/= AxiResp.okay
+      respReg.txnId := reqReg.txnId
       state         := sResp
     }
   }.elsewhen(state === sWriteReq) {
@@ -101,6 +102,7 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
     when(io.axiWriteResp.fire) {
       respReg.data  := 0.U
       respReg.fault := io.axiWriteResp.bits.resp =/= AxiResp.okay
+      respReg.txnId := reqReg.txnId
       state         := sResp
     }
   }.otherwise {

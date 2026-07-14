@@ -2,7 +2,7 @@ package top.core.mmu
 
 import chisel3._
 import top.core.backend.exception.ExceptionInfo
-import top.core.bundle.DataMemReq
+import top.core.bundle.{DataMemKind, DataMemReq, DataMemTxn}
 import top.config.BackendConfig
 
 object MmuAccessType {
@@ -30,12 +30,15 @@ class MmuTranslateResp(cfg: BackendConfig = BackendConfig()) extends Bundle {
 object MmuMemReq {
   def pteRead(addr: UInt, cfg: BackendConfig = BackendConfig()): DataMemReq = {
     val req = Wire(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
-    req.addr     := addr
-    req.write    := false.B
-    req.size     := top.core.backend.decoder.MemSize.word.U
-    req.unsigned := true.B
-    req.wdata    := 0.U
-    req.wmask    := 0.U
+    req.addr      := addr
+    req.write     := false.B
+    req.size      := top.core.backend.decoder.MemSize.word.U
+    req.unsigned  := true.B
+    req.wdata     := 0.U
+    req.wmask     := 0.U
+    req.txnId     := DataMemTxn.ptw
+    req.cacheable := false.B
+    req.kind      := DataMemKind.ptw
     req
   }
 }

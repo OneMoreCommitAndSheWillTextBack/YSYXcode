@@ -1,14 +1,16 @@
 package top.core
 
 import chisel3._
+import chisel3.util.Queue
 import top.core.backend.Backend
 import top.core.backend.csr.CsrInterruptPending
 import top.bus.axi.AxiPort
-import top.core.bundle.FrontendToBackend
+import top.core.bundle.{FrontendToBackend, MemPerfEvent}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
 import top.core.mem.Mem
 import top.core.frontend.Frontend
 import top.core.frontend.bundle.BpuUpdate
+import top.sim.MemPerfBridge
 
 class Core(resetVector: BigInt) extends Module {
   private val frontendCfg = FrontendConfig()
@@ -26,9 +28,13 @@ class Core(resetVector: BigInt) extends Module {
     val axi       = new AxiPort
   })
 
-  val frontend = Module(new Frontend(resetVector, frontendCfg))
-  val backend  = Module(new Backend(resetVector, backendCfg))
-  val mem      = Module(new Mem(memCfg))
+  val frontend         = Module(new Frontend(resetVector, frontendCfg))
+  val backend          = Module(new Backend(resetVector, backendCfg))
+  val mem              = Module(new Mem(memCfg))
+  val dmemRequestQueue = Module(
+    new Queue(new top.core.bundle.DataMemReq(memCfg.addrWidth, memCfg.axiDataWidth), entries = 4)
+  )
+  val memPerf          = Module(new MemPerfBridge)
 
   frontend.io.csrStatus := backend.io.csrStatus
   backend.io.interrupt  := io.interrupt
@@ -77,34 +83,52 @@ class Core(resetVector: BigInt) extends Module {
   frontend.io.cacheRefillResp.bits.exception := 0.U.asTypeOf(frontend.io.cacheRefillResp.bits.exception)
   mem.io.imemResp.ready                      := frontend.io.cacheRefillResp.ready
 
-  private val dmemRespToFrontend  = RegInit(false.B)
-  private val dmemOutstanding     = RegInit(false.B)
-  private val backendDmemSelected = !dmemOutstanding && backend.io.dmemReq.valid
-  private val frontendPtwSelected = !dmemOutstanding && !backend.io.dmemReq.valid && frontend.io.ptwReq.valid
+  dmemRequestQueue.io.enq.valid := backend.io.dmemReq.valid
+  dmemRequestQueue.io.enq.bits  := backend.io.dmemReq.bits
+  backend.io.dmemReq.ready      := dmemRequestQueue.io.enq.ready
 
-  mem.io.dmemReq.valid := backendDmemSelected || frontendPtwSelected
-  mem.io.dmemReq.bits  := Mux(backendDmemSelected, backend.io.dmemReq.bits, frontend.io.ptwReq.bits)
+  mem.io.dmemReq.valid          := dmemRequestQueue.io.deq.valid
+  mem.io.dmemReq.bits           := dmemRequestQueue.io.deq.bits
+  dmemRequestQueue.io.deq.ready := mem.io.dmemReq.ready
 
-  backend.io.dmemReq.ready := !dmemOutstanding && mem.io.dmemReq.ready
-  frontend.io.ptwReq.ready := frontendPtwSelected && mem.io.dmemReq.ready
-
-  backend.io.dmemResp.valid := dmemOutstanding && !dmemRespToFrontend && mem.io.dmemResp.valid
+  backend.io.dmemResp.valid := mem.io.dmemResp.valid
   backend.io.dmemResp.bits  := mem.io.dmemResp.bits
-  frontend.io.ptwResp.valid := dmemOutstanding && dmemRespToFrontend && mem.io.dmemResp.valid
-  frontend.io.ptwResp.bits  := mem.io.dmemResp.bits
-  mem.io.dmemResp.ready     := Mux(
-    dmemRespToFrontend,
-    frontend.io.ptwResp.ready,
-    backend.io.dmemResp.ready
-  )
+  mem.io.dmemResp.ready     := backend.io.dmemResp.ready
 
-  when(mem.io.dmemReq.fire) {
-    dmemOutstanding    := true.B
-    dmemRespToFrontend := frontendPtwSelected
-  }.elsewhen(mem.io.dmemResp.fire) {
-    dmemOutstanding    := false.B
-    dmemRespToFrontend := false.B
-  }
+  mem.io.ptwReq.valid      := frontend.io.ptwReq.valid
+  mem.io.ptwReq.bits       := frontend.io.ptwReq.bits
+  frontend.io.ptwReq.ready := mem.io.ptwReq.ready
+
+  frontend.io.ptwResp.valid := mem.io.ptwResp.valid
+  frontend.io.ptwResp.bits  := mem.io.ptwResp.bits
+  mem.io.ptwResp.ready      := frontend.io.ptwResp.ready
+
+  private val memPerfEvents = Seq(
+    MemPerfEvent.bit(MemPerfEvent.dcacheAccess, mem.io.perf.access),
+    MemPerfEvent.bit(MemPerfEvent.dcacheHit, mem.io.perf.hit),
+    MemPerfEvent.bit(MemPerfEvent.dcacheMiss, mem.io.perf.miss),
+    MemPerfEvent.bit(MemPerfEvent.dcacheBypass, mem.io.perf.bypass),
+    MemPerfEvent.bit(MemPerfEvent.mshrAlloc, mem.io.perf.mshrAlloc),
+    MemPerfEvent.bit(MemPerfEvent.mshrMerge, mem.io.perf.mshrMerge),
+    MemPerfEvent.bit(MemPerfEvent.mshrFullStallCycle, mem.io.perf.mshrFullStall),
+    MemPerfEvent.bit(MemPerfEvent.hitUnderMiss, mem.io.perf.hitUnderMiss),
+    MemPerfEvent.bit(MemPerfEvent.queuedMiss, mem.io.perf.queuedMiss),
+    MemPerfEvent.bit(MemPerfEvent.refillStart, mem.io.perf.refillStart),
+    MemPerfEvent.bit(MemPerfEvent.refillComplete, mem.io.perf.refillComplete),
+    MemPerfEvent.bit(MemPerfEvent.refillFault, mem.io.perf.refillFault),
+    MemPerfEvent.bit(MemPerfEvent.loadTxnFullStallCycle, backend.io.memPerf.loadTxnFullStall),
+    MemPerfEvent.bit(MemPerfEvent.sqAlloc, backend.io.memPerf.sqAlloc),
+    MemPerfEvent.bit(MemPerfEvent.sqFullStallCycle, backend.io.memPerf.sqFullStall),
+    MemPerfEvent.bit(MemPerfEvent.forwardFull, backend.io.memPerf.forwardFull),
+    MemPerfEvent.bit(MemPerfEvent.forwardPartial, backend.io.memPerf.forwardPartial),
+    MemPerfEvent.bit(MemPerfEvent.forwardUnresolvedStallCycle, backend.io.memPerf.forwardUnresolvedStoreStall),
+    MemPerfEvent.bit(MemPerfEvent.storeDrain, backend.io.memPerf.storeDrain)
+  ).reduce(_ | _)
+
+  memPerf.io.events              := memPerfEvents
+  memPerf.io.mshrOccupancy       := mem.io.perf.mshrOccupancy.pad(32)
+  memPerf.io.storeQueueOccupancy := backend.io.memPerf.sqOccupancy.pad(32)
+  memPerf.io.loadTxnOccupancy    := backend.io.memPerf.loadTxnOccupancy.pad(32)
 
   io.axi <> mem.io.axi
 }

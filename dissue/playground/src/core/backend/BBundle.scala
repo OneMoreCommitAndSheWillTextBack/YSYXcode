@@ -88,6 +88,60 @@ class StoreTrackerCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx = UInt(cfg.robIdxWidth.W)
 }
 
+class StoreQueueAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreQueueUpdate(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+  val addr   = UInt(cfg.addrWidth.W)
+  val data   = UInt(cfg.dataWidth.W)
+  val mask   = UInt((cfg.dataWidth / 8).W)
+}
+
+class StoreQueueCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreQueueDrain(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreQueuePerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val alloc     = Bool()
+  val fullStall = Bool()
+  val drain     = Bool()
+  val occupancy = UInt(math.max(chisel3.util.log2Ceil(cfg.robEntries + 1), 1).W)
+}
+
+class BackendMemPerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val sqAlloc                     = Bool()
+  val sqFullStall                 = Bool()
+  val forwardFull                 = Bool()
+  val forwardPartial              = Bool()
+  val forwardUnresolvedStoreStall = Bool()
+  val storeDrain                  = Bool()
+  val loadTxnFullStall            = Bool()
+  val sqOccupancy                 = UInt(math.max(chisel3.util.log2Ceil(cfg.robEntries + 1), 1).W)
+  val loadTxnOccupancy            = UInt(math.max(chisel3.util.log2Ceil(cfg.loadTxnEntries + 1), 1).W)
+}
+
+class StoreForwardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid          = Input(Bool())
+  val robIdx         = Input(UInt(cfg.robIdxWidth.W))
+  val addr           = Input(UInt(cfg.addrWidth.W))
+  val mask           = Input(UInt((cfg.dataWidth / 8).W))
+  val unresolved     = Output(Bool())
+  val fullForward    = Output(Bool())
+  val partialForward = Output(Bool())
+  val forwardMask    = Output(UInt((cfg.dataWidth / 8).W))
+  val forwardData    = Output(UInt(cfg.dataWidth.W))
+}
+
 class RetireException(cfg: BackendConfig = BackendConfig()) extends ExceptionInfo(cfg) {
   val blocksYounger = Bool()
 }

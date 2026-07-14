@@ -36,6 +36,14 @@ pub struct NpcDpiCallbacks {
         Option<extern "C" fn(issue_count: u8, occupancy: u8, block_ready: u8, block_operand: u8)>,
     pub div_perf: Option<extern "C" fn(cycles: u32, special: u8)>,
     pub bpu_perf: Option<extern "C" fn(correct: u8)>,
+    pub mem_perf: Option<
+        extern "C" fn(
+            events: u32,
+            mshr_occupancy: u32,
+            store_queue_occupancy: u32,
+            load_txn_occupancy: u32,
+        ),
+    >,
 }
 
 #[allow(dead_code)]

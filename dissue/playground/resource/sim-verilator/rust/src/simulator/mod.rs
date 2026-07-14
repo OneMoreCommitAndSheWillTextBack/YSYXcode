@@ -15,7 +15,7 @@ use statistics::Statistics;
 
 use crate::{
     config::{SimulatorConfig, WaveMode},
-    cpu::{Cpu, CpuContext, CpuError, CsrContext, WaveConfig as CpuWaveConfig},
+    cpu::{Cpu, CpuContext, CpuError, CsrContext, WaveSession},
     difftest::{DiffTest, DifftestError},
     memory::{Memory, MemoryError},
     perf::{Perf, PerfCounters},
@@ -201,7 +201,7 @@ impl Simulator {
             None => None,
         };
 
-        let wave_config = CpuWaveConfig::from(&config.wave_config);
+        let wave_session = WaveSession::from(&config.wave_config);
         let mut simulator = Box::new(Self {
             config,
             memory: Memory::new(),
@@ -230,7 +230,7 @@ impl Simulator {
             .cpu
             .as_mut()
             .ok_or(SimulatorError::CpuNotConnected)?
-            .init_wave(wave_config)?;
+            .init_wave(wave_session)?;
 
         simulator.finish_config();
         crate::Log!("Finish Simulator Config");
@@ -401,6 +401,45 @@ impl Simulator {
             self.perf.bpu_predictions(),
             self.perf.bpu_correct_predictions(),
             self.perf.bpu_accuracy() * 100.0
+        );
+        crate::Log!(
+            "DCache: access: {}, hit: {}, miss: {}, bypass: {}, hit rate: {:.2}%",
+            self.perf.mem_event(PerfCounters::DCACHE_ACCESS),
+            self.perf.mem_event(PerfCounters::DCACHE_HIT),
+            self.perf.mem_event(PerfCounters::DCACHE_MISS),
+            self.perf.mem_event(PerfCounters::DCACHE_BYPASS),
+            self.perf.dcache_hit_rate() * 100.0
+        );
+        crate::Log!(
+            "DCache: MSHR alloc: {}, merge: {}, full stall cycles: {}, hit-under-miss: {}, queued miss: {}, avg occupancy: {:.3}",
+            self.perf.mem_event(PerfCounters::MSHR_ALLOC),
+            self.perf.mem_event(PerfCounters::MSHR_MERGE),
+            self.perf.mem_event(PerfCounters::MSHR_FULL_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::HIT_UNDER_MISS),
+            self.perf.mem_event(PerfCounters::QUEUED_MISS),
+            self.perf.average_mshr_occupancy()
+        );
+        crate::Log!(
+            "DCache: refill start: {}, complete: {}, fault: {}",
+            self.perf.mem_event(PerfCounters::REFILL_START),
+            self.perf.mem_event(PerfCounters::REFILL_COMPLETE),
+            self.perf.mem_event(PerfCounters::REFILL_FAULT)
+        );
+        crate::Log!(
+            "StoreQueue: alloc: {}, full stall cycles: {}, drain: {}, avg occupancy: {:.3}",
+            self.perf.mem_event(PerfCounters::STORE_QUEUE_ALLOC),
+            self.perf
+                .mem_event(PerfCounters::STORE_QUEUE_FULL_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::STORE_DRAIN),
+            self.perf.average_store_queue_occupancy()
+        );
+        crate::Log!(
+            "Store forwarding: full: {}, partial: {}, unresolved-store stall cycles: {}, LoadTxn full stall cycles: {}, avg occupancy: {:.3}",
+            self.perf.mem_event(PerfCounters::FORWARD_FULL),
+            self.perf.mem_event(PerfCounters::FORWARD_PARTIAL),
+            self.perf.mem_event(PerfCounters::FORWARD_UNRESOLVED_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::LOAD_TXN_FULL_STALL_CYCLE),
+            self.perf.average_load_txn_occupancy()
         );
     }
 

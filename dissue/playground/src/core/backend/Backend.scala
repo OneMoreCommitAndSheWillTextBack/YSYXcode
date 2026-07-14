@@ -5,14 +5,21 @@ import chisel3.util.{log2Ceil, Decoupled, Enum, PopCount, Valid}
 import top.core.bundle._
 import top.config.BackendConfig
 
-import top.core.backend.bundle.{DecodePacket, IssuePortStatus, IssueWakeup, RetireGroup, RobWritebackPacket}
+import top.core.backend.bundle.{
+  BackendMemPerf,
+  DecodePacket,
+  IssuePortStatus,
+  IssueWakeup,
+  RetireGroup,
+  RobWritebackPacket
+}
 import top.core.backend.csr.{CsrFile, CsrInterruptPending, CsrStatus, CsrTracker}
 import top.core.backend.decoder._
 import top.core.backend.dispatch.{Dispatch, Scoreboard}
 import top.core.backend.exception.ExceptionInfo
 import top.core.backend.exu.{ExecuteBlock, ExuRequest}
 import top.core.backend.issue.IssueQueue
-import top.core.backend.lsu.{LSU, StoreTracker}
+import top.core.backend.lsu.{LSU, StoreQueue}
 import top.core.backend.regfile._
 import top.core.backend.retire.RetireUnit
 import top.core.backend.rob.ROB
@@ -34,6 +41,7 @@ class Backend(
 
     val retire    = Output(new RetireGroup(cfg))
     val csrStatus = Output(new CsrStatus(cfg))
+    val memPerf   = Output(new BackendMemPerf(cfg))
     val interrupt = Input(new CsrInterruptPending)
     val mtime     = Input(UInt(64.W))
   })
@@ -41,19 +49,19 @@ class Backend(
   private val slotIdxWidth   = math.max(log2Ceil(cfg.issueWidth), 1)
   private val slotCountWidth = math.max(log2Ceil(cfg.issueWidth + 1), 1)
 
-  val gpr          = Module(new RegFile(cfg))
-  val decoder      = Seq.fill(cfg.dispatchWidth)(Module(new Decoder(cfg)))
-  val dispatch     = Module(new Dispatch(cfg))
-  val scoreboard   = Module(new Scoreboard(cfg))
-  val rob          = Module(new ROB(cfg))
-  val issueQueue   = Module(new IssueQueue(cfg))
-  val execute      = Module(new ExecuteBlock(cfg))
-  val lsu          = Module(new LSU(cfg))
-  val storeTracker = Module(new StoreTracker(cfg))
-  val csrFile      = Module(new CsrFile(resetVector, cfg))
-  val csrTracker   = Module(new CsrTracker(cfg))
-  val retire       = Module(new RetireUnit(cfg))
-  val difftest     = Module(new DifftestMonitor(resetVector, cfg))
+  val gpr        = Module(new RegFile(cfg))
+  val decoder    = Seq.fill(cfg.dispatchWidth)(Module(new Decoder(cfg)))
+  val dispatch   = Module(new Dispatch(cfg))
+  val scoreboard = Module(new Scoreboard(cfg))
+  val rob        = Module(new ROB(cfg))
+  val issueQueue = Module(new IssueQueue(cfg))
+  val execute    = Module(new ExecuteBlock(cfg))
+  val lsu        = Module(new LSU(cfg))
+  val storeQueue = Module(new StoreQueue(cfg))
+  val csrFile    = Module(new CsrFile(resetVector, cfg))
+  val csrTracker = Module(new CsrTracker(cfg))
+  val retire     = Module(new RetireUnit(cfg))
+  val difftest   = Module(new DifftestMonitor(resetVector, cfg))
 
   io.redirect  := retire.io.redirect
   io.csrStatus := csrFile.io.status
@@ -155,38 +163,38 @@ class Backend(
   }
 
   for (i <- 0 until cfg.dispatchWidth) {
-    scoreboard.io.alloc(i)          := dispatch.io.scoreboardAlloc(i)
-    storeTracker.io.alloc(i).valid  := dispatch.io.out(i).fire && dispatchDecode(i).isStore
-    storeTracker.io.alloc(i).robIdx := rob.io.allocIdx(i)
-    csrTracker.io.alloc(i).valid    := dispatch.io.out(i).fire && dispatchDecode(i).isCsr && dispatchDecode(i).csrWen
-    csrTracker.io.alloc(i).robIdx   := rob.io.allocIdx(i)
-    csrTracker.io.alloc(i).addr     := dispatchDecode(i).csrAddr
+    scoreboard.io.alloc(i)        := dispatch.io.scoreboardAlloc(i)
+    storeQueue.io.alloc(i).valid  := dispatch.io.out(i).fire && dispatchDecode(i).isStore
+    storeQueue.io.alloc(i).robIdx := rob.io.allocIdx(i)
+    csrTracker.io.alloc(i).valid  := dispatch.io.out(i).fire && dispatchDecode(i).isCsr && dispatchDecode(i).csrWen
+    csrTracker.io.alloc(i).robIdx := rob.io.allocIdx(i)
+    csrTracker.io.alloc(i).addr   := dispatchDecode(i).csrAddr
   }
 
   for (i <- 0 until cfg.commitWidth) {
     retire.io.rob(i) <> rob.io.commit(i)
   }
 
-  scoreboard.io.commit    := retire.io.scoreboardCommit
-  storeTracker.io.commit  := retire.io.storeCommit
-  csrFile.io.commit       := retire.io.csrCommit
-  csrFile.io.trap         := retire.io.csrTrap
-  csrFile.io.mret         := retire.io.csrMret
-  csrFile.io.sret         := retire.io.csrSret
-  csrFile.io.interrupt    := io.interrupt
-  csrFile.io.mtime        := io.mtime
-  csrFile.io.retireCount  := PopCount(retire.io.retire.validMask)
-  retire.io.csrStatus     := csrFile.io.status
-  csrTracker.io.commit    := retire.io.csrTrackerCommit
-  storeTracker.io.robHead := rob.io.head
-  csrTracker.io.robHead   := rob.io.head
-  rob.io.flush            := flush
-  scoreboard.io.flush     := flush
-  storeTracker.io.flush   := flush
-  csrTracker.io.flush     := flush
-  issueQueue.io.flush     := flush
-  lsu.io.flush            := flush
-  lsu.io.csrStatus        := csrFile.io.status
+  scoreboard.io.commit   := retire.io.scoreboardCommit
+  storeQueue.io.commit   := retire.io.storeCommit
+  csrFile.io.commit      := retire.io.csrCommit
+  csrFile.io.trap        := retire.io.csrTrap
+  csrFile.io.mret        := retire.io.csrMret
+  csrFile.io.sret        := retire.io.csrSret
+  csrFile.io.interrupt   := io.interrupt
+  csrFile.io.mtime       := io.mtime
+  csrFile.io.retireCount := PopCount(retire.io.retire.validMask)
+  retire.io.csrStatus    := csrFile.io.status
+  csrTracker.io.commit   := retire.io.csrTrackerCommit
+  storeQueue.io.robHead  := rob.io.head
+  csrTracker.io.robHead  := rob.io.head
+  rob.io.flush           := flush
+  scoreboard.io.flush    := flush
+  storeQueue.io.flush    := flush
+  csrTracker.io.flush    := flush
+  issueQueue.io.flush    := flush
+  lsu.io.flush           := flush
+  lsu.io.csrStatus       := csrFile.io.status
 
   difftest.io.retire    := retire.io.retire
   difftest.io.regWrite  := retire.io.regWrite
@@ -203,8 +211,16 @@ class Backend(
   }
   issueQueue.io.memStatus := 0.U.asTypeOf(new IssuePortStatus)
   issueQueue.io.memStatus.lsu := !lsu.io.busy
-  issueQueue.io.storeQuery <> storeTracker.io.query
+  issueQueue.io.storeQuery <> storeQueue.io.issueQuery
   issueQueue.io.csrQuery <> csrTracker.io.query
+
+  storeQueue.io.query <> lsu.io.storeQuery
+  storeQueue.io.update        := 0.U.asTypeOf(new top.core.backend.bundle.StoreQueueUpdate(cfg))
+  storeQueue.io.update.valid  := lsu.io.storeUpdate.valid
+  storeQueue.io.update.robIdx := lsu.io.storeUpdate.bits.robIdx
+  storeQueue.io.update.addr   := lsu.io.storeUpdate.bits.addr
+  storeQueue.io.update.data   := lsu.io.storeUpdate.bits.data
+  storeQueue.io.update.mask   := lsu.io.storeUpdate.bits.mask
 
   execute.io.flush := flush
   execute.io.csrRead <> csrFile.io.read
@@ -251,18 +267,17 @@ class Backend(
 
   io.retire := retire.io.retire
 
-  private val dmemIdle :: dmemLoadResp :: dmemStoreResp :: Nil = Enum(3)
-  private val dmemState                                        = RegInit(dmemIdle)
-  private val dropLoadResp                                     = RegInit(false.B)
-  private val dmemRespToLsu                                    = RegInit(false.B)
-
-  val dmemCanAcceptReq     = dmemState === dmemIdle
-  val loadRespOutstanding  = dmemState === dmemLoadResp
-  val storeRespOutstanding = dmemState === dmemStoreResp
-
-  val lsuReqSelected    = dmemCanAcceptReq && !flush && lsu.io.dmemReq.valid
-  // Keep retire store arbitration independent from flush; flush is produced by retire.
-  val retireReqSelected = dmemCanAcceptReq && !lsu.io.dmemReq.valid && retire.io.dmemReq.valid
+  private val storeRespRobIdx         = Reg(UInt(cfg.robIdxWidth.W))
+  private val storeRequestOutstanding = RegInit(false.B)
+  // A flush may arrive while a previously issued LSU request is still visible.
+  // Let it complete and let LSU discard the tagged response; suppressing this
+  // combinationally would feed the retire redirect back into its own store path.
+  // Retire stores have priority. Their request path feeds retire readiness and
+  // therefore must not depend on LSU flush state in the same cycle.
+  // Store responses use one fixed transaction tag, so retain the owning ROB
+  // index until that response returns before accepting another store request.
+  private val retireReqSelected       = retire.io.dmemReq.valid && !storeRequestOutstanding
+  private val lsuReqSelected          = !retire.io.dmemReq.valid && lsu.io.dmemReq.valid
 
   io.dmemReq.valid := lsuReqSelected || retireReqSelected
   io.dmemReq.bits  := Mux(lsuReqSelected, lsu.io.dmemReq.bits, retire.io.dmemReq.bits)
@@ -270,28 +285,30 @@ class Backend(
   lsu.io.dmemReq.ready    := lsuReqSelected && io.dmemReq.ready
   retire.io.dmemReq.ready := retireReqSelected && io.dmemReq.ready
 
-  val dmemRespOutstanding = loadRespOutstanding || storeRespOutstanding
-  val loadRespMustDrop    = dmemRespToLsu && (dropLoadResp || (flush && loadRespOutstanding))
+  private val storeResponse = io.dmemResp.bits.txnId === DataMemTxn.store
 
-  lsu.io.dmemResp.valid := dmemRespOutstanding && dmemRespToLsu && io.dmemResp.valid && !loadRespMustDrop
+  lsu.io.dmemResp.valid := io.dmemResp.valid && !storeResponse
   lsu.io.dmemResp.bits  := io.dmemResp.bits
-  io.dmemResp.ready     := Mux(
-    dmemRespToLsu,
-    Mux(loadRespMustDrop, true.B, lsu.io.dmemResp.ready),
-    storeRespOutstanding
-  )
+  io.dmemResp.ready     := Mux(storeResponse, true.B, lsu.io.dmemResp.ready)
 
-  when(io.dmemReq.fire) {
-    dmemState     := Mux(io.dmemReq.bits.write, dmemStoreResp, dmemLoadResp)
-    dmemRespToLsu := lsuReqSelected
-  }.elsewhen((loadRespOutstanding || storeRespOutstanding) && io.dmemResp.fire) {
-    dmemState     := dmemIdle
-    dmemRespToLsu := false.B
+  when(io.dmemReq.fire && retireReqSelected) {
+    storeRespRobIdx         := retire.io.storeReqRobIdx
+    storeRequestOutstanding := true.B
+  }
+  when(io.dmemResp.fire && storeResponse) {
+    storeRequestOutstanding := false.B
   }
 
-  when(io.dmemResp.fire) {
-    dropLoadResp := false.B
-  }.elsewhen(flush && loadRespOutstanding) {
-    dropLoadResp := true.B
-  }
+  storeQueue.io.drain.valid  := io.dmemResp.fire && storeResponse
+  storeQueue.io.drain.robIdx := storeRespRobIdx
+
+  io.memPerf.sqAlloc                     := storeQueue.io.perf.alloc
+  io.memPerf.sqFullStall                 := storeQueue.io.perf.fullStall
+  io.memPerf.forwardFull                 := lsu.io.forwardFull
+  io.memPerf.forwardPartial              := lsu.io.forwardPartial
+  io.memPerf.forwardUnresolvedStoreStall := lsu.io.forwardUnresolvedStoreStall
+  io.memPerf.storeDrain                  := storeQueue.io.perf.drain
+  io.memPerf.loadTxnFullStall            := lsu.io.loadTxnFullStall
+  io.memPerf.sqOccupancy                 := storeQueue.io.perf.occupancy
+  io.memPerf.loadTxnOccupancy            := lsu.io.loadTxnOccupancy
 }
