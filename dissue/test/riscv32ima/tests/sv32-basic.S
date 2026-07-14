@@ -108,6 +108,29 @@ s_mode_entry:
   la t0, fail_code
   sw t3, 0(t0)
 4:
+  # Keep a younger store ready while an older load waits on a division result.
+  # The following branch depends on that load, so the store must not occupy the
+  # single LSU and block its own speculative page-table walk behind the branch.
+  la a0, s_mode_done
+  li a1, 12288
+  li a2, 3
+  li a4, 0x2468ace1
+  li a5, 4096
+  div a1, a1, a2
+  sub a1, a0, a1
+  add a1, a1, a5
+  lw a3, 0(a1)
+  beq a3, zero, sv32_liveness_fail
+  sw a4, 4(a0)
+  lw a5, 4(a0)
+  bne a4, a5, sv32_liveness_fail
+  j sv32_liveness_done
+
+sv32_liveness_fail:
+  li t3, 3
+  la t0, fail_code
+  sw t3, 0(t0)
+sv32_liveness_done:
   fence
   fence.i
   ecall
