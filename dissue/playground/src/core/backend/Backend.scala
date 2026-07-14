@@ -43,6 +43,7 @@ class Backend(
     val recover     = Output(new RobRecovery(cfg.robIdxWidth))
     val globalFlush = Output(Bool())
     val robHead     = Output(UInt(cfg.robIdxWidth.W))
+    val unresolvedCfi = Output(Vec(cfg.robEntries, Bool()))
 
     val retire    = Output(new RetireGroup(cfg))
     val csrStatus = Output(new CsrStatus(cfg))
@@ -88,6 +89,7 @@ class Backend(
   io.recover     := selectiveRecovery
   io.globalFlush := globalFlush
   io.robHead     := rob.io.head
+  io.unresolvedCfi := rob.io.unresolvedCfi
   io.redirect    := retire.io.redirect
   io.redirect.branchRedirect.valid := retire.io.redirect.branchRedirect.valid || selectiveRecovery.valid
   io.redirect.branchRedirect.target := Mux(

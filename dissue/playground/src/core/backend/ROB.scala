@@ -60,6 +60,10 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     val recover = Input(new RobRecovery(cfg.robIdxWidth))
 
     val producerEntries = Output(Vec(cfg.robEntries, new RobProducerEntry(cfg)))
+    // A memory request may leave the core only after every older CFI has
+    // produced its execution result. The memory hierarchy compares this bitmap
+    // with the request owner using ROB-ring age ordering.
+    val unresolvedCfi = Output(Vec(cfg.robEntries, Bool()))
   })
 
   private val entries = RegInit(VecInit(Seq.fill(cfg.robEntries)(0.U.asTypeOf(new RobEntry(cfg)))))
@@ -149,6 +153,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     io.producerEntries(index).robIdx := index.U(cfg.robIdxWidth.W)
     io.producerEntries(index).rd     := entries(index).rd
     io.producerEntries(index).rfWen  := entries(index).rfWen
+    io.unresolvedCfi(index) := entries(index).valid && entries(index).cfi =/= CfiType.none && !entries(index).done
   }
 
   private val allocCount  = PopCount(allocFire)

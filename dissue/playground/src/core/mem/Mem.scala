@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util.{Decoupled, Enum, MuxCase, Valid}
 import top.bus.axi.AxiPort
 import top.config.MemConfig
-import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, DataMemTxn, InstMemReq, InstMemResp, OwnedDataMemReq, RobRecovery}
+import top.core.bundle.{DataMemExternalization, DataMemKind, DataMemReq, DataMemResp, DataMemTxn, InstMemReq, InstMemResp, OwnedDataMemReq, RobRecovery}
 import top.device.DeviceConst
 
 /** Owns the physical memory hierarchy below Core.
@@ -27,6 +27,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     val flush   = Input(Bool())
     val recover = Input(new RobRecovery(robIdxWidth))
     val robHead = Input(UInt(robIdxWidth.W))
+    val unresolvedCfi = Input(Vec(robEntries, Bool()))
     val dmemCancel = Output(Vec(DCache.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
 
     val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
@@ -45,6 +46,17 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
       inRange(addr, DeviceConst.rtcBase, DeviceConst.rtcSize) ||
       inRange(addr, DeviceConst.plicBase, DeviceConst.plicSize)
 
+  private def mayIssueAxi(owner: top.core.bundle.DataMemOwner): Bool =
+    DataMemExternalization.mayIssueAxi(
+      owner,
+      io.unresolvedCfi,
+      io.robHead,
+      robEntries,
+      robIdxWidth,
+      io.flush,
+      io.recover
+    )
+
   val refill       = Module(new AxiReadRefill(cfg))
   val dcache       = Module(new DCache(cfg.dcache, cfg, robEntries))
   val bypassAccess = Module(new AxiDataAccess(cfg))
@@ -59,13 +71,32 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
 
   dcache.io.req.valid       := io.dmemReq.valid && routeToDcache
   dcache.io.req.bits        := io.dmemReq.bits
-  bypassAccess.io.req.valid := io.dmemReq.valid && !routeToDcache
+  private val isArchitecturallyVisibleBypass = isDevice(io.dmemReq.bits.request.addr) ||
+    io.dmemReq.bits.request.kind === DataMemKind.atomic
+  private val bypassAtRobHead = !io.dmemReq.bits.owner.squashable || io.dmemReq.bits.owner.robIdx === io.robHead
+  private val bypassMayIssue = mayIssueAxi(io.dmemReq.bits.owner) &&
+    (!isArchitecturallyVisibleBypass || bypassAtRobHead)
+  private val needsAtomicCacheMaintenance = io.dmemReq.bits.request.kind === DataMemKind.atomic
+  private val bypassCanAccept = bypassMayIssue &&
+    (!needsAtomicCacheMaintenance || dcache.io.cleanInvalidate.ready)
+
+  // MMIO and atomics can have side effects even for reads, so they wait for
+  // ROB-head ownership in addition to the branch-resolution permit.
+  bypassAccess.io.req.valid := io.dmemReq.valid && !routeToDcache && bypassCanAccept
   bypassAccess.io.req.bits  := io.dmemReq.bits.request
-  io.dmemReq.ready          := Mux(routeToDcache, dcache.io.req.ready, bypassAccess.io.req.ready)
+  io.dmemReq.ready          := Mux(
+    routeToDcache,
+    dcache.io.req.ready,
+    bypassAccess.io.req.ready && bypassCanAccept
+  )
 
   dcache.io.flush   := io.flush
   dcache.io.recover := io.recover
   dcache.io.robHead := io.robHead
+  dcache.io.unresolvedCfi := io.unresolvedCfi
+  dcache.io.cleanInvalidate.valid := io.dmemReq.valid && !routeToDcache && bypassMayIssue &&
+    needsAtomicCacheMaintenance
+  dcache.io.cleanInvalidate.bits := io.dmemReq.bits.request.addr
   io.dmemCancel     := dcache.io.cancel
 
   ptwAccess.io.req <> io.ptwReq
@@ -76,10 +107,6 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   io.dmemResp.bits           := Mux(dcacheResponse, dcache.io.resp.bits, bypassAccess.io.resp.bits)
   dcache.io.resp.ready       := io.dmemResp.ready && dcacheResponse
   bypassAccess.io.resp.ready := io.dmemResp.ready && !dcacheResponse
-
-  dcache.io.invalidate.valid := bypassAccess.io.req.fire && bypassAccess.io.req.bits.kind === DataMemKind.atomic &&
-    bypassAccess.io.req.bits.write
-  dcache.io.invalidate.bits  := bypassAccess.io.req.bits.addr
 
   io.perf.access         := dcache.io.perf.access
   io.perf.hit            := dcache.io.perf.hit

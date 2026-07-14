@@ -166,6 +166,39 @@ class DataMemOwner(robIdxWidth: Int) extends Bundle {
   val robIdx     = UInt(robIdxWidth.W)
 }
 
+/** Defines when a data request may become externally visible.
+  *
+  * Cacheable requests may execute speculatively inside the core, but a new AXI
+  * transaction is permitted only after every older control-flow instruction has
+  * resolved. Non-squashable owners are retirement-side requests and therefore
+  * already architecturally committed.
+  */
+object DataMemExternalization {
+  def hasOlderUnresolvedCfi(
+    owner:         DataMemOwner,
+    unresolvedCfi: Vec[Bool],
+    robHead:       UInt,
+    robEntries:    Int,
+    robIdxWidth:   Int): Bool = {
+    require(robEntries > 0, "robEntries must be positive")
+
+    owner.squashable && VecInit((0 until robEntries).map { cfiRobIdx =>
+      unresolvedCfi(cfiRobIdx) &&
+        RobAge.isYounger(owner.robIdx, cfiRobIdx.U(robIdxWidth.W), robHead, robEntries, robIdxWidth)
+    }).asUInt.orR
+  }
+
+  def mayIssueAxi(
+    owner:         DataMemOwner,
+    unresolvedCfi: Vec[Bool],
+    robHead:       UInt,
+    robEntries:    Int,
+    robIdxWidth:   Int,
+    flush:         Bool,
+    recover:       RobRecovery): Bool =
+    !flush && !recover.valid && !hasOlderUnresolvedCfi(owner, unresolvedCfi, robHead, robEntries, robIdxWidth)
+}
+
 /** A backend data request together with the ROB instruction that owns it. */
 class OwnedDataMemReq(addrWidth: Int, dataWidth: Int, robIdxWidth: Int) extends Bundle {
   val request = new DataMemReq(addrWidth, dataWidth)
