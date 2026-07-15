@@ -1,4 +1,6 @@
-include $(dir $(lastword $(MAKEFILE_LIST)))build.mk
+RUN_MK_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+include $(RUN_MK_DIR)/build.mk
 include $(PRJ)/resource/difftest/difftest.mk
 
 DIFFTEST_REF ?= nemu

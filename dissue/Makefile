@@ -2,11 +2,6 @@ BUILD_DIR ?= ./build/
 PRJ ?= playground
 TARGET ?= npc
 
-verilog:
-	$(call git_commit, "generate verilog")
-	mkdir -p $(BUILD_DIR)
-	mill -i $(PRJ).runMain Elaborate --ysyx-target $(TARGET) --target-dir $(BUILD_DIR)
-
 test: test-riscv32i test-riscv32im test-riscv32ima
 
 test-riscv32i: verilator-exec
@@ -28,7 +23,7 @@ tb-clean testbench-clean:
 	$(MAKE) -C test clean
 
 help:
-	mill -i $(PRJ).runMain Elaborate --help
+	$(MILL) -i $(PRJ).runMain Elaborate --help
 
 reformat:
 	mill -i __.reformat
@@ -45,8 +40,12 @@ idea:
 clean:
 	-rm -rf $(BUILD_DIR)
 
-.PHONY: verilog test test-riscv32i test-riscv32im test-riscv32ima tb testbench tb-list testbench-list tb-clean testbench-clean help reformat checkformat bsp idea clean
-
-include scriptmk/naive.mk
+include scriptmk/run.mk
 
 -include ../Makefile
+
+verilog: $(CHISEL_DONE_STAMP)
+
+verilator: $(VERILATOR_DONE_STAMP)
+
+.PHONY: verilog verilator test test-riscv32i test-riscv32im test-riscv32ima tb testbench tb-list testbench-list tb-clean testbench-clean help reformat checkformat bsp idea clean
