@@ -132,3 +132,15 @@ void NpcHostBridge::bpu_perf(uint8_t correct) {
   }
   bridge->callbacks_.bpu_perf(correct);
 }
+
+void NpcHostBridge::mem_perf(uint32_t events, uint32_t mshr_occupancy,
+                             uint32_t store_queue_occupancy,
+                             uint32_t load_txn_occupancy) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.mem_perf == nullptr) {
+    return;
+  }
+  bridge->callbacks_.mem_perf(events, mshr_occupancy, store_queue_occupancy,
+                              load_txn_occupancy);
+}

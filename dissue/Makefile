@@ -7,8 +7,16 @@ verilog:
 	mkdir -p $(BUILD_DIR)
 	mill -i $(PRJ).runMain Elaborate --ysyx-target $(TARGET) --target-dir $(BUILD_DIR)
 
-test:
-	mill -i $(PRJ).test
+test: test-riscv32i test-riscv32im test-riscv32ima
+
+test-riscv32i: verilator-exec
+	$(MAKE) -C test run EXT=riscv32i
+
+test-riscv32im: verilator-exec
+	$(MAKE) -C test run EXT=riscv32im
+
+test-riscv32ima: verilator-exec
+	$(MAKE) -C test run EXT=riscv32ima
 
 tb testbench: verilator-exec
 	$(MAKE) -C test run
@@ -37,7 +45,7 @@ idea:
 clean:
 	-rm -rf $(BUILD_DIR)
 
-.PHONY: verilog test tb testbench tb-list testbench-list tb-clean testbench-clean help reformat checkformat bsp idea clean
+.PHONY: verilog test test-riscv32i test-riscv32im test-riscv32ima tb testbench tb-list testbench-list tb-clean testbench-clean help reformat checkformat bsp idea clean
 
 include scriptmk/naive.mk
 

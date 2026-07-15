@@ -1,6 +1,21 @@
 VERILATOR ?= verilator
 CARGO ?= cargo
 TOP_MODULE ?= npc
+CXX ?= c++
+AR ?= ar
+
+SUPPORTED_RUST_PROFILES := debug release
+RUST_PROFILE_LEVEL ?= release
+
+ifeq ($(filter $(RUST_PROFILE_LEVEL),$(SUPPORTED_RUST_PROFILES)),)
+$(error Unsupported RUST_PROFILE_LEVEL: $(RUST_PROFILE_LEVEL). Supported: $(SUPPORTED_RUST_PROFILES))
+endif
+
+ifeq ($(RUST_PROFILE_LEVEL),debug)
+RUST_PROFILE_ARGS :=
+else
+RUST_PROFILE_ARGS := --release
+endif
 
 SIM_RESOURCE_DIR ?= $(PRJ)/resource/sim-verilator
 SIM_VERILOG_DIR ?= $(SIM_RESOURCE_DIR)/verilog
@@ -16,10 +31,8 @@ VERILATOR_BUILD_DIR ?= $(BUILD_DIR)/verilator
 VERILATOR_OBJ_DIR ?= $(VERILATOR_BUILD_DIR)/obj_dir
 VERILATOR_EXEC ?= $(abspath $(BUILD_DIR)/verilator-exec)
 CARGO_TARGET_DIR ?= $(abspath $(VERILATOR_BUILD_DIR)/cargo-target)
-CARGO_BIN ?= $(CARGO_TARGET_DIR)/debug/npc-chisel-sim
+CARGO_BIN ?= $(CARGO_TARGET_DIR)/$(RUST_PROFILE_LEVEL)/npc-chisel-sim
 
-CXX ?= c++
-AR ?= ar
 SIM_NATIVE_LIB ?= $(abspath $(VERILATOR_BUILD_DIR)/libnpc_sim_native.a)
 SIM_NATIVE_BUILD_DIR ?= $(VERILATOR_BUILD_DIR)/native
 SIM_NATIVE_BRIDGE_SOURCES := $(sort $(wildcard $(SIM_CPP_DIR)/src/*.cpp))
@@ -68,17 +81,23 @@ $(SIM_NATIVE_LIB): $(SIM_NATIVE_OBJECTS)
 	@mkdir -p $(dir $@)
 	$(AR) crs $@ $^
 
-verilator-exec: verilator $(SIM_NATIVE_LIB)
+verilator-sim-bin: verilator $(SIM_NATIVE_LIB)
 	@cd $(SIM_RUST_DIR) && \
 		NPC_LINK_VERILATOR=1 \
 		NPC_VERILATOR_TOP=$(TOP_MODULE) \
 		NPC_VERILATOR_OBJ_DIR=$(abspath $(VERILATOR_OBJ_DIR)) \
 		NPC_SIM_NATIVE_LIB=$(SIM_NATIVE_LIB) \
 		CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
-		$(CARGO) build
+		$(CARGO) build $(RUST_PROFILE_ARGS)
+
+verilator-exec: verilator-sim-bin
 	mkdir -p $(dir $(VERILATOR_EXEC))
-	cp $(CARGO_BIN) $(VERILATOR_EXEC)
+	@set -e; \
+	tmp=$$(mktemp "$(VERILATOR_EXEC).tmp.XXXXXX"); \
+	trap 'rm -f "$$tmp"' EXIT; \
+	cp "$(CARGO_BIN)" "$$tmp"; \
+	mv -f "$$tmp" "$(VERILATOR_EXEC)"
 
 -include $(SIM_NATIVE_DEPFILES)
 
-.PHONY: verilator verilator-exec
+.PHONY: verilator-sim-bin verilator-exec

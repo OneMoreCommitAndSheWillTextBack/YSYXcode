@@ -2,7 +2,7 @@ package top.core.backend.retire
 
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, PopCount, PriorityEncoderOH, Valid}
-import top.core.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreTrackerCommit}
+import top.core.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreQueueCommit}
 import top.core.backend.csr.{
   CsrArch,
   CsrCommit,
@@ -17,7 +17,7 @@ import top.core.backend.csr.{
   PrivMode
 }
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo, TrapLane, TrapUnit}
-import top.core.bundle.{BackendToFrontend, CfiType, DataMemReq}
+import top.core.bundle.{BackendToFrontend, CfiType, DataMemKind, DataMemReq, DataMemTxn}
 import top.config.BackendConfig
 import top.sim.BpuPerfBridge
 
@@ -27,17 +27,19 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     val regWrite         = Output(Vec(cfg.commitWidth, new CommitRegWrite(cfg)))
     val scoreboardCommit = Output(Vec(cfg.commitWidth, new ScoreboardCommit(cfg)))
-    val storeCommit      = Output(Vec(cfg.commitWidth, new StoreTrackerCommit(cfg)))
+    val storeCommit      = Output(Vec(cfg.commitWidth, new StoreQueueCommit(cfg)))
     val csrCommit        = Output(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
     val csrTrackerCommit = Output(Vec(cfg.commitWidth, new CsrTrackerCommit(cfg)))
     val csrTrap          = Output(new CsrTrapCommit(cfg))
     val csrMret          = Output(new CsrMretCommit(cfg))
     val csrSret          = Output(new CsrSretCommit(cfg))
     val csrStatus        = Input(new CsrStatus(cfg))
+    val hold             = Input(Bool())
     val retire           = Output(new RetireGroup(cfg))
     val redirect         = Output(new BackendToFrontend(cfg.addrWidth))
 
-    val dmemReq = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
+    val dmemReq        = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
+    val storeReqRobIdx = Output(UInt(cfg.robIdxWidth.W))
 
     val context = Output(new CsrContextUpdate(cfg))
   })
@@ -64,12 +66,15 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     trapCandidate(i) := io.rob(i).valid && io.rob(i).bits.hasTrapAtRetire
 
+    // Serializing instructions still form a retirement boundary. Branch recovery is handled by the execution-stage
+    // RecoveryUnit, so a resolved CFI no longer waits here before frontend redirect.
     laneBoundary(i) :=
-      redirectCandidate(i) || trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
+      trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
         io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
 
+    // can retire: rob.valid && preinst could retire
     preRetire(i) :=
-      io.rob(i).valid &&
+      !io.hold && io.rob(i).valid &&
         (if (i == 0) true.B else preRetire(i - 1) && !laneBoundary(i - 1))
 
     val olderStore = orReduce((0 until i).map(j => preRetire(j) && io.rob(j).bits.isStore && !trapCandidate(j)))
@@ -84,18 +89,22 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val storeReq = Wire(Vec(cfg.commitWidth, new DataMemReq(cfg.addrWidth, cfg.dataWidth)))
   for (i <- 0 until cfg.commitWidth) {
-    storeReq(i)          := 0.U.asTypeOf(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
-    storeReq(i).addr     := io.rob(i).bits.storeAddr
-    storeReq(i).write    := true.B
-    storeReq(i).size     := io.rob(i).bits.memSize
-    storeReq(i).unsigned := false.B
-    storeReq(i).wdata    := io.rob(i).bits.storeData
-    storeReq(i).wmask    := io.rob(i).bits.storeMask
+    storeReq(i)           := 0.U.asTypeOf(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
+    storeReq(i).addr      := io.rob(i).bits.storeAddr
+    storeReq(i).write     := true.B
+    storeReq(i).size      := io.rob(i).bits.memSize
+    storeReq(i).unsigned  := false.B
+    storeReq(i).wdata     := io.rob(i).bits.storeData
+    storeReq(i).wmask     := io.rob(i).bits.storeMask
+    storeReq(i).txnId     := DataMemTxn.store
+    storeReq(i).cacheable := true.B
+    storeReq(i).kind      := DataMemKind.normal
   }
 
   private val storeGrantOH = PriorityEncoderOH(storeCandidate.asUInt).asBools
-  io.dmemReq.valid := storeCandidate.asUInt.orR
-  io.dmemReq.bits  := Mux1H(storeGrantOH, storeReq)
+  io.dmemReq.valid  := storeCandidate.asUInt.orR
+  io.dmemReq.bits   := Mux1H(storeGrantOH, storeReq)
+  io.storeReqRobIdx := Mux1H(storeGrantOH, io.rob.map(_.bits.robIdx))
 
   for (i <- 0 until cfg.commitWidth) {
     val olderRetired = andReduce((0 until i).map(j => canRetire(j)))
@@ -121,9 +130,11 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     trapUnit.io.lanes(i).isSfence  := io.rob(i).bits.isSfence
   }
 
-  private val trapRetire   = trapUnit.io.trapMask.asBools
-  private val mretRetire   = trapUnit.io.mretMask.asBools
-  private val sretRetire   = trapUnit.io.sretMask.asBools
+  private val trapRetire = trapUnit.io.trapMask.asBools
+  private val mretRetire = trapUnit.io.mretMask.asBools
+  private val sretRetire = trapUnit.io.sretMask.asBools
+
+  // no priv change
   private val normalCommit = Wire(Vec(cfg.commitWidth, Bool()))
   for (i <- 0 until cfg.commitWidth) {
     normalCommit(i) := canRetire(i) && !trapRetire(i) && !mretRetire(i) && !sretRetire(i)
@@ -135,17 +146,13 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     bpuPerf(i).io.correct := io.rob(i).bits.fetch.predNpc === nextPc(i)
   }
 
-  private val redirectCommit = Wire(Vec(cfg.commitWidth, Bool()))
-  private val barrierCommit  = Wire(Vec(cfg.commitWidth, Bool()))
+  private val barrierCommit = Wire(Vec(cfg.commitWidth, Bool()))
   for (i <- 0 until cfg.commitWidth) {
-    redirectCommit(i) := normalCommit(i) && redirectCandidate(i)
-    barrierCommit(i)  := normalCommit(i) && (io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen))
+    barrierCommit(i) := normalCommit(i) && (io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen))
   }
 
-  private val frontendRedirectCommit = VecInit((0 until cfg.commitWidth).map(i => redirectCommit(i) || barrierCommit(i)))
-  private val frontendRedirectTarget = VecInit((0 until cfg.commitWidth).map { i =>
-    Mux(redirectCommit(i), io.rob(i).bits.redirectTarget, nextPc(i))
-  })
+  private val frontendRedirectCommit = VecInit((0 until cfg.commitWidth).map(i => barrierCommit(i)))
+  private val frontendRedirectTarget = VecInit((0 until cfg.commitWidth).map(i => nextPc(i)))
 
   private def csrBit(bit: Int): UInt =
     (1.U(cfg.dataWidth.W) << bit)(cfg.dataWidth - 1, 0)
@@ -153,11 +160,11 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   private def bitPending(bits: UInt, bit: Int): Bool =
     (bits & csrBit(bit)).orR
 
-  private val pendingEnabled = io.csrStatus.mip & io.csrStatus.mie
-  private val machinePending = pendingEnabled & ~io.csrStatus.mideleg
+  private val pendingEnabled    = io.csrStatus.mip & io.csrStatus.mie
+  private val machinePending    = pendingEnabled & ~io.csrStatus.mideleg
   private val supervisorPending = pendingEnabled & io.csrStatus.mideleg
 
-  private val machineGlobal =
+  private val machineGlobal    =
     io.csrStatus.priv.mode =/= PrivMode.M || io.csrStatus.mstatus(Mstatus.mieBit)
   private val supervisorGlobal =
     io.csrStatus.priv.mode === PrivMode.U ||
@@ -174,7 +181,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   private val sSsip = bitPending(supervisorPending, CsrInterrupt.ssipBit)
   private val sStip = bitPending(supervisorPending, CsrInterrupt.stipBit)
 
-  private val machineInterruptValid =
+  private val machineInterruptValid    =
     machineGlobal && (mMeip || mMsip || mMtip || mSeip || mSsip || mStip)
   private val supervisorInterruptValid =
     supervisorGlobal && (sSeip || sSsip || sStip)
@@ -196,15 +203,18 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
       )
     )
   )
+
   private val supervisorInterruptCause = Mux(
     sSeip,
     ExceptionCause.supervisorExternalInterrupt,
     Mux(sSsip, ExceptionCause.supervisorSoftwareInterrupt, ExceptionCause.supervisorTimerInterrupt)
   )
-  private val interruptToSupervisor = !machineInterruptValid && supervisorInterruptValid
-  private val interruptCause = Mux(machineInterruptValid, machineInterruptCause, supervisorInterruptCause)
-  private val interruptInfo  = ExceptionInfo.interrupt(interruptCause, cfg)
 
+  private val interruptToSupervisor = !machineInterruptValid && supervisorInterruptValid
+  private val interruptCause        = Mux(machineInterruptValid, machineInterruptCause, supervisorInterruptCause)
+  private val interruptInfo         = ExceptionInfo.interrupt(interruptCause, cfg)
+
+  // no priv change && no redir && at least one commit (for mepc)
   private val canTakeInterrupt =
     !trapUnit.io.redirect.valid &&
       !frontendRedirectCommit.asUInt.orR &&
@@ -225,8 +235,8 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   io.csrTrap.epc          := Mux(trapUnit.io.trap.valid, trapUnit.io.trap.epc, io.retire.finalPc)
   io.csrTrap.cause        := Mux(trapUnit.io.trap.valid, trapUnit.io.trap.cause, interruptInfo.csrCause)
   io.csrTrap.tval         := Mux(trapUnit.io.trap.valid, trapUnit.io.trap.tval, 0.U)
-  io.csrMret             := trapUnit.io.mret
-  io.csrSret             := trapUnit.io.sret
+  io.csrMret              := trapUnit.io.mret
+  io.csrSret              := trapUnit.io.sret
 
   io.redirect.trapRedirect.valid  := trapUnit.io.redirect.valid || canTakeInterrupt
   io.redirect.trapRedirect.target := Mux(trapUnit.io.redirect.valid, trapUnit.io.redirect.target, interruptTarget)
@@ -267,22 +277,22 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.csrTrackerCommit(i).valid  := normalCommit(i) && io.rob(i).bits.isCsr && io.rob(i).bits.csrWen
     io.csrTrackerCommit(i).robIdx := io.rob(i).bits.robIdx
 
-    io.retire.lanes(i).valid                   := canRetire(i)
-    io.retire.lanes(i).robIdx                  := io.rob(i).bits.robIdx
-    io.retire.lanes(i).fetch                   := io.rob(i).bits.fetch
-    io.retire.lanes(i).nextPc                  := nextPc(i)
-    io.retire.lanes(i).rf                      := io.regWrite(i)
-    io.retire.lanes(i).store.valid             := normalCommit(i) && io.rob(i).bits.isStore
-    io.retire.lanes(i).store.addr              := io.rob(i).bits.storeAddr
-    io.retire.lanes(i).store.data              := io.rob(i).bits.storeData
-    io.retire.lanes(i).store.mask              := io.rob(i).bits.storeMask
-    io.retire.lanes(i).store.size              := io.rob(i).bits.memSize
-    val isLr = io.rob(i).bits.isAmo && io.rob(i).bits.fetch.rawInst(31, 27) === "b00010".U
-    val isSc = io.rob(i).bits.isAmo && io.rob(i).bits.fetch.rawInst(31, 27) === "b00011".U
+    io.retire.lanes(i).valid       := canRetire(i)
+    io.retire.lanes(i).robIdx      := io.rob(i).bits.robIdx
+    io.retire.lanes(i).fetch       := io.rob(i).bits.fetch
+    io.retire.lanes(i).nextPc      := nextPc(i)
+    io.retire.lanes(i).rf          := io.regWrite(i)
+    io.retire.lanes(i).store.valid := normalCommit(i) && io.rob(i).bits.isStore
+    io.retire.lanes(i).store.addr  := io.rob(i).bits.storeAddr
+    io.retire.lanes(i).store.data  := io.rob(i).bits.storeData
+    io.retire.lanes(i).store.mask  := io.rob(i).bits.storeMask
+    io.retire.lanes(i).store.size  := io.rob(i).bits.memSize
+    val isLr            = io.rob(i).bits.isAmo && io.rob(i).bits.fetch.rawInst(31, 27) === "b00010".U
+    val isSc            = io.rob(i).bits.isAmo && io.rob(i).bits.fetch.rawInst(31, 27) === "b00011".U
     val amoWritesMemory = io.rob(i).bits.isAmo && !isLr && !(isSc && io.rob(i).bits.result =/= 0.U)
-    io.retire.lanes(i).memory.valid :=
+    io.retire.lanes(i).memory.valid            :=
       normalCommit(i) && (io.rob(i).bits.isLoad || io.rob(i).bits.isStore || io.rob(i).bits.isAmo)
-    io.retire.lanes(i).memory.write := normalCommit(i) && (io.rob(i).bits.isStore || amoWritesMemory)
+    io.retire.lanes(i).memory.write            := normalCommit(i) && (io.rob(i).bits.isStore || amoWritesMemory)
     io.retire.lanes(i).memory.addr             := io.rob(i).bits.storeAddr
     io.retire.lanes(i).memory.size             := io.rob(i).bits.memSize
     io.retire.lanes(i).control.redirectValid   := normalCommit(i) && redirectCandidate(i)

@@ -84,3 +84,15 @@ object NpcBpuPerf extends DPIClockedVoidFunctionImport {
     )
   )
 }
+
+object NpcMemPerf extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_mem_perf"
+  override def inputNames:   Option[Seq[String]] = Some(
+    Seq(
+      "events",
+      "mshrOccupancy",
+      "storeQueueOccupancy",
+      "loadTxnOccupancy"
+    )
+  )
+}

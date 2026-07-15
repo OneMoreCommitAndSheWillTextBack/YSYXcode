@@ -12,6 +12,7 @@ pub(super) fn build_callbacks() -> ffi::NpcDpiCallbacks {
         issue_queue_perf: Some(simulator_issue_queue_perf),
         div_perf: Some(simulator_div_perf),
         bpu_perf: Some(simulator_bpu_perf),
+        mem_perf: Some(simulator_mem_perf),
     }
 }
 
@@ -151,4 +152,24 @@ extern "C" fn simulator_bpu_perf(correct: u8) {
     let simulator = unsafe { &mut *simulator };
 
     simulator.perf.bpu_prediction(correct != 0);
+}
+
+extern "C" fn simulator_mem_perf(
+    events: u32,
+    mshr_occupancy: u32,
+    store_queue_occupancy: u32,
+    load_txn_occupancy: u32,
+) {
+    let simulator = active_simulator();
+    if simulator.is_null() {
+        return;
+    }
+    let simulator = unsafe { &mut *simulator };
+
+    simulator.perf.mem_perf(
+        events,
+        mshr_occupancy,
+        store_queue_occupancy,
+        load_txn_occupancy,
+    );
 }

@@ -1,9 +1,9 @@
 package top.core.mem
 
 import chisel3._
-import chisel3.util.{log2Ceil, Cat, Decoupled, Enum, Fill}
+import chisel3.util.{log2Ceil, Cat, Decoupled, Enum, Fill, Valid}
 import top.bus.axi.{AxiBurst, AxiResp}
-import top.core.bundle.{DataMemReq, DataMemResp}
+import top.core.bundle.{DataMemReq, DataMemResp, DataMemTxn}
 import top.config.MemConfig
 import top.core.mem.bundle._
 
@@ -14,6 +14,12 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
   val io = IO(new Bundle {
     val req  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
     val resp = Decoupled(new DataMemResp(cfg.axiDataWidth))
+
+    /** Permission sampled while this accessor is waiting to launch AXI. */
+    val issuePermit = Input(Bool())
+    /** Drops a request that has not yet become externally visible. */
+    val abort  = Input(Bool())
+    val cancel = Output(Valid(UInt(DataMemTxn.width.W)))
 
     val axiReadReq   = Decoupled(new AxiMasterReadReq(cfg.addrWidth, cfg.axiIdWidth))
     val axiReadResp  = Flipped(Decoupled(new AxiMasterReadResp(cfg.axiDataWidth, cfg.axiIdWidth)))
@@ -59,7 +65,14 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
   io.resp.valid := state === sResp
   io.resp.bits  := respReg
 
-  io.axiReadReq.valid      := state === sReadReq
+  // Once an address request has fired, the AXI transaction must drain. Before
+  // that point, recovery can safely discard the request and release its load
+  // transaction tag to the backend.
+  io.cancel.valid := io.abort && (state === sReadReq || state === sWriteReq) &&
+    DataMemTxn.isLoad(reqReg.txnId)
+  io.cancel.bits := reqReg.txnId
+
+  io.axiReadReq.valid      := state === sReadReq && io.issuePermit && !io.abort
   io.axiReadReq.bits.addr  := reqReg.addr
   io.axiReadReq.bits.id    := 1.U(cfg.axiIdWidth.W)
   io.axiReadReq.bits.len   := 0.U(8.W)
@@ -67,7 +80,7 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
   io.axiReadReq.bits.burst := AxiBurst.incr
   io.axiReadResp.ready     := state === sReadResp
 
-  io.axiWriteReq.valid      := state === sWriteReq
+  io.axiWriteReq.valid      := state === sWriteReq && io.issuePermit && !io.abort
   io.axiWriteReq.bits.addr  := reqReg.addr
   io.axiWriteReq.bits.id    := 1.U(cfg.axiIdWidth.W)
   io.axiWriteReq.bits.len   := 0.U(8.W)
@@ -84,23 +97,29 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
       state  := Mux(io.req.bits.write, sWriteReq, sReadReq)
     }
   }.elsewhen(state === sReadReq) {
-    when(io.axiReadReq.fire) {
+    when(io.abort) {
+      state := sIdle
+    }.elsewhen(io.axiReadReq.fire) {
       state := sReadResp
     }
   }.elsewhen(state === sReadResp) {
     when(io.axiReadResp.fire) {
       respReg.data  := loadData
       respReg.fault := io.axiReadResp.bits.resp =/= AxiResp.okay
+      respReg.txnId := reqReg.txnId
       state         := sResp
     }
   }.elsewhen(state === sWriteReq) {
-    when(io.axiWriteReq.fire) {
+    when(io.abort) {
+      state := sIdle
+    }.elsewhen(io.axiWriteReq.fire) {
       state := sWriteResp
     }
   }.elsewhen(state === sWriteResp) {
     when(io.axiWriteResp.fire) {
       respReg.data  := 0.U
       respReg.fault := io.axiWriteResp.bits.resp =/= AxiResp.okay
+      respReg.txnId := reqReg.txnId
       state         := sResp
     }
   }.otherwise {

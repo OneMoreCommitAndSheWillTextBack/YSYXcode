@@ -1,62 +1,263 @@
 package top.core.mem
 
 import chisel3._
-import chisel3.util.Decoupled
+import chisel3.util.{Decoupled, Enum, MuxCase, Valid}
 import top.bus.axi.AxiPort
-import top.core.bundle._
-import top.config.MemConfig
+import top.config.{DCacheConfig, MemConfig}
+import top.core.bundle.{
+  DataMemExternalization,
+  DataMemKind,
+  DataMemOwner,
+  DataMemReq,
+  DataMemResp,
+  DataMemTxn,
+  InstMemReq,
+  InstMemResp,
+  OwnedDataMemReq,
+  RobAge,
+  RobRecovery
+}
+import top.device.DeviceConst
 
-class Mem(cfg: MemConfig = MemConfig()) extends Module {
+object Mem {
+  /** DCache cancellation sources plus one pre-AXI bypass cancellation source. */
+  def cancelPorts(dcache: DCacheConfig): Int = DCache.cancelPorts(dcache) + 1
+}
+
+/** Owns the physical memory hierarchy below Core.
+  *
+  * Cacheable backend data accesses use DCache. Page-table walks, atomics, and device accesses bypass it through scalar
+  * AXI accessors. The AXI master is deliberately single-outstanding, so response routing only needs one owner register
+  * for reads and one for writes.
+  */
+class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
+  private val readOwnerInst :: readOwnerDcache :: readOwnerBypass :: readOwnerPtw :: Nil = Enum(4)
+  private val robIdxWidth       = math.max(chisel3.util.log2Ceil(robEntries), 1)
+  private val dcacheCancelPorts = DCache.cancelPorts(cfg.dcache)
+
   val io = IO(new Bundle {
     val imemReq  = Flipped(Decoupled(new InstMemReq(cfg.addrWidth)))
     val imemResp = Decoupled(new InstMemResp(cfg.fetchBytes))
 
-    val dmemReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
+    val dmemReq  = Flipped(Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.axiDataWidth, robIdxWidth)))
     val dmemResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
+
+    val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(robIdxWidth))
+    val robHead = Input(UInt(robIdxWidth.W))
+    val unresolvedCfi = Input(Vec(robEntries, Bool()))
+    val dmemCancel = Output(Vec(Mem.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
+
+    val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
+    val ptwResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
+
+    val perf = Output(new DCachePerf(cfg.dcache))
 
     val axi = new AxiPort
   })
 
-  val refill     = Module(new AxiReadRefill(cfg))
-  val axiMaster  = Module(new AxiMaster(cfg))
-  val dataAccess = Module(new AxiDataAccess(cfg))
+  private def inRange(addr: UInt, base: BigInt, size: BigInt): Bool =
+    addr >= base.U(cfg.addrWidth.W) && addr < (base + size).U(cfg.addrWidth.W)
+
+  private def isDevice(addr: UInt): Bool =
+    inRange(addr, DeviceConst.clintBase, DeviceConst.clintSize) ||
+      inRange(addr, DeviceConst.rtcBase, DeviceConst.rtcSize) ||
+      inRange(addr, DeviceConst.serialBase, DeviceConst.serialSize) ||
+      inRange(addr, DeviceConst.plicBase, DeviceConst.plicSize)
+
+  private def mayIssueAxi(owner: DataMemOwner): Bool =
+    DataMemExternalization.mayIssueAxi(
+      owner,
+      io.unresolvedCfi,
+      io.robHead,
+      robEntries,
+      robIdxWidth,
+      io.flush,
+      io.recover
+    )
+
+  private def ownerKilled(owner: DataMemOwner): Bool =
+    owner.squashable && (io.flush ||
+      (io.recover.valid && RobAge.isYounger(owner.robIdx, io.recover.robIdx, io.robHead, robEntries, robIdxWidth)))
+
+  val refill       = Module(new AxiReadRefill(cfg))
+  val dcache       = Module(new DCache(cfg.dcache, cfg, robEntries))
+  val bypassAccess = Module(new AxiDataAccess(cfg))
+  val ptwAccess    = Module(new AxiDataAccess(cfg))
+  val axiMaster    = Module(new AxiMaster(cfg))
+
+  private val bypassOwner = RegInit(0.U.asTypeOf(new DataMemOwner(robIdxWidth)))
 
   refill.io.req <> io.imemReq
   io.imemResp <> refill.io.resp
 
-  dataAccess.io.req <> io.dmemReq
-  io.dmemResp <> dataAccess.io.resp
+  private val routeToDcache = io.dmemReq.bits.request.cacheable && io.dmemReq.bits.request.kind === DataMemKind.normal &&
+    !isDevice(io.dmemReq.bits.request.addr)
 
-  val dataReadSelected = dataAccess.io.axiReadReq.valid
-  val instReadSelected =
-    !dataReadSelected && !dataAccess.io.axiWriteReq.valid && refill.io.axiReadReq.valid
+  dcache.io.req.valid       := io.dmemReq.valid && routeToDcache
+  dcache.io.req.bits        := io.dmemReq.bits
+  private val isArchitecturallyVisibleBypass = isDevice(io.dmemReq.bits.request.addr) ||
+    io.dmemReq.bits.request.kind === DataMemKind.atomic
+  private val bypassAtRobHead = !io.dmemReq.bits.owner.squashable || io.dmemReq.bits.owner.robIdx === io.robHead
+  private val bypassMayIssue = mayIssueAxi(io.dmemReq.bits.owner) &&
+    (!isArchitecturallyVisibleBypass || bypassAtRobHead)
+  private val bypassNeedsCacheMaintenance =
+    io.dmemReq.bits.request.kind === DataMemKind.atomic || io.dmemReq.bits.request.kind === DataMemKind.ptw
+  private val ptwNeedsCacheMaintenance    = !isDevice(io.ptwReq.bits.addr)
 
-  axiMaster.io.readReq.valid     := dataReadSelected || instReadSelected
-  axiMaster.io.readReq.bits      := Mux(
-    dataReadSelected,
-    dataAccess.io.axiReadReq.bits,
-    refill.io.axiReadReq.bits
+  // A cacheable store may have modified a page table line that a PTW now needs
+  // to read through the uncached path. Give the PTW maintenance priority and
+  // make both bypass classes clean+invalidate before touching main memory.
+  private val ptwMaintenanceSelected = io.ptwReq.valid && ptwNeedsCacheMaintenance
+  private val bypassMaintenanceSelected = !ptwMaintenanceSelected && io.dmemReq.valid &&
+    !routeToDcache && bypassMayIssue && bypassNeedsCacheMaintenance
+  private val bypassCanAccept = bypassMayIssue &&
+    (!bypassNeedsCacheMaintenance || (bypassMaintenanceSelected && dcache.io.cleanInvalidate.ready))
+  private val ptwCanAccept = !ptwNeedsCacheMaintenance ||
+    (ptwMaintenanceSelected && dcache.io.cleanInvalidate.ready)
+
+  // MMIO and atomics can have side effects even for reads, so they wait for
+  // ROB-head ownership in addition to the branch-resolution permit.
+  bypassAccess.io.req.valid := io.dmemReq.valid && !routeToDcache && bypassCanAccept
+  bypassAccess.io.req.bits  := io.dmemReq.bits.request
+  io.dmemReq.ready          := Mux(
+    routeToDcache,
+    dcache.io.req.ready,
+    bypassAccess.io.req.ready && bypassCanAccept
   )
-  dataAccess.io.axiReadReq.ready := axiMaster.io.readReq.ready && dataReadSelected
-  refill.io.axiReadReq.ready     := axiMaster.io.readReq.ready && instReadSelected
 
-  val readRespToData = RegInit(false.B)
-  when(axiMaster.io.readReq.fire) {
-    readRespToData := dataReadSelected
+  dcache.io.flush   := io.flush
+  dcache.io.recover := io.recover
+  dcache.io.robHead := io.robHead
+  dcache.io.unresolvedCfi := io.unresolvedCfi
+  dcache.io.cleanInvalidate.valid := ptwMaintenanceSelected || bypassMaintenanceSelected
+  dcache.io.cleanInvalidate.bits := Mux(
+    ptwMaintenanceSelected,
+    io.ptwReq.bits.addr,
+    io.dmemReq.bits.request.addr
+  )
+
+  when(bypassAccess.io.req.fire) {
+    bypassOwner := io.dmemReq.bits.owner
   }
 
-  dataAccess.io.axiReadResp.valid := axiMaster.io.readResp.valid && readRespToData
-  dataAccess.io.axiReadResp.bits  := axiMaster.io.readResp.bits
-  refill.io.axiReadResp.valid     := axiMaster.io.readResp.valid && !readRespToData
-  refill.io.axiReadResp.bits      := axiMaster.io.readResp.bits
-  axiMaster.io.readResp.ready     := Mux(
-    readRespToData,
-    dataAccess.io.axiReadResp.ready,
-    refill.io.axiReadResp.ready
+  // A bypass request is still revocable until AxiDataAccess hands it to the
+  // shared AXI master. Re-check its ROB owner there, not just on enqueue.
+  bypassAccess.io.issuePermit := !bypassOwner.squashable || mayIssueAxi(bypassOwner)
+  bypassAccess.io.abort       := ownerKilled(bypassOwner)
+
+  for (port <- 0 until dcacheCancelPorts) {
+    io.dmemCancel(port) := dcache.io.cancel(port)
+  }
+  io.dmemCancel(dcacheCancelPorts) := bypassAccess.io.cancel
+
+  ptwAccess.io.req.valid := io.ptwReq.valid && ptwCanAccept
+  ptwAccess.io.req.bits  := io.ptwReq.bits
+  io.ptwReq.ready        := ptwAccess.io.req.ready && ptwCanAccept
+  ptwAccess.io.issuePermit := true.B
+  ptwAccess.io.abort       := false.B
+  io.ptwResp <> ptwAccess.io.resp
+
+  private val dcacheResponse = dcache.io.resp.valid
+  io.dmemResp.valid          := dcacheResponse || bypassAccess.io.resp.valid
+  io.dmemResp.bits           := Mux(dcacheResponse, dcache.io.resp.bits, bypassAccess.io.resp.bits)
+  dcache.io.resp.ready       := io.dmemResp.ready && dcacheResponse
+  bypassAccess.io.resp.ready := io.dmemResp.ready && !dcacheResponse
+
+  io.perf.access         := dcache.io.perf.access
+  io.perf.hit            := dcache.io.perf.hit
+  io.perf.miss           := dcache.io.perf.miss
+  io.perf.bypass         := io.dmemReq.fire && !routeToDcache
+  io.perf.mshrAlloc      := dcache.io.perf.mshrAlloc
+  io.perf.mshrMerge      := dcache.io.perf.mshrMerge
+  io.perf.mshrFullStall  := dcache.io.perf.mshrFullStall
+  io.perf.hitUnderMiss   := dcache.io.perf.hitUnderMiss
+  io.perf.queuedMiss     := dcache.io.perf.queuedMiss
+  io.perf.refillStart    := dcache.io.perf.refillStart
+  io.perf.refillComplete := dcache.io.perf.refillComplete
+  io.perf.refillFault    := dcache.io.perf.refillFault
+  io.perf.mshrOccupancy  := dcache.io.perf.mshrOccupancy
+
+  private val dcacheWriteSelected = dcache.io.axiWriteReq.valid
+  private val bypassWriteSelected = !dcacheWriteSelected && bypassAccess.io.axiWriteReq.valid
+  private val writeSelected       = dcacheWriteSelected || bypassWriteSelected
+
+  axiMaster.io.writeReq.valid       := writeSelected
+  axiMaster.io.writeReq.bits        := Mux(dcacheWriteSelected, dcache.io.axiWriteReq.bits, bypassAccess.io.axiWriteReq.bits)
+  dcache.io.axiWriteReq.ready       := axiMaster.io.writeReq.ready && dcacheWriteSelected
+  bypassAccess.io.axiWriteReq.ready := axiMaster.io.writeReq.ready && bypassWriteSelected
+  ptwAccess.io.axiWriteReq.ready    := false.B
+
+  private val readOwner        = RegInit(readOwnerInst)
+  private val writeOwnerDcache = RegInit(false.B)
+
+  private val bypassReadSelected = !writeSelected && bypassAccess.io.axiReadReq.valid
+  private val ptwReadSelected    = !writeSelected && !bypassAccess.io.axiReadReq.valid && ptwAccess.io.axiReadReq.valid
+  private val dcacheReadSelected = !writeSelected && !bypassAccess.io.axiReadReq.valid &&
+    !ptwAccess.io.axiReadReq.valid && dcache.io.axiReadReq.valid
+  private val instReadSelected   =
+    !writeSelected && !bypassAccess.io.axiReadReq.valid && !ptwAccess.io.axiReadReq.valid &&
+      !dcache.io.axiReadReq.valid && refill.io.axiReadReq.valid
+
+  axiMaster.io.readReq.valid       := bypassReadSelected || ptwReadSelected || dcacheReadSelected || instReadSelected
+  axiMaster.io.readReq.bits        := MuxCase(
+    refill.io.axiReadReq.bits,
+    Seq(
+      bypassReadSelected -> bypassAccess.io.axiReadReq.bits,
+      ptwReadSelected    -> ptwAccess.io.axiReadReq.bits,
+      dcacheReadSelected -> dcache.io.axiReadReq.bits,
+      instReadSelected   -> refill.io.axiReadReq.bits
+    )
+  )
+  bypassAccess.io.axiReadReq.ready := axiMaster.io.readReq.ready && bypassReadSelected
+  ptwAccess.io.axiReadReq.ready    := axiMaster.io.readReq.ready && ptwReadSelected
+  dcache.io.axiReadReq.ready       := axiMaster.io.readReq.ready && dcacheReadSelected
+  refill.io.axiReadReq.ready       := axiMaster.io.readReq.ready && instReadSelected
+
+  when(axiMaster.io.readReq.fire) {
+    readOwner := MuxCase(
+      readOwnerInst,
+      Seq(
+        bypassReadSelected -> readOwnerBypass,
+        ptwReadSelected    -> readOwnerPtw,
+        dcacheReadSelected -> readOwnerDcache,
+        instReadSelected   -> readOwnerInst
+      )
+    )
+  }
+  when(axiMaster.io.writeReq.fire) {
+    writeOwnerDcache := dcacheWriteSelected
+  }
+
+  dcache.io.axiReadResp.valid       := axiMaster.io.readResp.valid && readOwner === readOwnerDcache
+  dcache.io.axiReadResp.bits        := axiMaster.io.readResp.bits
+  bypassAccess.io.axiReadResp.valid := axiMaster.io.readResp.valid && readOwner === readOwnerBypass
+  bypassAccess.io.axiReadResp.bits  := axiMaster.io.readResp.bits
+  ptwAccess.io.axiReadResp.valid    := axiMaster.io.readResp.valid && readOwner === readOwnerPtw
+  ptwAccess.io.axiReadResp.bits     := axiMaster.io.readResp.bits
+  refill.io.axiReadResp.valid       := axiMaster.io.readResp.valid && readOwner === readOwnerInst
+  refill.io.axiReadResp.bits        := axiMaster.io.readResp.bits
+  axiMaster.io.readResp.ready       := MuxCase(
+    refill.io.axiReadResp.ready,
+    Seq(
+      (readOwner === readOwnerDcache) -> dcache.io.axiReadResp.ready,
+      (readOwner === readOwnerBypass) -> bypassAccess.io.axiReadResp.ready,
+      (readOwner === readOwnerPtw)    -> ptwAccess.io.axiReadResp.ready,
+      (readOwner === readOwnerInst)   -> refill.io.axiReadResp.ready
+    )
   )
 
-  axiMaster.io.writeReq <> dataAccess.io.axiWriteReq
-  dataAccess.io.axiWriteResp <> axiMaster.io.writeResp
+  dcache.io.axiWriteResp.valid       := axiMaster.io.writeResp.valid && writeOwnerDcache
+  dcache.io.axiWriteResp.bits        := axiMaster.io.writeResp.bits
+  bypassAccess.io.axiWriteResp.valid := axiMaster.io.writeResp.valid && !writeOwnerDcache
+  bypassAccess.io.axiWriteResp.bits  := axiMaster.io.writeResp.bits
+  ptwAccess.io.axiWriteResp.valid    := false.B
+  ptwAccess.io.axiWriteResp.bits     := axiMaster.io.writeResp.bits
+  axiMaster.io.writeResp.ready       := Mux(
+    writeOwnerDcache,
+    dcache.io.axiWriteResp.ready,
+    bypassAccess.io.axiWriteResp.ready
+  )
 
   io.axi.awvalid           := axiMaster.io.axi.awvalid
   io.axi.awaddr            := axiMaster.io.axi.awaddr
@@ -91,5 +292,4 @@ class Mem(cfg: MemConfig = MemConfig()) extends Module {
   axiMaster.io.axi.rdata  := io.axi.rdata
   axiMaster.io.axi.rlast  := io.axi.rlast
   axiMaster.io.axi.rid    := io.axi.rid
-
 }

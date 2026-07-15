@@ -18,6 +18,12 @@ object DeviceConst {
   val rtcBase: BigInt = BigInt("a0000048", 16)
   val rtcSize: BigInt = 8
 
+  // The AM serial port is implemented by the simulator-side MMIO model. It
+  // must still be classified as a device here so normal data accesses never
+  // turn a byte store into a cache-line refill.
+  val serialBase: BigInt = BigInt("a00003f8", 16)
+  val serialSize: BigInt = 4
+
   val plicBase: BigInt = BigInt("0c000000", 16)
   val plicSize: BigInt = BigInt("04000000", 16)
 

@@ -2,12 +2,11 @@ package top.core.backend.rob
 
 import chisel3._
 import chisel3.util.{log2Ceil, Decoupled, PopCount, Valid}
-import top.core.backend.bundle.{RobAllocPacket, RobCommitPacket, RobWritebackPacket}
+import top.core.backend.bundle.{RobAllocPacket, RobCommitPacket, RobProducerEntry, RobWritebackPacket}
 import top.core.backend.csr.CsrAddr
 import top.core.backend.exception.ExceptionInfo
-import top.core.bundle.FetchInstPayload
+import top.core.bundle.{CfiType, FetchInstPayload, RobAge, RobRecovery}
 import top.config.BackendConfig
-import top.core.bundle.CfiType
 
 private class RobEntry(cfg: BackendConfig) extends Bundle {
   val valid          = Bool()
@@ -58,6 +57,17 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     val full  = Output(Bool())
     val empty = Output(Bool())
     val flush = Input(Bool())
+    val recover = Input(new RobRecovery(cfg.robIdxWidth))
+
+    val producerEntries = Output(Vec(cfg.robEntries, new RobProducerEntry(cfg)))
+    // A memory request may leave the core only after every older CFI has
+    // produced its execution result. The memory hierarchy compares this bitmap
+    // with the request owner using ROB-ring age ordering.
+    val unresolvedCfi = Output(Vec(cfg.robEntries, Bool()))
+    // Younger LSU operations must not pass an older AMO. The AMO bypasses the
+    // DCache, so a cacheable load could otherwise observe the line before the
+    // AMO write has reached memory.
+    val unresolvedAmo = Output(Vec(cfg.robEntries, Bool()))
   })
 
   private val entries = RegInit(VecInit(Seq.fill(cfg.robEntries)(0.U.asTypeOf(new RobEntry(cfg)))))
@@ -142,8 +152,41 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
   io.full  := count === cfg.robEntries.U
   io.empty := count === 0.U
 
+  for (index <- 0 until cfg.robEntries) {
+    io.producerEntries(index).valid  := entries(index).valid
+    io.producerEntries(index).robIdx := index.U(cfg.robIdxWidth.W)
+    io.producerEntries(index).rd     := entries(index).rd
+    io.producerEntries(index).rfWen  := entries(index).rfWen
+    io.unresolvedCfi(index) := entries(index).valid && entries(index).cfi =/= CfiType.none && !entries(index).done
+    io.unresolvedAmo(index) := entries(index).valid && entries(index).isAmo && !entries(index).done
+  }
+
   private val allocCount  = PopCount(allocFire)
   private val commitCount = PopCount(commitFire)
+
+  private def applyWriteback(wb: Valid[RobWritebackPacket], enabled: Bool): Unit = {
+    when(wb.valid && enabled) {
+      entries(wb.bits.robIdx).done           := true.B
+      entries(wb.bits.robIdx).result         := wb.bits.result
+      entries(wb.bits.robIdx).storeAddr      := wb.bits.storeAddr
+      entries(wb.bits.robIdx).storeData      := wb.bits.storeData
+      entries(wb.bits.robIdx).storeMask      := wb.bits.storeMask
+      entries(wb.bits.robIdx).redirectValid  := wb.bits.redirectValid
+      entries(wb.bits.robIdx).redirectTarget := wb.bits.redirectTarget
+      entries(wb.bits.robIdx).branchTaken    := wb.bits.branchTaken
+      entries(wb.bits.robIdx).branchTarget   := wb.bits.branchTarget
+      entries(wb.bits.robIdx).csrWen         := wb.bits.csrWen
+      entries(wb.bits.robIdx).csrWdata       := wb.bits.csrWdata
+      entries(wb.bits.robIdx).exception      := ExceptionInfo.keepFirst(
+        entries(wb.bits.robIdx).exception,
+        wb.bits.exception,
+        cfg
+      )
+    }
+  }
+
+  private val recoveryCount = Wire(UInt(countWidth.W))
+  recoveryCount := RobAge.fromHead(io.recover.robIdx, head, cfg.robEntries, cfg.robIdxWidth) + 1.U
 
   when(io.flush) {
     for (entry <- entries) {
@@ -153,26 +196,24 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     head := 0.U
     tail  := 0.U
     count := 0.U
+  }.elsewhen(io.recover.valid) {
+    for (wb <- io.writeback) {
+      applyWriteback(
+        wb,
+        !RobAge.isYounger(wb.bits.robIdx, io.recover.robIdx, head, cfg.robEntries, cfg.robIdxWidth)
+      )
+    }
+    for (index <- 0 until cfg.robEntries) {
+      when(RobAge.isYounger(index.U(cfg.robIdxWidth.W), io.recover.robIdx, head, cfg.robEntries, cfg.robIdxWidth)) {
+        entries(index).valid := false.B
+        entries(index).done  := false.B
+      }
+    }
+    tail  := wrapAdd(io.recover.robIdx, 1.U)
+    count := recoveryCount
   }.otherwise {
     for (wb <- io.writeback) {
-      when(wb.valid) {
-        entries(wb.bits.robIdx).done           := true.B
-        entries(wb.bits.robIdx).result         := wb.bits.result
-        entries(wb.bits.robIdx).storeAddr      := wb.bits.storeAddr
-        entries(wb.bits.robIdx).storeData      := wb.bits.storeData
-        entries(wb.bits.robIdx).storeMask      := wb.bits.storeMask
-        entries(wb.bits.robIdx).redirectValid  := wb.bits.redirectValid
-        entries(wb.bits.robIdx).redirectTarget := wb.bits.redirectTarget
-        entries(wb.bits.robIdx).branchTaken    := wb.bits.branchTaken
-        entries(wb.bits.robIdx).branchTarget   := wb.bits.branchTarget
-        entries(wb.bits.robIdx).csrWen         := wb.bits.csrWen
-        entries(wb.bits.robIdx).csrWdata       := wb.bits.csrWdata
-        entries(wb.bits.robIdx).exception      := ExceptionInfo.keepFirst(
-          entries(wb.bits.robIdx).exception,
-          wb.bits.exception,
-          cfg
-        )
-      }
+      applyWriteback(wb, true.B)
     }
 
     for (i <- 0 until cfg.commitWidth) {
@@ -224,5 +265,9 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     head  := wrapAdd(head, commitCount)
     tail  := wrapAdd(tail, allocCount)
     count := count + allocCount - commitCount
+  }
+
+  when(io.recover.valid) {
+    assert(entries(io.recover.robIdx).valid, "recovery must retain a live ROB boundary")
   }
 }

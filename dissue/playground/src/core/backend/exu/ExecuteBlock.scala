@@ -4,17 +4,22 @@ import chisel3._
 import chisel3.util.{Decoupled, Valid}
 import top.core.backend.bundle.{IssuePortStatus, IssueWakeup, RobWritebackPacket}
 import top.core.backend.csr.CsrReadPort
+import top.core.backend.bundle.BranchResolve
+import top.core.bundle.RobRecovery
 import top.config.BackendConfig
 
 class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
     val in      = Vec(cfg.intIssueWidth, Flipped(Decoupled(new ExuRequest(cfg))))
     val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(cfg.robIdxWidth))
+    val robHead = Input(UInt(cfg.robIdxWidth.W))
     val status  = Output(Vec(cfg.intIssueWidth, new IssuePortStatus))
     val csrRead = new CsrReadPort(cfg)
 
     val writeback = Output(Vec(cfg.intIssueWidth, Valid(new RobWritebackPacket(cfg))))
     val wakeup    = Output(Vec(cfg.intIssueWidth, new IssueWakeup(cfg)))
+    val resolve   = Output(Vec(cfg.intIssueWidth, Valid(new BranchResolve(cfg))))
   })
 
   private val unitConfigs = (0 until cfg.intIssueWidth).map { port =>
@@ -26,6 +31,8 @@ class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
 
   for (port <- 0 until cfg.intIssueWidth) {
     units(port).io.flush              := io.flush
+    units(port).io.recover            := io.recover
+    units(port).io.robHead            := io.robHead
     units(port).io.in <> io.in(port)
     units(port).io.csrRead.data       := io.csrRead.data
     units(port).io.csrRead.readLegal  := io.csrRead.readLegal
@@ -33,6 +40,7 @@ class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
     io.status(port)                   := units(port).io.status
     io.writeback(port)                := units(port).io.writeback
     io.wakeup(port)                   := units(port).io.wakeup
+    io.resolve(port)                  := units(port).io.resolve
   }
 
   private val csrReadSources = unitConfigs.zip(units).collect {

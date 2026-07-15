@@ -13,9 +13,35 @@ pub struct PerfCounters {
     div_special_operations: u64,
     bpu_predictions: u64,
     bpu_correct_predictions: u64,
+    mem_events: [u64; Self::MEM_EVENT_COUNT],
+    mem_sample_cycles: u64,
+    mshr_occupancy_sum: u64,
+    store_queue_occupancy_sum: u64,
+    load_txn_occupancy_sum: u64,
 }
 
 impl PerfCounters {
+    pub const DCACHE_ACCESS: usize = 0;
+    pub const DCACHE_HIT: usize = 1;
+    pub const DCACHE_MISS: usize = 2;
+    pub const DCACHE_BYPASS: usize = 3;
+    pub const MSHR_ALLOC: usize = 4;
+    pub const MSHR_MERGE: usize = 5;
+    pub const MSHR_FULL_STALL_CYCLE: usize = 6;
+    pub const HIT_UNDER_MISS: usize = 7;
+    pub const QUEUED_MISS: usize = 8;
+    pub const REFILL_START: usize = 9;
+    pub const REFILL_COMPLETE: usize = 10;
+    pub const REFILL_FAULT: usize = 11;
+    pub const LOAD_TXN_FULL_STALL_CYCLE: usize = 12;
+    pub const STORE_QUEUE_ALLOC: usize = 13;
+    pub const STORE_QUEUE_FULL_STALL_CYCLE: usize = 14;
+    pub const FORWARD_FULL: usize = 15;
+    pub const FORWARD_PARTIAL: usize = 16;
+    pub const FORWARD_UNRESOLVED_STALL_CYCLE: usize = 17;
+    pub const STORE_DRAIN: usize = 18;
+    pub const MEM_EVENT_COUNT: usize = 19;
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -59,6 +85,25 @@ impl PerfCounters {
     pub fn bpu_prediction(&mut self, correct: bool) {
         self.bpu_predictions += 1;
         self.bpu_correct_predictions += if correct { 1 } else { 0 };
+    }
+
+    pub fn mem_perf(
+        &mut self,
+        events: u32,
+        mshr_occupancy: u32,
+        store_queue_occupancy: u32,
+        load_txn_occupancy: u32,
+    ) {
+        self.mem_sample_cycles += 1;
+        self.mshr_occupancy_sum += u64::from(mshr_occupancy);
+        self.store_queue_occupancy_sum += u64::from(store_queue_occupancy);
+        self.load_txn_occupancy_sum += u64::from(load_txn_occupancy);
+
+        for index in 0..Self::MEM_EVENT_COUNT {
+            if (events & (1_u32 << index)) != 0 {
+                self.mem_events[index] += 1;
+            }
+        }
     }
 
     pub fn cache_hit_rate(&mut self) -> f64 {
@@ -140,6 +185,39 @@ impl PerfCounters {
             0.0
         } else {
             self.bpu_correct_predictions as f64 / self.bpu_predictions as f64
+        }
+    }
+
+    pub fn mem_event(&self, index: usize) -> u64 {
+        self.mem_events[index]
+    }
+
+    pub fn dcache_hit_rate(&self) -> f64 {
+        let requests = self.mem_event(Self::DCACHE_HIT) + self.mem_event(Self::DCACHE_MISS);
+        if requests == 0 {
+            0.0
+        } else {
+            self.mem_event(Self::DCACHE_HIT) as f64 / requests as f64
+        }
+    }
+
+    pub fn average_mshr_occupancy(&self) -> f64 {
+        self.average_occupancy(self.mshr_occupancy_sum)
+    }
+
+    pub fn average_store_queue_occupancy(&self) -> f64 {
+        self.average_occupancy(self.store_queue_occupancy_sum)
+    }
+
+    pub fn average_load_txn_occupancy(&self) -> f64 {
+        self.average_occupancy(self.load_txn_occupancy_sum)
+    }
+
+    fn average_occupancy(&self, sum: u64) -> f64 {
+        if self.mem_sample_cycles == 0 {
+            0.0
+        } else {
+            sum as f64 / self.mem_sample_cycles as f64
         }
     }
 

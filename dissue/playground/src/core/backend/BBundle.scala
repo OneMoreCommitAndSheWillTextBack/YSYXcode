@@ -4,9 +4,8 @@ import chisel3._
 import top.core.backend.csr.CsrAddr
 import top.core.backend.decoder.{FuOp, FuType, SrcType}
 import top.core.backend.exception.ExceptionInfo
-import top.core.bundle.FetchInstPayload
+import top.core.bundle.{CfiType, FetchInstPayload}
 import top.config.BackendConfig
-import top.core.bundle.CfiType
 
 class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid       = Bool()
@@ -86,6 +85,60 @@ class StoreTrackerAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
 class StoreTrackerCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid  = Bool()
   val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreQueueAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreQueueUpdate(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+  val addr   = UInt(cfg.addrWidth.W)
+  val data   = UInt(cfg.dataWidth.W)
+  val mask   = UInt((cfg.dataWidth / 8).W)
+}
+
+class StoreQueueCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreQueueDrain(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreQueuePerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val alloc     = Bool()
+  val fullStall = Bool()
+  val drain     = Bool()
+  val occupancy = UInt(math.max(chisel3.util.log2Ceil(cfg.robEntries + 1), 1).W)
+}
+
+class BackendMemPerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val sqAlloc                     = Bool()
+  val sqFullStall                 = Bool()
+  val forwardFull                 = Bool()
+  val forwardPartial              = Bool()
+  val forwardUnresolvedStoreStall = Bool()
+  val storeDrain                  = Bool()
+  val loadTxnFullStall            = Bool()
+  val sqOccupancy                 = UInt(math.max(chisel3.util.log2Ceil(cfg.robEntries + 1), 1).W)
+  val loadTxnOccupancy            = UInt(math.max(chisel3.util.log2Ceil(cfg.loadTxnEntries + 1), 1).W)
+}
+
+class StoreForwardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid          = Input(Bool())
+  val robIdx         = Input(UInt(cfg.robIdxWidth.W))
+  val addr           = Input(UInt(cfg.addrWidth.W))
+  val mask           = Input(UInt((cfg.dataWidth / 8).W))
+  val unresolved     = Output(Bool())
+  val fullForward    = Output(Bool())
+  val partialForward = Output(Bool())
+  val forwardMask    = Output(UInt((cfg.dataWidth / 8).W))
+  val forwardData    = Output(UInt(cfg.dataWidth.W))
 }
 
 class RetireException(cfg: BackendConfig = BackendConfig()) extends ExceptionInfo(cfg) {
@@ -204,6 +257,30 @@ class RobWritebackPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val csrWen         = Bool()
   val csrWdata       = UInt(cfg.dataWidth.W)
   val exception      = new ExceptionInfo(cfg)
+}
+
+/** Control-flow outcome produced by an execution unit.
+  *
+  * This is deliberately separate from ROB writeback: recovery consumes it as soon as execution has resolved the
+  * control-flow instruction, while retirement later consumes the same outcome retained in the ROB for BPU training.
+  */
+class BranchResolve(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val robIdx       = UInt(cfg.robIdxWidth.W)
+  val pc           = UInt(cfg.addrWidth.W)
+  val cfiType      = UInt(CfiType.width.W)
+  val predNpc      = UInt(cfg.addrWidth.W)
+  val actualNpc    = UInt(cfg.addrWidth.W)
+  val taken        = Bool()
+  val branchTarget = UInt(cfg.addrWidth.W)
+  val instLen      = UInt(3.W)
+}
+
+/** The portion of a ROB entry needed to reconstruct register dependencies after selective recovery. */
+class RobProducerEntry(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid  = Bool()
+  val robIdx = UInt(cfg.robIdxWidth.W)
+  val rd     = UInt(5.W)
+  val rfWen  = Bool()
 }
 
 class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {

@@ -311,9 +311,9 @@ impl Simulator {
         for _ in 0..times {
             match self.state {
                 SimulatorState::Running | SimulatorState::Stop => {}
-                SimulatorState::End => return self.terminal(Ok(())),
+                SimulatorState::End => return Ok(()),
                 SimulatorState::Abort => {
-                    return self.terminal(Err(SimulatorError::SimulateAbort));
+                    return Err(SimulatorError::SimulateAbort);
                 }
             }
 
@@ -401,6 +401,45 @@ impl Simulator {
             self.perf.bpu_predictions(),
             self.perf.bpu_correct_predictions(),
             self.perf.bpu_accuracy() * 100.0
+        );
+        crate::Log!(
+            "DCache: access: {}, hit: {}, miss: {}, bypass: {}, hit rate: {:.2}%",
+            self.perf.mem_event(PerfCounters::DCACHE_ACCESS),
+            self.perf.mem_event(PerfCounters::DCACHE_HIT),
+            self.perf.mem_event(PerfCounters::DCACHE_MISS),
+            self.perf.mem_event(PerfCounters::DCACHE_BYPASS),
+            self.perf.dcache_hit_rate() * 100.0
+        );
+        crate::Log!(
+            "DCache: MSHR alloc: {}, merge: {}, full stall cycles: {}, hit-under-miss: {}, queued miss: {}, avg occupancy: {:.3}",
+            self.perf.mem_event(PerfCounters::MSHR_ALLOC),
+            self.perf.mem_event(PerfCounters::MSHR_MERGE),
+            self.perf.mem_event(PerfCounters::MSHR_FULL_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::HIT_UNDER_MISS),
+            self.perf.mem_event(PerfCounters::QUEUED_MISS),
+            self.perf.average_mshr_occupancy()
+        );
+        crate::Log!(
+            "DCache: refill start: {}, complete: {}, fault: {}",
+            self.perf.mem_event(PerfCounters::REFILL_START),
+            self.perf.mem_event(PerfCounters::REFILL_COMPLETE),
+            self.perf.mem_event(PerfCounters::REFILL_FAULT)
+        );
+        crate::Log!(
+            "StoreQueue: alloc: {}, full stall cycles: {}, drain: {}, avg occupancy: {:.3}",
+            self.perf.mem_event(PerfCounters::STORE_QUEUE_ALLOC),
+            self.perf
+                .mem_event(PerfCounters::STORE_QUEUE_FULL_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::STORE_DRAIN),
+            self.perf.average_store_queue_occupancy()
+        );
+        crate::Log!(
+            "Store forwarding: full: {}, partial: {}, unresolved-store stall cycles: {}, LoadTxn full stall cycles: {}, avg occupancy: {:.3}",
+            self.perf.mem_event(PerfCounters::FORWARD_FULL),
+            self.perf.mem_event(PerfCounters::FORWARD_PARTIAL),
+            self.perf.mem_event(PerfCounters::FORWARD_UNRESOLVED_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::LOAD_TXN_FULL_STALL_CYCLE),
+            self.perf.average_load_txn_occupancy()
         );
     }
 

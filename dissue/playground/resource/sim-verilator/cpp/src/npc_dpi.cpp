@@ -127,3 +127,12 @@ extern "C" void npc_div_perf(int cycles, char special) {
 extern "C" void npc_bpu_perf(char correct) {
   NpcHostBridge::bpu_perf(static_cast<uint8_t>(correct));
 }
+
+extern "C" void npc_mem_perf(int events, int mshr_occupancy,
+                             int store_queue_occupancy,
+                             int load_txn_occupancy) {
+  NpcHostBridge::mem_perf(
+      static_cast<uint32_t>(events), static_cast<uint32_t>(mshr_occupancy),
+      static_cast<uint32_t>(store_queue_occupancy),
+      static_cast<uint32_t>(load_txn_occupancy));
+}
