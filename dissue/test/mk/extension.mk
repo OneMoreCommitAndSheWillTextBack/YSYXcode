@@ -32,6 +32,7 @@ TEST_DIR := $(TEST_EXT_DIR)/tests
 TEST_BUILD_DIR ?= $(TEST_ROOT)/build/$(EXT)
 LOG_DIR := $(TEST_BUILD_DIR)/logs
 RESULT := $(TEST_BUILD_DIR)/result.txt
+TEST_CONFIG_SIG := $(TEST_BUILD_DIR)/test-config.sig
 
 CRT0 := $(TEST_ROOT)/mk/crt0.S
 LINKER_SCRIPT := $(TEST_ROOT)/mk/linker.ld
@@ -82,6 +83,7 @@ ASM_TESTS := $(basename $(notdir $(ASM_TEST_SOURCES)))
 DISCOVERED_TESTS := $(sort $(C_TESTS) $(ASM_TESTS))
 SELECTED_TESTS := $(if $(strip $(ALL)),$(strip $(ALL)),$(DISCOVERED_TESTS))
 UNKNOWN_TESTS := $(filter-out $(DISCOVERED_TESTS),$(SELECTED_TESTS))
+TEST_DEPFILES := $(addprefix $(TEST_BUILD_DIR)/,$(addsuffix .d,$(DISCOVERED_TESTS)))
 
 TEST_BIN = $(TEST_BUILD_DIR)/$(TEST).bin
 TEST_LOG = $(LOG_DIR)/$(TEST).log
@@ -91,7 +93,7 @@ COLOR_RED := \033[1;31m
 COLOR_GREEN := \033[1;32m
 COLOR_NONE := \033[0m
 
-.PHONY: all run run-one build list clean check-tests
+.PHONY: all run run-one build list clean check-tests ensure-default-sim force-test-config
 .PRECIOUS: $(TEST_BUILD_DIR)/%.elf
 
 all: run
@@ -152,16 +154,41 @@ check-tests:
 		exit 1; \
 	fi
 
-$(DEFAULT_SIM):
-	@$(MAKE) --no-print-directory -C "$(NPC_HOME)" verilator-exec
+$(DEFAULT_SIM): ensure-default-sim
+	@$(MAKE) --no-print-directory -C "$(NPC_HOME)" "$(DEFAULT_SIM)"
 
-$(TEST_BUILD_DIR)/%.elf: $(TEST_DIR)/%.c $(CRT0) $(LINKER_SCRIPT) $(TEST_HEADERS)
+$(TEST_CONFIG_SIG): force-test-config
 	@mkdir -p "$(dir $@)"
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(CRT0) $< $(LDFLAGS) -Wl,-Map,$(TEST_BUILD_DIR)/$*.map -o $@
+	@set -eu; \
+	tmp=$$(mktemp "$@.tmp.XXXXXX"); \
+	trap 'rm -f "$$tmp"' EXIT; \
+	{ \
+		printf 'cc=%s\n' '$(CC)'; \
+		printf 'cross_compile=%s\n' '$(CROSS_COMPILE)'; \
+		printf 'objcopy=%s\n' '$(OBJCOPY)'; \
+		printf 'objdump=%s\n' '$(OBJDUMP)'; \
+		printf 'march=%s\n' '$(MARCH)'; \
+		printf 'mabi=%s\n' '$(MABI)'; \
+		printf 'cppflags=%s\n' '$(CPPFLAGS)'; \
+		printf 'cflags=%s\n' '$(CFLAGS)'; \
+		printf 'asflags=%s\n' '$(ASFLAGS)'; \
+		printf 'ldflags=%s\n' '$(LDFLAGS)'; \
+		sha256sum "$(TEST_EXT_DIR)/Makefile" "$(TEST_MK_DIR)/extension.mk" "$(TEST_MK_DIR)/extensions.mk"; \
+		"$(CC)" --version 2>&1 || true; \
+	} > "$$tmp"; \
+	if test -f "$@" && cmp -s "$$tmp" "$@"; then \
+		rm -f "$$tmp"; \
+	else \
+		mv -f "$$tmp" "$@"; \
+	fi
 
-$(TEST_BUILD_DIR)/%.elf: $(TEST_DIR)/%.S $(CRT0) $(LINKER_SCRIPT) $(TEST_HEADERS)
+$(TEST_BUILD_DIR)/%.elf: $(TEST_DIR)/%.c $(CRT0) $(LINKER_SCRIPT) $(TEST_HEADERS) $(TEST_CONFIG_SIG)
 	@mkdir -p "$(dir $@)"
-	$(CC) $(CPPFLAGS) $(ASFLAGS) $(CRT0) $< $(LDFLAGS) -Wl,-Map,$(TEST_BUILD_DIR)/$*.map -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF $(TEST_BUILD_DIR)/$*.d -MT $@ $(CRT0) $< $(LDFLAGS) -Wl,-Map,$(TEST_BUILD_DIR)/$*.map -o $@
+
+$(TEST_BUILD_DIR)/%.elf: $(TEST_DIR)/%.S $(CRT0) $(LINKER_SCRIPT) $(TEST_HEADERS) $(TEST_CONFIG_SIG)
+	@mkdir -p "$(dir $@)"
+	$(CC) $(CPPFLAGS) $(ASFLAGS) -MMD -MP -MF $(TEST_BUILD_DIR)/$*.d -MT $@ $(CRT0) $< $(LDFLAGS) -Wl,-Map,$(TEST_BUILD_DIR)/$*.map -o $@
 
 $(TEST_BUILD_DIR)/%.bin: $(TEST_BUILD_DIR)/%.elf
 	$(OBJCOPY) -O binary $< $@
@@ -169,3 +196,5 @@ $(TEST_BUILD_DIR)/%.bin: $(TEST_BUILD_DIR)/%.elf
 
 clean:
 	rm -rf "$(TEST_BUILD_DIR)" "$(TEST_EXT_DIR)/wave.vcd"
+
+-include $(TEST_DEPFILES)
