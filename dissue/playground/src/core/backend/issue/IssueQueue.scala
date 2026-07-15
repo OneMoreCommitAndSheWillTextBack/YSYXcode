@@ -17,6 +17,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val intStatus    = Input(Vec(cfg.intIssueWidth, new IssuePortStatus))
     val memStatus    = Input(new IssuePortStatus)
     val robHead      = Input(UInt(cfg.robIdxWidth.W))
+    val unresolvedAmo = Input(Vec(cfg.robEntries, Bool()))
     val storeQuery   = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
     val csrQuery     = Vec(cfg.issueQueueEntries, Flipped(new CsrTrackerQuery(cfg)))
     val intIssue     = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
@@ -49,17 +50,27 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     )
 
   for (i <- 0 until cfg.issueQueueEntries) {
-    val ready       = entries(i).src1.ready && entries(i).src2.ready
-    val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
-    val amoBlocked  = entries(i).isAmo && entries(i).robIdx =/= io.robHead
-    val csrBlocked  = entries(i).isCsr && io.csrQuery(i).hasOlderSameAddrWriter
+    val ready = entries(i).src1.ready && entries(i).src2.ready
+    val hasOlderUnresolvedAmo = VecInit((0 until cfg.robEntries).map { amoRobIdx =>
+      io.unresolvedAmo(amoRobIdx) && RobAge.isYounger(
+        entries(i).robIdx,
+        amoRobIdx.U(cfg.robIdxWidth.W),
+        io.robHead,
+        cfg.robEntries,
+        cfg.robIdxWidth
+      )
+    }).asUInt.orR
     val memPipe     = entries(i).fuType === FuType.lsu
+    val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
+    val amoOrderBlocked = memPipe && hasOlderUnresolvedAmo
+    val amoBlocked      = entries(i).isAmo && entries(i).robIdx =/= io.robHead
+    val csrBlocked      = entries(i).isCsr && io.csrQuery(i).hasOlderSameAddrWriter
     val cfiAge      = RobAge.fromHead(entries(i).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
     val cfiBlocked  = entries(i).cfi =/= CfiType.none && VecInit((0 until cfg.issueQueueEntries).map { other =>
       valid(other) && entries(other).cfi =/= CfiType.none &&
         RobAge.fromHead(entries(other).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth) < cfiAge
     }).asUInt.orR
-    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoBlocked && !csrBlocked &&
+    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked &&
       !cfiBlocked && !io.flush && !io.recover.valid
 
     io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad

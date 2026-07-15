@@ -64,6 +64,10 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     // produced its execution result. The memory hierarchy compares this bitmap
     // with the request owner using ROB-ring age ordering.
     val unresolvedCfi = Output(Vec(cfg.robEntries, Bool()))
+    // Loads must not pass an older AMO. The AMO bypasses the DCache, so a
+    // younger cacheable load could otherwise observe the line before the AMO
+    // write has reached memory.
+    val unresolvedAmo = Output(Vec(cfg.robEntries, Bool()))
   })
 
   private val entries = RegInit(VecInit(Seq.fill(cfg.robEntries)(0.U.asTypeOf(new RobEntry(cfg)))))
@@ -154,6 +158,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     io.producerEntries(index).rd     := entries(index).rd
     io.producerEntries(index).rfWen  := entries(index).rfWen
     io.unresolvedCfi(index) := entries(index).valid && entries(index).cfi =/= CfiType.none && !entries(index).done
+    io.unresolvedAmo(index) := entries(index).valid && entries(index).isAmo && !entries(index).done
   }
 
   private val allocCount  = PopCount(allocFire)

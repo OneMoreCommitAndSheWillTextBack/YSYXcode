@@ -7,6 +7,7 @@ NO_DIFF_TESTS := a-ext \
 	a-sc-clear-after-success \
 	a-lr-reservation-replace \
 	a-amoadd-sequence \
+	a-amo-load-order \
 	a-amoswap-return \
 	a-amo-bitwise \
 	a-amo-minmax-signed \

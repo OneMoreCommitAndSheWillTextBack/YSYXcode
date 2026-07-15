@@ -247,6 +247,7 @@ class Backend(
   difftest.io.context   := retire.io.context
 
   issueQueue.io.robHead := rob.io.head
+  issueQueue.io.unresolvedAmo := rob.io.unresolvedAmo
   for (port <- 0 until cfg.intIssueWidth) {
     issueQueue.io.intStatus(port) := execute.io.status(port)
   }
