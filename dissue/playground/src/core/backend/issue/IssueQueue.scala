@@ -50,7 +50,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     )
 
   for (i <- 0 until cfg.issueQueueEntries) {
-    val ready = entries(i).src1.ready && entries(i).src2.ready
+    val ready                  = entries(i).src1.ready && entries(i).src2.ready
     val hasOlderUnresolvedAmo = VecInit((0 until cfg.robEntries).map { amoRobIdx =>
       io.unresolvedAmo(amoRobIdx) && RobAge.isYounger(
         entries(i).robIdx,
@@ -60,17 +60,17 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
         cfg.robIdxWidth
       )
     }).asUInt.orR
-    val memPipe     = entries(i).fuType === FuType.lsu
-    val loadBlocked = entries(i).isLoad && io.storeQuery(i).hasOlderStore
+    val memPipe         = entries(i).fuType === FuType.lsu
+    val loadBlocked     = entries(i).isLoad && io.storeQuery(i).hasOlderStore
     val amoOrderBlocked = memPipe && hasOlderUnresolvedAmo
     val amoBlocked      = entries(i).isAmo && entries(i).robIdx =/= io.robHead
     val csrBlocked      = entries(i).isCsr && io.csrQuery(i).hasOlderSameAddrWriter
-    val cfiAge      = RobAge.fromHead(entries(i).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
-    val cfiBlocked  = entries(i).cfi =/= CfiType.none && VecInit((0 until cfg.issueQueueEntries).map { other =>
+    val cfiAge = RobAge.fromHead(entries(i).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+    val cfiBlocked = entries(i).cfi =/= CfiType.none && VecInit((0 until cfg.issueQueueEntries).map { other =>
       valid(other) && entries(other).cfi =/= CfiType.none &&
         RobAge.fromHead(entries(other).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth) < cfiAge
     }).asUInt.orR
-    val request     = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked &&
+    val request = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked &&
       !cfiBlocked && !io.flush && !io.recover.valid
 
     io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad

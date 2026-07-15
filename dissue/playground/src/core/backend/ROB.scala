@@ -64,9 +64,9 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     // produced its execution result. The memory hierarchy compares this bitmap
     // with the request owner using ROB-ring age ordering.
     val unresolvedCfi = Output(Vec(cfg.robEntries, Bool()))
-    // Loads must not pass an older AMO. The AMO bypasses the DCache, so a
-    // younger cacheable load could otherwise observe the line before the AMO
-    // write has reached memory.
+    // Younger LSU operations must not pass an older AMO. The AMO bypasses the
+    // DCache, so a cacheable load could otherwise observe the line before the
+    // AMO write has reached memory.
     val unresolvedAmo = Output(Vec(cfg.robEntries, Bool()))
   })
 

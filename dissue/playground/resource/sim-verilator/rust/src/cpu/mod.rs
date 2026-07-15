@@ -161,6 +161,7 @@ impl Cpu {
         if matches!(self.wave.mode, WaveMode::Lightsss { .. }) {
             match self.lightsss.wake() {
                 Ok(Some(_)) => {
+                    crate::Log!("Wake up lightsss subthread");
                     self.handoff_wave_to_checkpoint();
                     return;
                 }
