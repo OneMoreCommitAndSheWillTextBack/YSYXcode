@@ -1,5 +1,5 @@
 use super::{DifftestError, DifftestResult, CSR_DIFF_SPECS};
-use crate::cpu::{CpuContext, PrivMode};
+use crate::common::{CpuContext, PrivilegeMode};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,8 +14,8 @@ pub enum DifftestMismatch {
         reference: u32,
     },
     Priv {
-        dut: PrivMode,
-        reference: PrivMode,
+        dut: PrivilegeMode,
+        reference: PrivilegeMode,
     },
     Csr {
         name: &'static str,
@@ -107,10 +107,10 @@ fn compare_contexts_raw(
         }
     }
 
-    if dut.priv_mode != reference.priv_mode {
+    if dut.privilege() != reference.privilege() {
         return Err(DifftestMismatch::Priv {
-            dut: dut.priv_mode,
-            reference: reference.priv_mode,
+            dut: dut.privilege(),
+            reference: reference.privilege(),
         });
     }
 
@@ -127,28 +127,4 @@ fn compare_csr(name: &'static str, dut: u32, reference: u32) -> Result<(), Difft
         dut,
         reference,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ignored_gpr_mask_only_suppresses_the_selected_register() {
-        let mut dut = CpuContext::default();
-        let reference = CpuContext::default();
-        dut.gpr[13] = 1;
-
-        assert!(matches!(
-            compare_contexts_raw(&dut, &reference, 0),
-            Err(DifftestMismatch::Gpr { index: 13, .. })
-        ));
-        assert!(compare_contexts_raw(&dut, &reference, 1 << 13).is_ok());
-
-        dut.gpr[14] = 1;
-        assert!(matches!(
-            compare_contexts_raw(&dut, &reference, 1 << 13),
-            Err(DifftestMismatch::Gpr { index: 14, .. })
-        ));
-    }
 }

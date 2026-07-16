@@ -1,24 +1,31 @@
 #include "npc_host_bridge.h"
-#include "npc_sim_types.h"
-#include <cstddef>
 #include <cstdint>
 
 namespace {
-NpcHostBridge *g_active_bridge = nullptr;
-
-NpcHostBridge *active_bridge() { return g_active_bridge; }
+thread_local NpcHostBridge *current_bridge = nullptr;
+thread_local void *current_opaque = nullptr;
 } // namespace
 
 NpcHostBridge::NpcHostBridge(const NpcDpiCallbacks *callbacks)
-    : callbacks_(callbacks == nullptr ? NpcDpiCallbacks{} : *callbacks) {
-  g_active_bridge = this;
+    : callbacks_(callbacks == nullptr ? NpcDpiCallbacks{} : *callbacks) {}
+
+NpcHostBridge::EvaluationScope::EvaluationScope(NpcHostBridge &bridge,
+                                                void *opaque)
+    : previous_bridge_(current_bridge), previous_opaque_(current_opaque) {
+  current_bridge = &bridge;
+  current_opaque = opaque;
 }
 
-NpcHostBridge::~NpcHostBridge() {
-  if (g_active_bridge == this) {
-    g_active_bridge = nullptr;
-  }
+NpcHostBridge::EvaluationScope::~EvaluationScope() {
+  current_bridge = previous_bridge_;
+  current_opaque = previous_opaque_;
 }
+
+NpcHostBridge *NpcHostBridge::active_bridge() { return current_bridge; }
+
+void *NpcHostBridge::active_opaque() { return current_opaque; }
+
+void *NpcHostBridge::configured_opaque() const { return callbacks_.opaque; }
 
 void NpcHostBridge::difftest_commit(
     uint32_t valid_mask, uint32_t finish_mask, uint32_t mem_valid_mask,
@@ -50,7 +57,7 @@ void NpcHostBridge::difftest_commit(
       async_intr_cause,
       async_intr_epc,
   };
-  bridge->callbacks_.on_difftest_commit(&event);
+  bridge->callbacks_.on_difftest_commit(active_opaque(), &event);
 }
 
 void NpcHostBridge::difftest_context(const NpcCpuContext *context) {
@@ -61,7 +68,7 @@ void NpcHostBridge::difftest_context(const NpcCpuContext *context) {
     return;
   }
 
-  bridge->callbacks_.on_difftest_context(context);
+  bridge->callbacks_.on_difftest_context(active_opaque(), context);
 }
 
 uint32_t NpcHostBridge::pmem_read(uint32_t addr, uint32_t len) {
@@ -71,7 +78,7 @@ uint32_t NpcHostBridge::pmem_read(uint32_t addr, uint32_t len) {
     return 0;
   }
 
-  return bridge->callbacks_.pmem_read(addr, len);
+  return bridge->callbacks_.pmem_read(active_opaque(), addr, len);
 }
 
 void NpcHostBridge::pmem_write(uint32_t addr, uint32_t len, uint32_t data) {
@@ -81,7 +88,7 @@ void NpcHostBridge::pmem_write(uint32_t addr, uint32_t len, uint32_t data) {
     return;
   }
 
-  bridge->callbacks_.pmem_write(addr, len, data);
+  bridge->callbacks_.pmem_write(active_opaque(), addr, len, data);
 }
 
 uint64_t NpcHostBridge::time_read() {
@@ -91,7 +98,7 @@ uint64_t NpcHostBridge::time_read() {
     return 0;
   }
 
-  return bridge->callbacks_.time_read();
+  return bridge->callbacks_.time_read(active_opaque());
 }
 
 void NpcHostBridge::cache_hit(uint8_t hit) {
@@ -100,7 +107,7 @@ void NpcHostBridge::cache_hit(uint8_t hit) {
   if (bridge == nullptr || bridge->callbacks_.cache_hit == nullptr) {
     return;
   }
-  bridge->callbacks_.cache_hit(hit);
+  bridge->callbacks_.cache_hit(active_opaque(), hit);
 }
 
 void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
@@ -111,8 +118,8 @@ void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
   if (bridge == nullptr || bridge->callbacks_.issue_queue_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.issue_queue_perf(issue_count, occupancy, block_ready,
-                                      block_operand);
+  bridge->callbacks_.issue_queue_perf(active_opaque(), issue_count, occupancy,
+                                      block_ready, block_operand);
 }
 
 void NpcHostBridge::div_perf(uint32_t cycles, uint8_t special) {
@@ -121,7 +128,7 @@ void NpcHostBridge::div_perf(uint32_t cycles, uint8_t special) {
   if (bridge == nullptr || bridge->callbacks_.div_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.div_perf(cycles, special);
+  bridge->callbacks_.div_perf(active_opaque(), cycles, special);
 }
 
 void NpcHostBridge::bpu_perf(uint8_t correct) {
@@ -130,7 +137,7 @@ void NpcHostBridge::bpu_perf(uint8_t correct) {
   if (bridge == nullptr || bridge->callbacks_.bpu_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.bpu_perf(correct);
+  bridge->callbacks_.bpu_perf(active_opaque(), correct);
 }
 
 void NpcHostBridge::mem_perf(uint32_t events, uint32_t mshr_occupancy,
@@ -141,6 +148,6 @@ void NpcHostBridge::mem_perf(uint32_t events, uint32_t mshr_occupancy,
   if (bridge == nullptr || bridge->callbacks_.mem_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.mem_perf(events, mshr_occupancy, store_queue_occupancy,
-                              load_txn_occupancy);
+  bridge->callbacks_.mem_perf(active_opaque(), events, mshr_occupancy,
+                              store_queue_occupancy, load_txn_occupancy);
 }

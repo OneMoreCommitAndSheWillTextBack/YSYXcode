@@ -1,4 +1,4 @@
-use crate::config::{SimulatorConfig, WaveMode};
+use crate::config::{SimulationConfig, TraceMode};
 use std::fmt;
 
 const ANSI_RESET: &str = "\x1b[0m";
@@ -59,7 +59,7 @@ macro_rules! LogError {
     }};
 }
 
-pub fn show_trace(config: &SimulatorConfig) {
+pub fn show_trace(config: &SimulationConfig) {
     crate::Log!("trace show");
     let state = |enabled| {
         if enabled {
@@ -68,11 +68,11 @@ pub fn show_trace(config: &SimulatorConfig) {
             format!("{}OFF{}", ANSI_FG_RED, ANSI_RESET)
         }
     };
-    let wave_state = match config.wave_config.mode {
-        WaveMode::Disabled => state(false),
-        WaveMode::Immediate => state(true),
-        WaveMode::After { cycle } => format!("{}AFTER({cycle}){}", ANSI_FG_GREEN, ANSI_RESET),
-        WaveMode::Lightsss {
+    let wave_state = match config.trace.mode {
+        TraceMode::Disabled => state(false),
+        TraceMode::Immediate => state(true),
+        TraceMode::After { cycle } => format!("{}AFTER({cycle}){}", ANSI_FG_GREEN, ANSI_RESET),
+        TraceMode::Lightsss {
             gap,
             max_checkpoints,
         } => format!(
@@ -88,9 +88,9 @@ pub fn show_trace(config: &SimulatorConfig) {
         wave_state,
         ANSI_FG_BLUE,
         ANSI_RESET,
-        state(config.itrace_path.is_some()),
+        state(config.checker.itrace_path.is_some()),
         ANSI_FG_BLUE,
         ANSI_RESET,
-        state(config.difftest_on),
+        state(config.checker.difftest_enabled()),
     );
 }

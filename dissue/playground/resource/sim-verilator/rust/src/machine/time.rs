@@ -1,6 +1,6 @@
-use super::Simulator;
 use std::time::Instant;
 
+/// Host clock origin for the legacy time DPI service.
 #[derive(Debug)]
 pub(super) struct SimTimer {
     boot_time: Instant,
@@ -13,13 +13,7 @@ impl SimTimer {
         }
     }
 
-    fn elapsed_micros(&self) -> u64 {
+    pub(super) fn elapsed_micros(&self) -> u64 {
         self.boot_time.elapsed().as_micros() as u64
-    }
-}
-
-impl Simulator {
-    pub(super) fn time_read(&self) -> u64 {
-        self.timer.as_ref().map_or(0, SimTimer::elapsed_micros)
     }
 }

@@ -1,3 +1,6 @@
+//! Session-level waveform policy and LightSSS checkpoint lifecycle.
+
+use crate::{config::TraceMode, driver::NpcDriver};
 use std::{
     collections::VecDeque,
     io,
@@ -7,67 +10,124 @@ use std::{
 const START_COMMAND: u8 = 1;
 const DEV_NULL_PATH: &[u8] = b"/dev/null\0";
 
+/// Decides when the driver should trace and owns fork-based checkpoints.
+pub(crate) struct WaveController {
+    mode: TraceMode,
+    lightsss: LightsssController,
+}
+
+impl WaveController {
+    pub(crate) fn new(mode: TraceMode) -> Self {
+        let mut lightsss = LightsssController::new();
+        if let TraceMode::Lightsss {
+            max_checkpoints, ..
+        } = mode
+        {
+            lightsss.set_max_checkpoints(max_checkpoints);
+        }
+        Self { mode, lightsss }
+    }
+
+    pub(crate) fn initialize(&mut self, driver: &mut NpcDriver) {
+        if matches!(self.mode, TraceMode::Immediate) {
+            driver.enable_trace();
+        }
+    }
+
+    /// Runs after a completed driver evaluation, never from a DPI callback.
+    pub(crate) fn after_cycle(&mut self, driver: &mut NpcDriver, cycle: u64) {
+        if driver.trace_enabled() {
+            return;
+        }
+
+        match self.mode {
+            TraceMode::After { cycle: after } if cycle > after => driver.enable_trace(),
+            TraceMode::Lightsss { gap, .. } if cycle != 0 && cycle % gap == 0 => {
+                match self.lightsss.add_checkpoint(cycle) {
+                    Ok(CheckpointRole::Parent) => {}
+                    Ok(CheckpointRole::RecoveryChild) => driver.enable_trace(),
+                    Err(error) => crate::LogError!(
+                        "failed to create LightSSS checkpoint at cycle {cycle}: {error}"
+                    ),
+                }
+            }
+            TraceMode::Disabled
+            | TraceMode::Immediate
+            | TraceMode::After { .. }
+            | TraceMode::Lightsss { .. } => {}
+        }
+    }
+
+    pub(crate) fn terminal(&mut self, driver: &mut NpcDriver) {
+        if matches!(self.mode, TraceMode::Lightsss { .. }) {
+            match self.lightsss.wake() {
+                Ok(true) => {
+                    crate::Log!("Wake up LightSSS checkpoint");
+                    driver.abandon_trace();
+                    return;
+                }
+                Ok(false) => {}
+                Err(error) => crate::LogError!("failed to wake LightSSS checkpoint: {error}"),
+            }
+        }
+
+        self.shutdown();
+        driver.close_trace();
+    }
+
+    pub(crate) fn shutdown(&mut self) {
+        if let Err(error) = self.lightsss.shutdown() {
+            crate::LogError!("failed to shut down LightSSS checkpoints: {error}");
+        }
+    }
+}
+
 struct Checkpoint {
     pid: libc::pid_t,
-    cycle: u64,
     start_tx: OwnedFd,
-    result_rx: OwnedFd,
 }
 
-pub(super) enum CheckpointRole {
+enum CheckpointRole {
     Parent,
-    RecoveryChild { result_tx: OwnedFd },
+    RecoveryChild,
 }
 
-pub(super) struct RunningCheckpoint {
-    pub(super) pid: libc::pid_t,
-    pub(super) cycle: u64,
-    pub(super) result_rx: OwnedFd,
-}
-
-pub(super) struct LightsssController {
+struct LightsssController {
     max_checkpoints: usize,
-    checkpoints: VecDeque<Checkpoint>, // Latest checkpoint is at the front.
+    checkpoints: VecDeque<Checkpoint>,
 }
 
 impl LightsssController {
-    pub(super) fn new() -> Self {
+    fn new() -> Self {
         Self {
             max_checkpoints: 0,
             checkpoints: VecDeque::new(),
         }
     }
 
-    pub(super) fn set_max_checkpoints(&mut self, max_checkpoints: usize) {
+    fn set_max_checkpoints(&mut self, max_checkpoints: usize) {
         self.max_checkpoints = max_checkpoints;
     }
 
-    pub(super) fn add_checkpoints(&mut self, cycle: u64) -> io::Result<CheckpointRole> {
+    fn add_checkpoint(&mut self, cycle: u64) -> io::Result<CheckpointRole> {
         let (start_rx, start_tx) = create_pipe()?;
-        let (result_rx, result_tx) = create_pipe()?;
 
         match unsafe { libc::fork() } {
             -1 => Err(io::Error::last_os_error()),
-            0 => self.wait_for_start(start_rx, start_tx, result_rx, result_tx),
+            0 => self.wait_for_start(start_rx, start_tx),
             pid => {
                 drop(start_rx);
-                drop(result_tx);
-
-                self.checkpoints.push_front(Checkpoint {
-                    pid,
-                    cycle,
-                    start_tx,
-                    result_rx,
-                });
+                self.checkpoints.push_front(Checkpoint { pid, start_tx });
                 self.discard_excess_checkpoints()?;
+                crate::Log!("created LightSSS checkpoint at cycle {cycle}");
                 Ok(CheckpointRole::Parent)
             }
         }
     }
 
-    pub(super) fn wake(&mut self) -> io::Result<Option<RunningCheckpoint>> {
+    fn wake(&mut self) -> io::Result<bool> {
         let Some(checkpoint) = self.checkpoints.pop_front() else {
-            return Ok(None);
+            return Ok(false);
         };
 
         if let Err(error) = self.discard_all_checkpoints() {
@@ -75,10 +135,11 @@ impl LightsssController {
             return Err(error);
         }
 
-        start_checkpoint(checkpoint).map(Some)
+        start_checkpoint(checkpoint)?;
+        Ok(true)
     }
 
-    pub(super) fn shutdown(&mut self) -> io::Result<()> {
+    fn shutdown(&mut self) -> io::Result<()> {
         self.discard_all_checkpoints()
     }
 
@@ -86,11 +147,8 @@ impl LightsssController {
         &mut self,
         start_rx: OwnedFd,
         start_tx: OwnedFd,
-        result_rx: OwnedFd,
-        result_tx: OwnedFd,
     ) -> io::Result<CheckpointRole> {
         drop(start_tx);
-        drop(result_rx);
         self.checkpoints.clear();
 
         if redirect_standard_streams_to_null().is_err() {
@@ -100,7 +158,7 @@ impl LightsssController {
         match wait_for_start_command(start_rx.as_raw_fd()) {
             Ok(true) => {
                 drop(start_rx);
-                Ok(CheckpointRole::RecoveryChild { result_tx })
+                Ok(CheckpointRole::RecoveryChild)
             }
             Ok(false) => unsafe { libc::_exit(0) },
             Err(_) => unsafe { libc::_exit(1) },
@@ -115,21 +173,16 @@ impl LightsssController {
                 .expect("checkpoint queue length was checked");
             terminate_checkpoint(checkpoint)?;
         }
-
         Ok(())
     }
 
     fn discard_all_checkpoints(&mut self) -> io::Result<()> {
         let mut first_error = None;
-
         while let Some(checkpoint) = self.checkpoints.pop_front() {
             if let Err(error) = terminate_checkpoint(checkpoint) {
-                if first_error.is_none() {
-                    first_error = Some(error);
-                }
+                first_error.get_or_insert(error);
             }
         }
-
         first_error.map_or(Ok(()), Err)
     }
 }
@@ -145,8 +198,6 @@ fn create_pipe() -> io::Result<(OwnedFd, OwnedFd)> {
     if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } == -1 {
         return Err(io::Error::last_os_error());
     }
-
-    // pipe2 initialized both descriptors on success.
     Ok(unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) })
 }
 
@@ -168,19 +219,16 @@ fn redirect_standard_streams_to_null() -> io::Result<()> {
             return Err(error);
         }
     }
-
     if null_fd != libc::STDOUT_FILENO && null_fd != libc::STDERR_FILENO {
         if unsafe { libc::close(null_fd) } == -1 {
             return Err(io::Error::last_os_error());
         }
     }
-
     Ok(())
 }
 
 fn wait_for_start_command(start_rx: RawFd) -> io::Result<bool> {
     let mut command = 0_u8;
-
     loop {
         let read_len = unsafe {
             libc::read(
@@ -189,14 +237,13 @@ fn wait_for_start_command(start_rx: RawFd) -> io::Result<bool> {
                 std::mem::size_of_val(&command),
             )
         };
-
         match read_len {
             1 if command == START_COMMAND => return Ok(true),
             1 => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
-                    "invalid lightsss start command",
-                ));
+                    "invalid LightSSS start command",
+                ))
             }
             0 => return Ok(false),
             -1 if io::Error::last_os_error().kind() == io::ErrorKind::Interrupted => continue,
@@ -206,25 +253,13 @@ fn wait_for_start_command(start_rx: RawFd) -> io::Result<bool> {
     }
 }
 
-fn start_checkpoint(checkpoint: Checkpoint) -> io::Result<RunningCheckpoint> {
+fn start_checkpoint(checkpoint: Checkpoint) -> io::Result<()> {
     if let Err(error) = write_start_command(checkpoint.start_tx.as_raw_fd()) {
         let _ = terminate_checkpoint(checkpoint);
         return Err(error);
     }
-
-    let Checkpoint {
-        pid,
-        cycle,
-        start_tx,
-        result_rx,
-    } = checkpoint;
-    drop(start_tx);
-
-    Ok(RunningCheckpoint {
-        pid,
-        cycle,
-        result_rx,
-    })
+    drop(checkpoint.start_tx);
+    Ok(())
 }
 
 fn write_start_command(start_tx: RawFd) -> io::Result<()> {
@@ -237,13 +272,11 @@ fn write_start_command(start_tx: RawFd) -> io::Result<()> {
     if unsafe { libc::signal(libc::SIGPIPE, previous_handler) } == libc::SIG_ERR {
         return Err(io::Error::last_os_error());
     }
-
     result
 }
 
 fn write_start_byte(start_tx: RawFd) -> io::Result<()> {
     let command = [START_COMMAND];
-
     loop {
         let write_len = unsafe { libc::write(start_tx, command.as_ptr().cast(), command.len()) };
         match write_len {
@@ -264,13 +297,11 @@ fn terminate_checkpoint(checkpoint: Checkpoint) -> io::Result<()> {
             return Err(error);
         }
     }
-
     wait_for_child(checkpoint.pid)
 }
 
 fn wait_for_child(pid: libc::pid_t) -> io::Result<()> {
     let mut status = 0;
-
     loop {
         let waited_pid = unsafe { libc::waitpid(pid, &mut status, 0) };
         if waited_pid == pid {

@@ -65,12 +65,9 @@ LDFLAGS += $(ARCH_FLAGS) -nostdlib -nostartfiles -static \
 	-Wl,--gc-sections -Wl,--build-id=none
 
 DEFAULT_SIM := $(abspath $(NPC_HOME)/build/verilator-exec)
-DEFAULT_WAVE_PATH := $(abspath $(NPC_HOME)/wave.vcd)
 SIM ?= $(DEFAULT_SIM)
 SIM_BASE_ARGS ?= --batch
 DIFF ?= nemu
-# SIM_BASE_ARGS += --wave
-SIM_BASE_ARGS += --wave-path $(DEFAULT_WAVE_PATH)
 SIM_BASE_ARGS += --difftest-ref $(DIFF)
 NO_DIFF_TESTS ?=
 NO_DIFF_SIM_BASE_ARGS = $(filter-out --difftest-ref --diff $(DIFF),$(SIM_BASE_ARGS))

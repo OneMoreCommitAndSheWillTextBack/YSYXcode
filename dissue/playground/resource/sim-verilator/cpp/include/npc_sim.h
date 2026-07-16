@@ -20,7 +20,9 @@ public:
   NpcSim &operator=(const NpcSim &) = delete;
 
   void reset(uint32_t reset_cycles);
+  void reset(uint32_t reset_cycles, void *opaque);
   void step();
+  void step(void *opaque);
 
   bool initialized() const;
 

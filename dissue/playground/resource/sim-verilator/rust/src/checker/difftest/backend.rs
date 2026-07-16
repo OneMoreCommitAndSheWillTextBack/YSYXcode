@@ -1,5 +1,5 @@
 use super::{abi::RiscvDifftestContext, DifftestError, DifftestResult};
-use crate::cpu::CpuContext;
+use crate::common::CpuContext;
 use std::{
     ffi::{CStr, CString},
     fmt,

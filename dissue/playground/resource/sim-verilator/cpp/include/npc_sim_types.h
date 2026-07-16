@@ -75,17 +75,22 @@ typedef struct NpcCpuContext {
 } NpcCpuContext;
 
 typedef struct NpcDpiCallbacks {
-  void (*on_difftest_commit)(const NpcCommitGroupEvent *event);
-  void (*on_difftest_context)(const NpcCpuContext *context);
-  uint32_t (*pmem_read)(uint32_t addr, uint32_t len);
-  void (*pmem_write)(uint32_t addr, uint32_t len, uint32_t data);
-  uint64_t (*time_read)();
-  void (*cache_hit)(uint8_t hit);
-  void (*issue_queue_perf)(uint8_t issue_count, uint8_t occupancy,
-                           uint8_t block_ready, uint8_t block_operand);
-  void (*div_perf)(uint32_t cycles, uint8_t special);
-  void (*bpu_perf)(uint8_t correct);
-  void (*mem_perf)(uint32_t events, uint32_t mshr_occupancy,
+  // Used by the compatibility reset and step entry points.
+  void *opaque;
+  void (*on_difftest_commit)(void *opaque,
+                             const NpcCommitGroupEvent *event);
+  void (*on_difftest_context)(void *opaque, const NpcCpuContext *context);
+  uint32_t (*pmem_read)(void *opaque, uint32_t addr, uint32_t len);
+  void (*pmem_write)(void *opaque, uint32_t addr, uint32_t len,
+                     uint32_t data);
+  uint64_t (*time_read)(void *opaque);
+  void (*cache_hit)(void *opaque, uint8_t hit);
+  void (*issue_queue_perf)(void *opaque, uint8_t issue_count,
+                           uint8_t occupancy, uint8_t block_ready,
+                           uint8_t block_operand);
+  void (*div_perf)(void *opaque, uint32_t cycles, uint8_t special);
+  void (*bpu_perf)(void *opaque, uint8_t correct);
+  void (*mem_perf)(void *opaque, uint32_t events, uint32_t mshr_occupancy,
                    uint32_t store_queue_occupancy,
                    uint32_t load_txn_occupancy);
 } NpcDpiCallbacks;

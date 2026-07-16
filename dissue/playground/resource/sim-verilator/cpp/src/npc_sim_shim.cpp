@@ -24,6 +24,23 @@ extern "C" void npc_sim_step(NpcSim *sim) {
   sim->step();
 }
 
+extern "C" void npc_sim_reset_with_opaque(NpcSim *sim, void *opaque,
+                                            uint32_t cycles) {
+  if (sim == nullptr) {
+    return;
+  }
+
+  sim->reset(cycles, opaque);
+}
+
+extern "C" void npc_sim_step_with_opaque(NpcSim *sim, void *opaque) {
+  if (sim == nullptr) {
+    return;
+  }
+
+  sim->step(opaque);
+}
+
 extern "C" void npc_sim_init_wave(NpcSim *sim, const char *path) {
   if (sim == nullptr) {
     return;

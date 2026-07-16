@@ -1,8 +1,8 @@
-use super::SimulatorError;
-use crate::{
-    cpu::CpuContext,
+use super::{
     difftest::{DifftestError, DifftestMismatch, CSR_DIFF_SPECS},
+    CheckerError,
 };
+use crate::common::CpuContext;
 
 const REG_NAMES: [&str; 32] = [
     "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
@@ -17,9 +17,9 @@ const C_VAL: &str = "\x1b[32m";
 const C_DIFF: &str = "\x1b[31m";
 const C_SKIP: &str = "\x1b[90m";
 
-pub(super) fn print_difftest_report(error: &SimulatorError) {
+pub(super) fn print_difftest_report(error: &CheckerError) {
     match error {
-        SimulatorError::MultipleAsyncInterrupts {
+        CheckerError::MultipleAsyncInterrupts {
             count,
             total_commits,
         } => {
@@ -27,7 +27,7 @@ pub(super) fn print_difftest_report(error: &SimulatorError) {
                 "{C_DIFF}[difftest] invalid retire batch: {count} asynchronous interrupts were attached to {total_commits} committed instructions{C_RESET}"
             );
         }
-        SimulatorError::NonTerminalAsyncInterrupt {
+        CheckerError::NonTerminalAsyncInterrupt {
             cause,
             epc,
             commits_at_interrupt,
@@ -37,7 +37,7 @@ pub(super) fn print_difftest_report(error: &SimulatorError) {
                 "{C_DIFF}[difftest] invalid interrupt position: cause=0x{cause:08x}, epc=0x{epc:08x}, commits at interrupt={commits_at_interrupt}, commits in batch={total_commits}{C_RESET}"
             );
         }
-        SimulatorError::Difftest(DifftestError::InterruptEpcMismatch {
+        CheckerError::Difftest(DifftestError::InterruptEpcMismatch {
             cause,
             expected_epc,
             reference_pc,
@@ -46,7 +46,7 @@ pub(super) fn print_difftest_report(error: &SimulatorError) {
                 "{C_DIFF}[difftest] interrupt boundary mismatch: cause=0x{cause:08x}, DUT epc=0x{expected_epc:08x}, REF pc=0x{reference_pc:08x}{C_RESET}"
             );
         }
-        SimulatorError::Difftest(DifftestError::Mismatch {
+        CheckerError::Difftest(DifftestError::Mismatch {
             pc,
             mismatch,
             dut,
