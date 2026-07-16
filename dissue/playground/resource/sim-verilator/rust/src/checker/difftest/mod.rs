@@ -6,16 +6,13 @@ mod csr;
 pub use compare::DifftestMismatch;
 pub(crate) use csr::CSR_DIFF_SPECS;
 
-use crate::{config::DifftestRef, cpu::CpuContext};
+use crate::{common::CpuContext, config::DifftestRef};
 use backend::RefBackend;
 use compare::{compare_contexts, compare_contexts_except_gprs};
 use std::{fmt, mem, os::raw::c_int, path::PathBuf};
 
-const DEFAULT_DIFFTEST_PORT: c_int = 1234;
-
 #[derive(Debug)]
 pub enum DifftestError {
-    ReferenceNotLoaded,
     InvalidReferencePath {
         path: PathBuf,
     },
@@ -44,7 +41,6 @@ pub enum DifftestError {
 impl fmt::Display for DifftestError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ReferenceNotLoaded => write!(formatter, "difftest reference is not loaded"),
             Self::InvalidReferencePath { path } => {
                 write!(formatter, "invalid difftest reference path `{}`", path.display())
             }
@@ -100,11 +96,9 @@ enum DifftestState {
 }
 
 impl DiffTest {
-    pub fn new(reference: Option<DifftestRef>) -> DifftestResult<Self> {
+    pub(crate) fn new(reference: Option<DifftestRef>, port: c_int) -> DifftestResult<Self> {
         let state = match reference {
-            Some(reference) => {
-                DifftestState::Detached(RefBackend::load(&reference.path(), DEFAULT_DIFFTEST_PORT)?)
-            }
+            Some(reference) => DifftestState::Detached(RefBackend::load(&reference.path(), port)?),
             None => DifftestState::Disabled,
         };
 
@@ -139,13 +133,6 @@ impl DiffTest {
         };
 
         Ok(())
-    }
-
-    pub fn detach(&mut self) {
-        self.state = match mem::replace(&mut self.state, DifftestState::Disabled) {
-            DifftestState::Attached(backend) => DifftestState::Detached(backend),
-            state => state,
-        };
     }
 
     pub fn step_and_sync(&mut self, steps: u64, context: &CpuContext) -> DifftestResult<()> {

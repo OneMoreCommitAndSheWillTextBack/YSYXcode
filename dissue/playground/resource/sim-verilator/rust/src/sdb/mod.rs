@@ -1,41 +1,17 @@
-mod command;
-mod repl;
+//! Interactive runner integration point.
+//!
+//! Command parsing intentionally remains outside the simulation core.  This
+//! runner receives a session explicitly so future commands cannot recover a
+//! global mutable simulator reference.
 
-use std::fmt;
+use crate::session::SimulationSession;
 
-pub use command::SdbCommand;
-pub use repl::SdbRepl;
-
-#[derive(Debug)]
-pub enum SdbError {
-    Exit,
-}
-
-impl fmt::Display for SdbError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Exit => write!(formatter, "SDB exited"),
-        }
-    }
-}
-
-impl std::error::Error for SdbError {}
-
-pub type SdbResult<T> = Result<T, SdbError>;
-
-#[derive(Debug)]
-pub struct Sdb {
-    repl: SdbRepl,
-}
+pub(crate) struct Sdb;
 
 impl Sdb {
-    pub fn new() -> Self {
-        Self {
-            repl: SdbRepl::new(),
-        }
+    pub(crate) fn new() -> Self {
+        Self
     }
 
-    pub fn run(&mut self) -> SdbResult<()> {
-        self.repl.run()
-    }
+    pub(crate) fn run(&mut self, _session: &mut SimulationSession) {}
 }

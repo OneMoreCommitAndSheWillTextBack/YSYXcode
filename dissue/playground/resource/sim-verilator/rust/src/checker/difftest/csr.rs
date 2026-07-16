@@ -1,4 +1,4 @@
-use crate::cpu::CsrContext;
+use crate::common::CsrContext;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DifftestCsr {

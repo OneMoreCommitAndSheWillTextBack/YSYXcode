@@ -1,4 +1,4 @@
-use super::{event::CommitTraceEntry, CommitGroupEvent};
+use super::{event::CommitTraceEntry, CommitGroup};
 use std::{
     fs::{self, File},
     io::{self, LineWriter, Write},
@@ -32,7 +32,7 @@ impl Itrace {
         &self.path
     }
 
-    pub fn write_commit_group(&mut self, event: &CommitGroupEvent) -> io::Result<()> {
+    pub fn write_commit_group(&mut self, event: &CommitGroup) -> io::Result<()> {
         for entry in event.trace_entries() {
             self.write_entry(entry)?;
         }

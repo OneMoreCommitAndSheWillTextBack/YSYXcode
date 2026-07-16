@@ -76,10 +76,6 @@ impl MemoryRegion {
         self.base
     }
 
-    pub fn len(&self) -> u32 {
-        self.len
-    }
-
     pub fn end(&self) -> u32 {
         self.base + self.len
     }

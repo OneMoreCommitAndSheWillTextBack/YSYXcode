@@ -10,7 +10,6 @@ NpcSim::NpcSim(const NpcDpiCallbacks *callbacks)
       top_(std::make_unique<Vnpc>(context_.get(), "TOP")), wave_() {
   top_->clock = 0;
   top_->reset = 0;
-  top_->eval();
 }
 
 NpcSim::~NpcSim() {
@@ -23,18 +22,28 @@ NpcSim::~NpcSim() {
 }
 
 void NpcSim::reset(uint32_t reset_cycles) {
+  reset(reset_cycles, bridge_.configured_opaque());
+}
+
+void NpcSim::reset(uint32_t reset_cycles, void *opaque) {
   if (!initialized()) {
     return;
   }
 
+  NpcHostBridge::EvaluationScope scope(bridge_, opaque);
   npc_cpu_reset(*context_, *top_, reset_cycles, wave_);
 }
 
 void NpcSim::step() {
+  step(bridge_.configured_opaque());
+}
+
+void NpcSim::step(void *opaque) {
   if (!initialized()) {
     return;
   }
 
+  NpcHostBridge::EvaluationScope scope(bridge_, opaque);
   npc_cpu_step(*context_, *top_, wave_);
 }
 

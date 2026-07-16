@@ -6,8 +6,23 @@
 
 class NpcHostBridge {
 public:
+  // SystemVerilog DPI imports have no simulator receiver. This scope binds
+  // calls on the current thread to one synchronous NpcSim evaluation.
+  class EvaluationScope {
+  public:
+    EvaluationScope(NpcHostBridge &bridge, void *opaque);
+    ~EvaluationScope();
+
+    EvaluationScope(const EvaluationScope &) = delete;
+    EvaluationScope &operator=(const EvaluationScope &) = delete;
+
+  private:
+    NpcHostBridge *previous_bridge_ = nullptr;
+    void *previous_opaque_ = nullptr;
+  };
+
   explicit NpcHostBridge(const NpcDpiCallbacks *callbacks);
-  ~NpcHostBridge();
+  ~NpcHostBridge() = default;
 
   NpcHostBridge(const NpcHostBridge &) = delete;
   NpcHostBridge &operator=(const NpcHostBridge &) = delete;
@@ -36,7 +51,12 @@ public:
                        uint32_t store_queue_occupancy,
                        uint32_t load_txn_occupancy);
 
+  void *configured_opaque() const;
+
 private:
+  static NpcHostBridge *active_bridge();
+  static void *active_opaque();
+
   NpcDpiCallbacks callbacks_{};
 };
 

@@ -36,14 +36,6 @@ impl Memory {
         Ok(self.regions.last().expect("region was just inserted"))
     }
 
-    pub fn region_count(&self) -> usize {
-        self.regions.len()
-    }
-
-    pub fn regions(&self) -> &[MemoryRegion] {
-        &self.regions
-    }
-
     pub fn read(&self, addr: u32, buf: &mut [u8]) -> Result<(), MemoryError> {
         let region = self.find_region(addr, buf.len())?;
         region.read(addr, buf)

@@ -10,10 +10,6 @@ impl MemoryBlock {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
-
     pub fn read(&self, offset: usize, buf: &mut [u8]) {
         buf.copy_from_slice(&self.data[offset..offset + buf.len()]);
     }

@@ -1,24 +1,20 @@
-#![allow(dead_code)]
-
+mod checker;
+mod common;
 mod config;
-mod cpu;
-mod difftest;
+mod driver;
 mod ffi;
-mod memory;
-mod perf;
+mod machine;
 mod sdb;
+mod session;
 mod sim_log;
-mod simulator;
+mod wave;
 
-use config::SimulatorConfig;
+use config::SimulationConfig;
 use sdb::Sdb;
-use simulator::{Simulator, SimulatorError};
-
-pub type SimulatorResult<T> = Result<T, SimulatorError>;
-static mut ACTIVE_SIMULATOR: *mut Simulator = std::ptr::null_mut();
+use session::{SimulationResult, SimulationSession};
 
 fn main() {
-    let config = SimulatorConfig::from_env();
+    let config = SimulationConfig::from_env();
 
     if let Err(error) = run_simulator(config) {
         eprintln!("[Error] {}", error.display());
@@ -26,20 +22,20 @@ fn main() {
     }
 }
 
-fn run_simulator(config: SimulatorConfig) -> SimulatorResult<()> {
-    let batch = config.batch;
-    let mut simulator = Simulator::new(config)?;
+fn run_simulator(config: SimulationConfig) -> SimulationResult<()> {
+    let batch = config.run.batch;
+    let mut session = SimulationSession::new(config)?;
 
-    simulator.reset()?;
+    session.reset()?;
 
     let res = if batch {
-        simulator.execute(u64::MAX)
+        session.execute(u64::MAX)
     } else {
-        Sdb::new().run()?;
+        Sdb::new().run(&mut session);
         Ok(())
     };
 
-    simulator.generat_report();
-    simulator.shutdown();
-    return res;
+    session.print_report();
+    session.shutdown();
+    res
 }

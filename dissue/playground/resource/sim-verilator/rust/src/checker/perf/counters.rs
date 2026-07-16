@@ -42,10 +42,6 @@ impl PerfCounters {
     pub const STORE_DRAIN: usize = 18;
     pub const MEM_EVENT_COUNT: usize = 19;
 
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn cache_hit(&mut self, hit: bool) {
         self.cache_req_time += 1;
         self.cache_hit_time += if hit { 1 } else { 0 };

@@ -1,4 +1,4 @@
-use crate::cpu::{CpuContext, CsrContext, PrivMode};
+use crate::common::{CpuContext, CsrContext, PrivilegeMode};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
@@ -14,7 +14,7 @@ impl From<&CpuContext> for RiscvDifftestContext {
         Self {
             gpr: context.gpr,
             pc: context.pc,
-            priv_: difftest_priv_from_mode(context.priv_mode),
+            priv_: difftest_priv_from_mode(context.privilege()),
             csr: RiscvDifftestCsr::from(context.csr),
         }
     }
@@ -22,30 +22,33 @@ impl From<&CpuContext> for RiscvDifftestContext {
 
 impl From<RiscvDifftestContext> for CpuContext {
     fn from(raw: RiscvDifftestContext) -> Self {
-        Self {
+        let mut context = Self {
+            valid: 1,
             pc: raw.pc,
-            priv_mode: priv_mode_from_difftest(raw.priv_),
+            privilege_raw: 0,
             gpr: raw.gpr,
             csr: raw.csr.into(),
-        }
+        };
+        context.set_privilege(privilege_mode_from_difftest(raw.priv_));
+        context
     }
 }
 
-fn difftest_priv_from_mode(mode: PrivMode) -> u32 {
+fn difftest_priv_from_mode(mode: PrivilegeMode) -> u32 {
     match mode {
-        PrivMode::Supervisor => 0,
-        PrivMode::Machine => 1,
-        PrivMode::User => 2,
-        PrivMode::Reserved(value) => value as u32,
+        PrivilegeMode::Supervisor => 0,
+        PrivilegeMode::Machine => 1,
+        PrivilegeMode::User => 2,
+        PrivilegeMode::Reserved(value) => value as u32,
     }
 }
 
-fn priv_mode_from_difftest(value: u32) -> PrivMode {
+fn privilege_mode_from_difftest(value: u32) -> PrivilegeMode {
     match value {
-        0 => PrivMode::Supervisor,
-        1 => PrivMode::Machine,
-        2 => PrivMode::User,
-        other => PrivMode::Reserved(other as u8),
+        0 => PrivilegeMode::Supervisor,
+        1 => PrivilegeMode::Machine,
+        2 => PrivilegeMode::User,
+        other => PrivilegeMode::Reserved(other as u8),
     }
 }
 

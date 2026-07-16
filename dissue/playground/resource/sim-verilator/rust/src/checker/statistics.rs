@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(super) struct Statistics {
+pub struct Statistics {
     cycle_nocommit: u32,
     cycle: u64,
     total_commits: u64,
