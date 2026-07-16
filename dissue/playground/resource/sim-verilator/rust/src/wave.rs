@@ -119,7 +119,7 @@ impl LightsssController {
                 drop(start_rx);
                 self.checkpoints.push_front(Checkpoint { pid, start_tx });
                 self.discard_excess_checkpoints()?;
-                crate::Log!("created LightSSS checkpoint at cycle {cycle}");
+                // crate::Log!("created LightSSS checkpoint at cycle {cycle}");
                 Ok(CheckpointRole::Parent)
             }
         }
