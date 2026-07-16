@@ -9,6 +9,7 @@
 !*.cpp
 !*.cc
 !*.rs
+!scriptpy/*.py
 !*.vh
 !*.ld
 !Cargo.toml
