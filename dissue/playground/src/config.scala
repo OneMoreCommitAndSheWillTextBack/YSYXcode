@@ -37,7 +37,7 @@ final case class DCacheConfig(
 final case class ICacheConfig(
   addrWidth:  Int = 32,
   fetchBytes: Int = 8,
-  sets:       Int = 128,
+  sets:       Int = 64,
   ways: Int = 1) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
