@@ -37,7 +37,7 @@ final case class DCacheConfig(
 final case class ICacheConfig(
   addrWidth:  Int = 32,
   fetchBytes: Int = 8,
-  sets:       Int = 64,
+  sets:       Int = 128,
   ways: Int = 1) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
@@ -135,7 +135,7 @@ final case class BackendConfig(
   intIssueWidth:     Int = 2,
   writebackWidth:    Int = 3,
   issueQueueEntries: Int = 8,
-  loadTxnEntries: Int = 2,
+  loadTxnEntries:    Int = 2,
   recoveryCancelPorts: Int = 16) {
   require(issueWidth > 0, "issueWidth must be positive")
   require(commitWidth > 0, "commitWidth must be positive")
