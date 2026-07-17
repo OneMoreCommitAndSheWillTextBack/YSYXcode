@@ -69,6 +69,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   dpiCache.io.cacheFire := !reset.asBool && io.req.fire
   dpiCache.io.cacheHit  := hit
 
+  // state mechine
   when(state === ICacheState.SIdle) {
     when(io.req.fire) {
       killMiss := false.B
@@ -94,6 +95,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     }
   }
 
+  // output data
   when(state === ICacheState.SIdle && io.req.fire) {
     when(hit) {
       respReg.data            := hitData

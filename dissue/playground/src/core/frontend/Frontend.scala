@@ -34,17 +34,17 @@ class Frontend(
     val csrStatus = Input(new CsrStatus(backendCfg))
   })
 
-  val pcGen  = Module(
+  val pcGen     = Module(
     new PCGen(
       resetVector = resetVector,
       addrWidth = cfg.addrWidth,
       fetchBytes = cfg.fetchBytes
     )
   )
-  val ifetch = Module(new IFetch(cfg.icache, cfg.ifetch))
-  val iCache = Module(new ICache(cfg.icache))
+  val ifetch    = Module(new IFetch(cfg.icache, cfg.ifetch))
+  val iCache    = Module(new ICache(cfg.icache))
   val refillMmu = Module(new ICacheRefillMmu(cfg.icache, backendCfg))
-  val bpu    = Module(new Bpu(cfg.bpu))
+  val bpu       = Module(new Bpu(cfg.bpu))
 
   val redirect = Wire(new PcRedirect)
   redirect.valid := io.trapRedirect.valid || io.branchRedirect.valid || io.predRedirect.valid
@@ -79,16 +79,17 @@ class Frontend(
 
   ifetch.io.icacheReq <> iCache.io.req
   ifetch.io.icacheResp <> iCache.io.resp
+  // 我绷不住了
   iCache.io.flush := redirect.valid
 
-  refillMmu.io.csrStatus := io.csrStatus
+  refillMmu.io.csrStatus     := io.csrStatus
   iCache.io.refillReq <> refillMmu.io.refillReq
   iCache.io.refillResp <> refillMmu.io.refillResp
   io.cacheRefillReq <> refillMmu.io.physReq
   refillMmu.io.physResp <> io.cacheRefillResp
-  io.ptwReq.valid          := refillMmu.io.ptwReq.valid
-  io.ptwReq.bits           := refillMmu.io.ptwReq.bits
-  refillMmu.io.ptwReq.ready := io.ptwReq.ready
+  io.ptwReq.valid            := refillMmu.io.ptwReq.valid
+  io.ptwReq.bits             := refillMmu.io.ptwReq.bits
+  refillMmu.io.ptwReq.ready  := io.ptwReq.ready
   refillMmu.io.ptwResp.valid := io.ptwResp.valid
   refillMmu.io.ptwResp.bits  := io.ptwResp.bits
   io.ptwResp.ready           := refillMmu.io.ptwResp.ready
