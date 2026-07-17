@@ -338,7 +338,8 @@ class IFetch(
   val responseFire        = io.icacheResp.fire
   // A response retires the sole outstanding request before the clock edge, so
   // a new request may reuse that slot in the same cycle.
-  val canReq              = (!reqOutstanding || responseFire) && !dropResp && enoughSpaceForBlock && !frontendRedirect
+  val canReq              =
+    (!reqOutstanding || responseFire) && !dropResp && enoughSpaceForBlock && !frontendRedirect
 
   io.icacheReq.valid := canReq
   io.icacheReq.bits  := req
