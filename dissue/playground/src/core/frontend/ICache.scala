@@ -4,14 +4,21 @@ import chisel3._
 import chisel3.util._
 import top.config.ICacheConfig
 import top.core.frontend.bundle.{ICacheRefillReq, ICacheRefillResp, ICacheReq, ICacheResp}
-import top.sim.CacheHitBridge
+
+class ICachePerf extends Bundle {
+  val request  = Bool()
+  val hit      = Bool()
+  val miss     = Bool()
+  val missWait = Bool()
+}
 
 class ICacheIO(cfg: ICacheConfig) extends Bundle {
   val req        = Flipped(Decoupled(new ICacheReq(cfg)))
   val resp       = Decoupled(new ICacheResp(cfg))
   val refillReq  = Decoupled(new ICacheRefillReq(cfg.addrWidth))
   val refillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
-  val flush      = Input(Bool())
+  val invalidate = Input(Bool())
+  val perf       = Output(new ICachePerf)
 }
 
 object ICacheState extends ChiselEnum {
@@ -63,11 +70,10 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   io.refillReq.valid     := state === ICacheState.SRefillReq
   io.refillReq.bits.addr := missReq.meta.blockAddr
   io.refillResp.ready    := state === ICacheState.SRefillResp
-
-  // dpi bridge
-  val dpiCache = Module(new CacheHitBridge)
-  dpiCache.io.cacheFire := !reset.asBool && io.req.fire
-  dpiCache.io.cacheHit  := hit
+  io.perf.request       := io.req.fire
+  io.perf.hit           := io.req.fire && hit
+  io.perf.miss          := io.req.fire && !hit
+  io.perf.missWait      := state =/= ICacheState.SIdle
 
   when(state === ICacheState.SIdle) {
     when(io.req.fire) {
@@ -117,7 +123,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     }
   }
 
-  when(io.flush) {
+  when(io.invalidate) {
     validArray := VecInit(Seq.fill(cfg.sets)(false.B))
     when(!(state === ICacheState.SRefillResp && io.refillResp.fire)) {
       validReg := false.B
@@ -128,7 +134,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   }
 
   when(
-    state === ICacheState.SRefillResp && io.refillResp.fire && !io.refillResp.bits.exception.valid && !killMiss && !io.flush
+    state === ICacheState.SRefillResp && io.refillResp.fire && !io.refillResp.bits.exception.valid && !killMiss && !io.invalidate
   ) {
     validArray(missSet) := true.B
     tagArray(missSet)   := missTag

@@ -59,6 +59,7 @@ class Core(resetVector: BigInt) extends Module {
 
   frontend.io.predRedirect.valid := backend.io.redirect.predRedirect.valid
   frontend.io.predRedirect.value := backend.io.redirect.predRedirect.target
+  frontend.io.icacheInvalidate  := backend.io.redirect.icacheInvalidate
 
   frontend.io.bpuUpdate.valid        := backend.io.redirect.bpuUpdate.valid
   frontend.io.bpuUpdate.bits         := 0.U.asTypeOf(new BpuUpdate(frontendCfg.bpu))
@@ -93,6 +94,11 @@ class Core(resetVector: BigInt) extends Module {
   frontend.io.cacheRefillResp.bits.data      := mem.io.imemResp.bits.data
   frontend.io.cacheRefillResp.bits.exception := 0.U.asTypeOf(frontend.io.cacheRefillResp.bits.exception)
   mem.io.imemResp.ready                      := frontend.io.cacheRefillResp.ready
+
+  mem.io.fenceIReq.valid     := backend.io.fenceIReq.valid
+  mem.io.fenceIReq.bits      := backend.io.fenceIReq.bits
+  backend.io.fenceIReq.ready := mem.io.fenceIReq.ready
+  backend.io.fenceIDone      := mem.io.fenceIDone
 
   dmemRequestQueue.io.enq.valid := backend.io.dmemReq.valid
   dmemRequestQueue.io.enq.bits  := backend.io.dmemReq.bits

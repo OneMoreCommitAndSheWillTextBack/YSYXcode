@@ -24,6 +24,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val memIssue     = Decoupled(new IssuePacket(cfg))
     val flush        = Input(Bool())
     val recover      = Input(new RobRecovery(cfg.robIdxWidth))
+    val hold         = Input(Bool())
   })
 
   private val entries    = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
@@ -71,7 +72,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
         RobAge.fromHead(entries(other).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth) < cfiAge
     }).asUInt.orR
     val request = valid(i) && entries(i).needsExecution && ready && !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked &&
-      !cfiBlocked && !io.flush && !io.recover.valid
+      !cfiBlocked && !io.flush && !io.recover.valid && !io.hold
 
     io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad
     io.storeQuery(i).robIdx := entries(i).robIdx
@@ -131,7 +132,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val noIssue             = issueCountThisCycle === 0.U
 
   NpcIssueQueuePerf.callWithEnable(
-    !reset.asBool && !io.flush && !io.recover.valid,
+    !reset.asBool && !io.flush && !io.recover.valid && !io.hold,
     issueCountThisCycle.pad(32),
     occupancy.pad(32),
     noIssue && hasReadyEntry,
@@ -142,7 +143,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   for (enqIdx <- 0 until cfg.dispatchWidth) {
     val previousEnqsValid =
       if (enqIdx == 0) true.B else io.enq.take(enqIdx).map(_.valid).reduce(_ && _)
-    io.enq(enqIdx).ready := !io.flush && !io.recover.valid && (freeCount > enqIdx.U) && previousEnqsValid
+    io.enq(enqIdx).ready := !io.flush && !io.recover.valid && !io.hold && (freeCount > enqIdx.U) && previousEnqsValid
   }
 
   private val enqOH = Wire(Vec(cfg.dispatchWidth, Vec(cfg.issueQueueEntries, Bool())))

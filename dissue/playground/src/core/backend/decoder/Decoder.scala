@@ -68,6 +68,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   io.out.isMret      := decoded(DecodeIndex.isMret).asBool
   io.out.isSret      := decoded(DecodeIndex.isSret).asBool
   io.out.isFence     := decoded(DecodeIndex.isFence).asBool
+  io.out.isFenceI    := decoded(DecodeIndex.isFenceI).asBool
   io.out.isSfence    := decoded(DecodeIndex.isSfence).asBool
   io.out.isCsr       := isCsr
   io.out.csrAddr     := inst(31, 20)

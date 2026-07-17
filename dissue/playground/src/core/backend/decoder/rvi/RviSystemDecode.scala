@@ -17,7 +17,7 @@ private[decoder] object RviSystemDecode extends DecodeGroup {
     CSRRSI -> csrImm(CsrOp.rs),
     CSRRCI -> csrImm(CsrOp.rc),
     FENCE  -> fence(),
-    FENCE_I -> fence(),
+    FENCE_I -> fence(fenceI = true),
     ECALL  -> ecall,
     EBREAK -> ebreak,
     // WFI currently returns immediately through the retire-only fence path.

@@ -1,7 +1,6 @@
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PerfCounters {
-    cache_req_time: u64,
-    cache_hit_time: u64,
+    frontend_events: [u64; Self::FRONTEND_EVENT_COUNT],
     iq_sample_cycles: u64,
     iq_issue_count: u64,
     iq_dual_issue_cycles: u64,
@@ -42,9 +41,22 @@ impl PerfCounters {
     pub const STORE_DRAIN: usize = 18;
     pub const MEM_EVENT_COUNT: usize = 19;
 
-    pub fn cache_hit(&mut self, hit: bool) {
-        self.cache_req_time += 1;
-        self.cache_hit_time += if hit { 1 } else { 0 };
+    pub const ICACHE_REQUEST: usize = 0;
+    pub const ICACHE_HIT: usize = 1;
+    pub const ICACHE_MISS: usize = 2;
+    pub const ICACHE_MISS_WAIT_CYCLE: usize = 3;
+    pub const BACKEND_REDIRECT: usize = 4;
+    pub const ICACHE_INVALIDATE: usize = 5;
+    pub const FRONTEND_EMPTY: usize = 6;
+    pub const AXI_REQUEST_WAIT: usize = 7;
+    pub const FRONTEND_EVENT_COUNT: usize = 8;
+
+    pub fn frontend_perf(&mut self, events: u32) {
+        for index in 0..Self::FRONTEND_EVENT_COUNT {
+            if (events & (1_u32 << index)) != 0 {
+                self.frontend_events[index] += 1;
+            }
+        }
     }
 
     pub fn issue_queue_perf(
@@ -102,14 +114,13 @@ impl PerfCounters {
         }
     }
 
-    pub fn cache_hit_rate(&mut self) -> f64 {
-        let rate = if self.cache_req_time == 0 {
+    pub fn icache_hit_rate(&self) -> f64 {
+        let requests = self.frontend_event(Self::ICACHE_REQUEST);
+        if requests == 0 {
             0.0
         } else {
-            self.cache_hit_time as f64 / self.cache_req_time as f64
-        };
-
-        rate
+            self.frontend_event(Self::ICACHE_HIT) as f64 / requests as f64
+        }
     }
 
     pub fn issue_queue_sample_cycles(&self) -> u64 {
@@ -186,6 +197,10 @@ impl PerfCounters {
 
     pub fn mem_event(&self, index: usize) -> u64 {
         self.mem_events[index]
+    }
+
+    pub fn frontend_event(&self, index: usize) -> u64 {
+        self.frontend_events[index]
     }
 
     pub fn dcache_hit_rate(&self) -> f64 {

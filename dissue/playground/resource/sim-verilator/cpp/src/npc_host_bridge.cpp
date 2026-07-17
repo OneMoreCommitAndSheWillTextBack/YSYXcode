@@ -101,13 +101,13 @@ uint64_t NpcHostBridge::time_read() {
   return bridge->callbacks_.time_read(active_opaque());
 }
 
-void NpcHostBridge::cache_hit(uint8_t hit) {
+void NpcHostBridge::frontend_perf(uint32_t events) {
   NpcHostBridge *bridge = active_bridge();
 
-  if (bridge == nullptr || bridge->callbacks_.cache_hit == nullptr) {
+  if (bridge == nullptr || bridge->callbacks_.frontend_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.cache_hit(active_opaque(), hit);
+  bridge->callbacks_.frontend_perf(active_opaque(), events);
 }
 
 void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,

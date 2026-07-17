@@ -35,6 +35,7 @@ class StoreQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val flush      = Input(Bool())
     val recover    = Input(new RobRecovery(cfg.robIdxWidth))
     val occupancy  = Output(UInt(math.max(chisel3.util.log2Ceil(entryCount + 1), 1).W))
+    val committedPending = Output(Bool())
     val perf       = Output(new StoreQueuePerf(cfg))
   })
 
@@ -145,6 +146,7 @@ class StoreQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   io.query.fullForward    := io.query.valid && !unresolvedOlderStore && fullForward
   io.query.partialForward := io.query.valid && !unresolvedOlderStore && forwardMask.orR && !fullForward
   io.occupancy            := PopCount(valid)
+  io.committedPending     := VecInit((0 until entryCount).map(entry => valid(entry) && committed(entry))).asUInt.orR
   io.perf.alloc           := VecInit(allocOH.flatten).asUInt.orR
   io.perf.fullStall       := PopCount(io.alloc.map(_.valid)) > PopCount(allocOH.flatten)
   io.perf.drain           := io.drain.valid

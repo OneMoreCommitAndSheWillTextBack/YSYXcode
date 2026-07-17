@@ -16,6 +16,7 @@ NO_DIFF_TESTS := a-ext \
 	device-clint-time \
 	device-plic-basic \
 	sv32-basic \
+	sv32-icache-remap \
 	sv32-ad-bit-page-fault \
 	sv32-load-page-fault \
 	sv32-u-load-supervisor-page-fault \

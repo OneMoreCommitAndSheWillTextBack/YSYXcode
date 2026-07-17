@@ -45,11 +45,11 @@ object NpcDifftestContext extends DPIClockedVoidFunctionImport {
   )
 }
 
-object NpcCacheHit extends DPIClockedVoidFunctionImport {
-  override def functionName: String              = "npc_cache_hit"
+object NpcFrontendPerf extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_frontend_perf"
   override def inputNames:   Option[Seq[String]] = Some(
     Seq(
-      "hit"
+      "events"
     )
   )
 }

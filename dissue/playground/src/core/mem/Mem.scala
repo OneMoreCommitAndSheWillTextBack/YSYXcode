@@ -39,6 +39,9 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     val imemReq  = Flipped(Decoupled(new InstMemReq(cfg.addrWidth)))
     val imemResp = Decoupled(new InstMemResp(cfg.fetchBytes))
 
+    val fenceIReq  = Flipped(Decoupled(Bool()))
+    val fenceIDone = Output(Bool())
+
     val dmemReq  = Flipped(Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.axiDataWidth, robIdxWidth)))
     val dmemResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
 
@@ -136,6 +139,10 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     io.ptwReq.bits.addr,
     io.dmemReq.bits.request.addr
   )
+  dcache.io.cleanAll.valid := io.fenceIReq.valid
+  dcache.io.cleanAll.bits  := io.fenceIReq.bits
+  io.fenceIReq.ready       := dcache.io.cleanAll.ready
+  io.fenceIDone            := dcache.io.cleanAllDone
 
   when(bypassAccess.io.req.fire) {
     bypassOwner := io.dmemReq.bits.owner

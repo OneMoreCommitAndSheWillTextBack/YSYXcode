@@ -307,7 +307,7 @@ fn build_dpi_callbacks() -> ffi::NpcDpiCallbacks {
         pmem_read: Some(pmem_read),
         pmem_write: Some(pmem_write),
         time_read: Some(time_read),
-        cache_hit: Some(cache_hit),
+        frontend_perf: Some(frontend_perf),
         issue_queue_perf: Some(issue_queue_perf),
         div_perf: Some(div_perf),
         bpu_perf: Some(bpu_perf),
@@ -384,9 +384,9 @@ extern "C" fn on_difftest_commit(opaque: *mut c_void, raw: *const ffi::NpcCommit
     host.checker.on_commit(host.machine, group);
 }
 
-extern "C" fn cache_hit(opaque: *mut c_void, hit: u8) {
+extern "C" fn frontend_perf(opaque: *mut c_void, events: u32) {
     if let Some(host) = unsafe { host_from_opaque(opaque) } {
-        host.checker.on_cache_hit(hit != 0);
+        host.checker.on_frontend_perf(events);
     }
 }
 

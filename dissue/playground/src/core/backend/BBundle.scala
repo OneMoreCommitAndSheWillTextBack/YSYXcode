@@ -31,6 +31,7 @@ class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isMret      = Bool()
   val isSret      = Bool()
   val isFence     = Bool()
+  val isFenceI    = Bool()
   val isSfence    = Bool()
   val isCsr       = Bool()
   val csrAddr     = UInt(CsrAddr.width.W)
@@ -75,16 +76,6 @@ class StoreTrackerQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid         = Input(Bool())
   val robIdx        = Input(UInt(cfg.robIdxWidth.W))
   val hasOlderStore = Output(Bool())
-}
-
-class StoreTrackerAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val valid  = Bool()
-  val robIdx = UInt(cfg.robIdxWidth.W)
-}
-
-class StoreTrackerCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val valid  = Bool()
-  val robIdx = UInt(cfg.robIdxWidth.W)
 }
 
 class StoreQueueAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -299,6 +290,7 @@ class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val isMret         = Bool()
   val isSret         = Bool()
   val isFence        = Bool()
+  val isFenceI       = Bool()
   val isSfence       = Bool()
   val result         = UInt(cfg.dataWidth.W)
   val storeAddr      = UInt(cfg.addrWidth.W)

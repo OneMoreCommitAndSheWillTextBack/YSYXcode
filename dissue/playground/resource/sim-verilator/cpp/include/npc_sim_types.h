@@ -84,7 +84,7 @@ typedef struct NpcDpiCallbacks {
   void (*pmem_write)(void *opaque, uint32_t addr, uint32_t len,
                      uint32_t data);
   uint64_t (*time_read)(void *opaque);
-  void (*cache_hit)(void *opaque, uint8_t hit);
+  void (*frontend_perf)(void *opaque, uint32_t events);
   void (*issue_queue_perf)(void *opaque, uint8_t issue_count,
                            uint8_t occupancy, uint8_t block_ready,
                            uint8_t block_operand);

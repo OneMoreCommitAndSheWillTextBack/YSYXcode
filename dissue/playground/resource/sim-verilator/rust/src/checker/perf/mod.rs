@@ -12,8 +12,8 @@ impl Perf {
         Self::default()
     }
 
-    pub fn cachehit(&mut self, hit: bool) {
-        self.counters.cache_hit(hit);
+    pub fn frontend_perf(&mut self, events: u32) {
+        self.counters.frontend_perf(events);
     }
 
     pub fn issue_queue_perf(
@@ -50,8 +50,8 @@ impl Perf {
         );
     }
 
-    pub fn cacherate(&mut self) -> f64 {
-        self.counters.cache_hit_rate()
+    pub fn icache_hit_rate(&self) -> f64 {
+        self.counters.icache_hit_rate()
     }
 
     pub fn issue_queue_sample_cycles(&self) -> u64 {
@@ -112,6 +112,10 @@ impl Perf {
 
     pub fn mem_event(&self, index: usize) -> u64 {
         self.counters.mem_event(index)
+    }
+
+    pub fn frontend_event(&self, index: usize) -> u64 {
+        self.counters.frontend_event(index)
     }
 
     pub fn dcache_hit_rate(&self) -> f64 {

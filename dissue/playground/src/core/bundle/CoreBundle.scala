@@ -85,6 +85,21 @@ object MemPerfEvent {
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))
 }
 
+object FrontendPerfEvent {
+  val icacheRequest       = 0
+  val icacheHit           = 1
+  val icacheMiss          = 2
+  val icacheMissWaitCycle = 3
+  val backendRedirect     = 4
+  val icacheInvalidate    = 5
+  val frontendEmpty       = 6
+  val axiRequestWait      = 7
+  val width               = 8
+
+  def bit(index: Int, enabled: Bool): UInt =
+    Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))
+}
+
 object CfiType {
   val width = 3
 
@@ -137,6 +152,7 @@ class BackendToFrontend(addrWidth: Int = 32) extends Bundle {
   val trapRedirect   = new Redirect(addrWidth)
   val branchRedirect = new Redirect(addrWidth)
   val predRedirect   = new Redirect(addrWidth)
+  val icacheInvalidate = Bool()
   val bpuUpdate      = Valid(new BpuUpdatePayload(addrWidth))
 }
 
