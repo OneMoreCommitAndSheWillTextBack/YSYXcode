@@ -82,6 +82,7 @@ pub(crate) struct CheckerConfig {
     pub difftest_ref: Option<DifftestRef>,
     pub difftest_port: i32,
     pub itrace_path: Option<PathBuf>,
+    pub detailed_trace_path: Option<PathBuf>,
     pub max_no_commit_cycles: u32,
 }
 
@@ -91,6 +92,7 @@ impl Default for CheckerConfig {
             difftest_ref: None,
             difftest_port: DEFAULT_DIFFTEST_PORT,
             itrace_path: None,
+            detailed_trace_path: None,
             max_no_commit_cycles: DEFAULT_NO_COMMIT_CYCLES,
         }
     }
@@ -173,7 +175,7 @@ impl SimulationConfig {
     /// Parses the simulator command line once at process startup.
     pub(crate) fn from_env() -> Self {
         let mut config = Self::default();
-        let mut args = env::args().skip(1);
+        let mut args = env::args().skip(1).peekable();
         let mut explicit_wave = false;
         let mut wave_after = None;
         let mut lightsss_gap = None;
@@ -213,6 +215,16 @@ impl SimulationConfig {
                 }
                 "--wave-path" => config.trace.path = args.next().map(PathBuf::from),
                 "--itrace-path" => config.checker.itrace_path = args.next().map(PathBuf::from),
+                "--detailed-trace" => {
+                    config.checker.detailed_trace_path = Some(default_detailed_trace_path());
+                }
+                "--detailed-trace-path" => {
+                    config.checker.detailed_trace_path = Some(
+                        args.next_if(|value| !value.starts_with('-'))
+                            .map(PathBuf::from)
+                            .unwrap_or_else(default_detailed_trace_path),
+                    );
+                }
                 "--diff" | "--difftest-ref" => {
                     parse_difftest_reference(&mut config, args.next());
                 }
@@ -342,4 +354,13 @@ fn looks_like_path(arg: &str) -> bool {
         || arg.starts_with("../")
         || arg.contains('/')
         || arg.ends_with(".so")
+}
+
+fn default_detailed_trace_path() -> PathBuf {
+    let project_root = env::var_os("DISSUE_HOME")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../.."));
+
+    project_root.join("run/detailed-log.txt")
 }

@@ -49,6 +49,7 @@ pub(crate) struct CommitGroup {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CommitTraceEntry {
+    pub finish: bool,
     pub pc: u32,
     pub inst: u32,
     pub raw_inst: u32,
@@ -114,19 +115,29 @@ impl CommitGroup {
     }
 
     pub(crate) fn trace_entries(self) -> impl Iterator<Item = CommitTraceEntry> {
+        self.trace_lanes().map(|(_, entry)| entry)
+    }
+
+    pub(crate) fn trace_lanes(self) -> impl Iterator<Item = (usize, CommitTraceEntry)> {
         self.lanes
             .into_iter()
-            .filter(|lane| lane.valid)
-            .map(|lane| CommitTraceEntry {
-                pc: lane.pc,
-                inst: lane.inst,
-                raw_inst: lane.raw_inst,
-                inst_len: lane.inst_len,
-                next_pc: lane.next_pc,
-                mem_valid: lane.mem_valid,
-                mem_write: lane.mem_write,
-                mem_addr: lane.mem_addr,
-                mem_size: lane.mem_size,
+            .enumerate()
+            .filter_map(|(index, lane)| {
+                lane.valid.then_some((
+                    index,
+                    CommitTraceEntry {
+                        finish: lane.finish,
+                        pc: lane.pc,
+                        inst: lane.inst,
+                        raw_inst: lane.raw_inst,
+                        inst_len: lane.inst_len,
+                        next_pc: lane.next_pc,
+                        mem_valid: lane.mem_valid,
+                        mem_write: lane.mem_write,
+                        mem_addr: lane.mem_addr,
+                        mem_size: lane.mem_size,
+                    },
+                ))
             })
     }
 

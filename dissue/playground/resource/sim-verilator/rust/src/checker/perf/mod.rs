@@ -133,6 +133,4 @@ impl Perf {
     pub fn average_load_txn_occupancy(&self) -> f64 {
         self.counters.average_load_txn_occupancy()
     }
-
-    pub fn on_cycle(&mut self) {}
 }
