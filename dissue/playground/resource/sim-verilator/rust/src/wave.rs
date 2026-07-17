@@ -43,7 +43,7 @@ impl WaveController {
         match self.mode {
             TraceMode::After { cycle: after } if cycle > after => driver.enable_trace(),
             TraceMode::Lightsss { gap, .. } if cycle != 0 && cycle % gap == 0 => {
-                match self.lightsss.add_checkpoint(cycle) {
+                match self.lightsss.add_checkpoint() {
                     Ok(CheckpointRole::Parent) => {}
                     Ok(CheckpointRole::RecoveryChild) => driver.enable_trace(),
                     Err(error) => crate::LogError!(
@@ -109,7 +109,7 @@ impl LightsssController {
         self.max_checkpoints = max_checkpoints;
     }
 
-    fn add_checkpoint(&mut self, cycle: u64) -> io::Result<CheckpointRole> {
+    fn add_checkpoint(&mut self) -> io::Result<CheckpointRole> {
         let (start_rx, start_tx) = create_pipe()?;
 
         match unsafe { libc::fork() } {
