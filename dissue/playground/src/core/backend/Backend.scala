@@ -40,6 +40,9 @@ class Backend(
     val dmemResp   = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
     val dmemCancel = Input(Vec(cfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
 
+    val fenceIReq  = Decoupled(Bool())
+    val fenceIDone = Input(Bool())
+
     val recover       = Output(new RobRecovery(cfg.robIdxWidth))
     val globalFlush   = Output(Bool())
     val robHead       = Output(UInt(cfg.robIdxWidth.W))
@@ -84,7 +87,7 @@ class Backend(
   selectiveRecovery.valid  := recovery.io.recover.valid
   selectiveRecovery.robIdx := recovery.io.recover.robIdx
 
-  private val backendBlocked = globalFlush || selectiveRecovery.valid
+  private val backendBlocked = globalFlush || selectiveRecovery.valid || retire.io.fenceIActive
 
   io.recover                        := selectiveRecovery
   io.globalFlush                    := globalFlush
@@ -220,6 +223,10 @@ class Backend(
   csrFile.io.retireCount        := PopCount(retire.io.retire.validMask)
   retire.io.csrStatus           := csrFile.io.status
   retire.io.hold                := selectiveRecovery.valid
+  io.fenceIReq.valid            := retire.io.fenceIReq.valid
+  io.fenceIReq.bits             := retire.io.fenceIReq.bits
+  retire.io.fenceIReq.ready     := io.fenceIReq.ready
+  retire.io.fenceIDone          := io.fenceIDone
   csrTracker.io.commit          := retire.io.csrTrackerCommit
   storeQueue.io.robHead         := rob.io.head
   csrTracker.io.robHead         := rob.io.head
@@ -235,6 +242,7 @@ class Backend(
   csrTracker.io.recover         := selectiveRecovery
   issueQueue.io.flush           := globalFlush
   issueQueue.io.recover         := selectiveRecovery
+  issueQueue.io.hold            := retire.io.fenceIActive
   lsu.io.flush                  := globalFlush
   lsu.io.recover                := selectiveRecovery
   lsu.io.robHead                := rob.io.head
@@ -318,6 +326,8 @@ class Backend(
 
   private val storeRespRobIdx         = Reg(UInt(cfg.robIdxWidth.W))
   private val storeRequestOutstanding = RegInit(false.B)
+  retire.io.storesDrained             :=
+    !storeQueue.io.committedPending && !storeRequestOutstanding && !retire.io.dmemReq.valid
   // A flush may arrive while a previously issued LSU request is still visible.
   // Let it complete and let LSU discard the tagged response; suppressing this
   // combinationally would feed the retire redirect back into its own store path.
@@ -326,7 +336,7 @@ class Backend(
   // Store responses use one fixed transaction tag, so retain the owning ROB
   // index until that response returns before accepting another store request.
   private val retireReqSelected       = retire.io.dmemReq.valid && !storeRequestOutstanding
-  private val lsuReqSelected          = !globalFlush && !retire.io.dmemReq.valid && lsu.io.dmemReq.valid
+  private val lsuReqSelected          = !globalFlush && !retire.io.fenceIActive && !retire.io.dmemReq.valid && lsu.io.dmemReq.valid
 
   io.dmemReq.valid                 := lsuReqSelected || retireReqSelected
   io.dmemReq.bits                  := 0.U.asTypeOf(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))

@@ -108,8 +108,8 @@ extern "C" void npc_pmem_write(int addr, int len, int data) {
 
 extern "C" uint64_t npc_time_read() { return NpcHostBridge::time_read(); }
 
-extern "C" void npc_cache_hit(char hit) {
-  NpcHostBridge::cache_hit(static_cast<uint8_t>(hit));
+extern "C" void npc_frontend_perf(int events) {
+  NpcHostBridge::frontend_perf(static_cast<uint32_t>(events));
 }
 
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,

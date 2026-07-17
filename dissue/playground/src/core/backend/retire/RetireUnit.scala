@@ -1,10 +1,11 @@
 package top.core.backend.retire
 
 import chisel3._
-import chisel3.util.{Decoupled, Mux1H, PopCount, PriorityEncoderOH, Valid}
+import chisel3.util.{Decoupled, Enum, Mux1H, PopCount, PriorityEncoderOH, Valid}
 import top.core.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreQueueCommit}
 import top.core.backend.csr.{
   CsrArch,
+  CsrAddr,
   CsrCommit,
   CsrContextUpdate,
   CsrInterrupt,
@@ -35,8 +36,13 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     val csrSret          = Output(new CsrSretCommit(cfg))
     val csrStatus        = Input(new CsrStatus(cfg))
     val hold             = Input(Bool())
+    val storesDrained    = Input(Bool())
     val retire           = Output(new RetireGroup(cfg))
     val redirect         = Output(new BackendToFrontend(cfg.addrWidth))
+
+    val fenceIReq    = Decoupled(Bool())
+    val fenceIDone   = Input(Bool())
+    val fenceIActive = Output(Bool())
 
     val dmemReq        = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
     val storeReqRobIdx = Output(UInt(cfg.robIdxWidth.W))
@@ -57,6 +63,22 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   private val storeCandidate    = Wire(Vec(cfg.commitWidth, Bool()))
   private val canRetire         = Wire(Vec(cfg.commitWidth, Bool()))
   private val nextPc            = Wire(Vec(cfg.commitWidth, UInt(cfg.addrWidth.W)))
+
+  private val fenceIIdle :: fenceIWait :: fenceIComplete :: Nil = Enum(3)
+  private val fenceIState = RegInit(fenceIIdle)
+  private val fenceIHead  = io.rob(0).valid && io.rob(0).bits.isFenceI
+
+  io.fenceIReq.valid := fenceIHead && !io.hold && fenceIState === fenceIIdle && io.storesDrained
+  io.fenceIReq.bits  := true.B
+  io.fenceIActive    := fenceIHead && fenceIState =/= fenceIIdle
+
+  when(!fenceIHead) {
+    fenceIState := fenceIIdle
+  }.elsewhen(fenceIState === fenceIIdle && io.fenceIReq.fire) {
+    fenceIState := fenceIWait
+  }.elsewhen(fenceIState === fenceIWait && io.fenceIDone) {
+    fenceIState := fenceIComplete
+  }
 
   for (i <- 0 until cfg.commitWidth) {
     redirectCandidate(i) :=
@@ -110,7 +132,8 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     val olderRetired = andReduce((0 until i).map(j => canRetire(j)))
     val storeReady   = !io.rob(i).bits.isStore || trapCandidate(i) || (storeCandidate(i) && io.dmemReq.ready)
 
-    canRetire(i)    := preRetire(i) && olderRetired && storeReady
+    val fenceReady = !io.rob(i).bits.isFenceI || (if (i == 0) fenceIState === fenceIComplete else false.B)
+    canRetire(i)    := preRetire(i) && olderRetired && storeReady && fenceReady
     io.rob(i).ready := canRetire(i)
   }
 
@@ -247,6 +270,20 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     redirectGrantOH,
     frontendRedirectTarget
   )
+
+  private val fenceICommit = VecInit((0 until cfg.commitWidth).map { i =>
+    normalCommit(i) && io.rob(i).bits.isFenceI
+  }).asUInt.orR
+  private val sfenceCommit = VecInit((0 until cfg.commitWidth).map { i =>
+    normalCommit(i) && io.rob(i).bits.isSfence
+  }).asUInt.orR
+  private val satpWriteCommit = VecInit((0 until cfg.commitWidth).map { i =>
+    normalCommit(i) && io.rob(i).bits.isCsr && io.rob(i).bits.csrWen &&
+      io.rob(i).bits.csrAddr === CsrAddr("satp")
+  }).asUInt.orR
+  private val privilegeTransition = io.redirect.trapRedirect.valid || io.csrMret.valid || io.csrSret.valid
+
+  io.redirect.icacheInvalidate := fenceICommit || sfenceCommit || satpWriteCommit || privilegeTransition
 
   private val bpuUpdateValid   = Wire(Vec(cfg.commitWidth, Bool()))
   private val bpuUpdatePc      = Wire(Vec(cfg.commitWidth, UInt(cfg.addrWidth.W)))

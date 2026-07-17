@@ -234,8 +234,8 @@ impl Checker {
         self.pending_retire.record(group, sync_prefix);
     }
 
-    pub(crate) fn on_cache_hit(&mut self, hit: bool) {
-        self.perf.cachehit(hit);
+    pub(crate) fn on_frontend_perf(&mut self, events: u32) {
+        self.perf.frontend_perf(events);
     }
 
     pub(crate) fn on_issue_queue_perf(
@@ -380,7 +380,22 @@ impl Checker {
     }
 
     pub(crate) fn print_report(&mut self) {
-        crate::Log!("Icache hit rate: {}", self.perf.cacherate());
+        crate::Log!("Icache hit rate: {}", self.perf.icache_hit_rate());
+        crate::Log!(
+            "Icache: requests: {}, hit: {}, miss: {}, miss wait cycles: {}",
+            self.perf.frontend_event(PerfCounters::ICACHE_REQUEST),
+            self.perf.frontend_event(PerfCounters::ICACHE_HIT),
+            self.perf.frontend_event(PerfCounters::ICACHE_MISS),
+            self.perf
+                .frontend_event(PerfCounters::ICACHE_MISS_WAIT_CYCLE)
+        );
+        crate::Log!(
+            "Frontend: redirects: {}, invalidates: {}, empty while backend ready: {}, AXI request wait cycles: {}",
+            self.perf.frontend_event(PerfCounters::BACKEND_REDIRECT),
+            self.perf.frontend_event(PerfCounters::ICACHE_INVALIDATE),
+            self.perf.frontend_event(PerfCounters::FRONTEND_EMPTY),
+            self.perf.frontend_event(PerfCounters::AXI_REQUEST_WAIT)
+        );
         crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",
             self.statistics.cycle(),

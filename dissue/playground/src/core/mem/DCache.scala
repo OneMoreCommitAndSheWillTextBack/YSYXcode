@@ -95,6 +95,9 @@ class DCache(
 
     /** Clean and invalidate one line before an uncached coherent access. */
     val cleanInvalidate = Flipped(Decoupled(UInt(cfg.addrWidth.W)))
+    /** Clean and invalidate every cache line for a fence.i operation. */
+    val cleanAll     = Flipped(Decoupled(Bool()))
+    val cleanAllDone = Output(Bool())
 
     val axiReadReq   = Decoupled(new AxiMasterReadReq(memCfg.addrWidth, memCfg.axiIdWidth))
     val axiReadResp  = Flipped(Decoupled(new AxiMasterReadResp(memCfg.axiDataWidth, memCfg.axiIdWidth)))
@@ -182,6 +185,12 @@ class DCache(
   private val maintenanceWriteData      = Reg(UInt(cfg.blockBits.W))
   private val maintenanceWriteBeat      = RegInit(0.U(beatIdxWidth.W))
   private val maintenanceWriteAwaitResp = RegInit(false.B)
+
+  private val cleanAllActive       = RegInit(false.B)
+  private val cleanAllSet          = RegInit(0.U(cfg.setIdxBits.W))
+  private val cleanAllWay          = RegInit(0.U(cfg.wayIdxBits.W))
+  private val cleanAllWritePending = RegInit(false.B)
+  private val cleanAllDone         = RegInit(false.B)
 
   private def waiterLive(entry: Int, waiter: Int): Bool =
     mshrValid(entry) && waiter.U < mshrWaiterCount(entry) && mshrWaiters(entry)(waiter).valid
@@ -283,7 +292,29 @@ class DCache(
 
   // A maintenance request stays valid while a dirty line is written back. It
   // handshakes only after the line is clean and invalidated.
-  io.cleanInvalidate.ready := maintenanceCanInspect && (!maintenanceHit || !maintenanceDirty)
+  io.cleanInvalidate.ready := maintenanceCanInspect && !cleanAllActive && !io.cleanAll.valid &&
+    (!maintenanceHit || !maintenanceDirty)
+  io.cleanAll.ready        := maintenanceCanInspect && !cleanAllActive && !io.cleanInvalidate.valid
+  io.cleanAllDone          := cleanAllDone
+
+  private val cleanAllLineValid = validArray(cleanAllSet)(cleanAllWay)
+  private val cleanAllLineDirty = cleanAllLineValid && dirtyArray(cleanAllSet)(cleanAllWay)
+  private val cleanAllLastWay   = cleanAllWay === (cfg.ways - 1).U(cfg.wayIdxBits.W)
+  private val cleanAllLastSet   = cleanAllSet === (cfg.sets - 1).U(cfg.setIdxBits.W)
+
+  private def advanceCleanAll(): Unit = {
+    when(cleanAllLastWay) {
+      cleanAllWay := 0.U
+      when(cleanAllLastSet) {
+        cleanAllActive := false.B
+        cleanAllDone   := true.B
+      }.otherwise {
+        cleanAllSet := cleanAllSet + 1.U
+      }
+    }.otherwise {
+      cleanAllWay := cleanAllWay + 1.U
+    }
+  }
 
   private val hitResponseVisible = hitRespValid && !io.flush && !io.recover.valid && !ownerKilled(hitRespOwner)
   private val mshrResponseVisible = hasResponding && !io.flush && !io.recover.valid && !ownerKilled(respondingWaiter.owner)
@@ -295,7 +326,7 @@ class DCache(
   // Blocking new requests here keeps the selected victim stable throughout the
   // writeback transaction sequence.
   io.req.ready := !io.flush && !io.recover.valid && !responseBusy && !hasEvicting &&
-    !maintenanceWriteActive && !io.cleanInvalidate.valid && requestReady
+    !maintenanceWriteActive && !cleanAllActive && !io.cleanInvalidate.valid && !io.cleanAll.valid && requestReady
 
   private val requestFire     = io.req.fire
   private val requestMiss     = requestFire && !hit
@@ -569,7 +600,41 @@ class DCache(
     }
   }
 
-  when(io.cleanInvalidate.valid && maintenanceCanInspect && maintenanceHit && maintenanceDirty) {
+  cleanAllDone := false.B
+  when(io.cleanAll.fire) {
+    cleanAllActive       := true.B
+    cleanAllSet          := 0.U
+    cleanAllWay          := 0.U
+    cleanAllWritePending := false.B
+  }
+
+  when(cleanAllActive) {
+    when(cleanAllWritePending) {
+      when(!maintenanceWriteActive) {
+        cleanAllWritePending := false.B
+        advanceCleanAll()
+      }
+    }.elsewhen(maintenanceCanInspect) {
+      when(cleanAllLineDirty) {
+        maintenanceWriteActive    := true.B
+        maintenanceWriteAddr      := lineAddr(tagArray(cleanAllSet)(cleanAllWay), cleanAllSet)
+        maintenanceWriteData      := dataArray(cleanAllSet)(cleanAllWay)
+        maintenanceWriteBeat      := 0.U
+        maintenanceWriteAwaitResp := false.B
+        validArray(cleanAllSet)(cleanAllWay) := false.B
+        dirtyArray(cleanAllSet)(cleanAllWay) := false.B
+        cleanAllWritePending := true.B
+      }.otherwise {
+        when(cleanAllLineValid) {
+          validArray(cleanAllSet)(cleanAllWay) := false.B
+          dirtyArray(cleanAllSet)(cleanAllWay) := false.B
+        }
+        advanceCleanAll()
+      }
+    }
+  }
+
+  when(!cleanAllActive && !io.cleanAll.valid && io.cleanInvalidate.valid && maintenanceCanInspect && maintenanceHit && maintenanceDirty) {
     maintenanceWriteActive    := true.B
     maintenanceWriteAddr      := lineAddr(tagArray(maintenanceSet)(maintenanceWay), maintenanceSet)
     maintenanceWriteData      := dataArray(maintenanceSet)(maintenanceWay)
@@ -577,7 +642,7 @@ class DCache(
     maintenanceWriteAwaitResp := false.B
     validArray(maintenanceSet)(maintenanceWay) := false.B
     dirtyArray(maintenanceSet)(maintenanceWay) := false.B
-  }.elsewhen(io.cleanInvalidate.fire && maintenanceHit) {
+  }.elsewhen(!cleanAllActive && !io.cleanAll.valid && io.cleanInvalidate.fire && maintenanceHit) {
     validArray(maintenanceSet)(maintenanceWay) := false.B
     dirtyArray(maintenanceSet)(maintenanceWay) := false.B
   }

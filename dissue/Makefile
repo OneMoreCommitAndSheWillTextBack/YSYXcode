@@ -4,10 +4,10 @@ TARGET ?= npc
 PYTHON ?= python3
 IPC_PROFILE_SCRIPT := $(abspath scriptpy/ipc_profile.py)
 
-profile-log: test
-		$(PYTHON) $(IPC_PROFILE_SCRIPT)
-
 test: test-riscv32i test-riscv32im test-riscv32ima
+	$(PYTHON) $(IPC_PROFILE_SCRIPT)
+
+profile-log: test
 
 test-riscv32i: verilator-exec
 	$(MAKE) -C test run EXT=riscv32i

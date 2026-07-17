@@ -3,13 +3,14 @@ package top.core.frontend
 import chisel3._
 import chisel3.util.{Decoupled, MuxCase, Valid}
 import top.core.backend.csr.CsrStatus
-import top.core.bundle.{DataMemReq, DataMemResp}
+import top.core.bundle.{DataMemReq, DataMemResp, FrontendPerfEvent}
 import top.config.{BackendConfig, FrontendConfig}
 import top.core.frontend.Bpu.Bpu
 import top.core.frontend.bundle.{BpuUpdate, ICacheRefillReq, ICacheRefillResp, PcRedirect}
 import top.core.frontend.ifetch.{FetchPacket, IFetch}
 import top.core.frontend.pcgen.PCGen
 import top.core.frontend.icache._
+import top.sim.FrontendPerfBridge
 
 class Frontend(
   resetVector: BigInt = BigInt("80000000", 16),
@@ -32,6 +33,7 @@ class Frontend(
     val ptwReq    = Decoupled(new DataMemReq(backendCfg.addrWidth, backendCfg.dataWidth))
     val ptwResp   = Flipped(Decoupled(new DataMemResp(backendCfg.dataWidth)))
     val csrStatus = Input(new CsrStatus(backendCfg))
+    val icacheInvalidate = Input(Bool())
   })
 
   val pcGen     = Module(
@@ -45,6 +47,7 @@ class Frontend(
   val iCache    = Module(new ICache(cfg.icache))
   val refillMmu = Module(new ICacheRefillMmu(cfg.icache, backendCfg))
   val bpu       = Module(new Bpu(cfg.bpu))
+  val perf      = Module(new FrontendPerfBridge)
 
   val redirect = Wire(new PcRedirect)
   redirect.valid := io.trapRedirect.valid || io.branchRedirect.valid || io.predRedirect.valid
@@ -79,8 +82,7 @@ class Frontend(
 
   ifetch.io.icacheReq <> iCache.io.req
   ifetch.io.icacheResp <> iCache.io.resp
-  // 我绷不住了
-  iCache.io.flush := redirect.valid
+  iCache.io.invalidate := io.icacheInvalidate
 
   refillMmu.io.csrStatus     := io.csrStatus
   iCache.io.refillReq <> refillMmu.io.refillReq
@@ -96,4 +98,17 @@ class Frontend(
 
   io.pc := pcGen.io.pc
   io.fetch <> ifetch.io.fetch
+
+  private val perfEvents = Seq(
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheRequest, iCache.io.perf.request),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheHit, iCache.io.perf.hit),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheMiss, iCache.io.perf.miss),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheMissWaitCycle, iCache.io.perf.missWait),
+    FrontendPerfEvent.bit(FrontendPerfEvent.backendRedirect, redirect.valid),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheInvalidate, io.icacheInvalidate),
+    FrontendPerfEvent.bit(FrontendPerfEvent.frontendEmpty, io.fetch.ready && !io.fetch.valid),
+    FrontendPerfEvent.bit(FrontendPerfEvent.axiRequestWait, refillMmu.io.physReq.valid && !io.cacheRefillReq.ready)
+  ).reduce(_ | _)
+
+  perf.io.events := perfEvents
 }
