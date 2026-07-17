@@ -186,7 +186,7 @@ impl SimulationSession {
                     }
                 }
                 SessionState::Interrupted => {
-                    eprintln!("{ANSI_FG_RED}GET INTERRUPT{ANSI_RESET}");
+                    eprintln!("\n{ANSI_FG_RED}GET INTERRUPT{ANSI_RESET}");
                     return self.terminal(Ok(()));
                 }
             }
