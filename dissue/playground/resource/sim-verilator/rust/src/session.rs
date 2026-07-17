@@ -11,6 +11,11 @@ use crate::{
     wave::WaveController,
 };
 use chrono::Local;
+use signal_hook::{consts::signal::SIGINT, flag};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::{ffi::c_void, fmt};
 
 const ANSI_RESET: &str = "\x1b[0m";
@@ -83,6 +88,7 @@ enum SessionState {
     Running,
     Abort,
     End,
+    Interrupted,
 }
 
 /// Coordinates independent runtime owners without becoming a callback owner.
@@ -93,6 +99,7 @@ pub(crate) struct SimulationSession {
     checker: Checker,
     wave: WaveController,
     state: SessionState,
+    interrupt: Arc<AtomicBool>,
 }
 
 impl SimulationSession {
@@ -112,6 +119,9 @@ impl SimulationSession {
         sim_log::show_trace(&config);
         crate::Log!("run simulator at {}", Local::now().format("%a %b %e %T %Y"));
 
+        let interrupted = Arc::new(AtomicBool::new(false));
+        flag::register(SIGINT, Arc::clone(&interrupted)).expect("failed to register signal");
+
         Ok(Self {
             config,
             machine,
@@ -119,6 +129,7 @@ impl SimulationSession {
             checker,
             wave,
             state: SessionState::Running,
+            interrupt: interrupted,
         })
     }
 
@@ -140,6 +151,11 @@ impl SimulationSession {
                 SessionState::Running => {}
                 SessionState::End => return Ok(()),
                 SessionState::Abort => return Err(SimulationError::SimulateAbort),
+                SessionState::Interrupted => {}
+            }
+
+            if self.interrupt.load(Ordering::Relaxed) {
+                self.state = SessionState::Interrupted;
             }
 
             if let Err(error) = self.execute_once() {
@@ -168,6 +184,10 @@ impl SimulationSession {
                         self.state = SessionState::Abort;
                         return self.terminal(Err(SimulationError::ReachMaxNoCommitCycles));
                     }
+                }
+                SessionState::Interrupted => {
+                    eprintln!("\n{ANSI_FG_RED}GET INTERRUPT{ANSI_RESET}");
+                    return self.terminal(Ok(()));
                 }
             }
 
@@ -201,6 +221,7 @@ impl SimulationSession {
             SessionState::Running => {}
             SessionState::End => return Ok(()),
             SessionState::Abort => return Err(SimulationError::SimulateAbort),
+            SessionState::Interrupted => return Ok(()),
         }
 
         let mut status = CallbackStatus::default();

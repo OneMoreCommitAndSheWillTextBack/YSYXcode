@@ -335,12 +335,17 @@ class IFetch(
   val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
   val localPredRedirect   = assembler.io.predRedirect
   val frontendRedirect    = io.redirect.valid || localPredRedirect.valid
-  val canReq              = !reqOutstanding && !dropResp && enoughSpaceForBlock && !frontendRedirect
+  val responseFire        = io.icacheResp.fire
+  // A response retires the sole outstanding request before the clock edge, so
+  // a new request may reuse that slot in the same cycle.
+  val canReq              = (!reqOutstanding || responseFire) && !dropResp && enoughSpaceForBlock && !frontendRedirect
 
   io.icacheReq.valid := canReq
   io.icacheReq.bits  := req
   io.pcAdvance       := io.icacheReq.fire
   io.predRedirect    := localPredRedirect
+
+  val requestFire = io.icacheReq.fire
 
   splitter.io.resp := io.icacheResp.bits
 
@@ -365,16 +370,10 @@ class IFetch(
   io.fetch <> instBuffer.io.out
 
   when(frontendRedirect) {
-    dropResp       := (dropResp || reqOutstanding) && !io.icacheResp.fire
+    dropResp       := (dropResp || reqOutstanding) && !responseFire
     reqOutstanding := false.B
   }.otherwise {
-    when(io.icacheResp.fire) {
-      reqOutstanding := false.B
-      dropResp       := false.B
-    }
-
-    when(io.icacheReq.fire) {
-      reqOutstanding := true.B
-    }
+    reqOutstanding := (reqOutstanding && !responseFire) || requestFire
+    dropResp       := dropResp && !responseFire
   }
 }

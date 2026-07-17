@@ -13,5 +13,8 @@ impl Sdb {
         Self
     }
 
-    pub(crate) fn run(&mut self, _session: &mut SimulationSession) {}
+    pub(crate) fn run(&mut self, _session: &mut SimulationSession) {
+        // do not remove this until sdb is implemented
+        panic!("please implement the sdb before use it");
+    }
 }
