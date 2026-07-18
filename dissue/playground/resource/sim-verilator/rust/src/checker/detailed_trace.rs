@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const FRONTEND_EVENT_NAMES: [&str; 10] = [
+const FRONTEND_EVENT_NAMES: [&str; 17] = [
     "icache_request",
     "icache_hit",
     "icache_miss",
@@ -16,6 +16,13 @@ const FRONTEND_EVENT_NAMES: [&str; 10] = [
     "axi_request_wait",
     "fetch_queue_empty_with_backend_ready",
     "fetch_queue_full",
+    "icache_mshr_active",
+    "icache_hit_under_miss",
+    "icache_same_line_wait",
+    "icache_queued_miss",
+    "redirect_during_mshr",
+    "redirect_during_mshr_target_hit",
+    "stale_response_drop",
 ];
 
 const MEMORY_EVENT_NAMES: [&str; 19] = [

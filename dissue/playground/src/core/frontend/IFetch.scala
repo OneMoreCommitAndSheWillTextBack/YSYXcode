@@ -383,6 +383,8 @@ class IFetch(
     val fetchQueueDequeueWidth = Output(UInt(log2Ceil(FetchWidth.backend + 1).W))
     val fetchQueueEmpty        = Output(Bool())
     val fetchQueueFull         = Output(Bool())
+    val frontendRedirect       = Output(Bool())
+    val staleResponseDrop      = Output(Bool())
   })
 
   val splitter       = Module(new FetchGroupSplitter(cacheCfg))
@@ -390,14 +392,19 @@ class IFetch(
   val assembler      = Module(new SharedInstAssembler(cacheCfg, cfg.halfwordEntries))
   val fetchQueue     = Module(new FetchQueue(cacheCfg, cfg.fetchQueueEntries, FetchWidth.frontend))
   val ftq            = Module(new FetchTargetQueue(cacheCfg, cfg.fetchTargetEntries))
+  val responseQueue  = Module(new FetchResponseQueue(cacheCfg, cfg.fetchTargetEntries))
 
   val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
   val localPredRedirect   = assembler.io.predRedirect
   val localException      = assembler.io.out.fire && assembler.io.out.bits.insts(0).bits.inst.exception.valid
   val hardFlush           = io.redirect.valid || io.flush
   val frontendRedirect    = hardFlush || localPredRedirect.valid || localException
+  io.frontendRedirect := frontendRedirect
   val fetchQueueEpoch     = RegInit(0.U(cacheCfg.fetchEpochBits.W))
   ftq.io.redirect := frontendRedirect
+  responseQueue.io.flush        := frontendRedirect
+  responseQueue.io.currentEpoch := ftq.io.epoch
+  responseQueue.io.oldest       := ftq.io.peek(0)
   for (lane <- 0 until groupWidth) {
     ftq.io.allocatePc(lane)   := 0.U
     ftq.io.allocatePred(lane) := 0.U.asTypeOf(new FetchPred(cacheCfg))
@@ -419,16 +426,24 @@ class IFetch(
     req.blocks(lane).bits  := ICacheReq.fromControl(ftq.io.allocateMeta(lane), cacheCfg)
   }
 
-  val responseFire        = io.icacheResp.fire
-  val responseCount       = PopCount(io.icacheResp.bits.blocks.map(_.valid))
-  val responseMeta        = io.icacheResp.bits.blocks(0).bits.meta.control
-  val responseCurrentEpoch = io.icacheResp.bits.blocks(0).valid && responseMeta.epoch === ftq.io.epoch
+  val incomingMeta         = io.icacheResp.bits.blocks(0).bits.meta.control
+  val incomingCurrentEpoch = io.icacheResp.bits.blocks(0).valid && incomingMeta.epoch === ftq.io.epoch
+  val rawStaleDrop         = io.icacheResp.fire && (frontendRedirect || !incomingCurrentEpoch)
+  val bufferedStaleDrop    = frontendRedirect && !responseQueue.io.empty
+  responseQueue.io.insert.valid := io.icacheResp.valid && incomingCurrentEpoch && !frontendRedirect
+  responseQueue.io.insert.bits  := io.icacheResp.bits
+  io.icacheResp.ready := frontendRedirect || !incomingCurrentEpoch || responseQueue.io.insert.ready
+
+  val responseFire        = responseQueue.io.out.fire
+  val responseCount       = PopCount(responseQueue.io.out.bits.blocks.map(_.valid))
+  val responseMeta        = responseQueue.io.out.bits.blocks(0).bits.meta.control
+  val responseCurrentEpoch = responseQueue.io.out.bits.blocks(0).valid && responseMeta.epoch === ftq.io.epoch
   val responseMatchesHead = (0 until groupWidth).map { lane =>
-    !io.icacheResp.bits.blocks(lane).valid ||
+    !responseQueue.io.out.bits.blocks(lane).valid ||
       (ftq.io.peek(lane).valid &&
-        io.icacheResp.bits.blocks(lane).bits.meta.control.sequence === ftq.io.peek(lane).bits.sequence &&
-        io.icacheResp.bits.blocks(lane).bits.meta.control.epoch === ftq.io.peek(lane).bits.epoch &&
-        io.icacheResp.bits.blocks(lane).bits.meta.control.ftqIndex === ftq.io.peek(lane).bits.ftqIndex)
+        responseQueue.io.out.bits.blocks(lane).bits.meta.control.sequence === ftq.io.peek(lane).bits.sequence &&
+        responseQueue.io.out.bits.blocks(lane).bits.meta.control.epoch === ftq.io.peek(lane).bits.epoch &&
+        responseQueue.io.out.bits.blocks(lane).bits.meta.control.ftqIndex === ftq.io.peek(lane).bits.ftqIndex)
   }.reduce(_ && _)
   val responseLive = responseCurrentEpoch && responseMatchesHead && !frontendRedirect
   val canReq       = ftq.io.allocateReady && enoughSpaceForBlock && !frontendRedirect
@@ -443,17 +458,18 @@ class IFetch(
   ftq.io.release := responseFire && responseLive
   ftq.io.releaseCount := responseCount
   for (lane <- 0 until groupWidth) {
-    ftq.io.releaseMeta(lane) := io.icacheResp.bits.blocks(lane).bits.meta.control
+    ftq.io.releaseMeta(lane) := responseQueue.io.out.bits.blocks(lane).bits.meta.control
   }
 
-  splitter.io.resp := io.icacheResp.bits
+  splitter.io.resp := responseQueue.io.out.bits
 
   halfwordBuffer.io.flush    := frontendRedirect
   halfwordBuffer.io.enqValid := responseFire && responseLive
   halfwordBuffer.io.enqCount := splitter.io.count
   halfwordBuffer.io.enqBits  := splitter.io.entries
 
-  io.icacheResp.ready := !responseLive || halfwordBuffer.io.enqReady
+  responseQueue.io.out.ready := !responseLive || halfwordBuffer.io.enqReady
+  io.staleResponseDrop := rawStaleDrop || bufferedStaleDrop || responseQueue.io.staleDrop
 
   assembler.io.flush    := hardFlush
   assembler.io.peek     := halfwordBuffer.io.peek
@@ -479,11 +495,11 @@ class IFetch(
     fetchQueueEpoch := fetchQueueEpoch + 1.U
   }
 
-  when(io.icacheResp.valid && responseCurrentEpoch && !frontendRedirect) {
+  when(responseQueue.io.out.valid && responseCurrentEpoch && !frontendRedirect) {
     assert(responseMatchesHead)
   }
   when(responseFire && responseLive) {
     assert(ftq.io.peek(0).valid)
   }
-  assert(ftq.io.count <= groupWidth.U)
+  assert(ftq.io.count <= cfg.fetchTargetEntries.U)
 }

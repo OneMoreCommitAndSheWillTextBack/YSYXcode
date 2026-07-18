@@ -96,7 +96,14 @@ object FrontendPerfEvent {
   val axiRequestWait                   = 7
   val fetchQueueEmptyWithBackendReady  = 8
   val fetchQueueFull                   = 9
-  val width                            = 10
+  val icacheMshrActiveCycle            = 10
+  val icacheHitUnderMiss               = 11
+  val icacheSameLineWaitCycle          = 12
+  val icacheQueuedMiss                 = 13
+  val redirectDuringMshr               = 14
+  val redirectDuringMshrTargetHit      = 15
+  val staleResponseDrop                = 16
+  val width                            = 17
 
   def bit(index: Int, enabled: Bool): UInt =
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))

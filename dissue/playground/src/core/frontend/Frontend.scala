@@ -97,6 +97,28 @@ class Frontend(
   ifetch.io.icacheResp <> iCache.io.resp
   ifetch.io.icacheAcceptedBlocks := iCache.io.acceptedBlocks
   iCache.io.invalidate := io.icacheInvalidate
+  iCache.io.redirect   := ifetch.io.frontendRedirect
+
+  private val redirectDuringMshr = redirect.valid && iCache.io.perf.mshrActive && !io.icacheInvalidate
+  private val redirectMshrPending = RegInit(false.B)
+  private val redirectMshrTarget  = Reg(UInt(cfg.addrWidth.W))
+  private val redirectTargetRequest = iCache.io.req.fire &&
+    iCache.io.req.bits.blocks(0).bits.meta.control.pc === redirectMshrTarget
+  private val redirectDuringMshrTargetHit = redirectMshrPending && redirectTargetRequest &&
+    iCache.io.perf.hitUnderMiss
+
+  when(io.icacheInvalidate) {
+    redirectMshrPending := false.B
+  }.elsewhen(redirect.valid) {
+    redirectMshrPending := redirectDuringMshr
+    redirectMshrTarget  := redirect.value
+  }.elsewhen(redirectMshrPending && iCache.io.req.fire) {
+    redirectMshrPending := false.B
+  }
+
+  when(redirectMshrPending && iCache.io.req.fire) {
+    assert(redirectTargetRequest)
+  }
 
   refillMmu.io.csrStatus     := io.csrStatus
   iCache.io.refillReq <> refillMmu.io.refillReq
@@ -129,7 +151,17 @@ class Frontend(
       FrontendPerfEvent.fetchQueueEmptyWithBackendReady,
       fetchQueueSupplyStarved
     ),
-    FrontendPerfEvent.bit(FrontendPerfEvent.fetchQueueFull, ifetch.io.fetchQueueFull)
+    FrontendPerfEvent.bit(FrontendPerfEvent.fetchQueueFull, ifetch.io.fetchQueueFull),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheMshrActiveCycle, iCache.io.perf.mshrActive),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheHitUnderMiss, iCache.io.perf.hitUnderMiss),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheSameLineWaitCycle, iCache.io.perf.sameLineWait),
+    FrontendPerfEvent.bit(FrontendPerfEvent.icacheQueuedMiss, iCache.io.perf.queuedMiss),
+    FrontendPerfEvent.bit(FrontendPerfEvent.redirectDuringMshr, redirectDuringMshr),
+    FrontendPerfEvent.bit(FrontendPerfEvent.redirectDuringMshrTargetHit, redirectDuringMshrTargetHit),
+    FrontendPerfEvent.bit(
+      FrontendPerfEvent.staleResponseDrop,
+      ifetch.io.staleResponseDrop || iCache.io.perf.staleResponseDrop
+    )
   ).reduce(_ | _)
 
   perf.io.events                 := perfEvents

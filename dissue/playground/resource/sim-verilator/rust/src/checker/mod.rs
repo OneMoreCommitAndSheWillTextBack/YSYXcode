@@ -476,6 +476,16 @@ impl Checker {
                 .frontend_event(PerfCounters::ICACHE_MISS_WAIT_CYCLE)
         );
         crate::Log!(
+            "Icache MSHR: active cycles: {}, hit-under-miss: {}, same-line wait cycles: {}, queued different miss: {}, recovery redirects during MSHR: {}, redirected-target hits: {}, stale-response drop cycles: {}",
+            self.perf.frontend_event(PerfCounters::ICACHE_MSHR_ACTIVE_CYCLE),
+            self.perf.frontend_event(PerfCounters::ICACHE_HIT_UNDER_MISS),
+            self.perf.frontend_event(PerfCounters::ICACHE_SAME_LINE_WAIT_CYCLE),
+            self.perf.frontend_event(PerfCounters::ICACHE_QUEUED_MISS),
+            self.perf.frontend_event(PerfCounters::REDIRECT_DURING_MSHR),
+            self.perf.frontend_event(PerfCounters::REDIRECT_DURING_MSHR_TARGET_HIT),
+            self.perf.frontend_event(PerfCounters::STALE_RESPONSE_DROP)
+        );
+        crate::Log!(
             "Frontend: redirects: {}, invalidates: {}, empty while backend ready: {}, AXI request wait cycles: {}",
             self.perf.frontend_event(PerfCounters::BACKEND_REDIRECT),
             self.perf.frontend_event(PerfCounters::ICACHE_INVALIDATE),

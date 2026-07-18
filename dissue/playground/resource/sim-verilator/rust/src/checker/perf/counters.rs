@@ -147,7 +147,14 @@ impl PerfCounters {
     pub const AXI_REQUEST_WAIT: usize = 7;
     pub const FETCH_QUEUE_EMPTY_WITH_BACKEND_READY: usize = 8;
     pub const FETCH_QUEUE_FULL: usize = 9;
-    pub const FRONTEND_EVENT_COUNT: usize = 10;
+    pub const ICACHE_MSHR_ACTIVE_CYCLE: usize = 10;
+    pub const ICACHE_HIT_UNDER_MISS: usize = 11;
+    pub const ICACHE_SAME_LINE_WAIT_CYCLE: usize = 12;
+    pub const ICACHE_QUEUED_MISS: usize = 13;
+    pub const REDIRECT_DURING_MSHR: usize = 14;
+    pub const REDIRECT_DURING_MSHR_TARGET_HIT: usize = 15;
+    pub const STALE_RESPONSE_DROP: usize = 16;
+    pub const FRONTEND_EVENT_COUNT: usize = 17;
 
     pub fn frontend_perf(
         &mut self,

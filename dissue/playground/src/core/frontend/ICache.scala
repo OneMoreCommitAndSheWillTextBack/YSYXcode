@@ -6,10 +6,15 @@ import top.config.ICacheConfig
 import top.core.frontend.bundle.{ICacheFetchGroupReq, ICacheFetchGroupResp, ICacheRefillReq, ICacheRefillResp, ICacheReq, ICacheResp}
 
 class ICachePerf extends Bundle {
-  val request  = Bool()
-  val hit      = Bool()
-  val miss     = Bool()
-  val missWait = Bool()
+  val request       = Bool()
+  val hit           = Bool()
+  val miss          = Bool()
+  val missWait      = Bool()
+  val mshrActive    = Bool()
+  val hitUnderMiss  = Bool()
+  val sameLineWait  = Bool()
+  val queuedMiss    = Bool()
+  val staleResponseDrop = Bool()
 }
 
 class ICacheIO(cfg: ICacheConfig) extends Bundle {
@@ -19,16 +24,18 @@ class ICacheIO(cfg: ICacheConfig) extends Bundle {
   val refillReq      = Decoupled(new ICacheRefillReq(cfg.addrWidth))
   val refillResp     = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
   val invalidate     = Input(Bool())
+  val redirect       = Input(Bool())
   val perf           = Output(new ICachePerf)
 }
 
-object ICacheState extends ChiselEnum {
-  val SIdle, SRefillReq, SRefillResp, SResp = Value
+object ICacheMshrState extends ChiselEnum {
+  val SIdle, SRefillReq, SRefillResp = Value
 }
 
 class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   private val groupWidth      = cfg.fetchGroupBlocks
   private val groupCountWidth = log2Ceil(groupWidth + 1)
+  private val slotWidth       = math.max(log2Ceil(groupWidth), 1)
 
   val io = IO(new ICacheIO(cfg))
 
@@ -54,20 +61,60 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   private def tag(addr: UInt): UInt =
     addr(cfg.addrWidth - 1, cfg.offsetBits + cfg.indexBits)
 
+  private def responseForRequest(
+    request: ICacheFetchGroupReq,
+    count:   UInt,
+    hit:     Vec[Bool],
+    data:    Vec[UInt]
+  ): ICacheFetchGroupResp = {
+    val response = Wire(new ICacheFetchGroupResp(cfg))
+    response := 0.U.asTypeOf(new ICacheFetchGroupResp(cfg))
+    for (lane <- 0 until groupWidth) {
+      response.blocks(lane).valid            := lane.U < count
+      response.blocks(lane).bits.meta        := request.blocks(lane).bits.meta
+      response.blocks(lane).bits.data        := data(lane)
+      response.blocks(lane).bits.hit         := hit(lane)
+      response.blocks(lane).bits.exception.valid := false.B
+      response.blocks(lane).bits.exception.cause := 0.U
+      response.blocks(lane).bits.exception.tval  := 0.U
+    }
+    response
+  }
+
+  private def refillResponse(request: ICacheReq, refill: ICacheRefillResp): ICacheResp = {
+    val response = Wire(new ICacheResp(cfg))
+    response.meta      := request.meta
+    response.data      := refill.data
+    response.hit       := false.B
+    response.exception := refill.exception
+    when(refill.exception.valid) {
+      response.exception.tval := request.meta.control.pc
+    }
+    response
+  }
+
   val validArray = RegInit(
     VecInit(Seq.fill(cfg.bankCount)(VecInit(Seq.fill(cfg.bankSets)(false.B))))
   )
   val tagArray  = Reg(Vec(cfg.bankCount, Vec(cfg.bankSets, UInt(cfg.tagBits.W))))
   val dataArray = Reg(Vec(cfg.bankCount, Vec(cfg.bankSets, UInt(cfg.blockBits.W))))
 
-  val state       = RegInit(ICacheState.SIdle)
-  val killGroup   = RegInit(false.B)
-  val groupCount  = RegInit(0.U(groupCountWidth.W))
-  val groupReq    = Reg(Vec(groupWidth, new ICacheReq(cfg)))
-  val groupResp   = Reg(Vec(groupWidth, new ICacheResp(cfg)))
-  val pendingMiss = RegInit(VecInit(Seq.fill(groupWidth)(false.B)))
-  val missSlot    = RegInit(0.U(log2Ceil(groupWidth).W))
-  val missReq     = Reg(new ICacheReq(cfg))
+  val mshrState   = RegInit(ICacheMshrState.SIdle)
+  val mshrKilled  = RegInit(false.B)
+  val mshrStale   = RegInit(false.B)
+  val mshrCount   = RegInit(0.U(groupCountWidth.W))
+  val mshrReq     = Reg(Vec(groupWidth, new ICacheReq(cfg)))
+  val mshrResp    = Reg(Vec(groupWidth, new ICacheResp(cfg)))
+  val mshrPending = RegInit(VecInit(Seq.fill(groupWidth)(false.B)))
+  val mshrSlot    = RegInit(0.U(slotWidth.W))
+  val mshrRefill  = Reg(new ICacheReq(cfg))
+
+  val queuedValid = RegInit(false.B)
+  val queuedCount = RegInit(0.U(groupCountWidth.W))
+  val queuedReq   = Reg(new ICacheFetchGroupReq(cfg))
+
+  val responseValid = RegInit(false.B)
+  val responseReg   = Reg(new ICacheFetchGroupResp(cfg))
 
   val requestBank = Wire(Vec(groupWidth, UInt(cfg.bankBits.W)))
   val requestSet  = Wire(Vec(groupWidth, UInt(cfg.bankIdxBits.W)))
@@ -98,103 +145,219 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     requestActive(lane) := lane.U < acceptedBlocks
     requestMiss(lane)   := requestActive(lane) && !requestHit(lane)
   }
-
   val requestMissOH  = requestMiss.asUInt
   val requestHasMiss = requestMissOH.orR
-  val firstMissIdx   = OHToUInt(PriorityEncoderOH(requestMissOH))
+  val incomingResp   = responseForRequest(io.req.bits, acceptedBlocks, requestHit, requestData)
 
-  io.resp.valid := state === ICacheState.SResp
-  io.resp.bits  := 0.U.asTypeOf(new ICacheFetchGroupResp(cfg))
+  val queuedBank = Wire(Vec(groupWidth, UInt(cfg.bankBits.W)))
+  val queuedSet  = Wire(Vec(groupWidth, UInt(cfg.bankIdxBits.W)))
+  val queuedTag  = Wire(Vec(groupWidth, UInt(cfg.tagBits.W)))
+  val queuedHit  = Wire(Vec(groupWidth, Bool()))
+  val queuedData = Wire(Vec(groupWidth, UInt(cfg.blockBits.W)))
+  val queuedMiss = Wire(Vec(groupWidth, Bool()))
   for (lane <- 0 until groupWidth) {
-    io.resp.bits.blocks(lane).valid := lane.U < groupCount
-    io.resp.bits.blocks(lane).bits  := groupResp(lane)
+    val blockAddr = queuedReq.blocks(lane).bits.meta.blockAddr
+    queuedBank(lane) := bankIndex(blockAddr)
+    queuedSet(lane)  := localSetIndex(blockAddr)
+    queuedTag(lane)  := tag(blockAddr)
+    queuedHit(lane)  := validArray(queuedBank(lane))(queuedSet(lane)) &&
+      tagArray(queuedBank(lane))(queuedSet(lane)) === queuedTag(lane)
+    queuedData(lane) := dataArray(queuedBank(lane))(queuedSet(lane))
+    queuedMiss(lane) := lane.U < queuedCount && !queuedHit(lane)
   }
+  val queuedMissOH  = queuedMiss.asUInt
+  val queuedHasMiss = queuedMissOH.orR
+  val queuedResp    = responseForRequest(queuedReq, queuedCount, queuedHit, queuedData)
 
-  val responseFire    = io.resp.fire
-  val canAcceptGroup  = state === ICacheState.SIdle || (state === ICacheState.SResp && responseFire)
-  io.req.ready        := canAcceptGroup && !io.invalidate
-  io.acceptedBlocks   := acceptedBlocks
+  val mshrActive = mshrState =/= ICacheMshrState.SIdle
+  val requestSharesMshr = VecInit((0 until groupWidth).map { requestLane =>
+    requestActive(requestLane) && requestMiss(requestLane) &&
+      VecInit((0 until groupWidth).map { mshrLane =>
+        mshrPending(mshrLane) &&
+          io.req.bits.blocks(requestLane).bits.meta.blockAddr === mshrReq(mshrLane).meta.blockAddr
+      }).asUInt.orR
+  }).asUInt.orR
+  val requestSharesQueued = queuedValid && VecInit((0 until groupWidth).map { requestLane =>
+    requestActive(requestLane) && requestMiss(requestLane) &&
+      VecInit((0 until groupWidth).map { queuedLane =>
+        queuedMiss(queuedLane) &&
+          io.req.bits.blocks(requestLane).bits.meta.blockAddr === queuedReq.blocks(queuedLane).bits.meta.blockAddr
+      }).asUInt.orR
+  }).asUInt.orR
+  val requestSharesOutstanding = requestSharesMshr || requestSharesQueued
 
+  val responseFire      = io.resp.fire
+  val responseAvailable = !responseValid || responseFire
+  val queuedLaunch      = !mshrActive && queuedValid
+
+  io.resp.valid := responseValid
+  io.resp.bits  := responseReg
+  io.acceptedBlocks := acceptedBlocks
+
+  val refillResponsePending = mshrState === ICacheMshrState.SRefillResp && io.refillResp.valid
+  val acceptHitUnderMiss = mshrActive && !requestHasMiss && !refillResponsePending && responseAvailable
+  val acceptQueuedMiss = mshrActive && requestHasMiss && !requestSharesMshr && !queuedValid
+  val acceptFreshMiss  = !mshrActive && !queuedValid && requestHasMiss
+  val acceptFreshHit   = !mshrActive && !queuedValid && !requestHasMiss && responseAvailable
+  io.req.ready := !io.invalidate && !io.redirect && !queuedLaunch &&
+    (acceptHitUnderMiss || acceptQueuedMiss || acceptFreshMiss || acceptFreshHit)
   val acceptGroup = io.req.fire
 
-  val missBlockAddr = missReq.meta.blockAddr
-  val missBank      = bankIndex(missBlockAddr)
-  val missSet       = localSetIndex(missBlockAddr)
-  val missTag       = tag(missBlockAddr)
-
-  io.refillReq.valid     := state === ICacheState.SRefillReq && !killGroup && !io.invalidate
-  io.refillReq.bits.addr := missBlockAddr
-  io.refillResp.ready    := state === ICacheState.SRefillResp
-
-  io.perf.request  := acceptGroup
-  io.perf.hit      := acceptGroup && !requestHasMiss
-  io.perf.miss     := acceptGroup && requestHasMiss
-  io.perf.missWait := state === ICacheState.SRefillReq || state === ICacheState.SRefillResp
-
   val nextMissOH = VecInit((0 until groupWidth).map { lane =>
-    pendingMiss(lane) && missSlot =/= lane.U
+    mshrPending(lane) && mshrSlot =/= lane.U(slotWidth.W)
   }).asUInt
   val hasNextMiss = nextMissOH.orR
   val nextMissIdx = OHToUInt(PriorityEncoderOH(nextMissOH))
 
-  when(io.invalidate) {
-    validArray := VecInit(Seq.fill(cfg.bankCount)(VecInit(Seq.fill(cfg.bankSets)(false.B))))
-    killGroup  := true.B
+  val currentRefillResp = refillResponse(mshrRefill, io.refillResp.bits)
+  val completedMshrResp = Wire(new ICacheFetchGroupResp(cfg))
+  completedMshrResp := 0.U.asTypeOf(new ICacheFetchGroupResp(cfg))
+  for (lane <- 0 until groupWidth) {
+    val laneResp = Wire(new ICacheResp(cfg))
+    laneResp := mshrResp(lane)
+    when(mshrSlot === lane.U(slotWidth.W)) {
+      laneResp := currentRefillResp
+    }
+    completedMshrResp.blocks(lane).valid := lane.U < mshrCount
+    completedMshrResp.blocks(lane).bits  := laneResp
   }
 
-  when(acceptGroup) {
-    killGroup  := false.B
-    groupCount := acceptedBlocks
-    for (lane <- 0 until groupWidth) {
-      groupReq(lane)    := io.req.bits.blocks(lane).bits
-      pendingMiss(lane) := requestMiss(lane)
-      groupResp(lane).meta            := io.req.bits.blocks(lane).bits.meta
-      groupResp(lane).data            := requestData(lane)
-      groupResp(lane).hit             := requestHit(lane)
-      groupResp(lane).exception.valid := false.B
-      groupResp(lane).exception.cause := 0.U
-      groupResp(lane).exception.tval  := 0.U
-    }
-    when(requestHasMiss) {
-      missSlot := firstMissIdx
-      missReq  := Mux1H(PriorityEncoderOH(requestMissOH).asBools, io.req.bits.blocks.map(_.bits))
-      state    := ICacheState.SRefillReq
-    }.otherwise {
-      state := ICacheState.SResp
-    }
-  }.elsewhen(state === ICacheState.SRefillReq) {
-    when(io.invalidate) {
-      state := ICacheState.SResp
-    }.elsewhen(io.refillReq.fire) {
-      state := ICacheState.SRefillResp
-    }
-  }.elsewhen(state === ICacheState.SRefillResp) {
-    when(io.refillResp.fire) {
-      groupResp(missSlot).data      := io.refillResp.bits.data
-      groupResp(missSlot).meta      := missReq.meta
-      groupResp(missSlot).hit       := false.B
-      groupResp(missSlot).exception := io.refillResp.bits.exception
-      when(io.refillResp.bits.exception.valid) {
-        groupResp(missSlot).exception.tval := missReq.meta.control.pc
-      }
-      pendingMiss(missSlot) := false.B
+  val refillBlockAddr = mshrRefill.meta.blockAddr
+  val refillBank      = bankIndex(refillBlockAddr)
+  val refillSet       = localSetIndex(refillBlockAddr)
+  val refillTag       = tag(refillBlockAddr)
 
-      when(!io.refillResp.bits.exception.valid && !killGroup && !io.invalidate) {
-        validArray(missBank)(missSet) := true.B
-        tagArray(missBank)(missSet)   := missTag
-        dataArray(missBank)(missSet)  := io.refillResp.bits.data
-      }
+  val discardMshrResponse = mshrKilled || mshrStale || io.redirect
 
-      when(killGroup || io.invalidate || !hasNextMiss) {
-        state := ICacheState.SResp
+  io.refillReq.valid     := mshrState === ICacheMshrState.SRefillReq && !mshrKilled && !io.invalidate && !io.redirect
+  io.refillReq.bits.addr := refillBlockAddr
+  io.refillResp.ready    := mshrState === ICacheMshrState.SRefillResp && !io.invalidate &&
+    (discardMshrResponse || hasNextMiss || responseAvailable)
+
+  io.perf.request      := acceptGroup
+  io.perf.hit          := acceptGroup && !requestHasMiss
+  io.perf.miss         := acceptGroup && requestHasMiss
+  // Keep miss-wait stall-oriented; raw MSHR occupancy is reported separately.
+  io.perf.missWait     := mshrActive && !acceptHitUnderMiss && !responseFire
+  io.perf.mshrActive   := mshrActive
+  io.perf.hitUnderMiss := acceptGroup && mshrActive && !requestHasMiss
+  io.perf.sameLineWait := io.req.valid && mshrActive && requestHasMiss && requestSharesOutstanding &&
+    !io.invalidate && !io.redirect
+  io.perf.queuedMiss   := acceptGroup && mshrActive && requestHasMiss
+  io.perf.staleResponseDrop := io.refillResp.fire && discardMshrResponse
+
+  when(io.invalidate) {
+    validArray    := VecInit(Seq.fill(cfg.bankCount)(VecInit(Seq.fill(cfg.bankSets)(false.B))))
+    responseValid := false.B
+    queuedValid   := false.B
+    mshrStale     := false.B
+    when(mshrState === ICacheMshrState.SRefillReq) {
+      mshrState  := ICacheMshrState.SIdle
+      mshrKilled := false.B
+      mshrPending := VecInit(Seq.fill(groupWidth)(false.B))
+    }.elsewhen(mshrState === ICacheMshrState.SRefillResp) {
+      mshrKilled := true.B
+    }
+  }.otherwise {
+    when(io.redirect) {
+      responseValid := false.B
+      queuedValid   := false.B
+      when(mshrState === ICacheMshrState.SRefillReq) {
+        mshrState := ICacheMshrState.SIdle
+        mshrStale := false.B
+        mshrPending := VecInit(Seq.fill(groupWidth)(false.B))
+      }.elsewhen(mshrState === ICacheMshrState.SRefillResp) {
+        mshrStale := true.B
+      }
       }.otherwise {
-        missSlot := nextMissIdx
-        missReq  := groupReq(nextMissIdx)
-        state    := ICacheState.SRefillReq
+      when(responseFire) {
+        responseValid := false.B
+      }
+
+      when(queuedLaunch) {
+        when(queuedHasMiss) {
+          mshrCount := queuedCount
+          for (lane <- 0 until groupWidth) {
+            mshrReq(lane)     := queuedReq.blocks(lane).bits
+            mshrResp(lane)    := queuedResp.blocks(lane).bits
+            mshrPending(lane) := queuedMiss(lane)
+          }
+          mshrSlot   := OHToUInt(PriorityEncoderOH(queuedMissOH))
+          mshrRefill := Mux1H(PriorityEncoderOH(queuedMissOH).asBools, queuedReq.blocks.map(_.bits))
+          mshrKilled := false.B
+          mshrStale  := false.B
+          mshrState  := ICacheMshrState.SRefillReq
+          queuedValid := false.B
+        }.elsewhen(responseAvailable) {
+          responseReg   := queuedResp
+          responseValid := true.B
+          queuedValid   := false.B
+        }
+      }
+
+      // A cache request can arrive in the cycle the scalar refill request or
+      // response handshakes. Keep those state transitions independent: otherwise
+      // a queued group can leave the MSHR waiting for a response it never enables.
+      when(acceptGroup) {
+        when(mshrActive && requestHasMiss) {
+          queuedReq   := io.req.bits
+          queuedCount := acceptedBlocks
+          queuedValid := true.B
+        }.elsewhen(requestHasMiss) {
+          mshrCount := acceptedBlocks
+          for (lane <- 0 until groupWidth) {
+            mshrReq(lane)     := io.req.bits.blocks(lane).bits
+            mshrResp(lane)    := incomingResp.blocks(lane).bits
+            mshrPending(lane) := requestMiss(lane)
+          }
+          mshrSlot   := OHToUInt(PriorityEncoderOH(requestMissOH))
+          mshrRefill := Mux1H(PriorityEncoderOH(requestMissOH).asBools, io.req.bits.blocks.map(_.bits))
+          mshrKilled := false.B
+          mshrStale  := false.B
+          mshrState  := ICacheMshrState.SRefillReq
+        }.otherwise {
+          responseReg   := incomingResp
+          responseValid := true.B
+        }
       }
     }
-  }.elsewhen(state === ICacheState.SResp && responseFire) {
-    state := ICacheState.SIdle
+
+    when(mshrState === ICacheMshrState.SRefillReq) {
+      when(io.refillReq.fire) {
+        mshrState := ICacheMshrState.SRefillResp
+      }
+    }
+
+    when(mshrState === ICacheMshrState.SRefillResp && io.refillResp.fire) {
+      for (lane <- 0 until groupWidth) {
+        when(mshrSlot === lane.U(slotWidth.W)) {
+          mshrResp(lane)    := currentRefillResp
+          mshrPending(lane) := false.B
+        }
+      }
+
+      // Redirected refills may warm the cache, while fence-killed refills must not repopulate it.
+      when(!io.refillResp.bits.exception.valid && !mshrKilled) {
+        validArray(refillBank)(refillSet) := true.B
+        tagArray(refillBank)(refillSet)   := refillTag
+        dataArray(refillBank)(refillSet)  := io.refillResp.bits.data
+      }
+
+      when(discardMshrResponse) {
+        mshrState  := ICacheMshrState.SIdle
+        mshrKilled := false.B
+        mshrStale  := false.B
+        mshrPending := VecInit(Seq.fill(groupWidth)(false.B))
+      }.elsewhen(hasNextMiss) {
+        mshrSlot   := nextMissIdx
+        mshrRefill := mshrReq(nextMissIdx)
+        mshrState  := ICacheMshrState.SRefillReq
+      }.otherwise {
+        responseReg   := completedMshrResp
+        responseValid := true.B
+        mshrState     := ICacheMshrState.SIdle
+      }
+    }
   }
 
   when(io.req.fire) {
@@ -206,12 +369,43 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
         io.req.bits.blocks(0).bits.meta.control.epoch)
       assert(io.req.bits.blocks(1).bits.meta.control.sequence ===
         io.req.bits.blocks(0).bits.meta.control.sequence + 1.U)
+      assert(io.req.bits.blocks(1).bits.meta.control.ftqIndex ===
+        io.req.bits.blocks(0).bits.meta.control.ftqIndex + 1.U)
+    }
+    when(mshrActive && requestHasMiss) {
+      assert(!requestSharesMshr)
+      assert(!queuedValid)
     }
   }
-  when(io.resp.fire && groupCount === groupWidth.U) {
-    assert(io.resp.bits.blocks(0).valid && io.resp.bits.blocks(1).valid)
-    assert(io.resp.bits.blocks(1).bits.meta.blockAddr ===
-      io.resp.bits.blocks(0).bits.meta.blockAddr + cfg.fetchBytes.U)
+  when(io.req.valid && mshrActive && requestHasMiss && requestSharesOutstanding &&
+    !io.invalidate && !io.redirect) {
+    assert(!io.req.ready)
   }
-  assert(PopCount(Seq(state === ICacheState.SRefillReq, state === ICacheState.SRefillResp)) <= 1.U)
+  when(io.resp.valid) {
+    assert(io.resp.bits.blocks(0).valid)
+    when(io.resp.bits.blocks(1).valid) {
+      assert(io.resp.bits.blocks(1).bits.meta.blockAddr ===
+        io.resp.bits.blocks(0).bits.meta.blockAddr + cfg.fetchBytes.U)
+      assert(io.resp.bits.blocks(1).bits.meta.control.epoch ===
+        io.resp.bits.blocks(0).bits.meta.control.epoch)
+      assert(io.resp.bits.blocks(1).bits.meta.control.sequence ===
+        io.resp.bits.blocks(0).bits.meta.control.sequence + 1.U)
+    }
+  }
+  when(io.refillReq.fire) {
+    assert(mshrState === ICacheMshrState.SRefillReq)
+    assert(mshrPending(mshrSlot))
+  }
+  when(io.refillResp.fire) {
+    assert(mshrState === ICacheMshrState.SRefillResp)
+    assert(mshrPending(mshrSlot))
+  }
+  when(mshrActive) {
+    assert(PopCount(mshrPending) =/= 0.U)
+    assert(mshrPending(mshrSlot))
+  }
+  assert(PopCount(Seq(
+    mshrState === ICacheMshrState.SRefillReq,
+    mshrState === ICacheMshrState.SRefillResp
+  )) <= 1.U)
 }
