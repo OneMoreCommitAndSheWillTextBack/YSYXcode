@@ -20,6 +20,7 @@ ARGS = --image $(IMAGE).bin
 ARGS += --batch
 ARGS += --wave-path $(DISSUE_HOME)
 ARGS += --difftest-ref nemu
+ARGS += --wave
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
