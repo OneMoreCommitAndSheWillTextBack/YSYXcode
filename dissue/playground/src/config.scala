@@ -135,7 +135,7 @@ final case class BackendConfig(
   intIssueWidth:     Int = 2,
   writebackWidth:    Int = 3,
   issueQueueEntries: Int = 8,
-  loadTxnEntries: Int = 2,
+  loadTxnEntries:    Int = 2,
   recoveryCancelPorts: Int = 16) {
   require(issueWidth > 0, "issueWidth must be positive")
   require(commitWidth > 0, "commitWidth must be positive")

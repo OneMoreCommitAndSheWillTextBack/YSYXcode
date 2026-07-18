@@ -44,34 +44,43 @@ impl Itrace {
         let seq = self.seq;
         self.seq = self.seq.wrapping_add(1);
 
-        write!(
-            self.writer,
-            "{seq:016} 0x{pc:08x}: {raw} -> 0x{next_pc:08x}",
-            pc = entry.pc,
-            raw = raw_inst_text(entry),
-            next_pc = entry.next_pc,
-        )?;
-
-        if entry.raw_inst != entry.inst {
-            write!(self.writer, " inst=0x{:08x}", entry.inst)?;
-        }
-
-        if let Some(flow) = control_flow_text(entry) {
-            write!(self.writer, " flow={flow}")?;
-        }
-
-        if entry.mem_valid {
-            let op = if entry.mem_write { 'W' } else { 'R' };
-            write!(
-                self.writer,
-                " mem={op}[0x{addr:08x},{}]",
-                mem_access_len(entry.mem_size),
-                addr = entry.mem_addr,
-            )?;
-        }
-
+        write!(self.writer, "{seq:016} ")?;
+        write_instruction_summary(&mut self.writer, entry)?;
         writeln!(self.writer)
     }
+}
+
+pub(super) fn write_instruction_summary<W: Write>(
+    writer: &mut W,
+    entry: CommitTraceEntry,
+) -> io::Result<()> {
+    write!(
+        writer,
+        "0x{pc:08x}: {raw} -> 0x{next_pc:08x}",
+        pc = entry.pc,
+        raw = raw_inst_text(entry),
+        next_pc = entry.next_pc,
+    )?;
+
+    if entry.raw_inst != entry.inst {
+        write!(writer, " inst=0x{:08x}", entry.inst)?;
+    }
+
+    if let Some(flow) = control_flow_text(entry) {
+        write!(writer, " flow={flow}")?;
+    }
+
+    if entry.mem_valid {
+        let op = if entry.mem_write { 'W' } else { 'R' };
+        write!(
+            writer,
+            " mem={op}[0x{addr:08x},{}]",
+            mem_access_len(entry.mem_size),
+            addr = entry.mem_addr,
+        )?;
+    }
+
+    Ok(())
 }
 
 fn raw_inst_text(entry: CommitTraceEntry) -> String {

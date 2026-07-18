@@ -1,7 +1,7 @@
 package top.core.backend.retire
 
 import chisel3._
-import chisel3.util.{Decoupled, Enum, Mux1H, PopCount, PriorityEncoderOH, Valid}
+import chisel3.util.{Decoupled, Enum, Mux1H, MuxLookup, PopCount, PriorityEncoderOH, Valid}
 import top.core.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreQueueCommit}
 import top.core.backend.csr.{
   CsrArch,
@@ -18,7 +18,7 @@ import top.core.backend.csr.{
   PrivMode
 }
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo, TrapLane, TrapUnit}
-import top.core.bundle.{BackendToFrontend, CfiType, DataMemKind, DataMemReq, DataMemTxn}
+import top.core.bundle.{BackendToFrontend, BpuCfiClass, CfiType, DataMemKind, DataMemReq, DataMemTxn}
 import top.config.BackendConfig
 import top.sim.BpuPerfBridge
 
@@ -55,6 +55,22 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private def andReduce(values: Seq[Bool]): Bool =
     if (values.isEmpty) true.B else values.reduce(_ && _)
+
+  private def bpuCfiClass(cfi: UInt, inst: UInt): UInt = {
+    val rd         = inst(11, 7)
+    val rs1        = inst(19, 15)
+    // x1/x5 are RISC-V link registers; compressed returns are already expanded here.
+    val jalrReturn = cfi === CfiType.jalr && rd === 0.U &&
+      (rs1 === 1.U || rs1 === 5.U) && inst(31, 20) === 0.U
+
+    MuxLookup(cfi, BpuCfiClass.jalr)(
+      Seq(
+        CfiType.branch -> BpuCfiClass.branch,
+        CfiType.jal    -> BpuCfiClass.jal,
+        CfiType.jalr   -> Mux(jalrReturn, BpuCfiClass.ret, BpuCfiClass.jalr)
+      )
+    )
+  }
 
   private val redirectCandidate = Wire(Vec(cfg.commitWidth, Bool()))
   private val trapCandidate     = Wire(Vec(cfg.commitWidth, Bool()))
@@ -165,8 +181,12 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val bpuPerf = Seq.fill(cfg.commitWidth)(Module(new BpuPerfBridge))
   for (i <- 0 until cfg.commitWidth) {
-    bpuPerf(i).io.valid   := !reset.asBool && normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
-    bpuPerf(i).io.correct := io.rob(i).bits.fetch.predNpc === nextPc(i)
+    bpuPerf(i).io.valid       := !reset.asBool && normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
+    bpuPerf(i).io.cfiClass    := bpuCfiClass(io.rob(i).bits.cfi, io.rob(i).bits.fetch.inst)
+    bpuPerf(i).io.predHit     := io.rob(i).bits.fetch.predHit
+    bpuPerf(i).io.predTaken   := io.rob(i).bits.fetch.predTaken
+    bpuPerf(i).io.actualTaken := Mux(io.rob(i).bits.cfi === CfiType.branch, io.rob(i).bits.branchTaken, true.B)
+    bpuPerf(i).io.correct     := io.rob(i).bits.fetch.predNpc === nextPc(i)
   }
 
   private val barrierCommit = Wire(Vec(cfg.commitWidth, Bool()))

@@ -7,17 +7,34 @@ import top.config.BackendConfig
 
 class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val query  = Vec(cfg.scoreboardQueries, new ScoreboardQuery(cfg))
-    val alloc  = Input(Vec(cfg.dispatchWidth, new ScoreboardAlloc(cfg)))
-    val commit = Input(Vec(cfg.commitWidth, new ScoreboardCommit(cfg)))
-    val flush  = Input(Bool())
-    val recover = Input(new RobRecovery(cfg.robIdxWidth))
-    val robHead = Input(UInt(cfg.robIdxWidth.W))
+    val query           = Vec(cfg.scoreboardQueries, new ScoreboardQuery(cfg))
+    val alloc           = Input(Vec(cfg.dispatchWidth, new ScoreboardAlloc(cfg)))
+    val commit          = Input(Vec(cfg.commitWidth, new ScoreboardCommit(cfg)))
+    val flush           = Input(Bool())
+    val recover         = Input(new RobRecovery(cfg.robIdxWidth))
+    val robHead         = Input(UInt(cfg.robIdxWidth.W))
     val producerEntries = Input(Vec(cfg.robEntries, new RobProducerEntry(cfg)))
   })
 
   private val busy     = RegInit(VecInit(Seq.fill(32)(false.B)))
   private val producer = Reg(Vec(32, UInt(cfg.robIdxWidth.W)))
+
+  private def newestAllocation(register: UInt, lanes: Range): (Bool, UInt) = {
+    var hasAllocation = false.B
+    var newestRobIdx  = 0.U(cfg.robIdxWidth.W)
+
+    // Allocation lanes are in program order, so a later matching lane is younger.
+    for (lane <- lanes) {
+      val allocation = io.alloc(lane)
+      val matches    = allocation.valid && allocation.rfWen &&
+        allocation.rd =/= 0.U && allocation.rd === register
+
+      hasAllocation = hasAllocation || matches
+      newestRobIdx = Mux(matches, allocation.robIdx, newestRobIdx)
+    }
+
+    (hasAllocation, newestRobIdx)
+  }
 
   private def recoveredProducer(register: Int): (Bool, UInt) = {
     var selectedValid = false.B
@@ -25,34 +42,26 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
     var selectedRob   = 0.U(cfg.robIdxWidth.W)
 
     for (entry <- io.producerEntries) {
-      val candidate = entry.valid && entry.rfWen && entry.rd === register.U && entry.rd =/= 0.U &&
+      val candidate    = entry.valid && entry.rfWen && entry.rd === register.U && entry.rd =/= 0.U &&
         !RobAge.isYounger(entry.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
       val candidateAge = RobAge.fromHead(entry.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
       val replace      = candidate && (!selectedValid || candidateAge > selectedAge)
 
       selectedValid = Mux(replace, true.B, selectedValid)
-      selectedAge   = Mux(replace, candidateAge, selectedAge)
-      selectedRob   = Mux(replace, entry.robIdx, selectedRob)
+      selectedAge = Mux(replace, candidateAge, selectedAge)
+      selectedRob = Mux(replace, entry.robIdx, selectedRob)
     }
 
     (selectedValid, selectedRob)
   }
 
   for ((query, queryIdx) <- io.query.zipWithIndex) {
-    val dispatchSlot = queryIdx / cfg.operandsPerInst
-    val ready        = WireDefault(!query.valid || query.rs === 0.U || !busy(query.rs))
-    val tag          = WireDefault(producer(query.rs))
+    val dispatchSlot                            = queryIdx / cfg.operandsPerInst
+    val (hasEarlierAllocation, earlierProducer) = newestAllocation(query.rs, 0 until dispatchSlot)
+    val waitsForEarlierLane                     = query.valid && query.rs =/= 0.U && hasEarlierAllocation
 
-    for (allocIdx <- 0 until dispatchSlot) {
-      val alloc = io.alloc(allocIdx)
-      when(query.valid && query.rs =/= 0.U && alloc.valid && alloc.rfWen && alloc.rd =/= 0.U && alloc.rd === query.rs) {
-        ready := false.B
-        tag   := alloc.robIdx
-      }
-    }
-
-    query.ready    := ready
-    query.producer := tag
+    query.ready    := !query.valid || query.rs === 0.U || (!busy(query.rs) && !waitsForEarlierLane)
+    query.producer := Mux(waitsForEarlierLane, earlierProducer, producer(query.rs))
   }
 
   when(io.flush) {
@@ -78,10 +87,11 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
       }
     }
 
-    for (alloc <- io.alloc) {
-      when(alloc.valid && alloc.rfWen && alloc.rd =/= 0.U) {
-        busy(alloc.rd)     := true.B
-        producer(alloc.rd) := alloc.robIdx
+    for (register <- 1 until 32) {
+      val (hasAllocation, newestProducer) = newestAllocation(register.U, 0 until cfg.dispatchWidth)
+      when(hasAllocation) {
+        busy(register)     := true.B
+        producer(register) := newestProducer
       }
     }
   }

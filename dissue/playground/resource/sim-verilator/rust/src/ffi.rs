@@ -43,7 +43,16 @@ pub struct NpcDpiCallbacks {
         ),
     >,
     pub div_perf: Option<extern "C" fn(*mut c_void, cycles: u32, special: u8)>,
-    pub bpu_perf: Option<extern "C" fn(*mut c_void, correct: u8)>,
+    pub bpu_perf: Option<
+        extern "C" fn(
+            *mut c_void,
+            cfi_class: u8,
+            pred_hit: u8,
+            pred_taken: u8,
+            actual_taken: u8,
+            correct: u8,
+        ),
+    >,
     pub mem_perf: Option<
         extern "C" fn(
             *mut c_void,

@@ -111,6 +111,16 @@ object CfiType {
   val ret    = 5.U(width.W)
 }
 
+/** Performance-only control-flow buckets. These do not change the architectural CFI decode. */
+object BpuCfiClass {
+  val width = 2
+
+  val branch = 0.U(width.W)
+  val jal    = 1.U(width.W)
+  val jalr   = 2.U(width.W)
+  val ret    = 3.U(width.W)
+}
+
 class Redirect(addrWidth: Int = 32) extends Bundle {
   val valid  = Bool()
   val target = UInt(addrWidth.W)
@@ -123,6 +133,8 @@ class FetchInstPayload(addrWidth: Int = 32) extends Bundle {
   val isRVC   = Bool()
   val instLen = UInt(3.W)
 
+  /** A BTB prediction matched this instruction's PC within its fetch block. */
+  val predHit    = Bool()
   val predTaken  = Bool()
   val predNpc    = UInt(addrWidth.W)
   val predTarget = UInt(addrWidth.W)

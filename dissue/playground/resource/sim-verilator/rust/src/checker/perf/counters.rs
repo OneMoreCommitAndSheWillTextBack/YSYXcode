@@ -1,3 +1,92 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum BpuCfiClass {
+    Branch = 0,
+    Jal = 1,
+    Jalr = 2,
+    Return = 3,
+}
+
+impl BpuCfiClass {
+    pub const COUNT: usize = 4;
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Branch => "branch",
+            Self::Jal => "jal",
+            Self::Jalr => "jalr",
+            Self::Return => "return-like",
+        }
+    }
+
+    pub fn from_dpi(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(Self::Branch),
+            1 => Some(Self::Jal),
+            2 => Some(Self::Jalr),
+            3 => Some(Self::Return),
+            _ => None,
+        }
+    }
+
+    const fn index(self) -> usize {
+        self as usize
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BpuCfiCounters {
+    total: u64,
+    correct: u64,
+    pred_hit: u64,
+    no_prediction: u64,
+    taken_no_prediction: u64,
+    direction_miss: u64,
+    target_miss: u64,
+}
+
+impl BpuCfiCounters {
+    pub fn total(self) -> u64 {
+        self.total
+    }
+
+    pub fn correct(self) -> u64 {
+        self.correct
+    }
+
+    pub fn misses(self) -> u64 {
+        self.total - self.correct
+    }
+
+    pub fn accuracy(self) -> f64 {
+        if self.total == 0 {
+            0.0
+        } else {
+            self.correct as f64 / self.total as f64
+        }
+    }
+
+    pub fn pred_hit(self) -> u64 {
+        self.pred_hit
+    }
+
+    pub fn no_prediction(self) -> u64 {
+        self.no_prediction
+    }
+
+    pub fn taken_no_prediction(self) -> u64 {
+        self.taken_no_prediction
+    }
+
+    pub fn direction_miss(self) -> u64 {
+        self.direction_miss
+    }
+
+    pub fn target_miss(self) -> u64 {
+        self.target_miss
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PerfCounters {
     frontend_events: [u64; Self::FRONTEND_EVENT_COUNT],
@@ -12,6 +101,7 @@ pub struct PerfCounters {
     div_special_operations: u64,
     bpu_predictions: u64,
     bpu_correct_predictions: u64,
+    bpu_cfi: [BpuCfiCounters; BpuCfiClass::COUNT],
     mem_events: [u64; Self::MEM_EVENT_COUNT],
     mem_sample_cycles: u64,
     mshr_occupancy_sum: u64,
@@ -90,9 +180,41 @@ impl PerfCounters {
         }
     }
 
-    pub fn bpu_prediction(&mut self, correct: bool) {
+    pub fn bpu_prediction(
+        &mut self,
+        cfi_class: u8,
+        pred_hit: bool,
+        pred_taken: bool,
+        actual_taken: bool,
+        correct: bool,
+    ) {
         self.bpu_predictions += 1;
         self.bpu_correct_predictions += if correct { 1 } else { 0 };
+
+        let Some(cfi_class) = BpuCfiClass::from_dpi(cfi_class) else {
+            return;
+        };
+        let counters = &mut self.bpu_cfi[cfi_class.index()];
+        counters.total += 1;
+        counters.correct += if correct { 1 } else { 0 };
+        counters.pred_hit += if pred_hit { 1 } else { 0 };
+        counters.no_prediction += if pred_hit { 0 } else { 1 };
+        counters.taken_no_prediction += if !pred_hit && actual_taken { 1 } else { 0 };
+
+        if cfi_class == BpuCfiClass::Branch {
+            counters.direction_miss += if pred_hit && pred_taken != actual_taken {
+                1
+            } else {
+                0
+            };
+            counters.target_miss += if pred_hit && pred_taken && actual_taken && !correct {
+                1
+            } else {
+                0
+            };
+        } else {
+            counters.target_miss += if pred_hit && !correct { 1 } else { 0 };
+        }
     }
 
     pub fn mem_perf(
@@ -195,6 +317,10 @@ impl PerfCounters {
         }
     }
 
+    pub fn bpu_cfi(&self, class: BpuCfiClass) -> BpuCfiCounters {
+        self.bpu_cfi[class.index()]
+    }
+
     pub fn mem_event(&self, index: usize) -> u64 {
         self.mem_events[index]
     }
@@ -240,5 +366,44 @@ impl PerfCounters {
         };
 
         ipc
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BpuCfiClass, PerfCounters};
+
+    #[test]
+    fn bpu_cfi_breakdown_tracks_prediction_causes() {
+        let mut counters = PerfCounters::default();
+
+        counters.bpu_prediction(BpuCfiClass::Branch as u8, true, false, true, false);
+        counters.bpu_prediction(BpuCfiClass::Branch as u8, false, false, true, false);
+        counters.bpu_prediction(BpuCfiClass::Branch as u8, true, true, true, false);
+        counters.bpu_prediction(BpuCfiClass::Jal as u8, false, false, true, false);
+        counters.bpu_prediction(BpuCfiClass::Jalr as u8, true, true, true, false);
+        counters.bpu_prediction(BpuCfiClass::Return as u8, true, true, true, true);
+
+        let branch = counters.bpu_cfi(BpuCfiClass::Branch);
+        assert_eq!(branch.total(), 3);
+        assert_eq!(branch.direction_miss(), 1);
+        assert_eq!(branch.taken_no_prediction(), 1);
+        assert_eq!(branch.target_miss(), 1);
+        assert_eq!(branch.misses(), 3);
+
+        let jal = counters.bpu_cfi(BpuCfiClass::Jal);
+        assert_eq!(jal.total(), 1);
+        assert_eq!(jal.taken_no_prediction(), 1);
+
+        let jalr = counters.bpu_cfi(BpuCfiClass::Jalr);
+        assert_eq!(jalr.total(), 1);
+        assert_eq!(jalr.target_miss(), 1);
+
+        let ret = counters.bpu_cfi(BpuCfiClass::Return);
+        assert_eq!(ret.total(), 1);
+        assert_eq!(ret.correct(), 1);
+
+        assert_eq!(counters.bpu_predictions(), 6);
+        assert_eq!(counters.bpu_correct_predictions(), 1);
     }
 }

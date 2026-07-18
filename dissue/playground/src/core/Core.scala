@@ -80,6 +80,7 @@ class Core(resetVector: BigInt) extends Module {
     backend.io.frontend.bits.insts(i).bits.rawInst    := frontend.io.fetch.bits.insts(i).bits.rawInst
     backend.io.frontend.bits.insts(i).bits.isRVC      := frontend.io.fetch.bits.insts(i).bits.isRVC
     backend.io.frontend.bits.insts(i).bits.instLen    := frontend.io.fetch.bits.insts(i).bits.instLen
+    backend.io.frontend.bits.insts(i).bits.predHit    := frontend.io.fetch.bits.insts(i).bits.predHit
     backend.io.frontend.bits.insts(i).bits.predTaken  := frontend.io.fetch.bits.insts(i).bits.predTaken
     backend.io.frontend.bits.insts(i).bits.predNpc    := frontend.io.fetch.bits.insts(i).bits.predNpc
     backend.io.frontend.bits.insts(i).bits.predTarget := frontend.io.fetch.bits.insts(i).bits.predTarget

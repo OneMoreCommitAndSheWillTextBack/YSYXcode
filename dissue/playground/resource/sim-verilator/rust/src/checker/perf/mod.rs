@@ -1,6 +1,6 @@
 mod counters;
 
-pub use counters::PerfCounters;
+pub use counters::{BpuCfiClass, BpuCfiCounters, PerfCounters};
 
 #[derive(Debug, Default)]
 pub struct Perf {
@@ -31,8 +31,16 @@ impl Perf {
         self.counters.div_perf(cycles, special);
     }
 
-    pub fn bpu_prediction(&mut self, correct: bool) {
-        self.counters.bpu_prediction(correct);
+    pub fn bpu_prediction(
+        &mut self,
+        cfi_class: u8,
+        pred_hit: bool,
+        pred_taken: bool,
+        actual_taken: bool,
+        correct: bool,
+    ) {
+        self.counters
+            .bpu_prediction(cfi_class, pred_hit, pred_taken, actual_taken, correct);
     }
 
     pub fn mem_perf(
@@ -110,6 +118,10 @@ impl Perf {
         self.counters.bpu_accuracy()
     }
 
+    pub fn bpu_cfi(&self, class: BpuCfiClass) -> BpuCfiCounters {
+        self.counters.bpu_cfi(class)
+    }
+
     pub fn mem_event(&self, index: usize) -> u64 {
         self.counters.mem_event(index)
     }
@@ -133,6 +145,4 @@ impl Perf {
     pub fn average_load_txn_occupancy(&self) -> f64 {
         self.counters.average_load_txn_occupancy()
     }
-
-    pub fn on_cycle(&mut self) {}
 }

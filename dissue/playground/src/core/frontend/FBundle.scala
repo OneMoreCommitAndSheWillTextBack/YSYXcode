@@ -14,6 +14,8 @@ class FetchInst extends Bundle {
   val isRVC   = Bool()
   val instLen = UInt(3.W)  // 2 or 4
 
+  /** A BTB prediction matched this instruction's PC within its fetch block. */
+  val predHit    = Bool()
   val predTaken  = Bool()
   val predNpc    = UInt(32.W)
   val predTarget = UInt(32.W)

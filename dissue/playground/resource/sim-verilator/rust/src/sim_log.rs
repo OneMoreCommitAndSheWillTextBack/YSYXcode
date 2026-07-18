@@ -80,15 +80,24 @@ pub fn show_trace(config: &SimulationConfig) {
             ANSI_FG_GREEN, ANSI_RESET
         ),
     };
+    let detailed_state = config
+        .checker
+        .detailed_trace_path
+        .as_ref()
+        .map(|path| format!("{}{}{}", ANSI_FG_GREEN, path.display(), ANSI_RESET))
+        .unwrap_or_else(|| state(false));
 
     eprintln!(
-        "{}trace: wave={}{} {}itrace={}{} {}difftest={}{}",
+        "{}trace: wave={}{} {}itrace={}{} {}detailed={}{} {}difftest={}{}",
         ANSI_FG_BLUE,
         ANSI_RESET,
         wave_state,
         ANSI_FG_BLUE,
         ANSI_RESET,
         state(config.checker.itrace_path.is_some()),
+        ANSI_FG_BLUE,
+        ANSI_RESET,
+        detailed_state,
         ANSI_FG_BLUE,
         ANSI_RESET,
         state(config.checker.difftest_enabled()),

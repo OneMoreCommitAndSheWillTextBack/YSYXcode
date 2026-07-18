@@ -1,5 +1,6 @@
 //! Correctness checking and execution observability.
 
+mod detailed_trace;
 mod difftest;
 mod event;
 mod itrace;
@@ -12,10 +13,11 @@ use crate::{
     config::CheckerConfig,
     machine::{Machine, MachineError},
 };
+use detailed_trace::{CycleSample, DetailedTrace};
 use difftest::{DiffTest, DifftestError};
 use event::AsyncInterrupt;
 use itrace::Itrace;
-use perf::{Perf, PerfCounters};
+use perf::{BpuCfiClass, Perf, PerfCounters};
 use statistics::Statistics;
 use std::{fmt, io, mem, path::PathBuf};
 
@@ -29,6 +31,10 @@ pub(crate) enum CheckerError {
     Machine(MachineError),
     Difftest(DifftestError),
     ItraceIo {
+        path: PathBuf,
+        source: io::Error,
+    },
+    DetailedTraceIo {
         path: PathBuf,
         source: io::Error,
     },
@@ -53,6 +59,11 @@ impl fmt::Display for CheckerError {
             Self::ItraceIo { path, source } => {
                 write!(formatter, "failed to write itrace `{}`: {source}", path.display())
             }
+            Self::DetailedTraceIo { path, source } => write!(
+                formatter,
+                "failed to write detailed trace `{}`: {source}",
+                path.display()
+            ),
             Self::ContextUnavailable => write!(formatter, "DUT context is unavailable"),
             Self::MultipleAsyncInterrupts {
                 count,
@@ -79,7 +90,7 @@ impl std::error::Error for CheckerError {
         match self {
             Self::Machine(error) => Some(error),
             Self::Difftest(error) => Some(error),
-            Self::ItraceIo { source, .. } => Some(source),
+            Self::ItraceIo { source, .. } | Self::DetailedTraceIo { source, .. } => Some(source),
             Self::ContextUnavailable
             | Self::MultipleAsyncInterrupts { .. }
             | Self::NonTerminalAsyncInterrupt { .. } => None,
@@ -156,10 +167,12 @@ impl PendingRetireBatch {
 pub(crate) struct Checker {
     difftest: DiffTest,
     itrace: Option<Itrace>,
+    detailed_trace: Option<DetailedTrace>,
     perf: Perf,
     statistics: Statistics,
     latest_context: Option<CpuContext>,
     pending_retire: PendingRetireBatch,
+    cycle_sample: CycleSample,
 }
 
 impl Checker {
@@ -174,14 +187,25 @@ impl Checker {
             ),
             None => None,
         };
+        let detailed_trace = match config.detailed_trace_path.as_ref() {
+            Some(path) => Some(DetailedTrace::create(path).map_err(|source| {
+                CheckerError::DetailedTraceIo {
+                    path: path.clone(),
+                    source,
+                }
+            })?),
+            None => None,
+        };
 
         Ok(Self {
             difftest,
             itrace,
+            detailed_trace,
             perf: Perf::new(),
             statistics: Statistics::new(),
             latest_context: None,
             pending_retire: PendingRetireBatch::default(),
+            cycle_sample: CycleSample::default(),
         })
     }
 
@@ -207,6 +231,7 @@ impl Checker {
     pub(crate) fn reset_observations(&mut self) {
         self.latest_context = None;
         self.pending_retire.clear();
+        self.cycle_sample.clear();
     }
 
     /// Attaches the reference after reset supplied the first valid DUT context.
@@ -236,6 +261,9 @@ impl Checker {
 
     pub(crate) fn on_frontend_perf(&mut self, events: u32) {
         self.perf.frontend_perf(events);
+        if self.detailed_trace.is_some() {
+            self.cycle_sample.record_frontend(events);
+        }
     }
 
     pub(crate) fn on_issue_queue_perf(
@@ -247,14 +275,36 @@ impl Checker {
     ) {
         self.perf
             .issue_queue_perf(issue_count, occupancy, block_ready, block_operand);
+        if self.detailed_trace.is_some() {
+            self.cycle_sample.record_issue_queue(
+                issue_count,
+                occupancy,
+                block_ready,
+                block_operand,
+            );
+        }
     }
 
     pub(crate) fn on_div_perf(&mut self, cycles: u32, special: bool) {
         self.perf.div_perf(cycles, special);
+        if self.detailed_trace.is_some() {
+            self.cycle_sample.record_div_completion(cycles, special);
+        }
     }
 
-    pub(crate) fn on_bpu_prediction(&mut self, correct: bool) {
-        self.perf.bpu_prediction(correct);
+    pub(crate) fn on_bpu_prediction(
+        &mut self,
+        cfi_class: u8,
+        pred_hit: bool,
+        pred_taken: bool,
+        actual_taken: bool,
+        correct: bool,
+    ) {
+        self.perf
+            .bpu_prediction(cfi_class, pred_hit, pred_taken, actual_taken, correct);
+        if self.detailed_trace.is_some() {
+            self.cycle_sample.record_bpu_prediction(correct);
+        }
     }
 
     pub(crate) fn on_memory_perf(
@@ -270,6 +320,14 @@ impl Checker {
             store_queue_occupancy,
             load_txn_occupancy,
         );
+        if self.detailed_trace.is_some() {
+            self.cycle_sample.record_memory(
+                events,
+                mshr_occupancy,
+                store_queue_occupancy,
+                load_txn_occupancy,
+            );
+        }
     }
 
     /// Completes checking for callbacks emitted by the most recent driver step.
@@ -277,8 +335,20 @@ impl Checker {
         &mut self,
         machine: &Machine,
     ) -> Result<CheckerOutcome, CheckerError> {
-        self.perf.on_cycle();
         let pending = mem::take(&mut self.pending_retire);
+        if let Some(detailed_trace) = self.detailed_trace.as_mut() {
+            let path = detailed_trace.path().to_path_buf();
+            let sample = mem::take(&mut self.cycle_sample);
+            detailed_trace
+                .write_cycle(
+                    self.statistics.cycle() + 1,
+                    pending.commit_count,
+                    &pending.commit_groups,
+                    &sample,
+                )
+                .map_err(|source| CheckerError::DetailedTraceIo { path, source })?;
+        }
+
         if pending.commit_count == 0 {
             return Ok(CheckerOutcome::Continue);
         }
@@ -428,6 +498,27 @@ impl Checker {
             self.perf.bpu_correct_predictions(),
             self.perf.bpu_accuracy() * 100.0
         );
+        for class in [
+            BpuCfiClass::Branch,
+            BpuCfiClass::Jal,
+            BpuCfiClass::Jalr,
+            BpuCfiClass::Return,
+        ] {
+            let counters = self.perf.bpu_cfi(class);
+            crate::Log!(
+                "BPU {}: total: {}, correct: {}, miss: {}, accuracy: {:.2}%, pred hit: {}, no prediction: {}, taken no prediction: {}, direction miss: {}, target miss: {}",
+                class.label(),
+                counters.total(),
+                counters.correct(),
+                counters.misses(),
+                counters.accuracy() * 100.0,
+                counters.pred_hit(),
+                counters.no_prediction(),
+                counters.taken_no_prediction(),
+                counters.direction_miss(),
+                counters.target_miss()
+            );
+        }
         crate::Log!(
             "DCache: access: {}, hit: {}, miss: {}, bypass: {}, hit rate: {:.2}%",
             self.perf.mem_event(PerfCounters::DCACHE_ACCESS),
