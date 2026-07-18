@@ -22,8 +22,8 @@ class BtbUpdate(cfg: BpuConfig) extends Bundle {
 }
 
 class BtbBundle(cfg: BpuConfig) extends Bundle {
-  val lookupPc = Input(UInt(cfg.addrWidth.W))
-  val resp     = Output(new BtbResp(cfg))
+  val lookupPc = Input(Vec(2, UInt(cfg.addrWidth.W)))
+  val resp     = Output(Vec(2, new BtbResp(cfg)))
   val update   = Flipped(Valid(new BtbUpdate(cfg)))
 }
 
@@ -57,14 +57,16 @@ class Btb(cfg: BpuConfig) extends Module {
     cfioffArray(updateSet) := io.update.bits.cfiOffset
   }
 
-  val reqSet = index(io.lookupPc)
-  val reqTag = tag(io.lookupPc)
-  val hit    = validArray(reqSet) === true.B && tagArray(reqSet) === reqTag
+  for (lane <- 0 until 2) {
+    val reqSet = index(io.lookupPc(lane))
+    val reqTag = tag(io.lookupPc(lane))
+    val hit    = validArray(reqSet) && tagArray(reqSet) === reqTag
 
-  io.resp.hit       := hit
-  io.resp.target    := Mux(hit, targetArray(reqSet), 0.U)
-  io.resp.cfiOffset := Mux(hit, cfioffArray(reqSet), 0.U)
-  io.resp.cfiType   := Mux(hit, cfitpArray(reqSet), CfiType.none)
+    io.resp(lane).hit       := hit
+    io.resp(lane).target    := Mux(hit, targetArray(reqSet), 0.U)
+    io.resp(lane).cfiOffset := Mux(hit, cfioffArray(reqSet), 0.U)
+    io.resp(lane).cfiType   := Mux(hit, cfitpArray(reqSet), CfiType.none)
+  }
 }
 
 class BhtUpdate(cfg: BpuConfig) extends Bundle {
@@ -73,8 +75,8 @@ class BhtUpdate(cfg: BpuConfig) extends Bundle {
 }
 
 class BhtBundle(cfg: BpuConfig) extends Bundle {
-  val lookupPc = Input(UInt(cfg.addrWidth.W))
-  val taken    = Output(Bool())
+  val lookupPc = Input(Vec(2, UInt(cfg.addrWidth.W)))
+  val taken    = Output(Vec(2, Bool()))
   val update   = Flipped(Valid(new BhtUpdate(cfg)))
 }
 
@@ -128,10 +130,12 @@ class Bht(cfg: BpuConfig) extends Module {
     }
   }
 
-  val reqIdx   = idx(io.lookupPc)
-  val reqTaken = takenArray(reqIdx)
+  for (lane <- 0 until 2) {
+    val reqIdx   = idx(io.lookupPc(lane))
+    val reqTaken = takenArray(reqIdx)
 
-  io.taken := validArray(reqIdx) && predictTaken(reqTaken)
+    io.taken(lane) := validArray(reqIdx) && predictTaken(reqTaken)
+  }
 }
 
 class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
@@ -140,8 +144,10 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   val btb = Module(new Btb(cfg))
   val bht = Module(new Bht(cfg))
 
-  btb.io.lookupPc := io.lookup.bits.pc
-  bht.io.lookupPc := io.lookup.bits.pc
+  btb.io.lookupPc(0) := io.lookup.bits.pc
+  btb.io.lookupPc(1) := io.lookupSecondary.bits.pc
+  bht.io.lookupPc(0) := io.lookup.bits.pc
+  bht.io.lookupPc(1) := io.lookupSecondary.bits.pc
 
   btb.io.update.valid          := io.update.valid && io.update.bits.taken
   btb.io.update.bits.pc        := io.update.bits.pc
@@ -153,16 +159,23 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   bht.io.update.bits.pc    := io.update.bits.pc
   bht.io.update.bits.taken := io.update.bits.taken
 
-  val lookupOffset = io.lookup.bits.pc(cfg.offsetBits - 1, 1)
-  val isBranch     = btb.io.resp.cfiType === CfiType.branch
-  val hasCfi       = btb.io.resp.cfiType =/= CfiType.none
-  val btbHit       = io.lookup.valid && btb.io.resp.hit && hasCfi
-  val cfiInWindow  = btbHit && btb.io.resp.cfiOffset >= lookupOffset
-  val predTaken    = cfiInWindow && Mux(isBranch, bht.io.taken, true.B)
+  private def predictionFor(lookupValid: Bool, lookupPc: UInt, lane: Int): BpuPred = {
+    val lookupOffset = lookupPc(cfg.offsetBits - 1, 1)
+    val isBranch     = btb.io.resp(lane).cfiType === CfiType.branch
+    val hasCfi       = btb.io.resp(lane).cfiType =/= CfiType.none
+    val btbHit       = lookupValid && btb.io.resp(lane).hit && hasCfi
+    val cfiInWindow  = btbHit && btb.io.resp(lane).cfiOffset >= lookupOffset
+    val predTaken    = cfiInWindow && Mux(isBranch, bht.io.taken(lane), true.B)
+    val prediction   = Wire(new BpuPred(cfg))
 
-  io.pred.valid     := cfiInWindow
-  io.pred.taken     := predTaken
-  io.pred.target    := Mux(predTaken, btb.io.resp.target, 0.U)
-  io.pred.cfiOffset := Mux(cfiInWindow, btb.io.resp.cfiOffset, 0.U)
-  io.pred.cfiType   := Mux(cfiInWindow, btb.io.resp.cfiType, CfiType.none)
+    prediction.valid     := cfiInWindow
+    prediction.taken     := predTaken
+    prediction.target    := Mux(predTaken, btb.io.resp(lane).target, 0.U)
+    prediction.cfiOffset := Mux(cfiInWindow, btb.io.resp(lane).cfiOffset, 0.U)
+    prediction.cfiType   := Mux(cfiInWindow, btb.io.resp(lane).cfiType, CfiType.none)
+    prediction
+  }
+
+  io.pred          := predictionFor(io.lookup.valid, io.lookup.bits.pc, 0)
+  io.predSecondary := predictionFor(io.lookupSecondary.valid, io.lookupSecondary.bits.pc, 1)
 }

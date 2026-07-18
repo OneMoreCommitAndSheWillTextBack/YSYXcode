@@ -5,33 +5,37 @@ import chisel3.util.{log2Ceil, Valid}
 import top.config.ICacheConfig
 import top.core.frontend.bundle.{FetchControlMeta, FetchPred}
 
-class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int) extends Module {
-  require(depth > 1, "FetchTargetQueue requires at least two entries")
+class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int, groupWidth: Int = 2) extends Module {
+  require(depth > groupWidth, "FetchTargetQueue must hold one complete fetch group")
   require((depth & (depth - 1)) == 0, "FetchTargetQueue depth must be a power of two")
+  require(groupWidth > 0, "FetchTargetQueue group width must be positive")
   require(log2Ceil(depth) == cacheCfg.fetchTargetIndexBits, "FetchTargetQueue index width must match its depth")
 
-  private val ptrWidth   = log2Ceil(depth)
-  private val countWidth = log2Ceil(depth + 1)
+  private val ptrWidth        = log2Ceil(depth)
+  private val countWidth      = log2Ceil(depth + 1)
+  private val groupCountWidth = log2Ceil(groupWidth + 1)
 
   val io = IO(new Bundle {
     val redirect = Input(Bool())
 
     val allocate      = Input(Bool())
-    val allocatePc    = Input(UInt(cacheCfg.addrWidth.W))
-    val allocatePred  = Input(new FetchPred(cacheCfg))
+    val allocateCount = Input(UInt(groupCountWidth.W))
+    val allocatePc    = Input(Vec(groupWidth, UInt(cacheCfg.addrWidth.W)))
+    val allocatePred  = Input(Vec(groupWidth, new FetchPred(cacheCfg)))
     val allocateReady = Output(Bool())
-    val allocateMeta  = Output(new FetchControlMeta(cacheCfg))
+    val allocateMeta  = Output(Vec(groupWidth, new FetchControlMeta(cacheCfg)))
 
-    val release     = Input(Bool())
-    val releaseMeta = Input(new FetchControlMeta(cacheCfg))
-    val head        = Output(Valid(new FetchControlMeta(cacheCfg)))
+    val release      = Input(Bool())
+    val releaseCount = Input(UInt(groupCountWidth.W))
+    val releaseMeta  = Input(Vec(groupWidth, new FetchControlMeta(cacheCfg)))
+    val peek         = Output(Vec(groupWidth, Valid(new FetchControlMeta(cacheCfg))))
 
     val epoch = Output(UInt(cacheCfg.fetchEpochBits.W))
     val count = Output(UInt(countWidth.W))
   })
 
-  private def ptrNext(ptr: UInt): UInt =
-    (ptr + 1.U)(ptrWidth - 1, 0)
+  private def ptrAdd(ptr: UInt, increment: UInt): UInt =
+    (ptr + increment)(ptrWidth - 1, 0)
 
   val entries      = Reg(Vec(depth, new FetchControlMeta(cacheCfg)))
   val readPtr      = RegInit(0.U(ptrWidth.W))
@@ -40,22 +44,30 @@ class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int) extends Module {
   val nextSequence = RegInit(0.U(cacheCfg.fetchSequenceBits.W))
   val epoch        = RegInit(0.U(cacheCfg.fetchEpochBits.W))
 
-  private val empty = count === 0.U
-  private val full  = count === depth.U
+  private val freeCount = depth.U(countWidth.W) - count
+  private val releaseCountWide = Wire(UInt(countWidth.W))
+  private val allocateCountWide = Wire(UInt(countWidth.W))
+  releaseCountWide := io.releaseCount
+  allocateCountWide := io.allocateCount
+  private val releasedSlots = Mux(io.release, releaseCountWide, 0.U(countWidth.W))
 
-  io.allocateReady := !io.redirect && (!full || io.release)
-  io.allocateMeta.sequence       := nextSequence
-  io.allocateMeta.epoch          := epoch
-  io.allocateMeta.ftqIndex       := writePtr
-  io.allocateMeta.pc             := io.allocatePc
-  io.allocateMeta.fastPrediction := io.allocatePred
-  io.head.valid                   := !empty
-  io.head.bits                    := entries(readPtr)
-  io.epoch                        := epoch
-  io.count                        := count
+  io.allocateReady := !io.redirect && freeCount +& releasedSlots >= allocateCountWide
+  for (lane <- 0 until groupWidth) {
+    io.allocateMeta(lane).sequence       := nextSequence + lane.U
+    io.allocateMeta(lane).epoch          := epoch
+    io.allocateMeta(lane).ftqIndex       := ptrAdd(writePtr, lane.U)
+    io.allocateMeta(lane).pc             := io.allocatePc(lane)
+    io.allocateMeta(lane).fastPrediction := io.allocatePred(lane)
+
+    io.peek(lane).valid := count > lane.U
+    io.peek(lane).bits  := entries(ptrAdd(readPtr, lane.U))
+  }
+  io.epoch := epoch
+  io.count := count
 
   private val allocateFire = io.allocate && io.allocateReady
   private val releaseFire  = io.release
+  private val allocatedSlots = Mux(allocateFire, allocateCountWide, 0.U(countWidth.W))
 
   when(io.redirect) {
     readPtr  := 0.U
@@ -64,25 +76,38 @@ class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int) extends Module {
     epoch    := epoch + 1.U
   }.otherwise {
     when(allocateFire) {
-      entries(writePtr) := io.allocateMeta
-      writePtr          := ptrNext(writePtr)
-      nextSequence      := nextSequence + 1.U
+      for (lane <- 0 until groupWidth) {
+        when(lane.U < io.allocateCount) {
+          entries(ptrAdd(writePtr, lane.U)) := io.allocateMeta(lane)
+        }
+      }
+      writePtr     := ptrAdd(writePtr, io.allocateCount)
+      nextSequence := nextSequence + io.allocateCount
     }
     when(releaseFire) {
-      readPtr := ptrNext(readPtr)
+      readPtr := ptrAdd(readPtr, io.releaseCount)
     }
-    count := count + allocateFire.asUInt - releaseFire.asUInt
+    count := count + allocatedSlots - releasedSlots
   }
 
   assert(count <= depth.U)
+  assert(io.allocateCount <= groupWidth.U)
+  assert(io.releaseCount <= groupWidth.U)
   when(io.allocate) {
     assert(!io.redirect)
+    assert(io.allocateCount =/= 0.U)
   }
   when(io.release) {
     assert(!io.redirect)
-    assert(!empty)
-    assert(io.releaseMeta.sequence === entries(readPtr).sequence)
-    assert(io.releaseMeta.epoch === entries(readPtr).epoch)
-    assert(io.releaseMeta.ftqIndex === entries(readPtr).ftqIndex)
+    assert(io.releaseCount =/= 0.U)
+    assert(releaseCountWide <= count)
+    for (lane <- 0 until groupWidth) {
+      when(lane.U < io.releaseCount) {
+        assert(io.peek(lane).valid)
+        assert(io.releaseMeta(lane).sequence === io.peek(lane).bits.sequence)
+        assert(io.releaseMeta(lane).epoch === io.peek(lane).bits.epoch)
+        assert(io.releaseMeta(lane).ftqIndex === io.peek(lane).bits.ftqIndex)
+      }
+    }
   }
 }

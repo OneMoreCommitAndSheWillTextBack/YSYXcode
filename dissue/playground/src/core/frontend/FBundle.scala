@@ -67,6 +67,14 @@ class ICacheResp(cfg: ICacheConfig) extends Bundle {
   val exception = new FetchException(cfg.addrWidth)
 }
 
+class ICacheFetchGroupReq(cfg: ICacheConfig) extends Bundle {
+  val blocks = Vec(cfg.fetchGroupBlocks, Valid(new ICacheReq(cfg)))
+}
+
+class ICacheFetchGroupResp(cfg: ICacheConfig) extends Bundle {
+  val blocks = Vec(cfg.fetchGroupBlocks, Valid(new ICacheResp(cfg)))
+}
+
 class ICacheRefillReq(addrWidth: Int = 32) extends Bundle {
   val addr = UInt(addrWidth.W)
 }
@@ -130,7 +138,9 @@ class BpuUpdate(cfg: BpuConfig) extends Bundle {
 }
 
 class BpuBundle(cfg: BpuConfig) extends Bundle {
-  val lookup = Flipped(Valid(new BpuLookupReq(cfg)))
-  val pred   = Output(new BpuPred(cfg))
-  val update = Flipped(Valid(new BpuUpdate(cfg)))
+  val lookup          = Flipped(Valid(new BpuLookupReq(cfg)))
+  val lookupSecondary = Flipped(Valid(new BpuLookupReq(cfg)))
+  val pred            = Output(new BpuPred(cfg))
+  val predSecondary   = Output(new BpuPred(cfg))
+  val update          = Flipped(Valid(new BpuUpdate(cfg)))
 }

@@ -1,7 +1,7 @@
 package top.core.frontend
 
 import chisel3._
-import chisel3.util.{Decoupled, MuxCase, Valid}
+import chisel3.util.{Cat, Decoupled, MuxCase, Valid}
 import top.core.backend.csr.CsrStatus
 import top.core.bundle.{DataMemReq, DataMemResp, FrontendPerfEvent}
 import top.config.{BackendConfig, FrontendConfig}
@@ -40,7 +40,8 @@ class Frontend(
     new PCGen(
       resetVector = resetVector,
       addrWidth = cfg.addrWidth,
-      fetchBytes = cfg.fetchBytes
+      fetchBytes = cfg.fetchBytes,
+      maxAdvanceBlocks = cfg.icache.fetchGroupBlocks
     )
   )
   val ifetch    = Module(new IFetch(cfg.icache, cfg.ifetch))
@@ -65,24 +66,36 @@ class Frontend(
   pcRedirect.value := Mux(redirect.valid, redirect.value, ifetch.io.predRedirect.value)
 
   pcGen.io.redirect := pcRedirect
-  pcGen.io.advance  := ifetch.io.pcAdvance
+  pcGen.io.advanceBlocks := ifetch.io.pcAdvanceBlocks
 
   ifetch.io.redirect       := redirect
   ifetch.io.flush          := io.icacheInvalidate
   ifetch.io.pc             := pcGen.io.pc
-  ifetch.io.pred.valid     := bpu.io.pred.valid
-  ifetch.io.pred.taken     := bpu.io.pred.taken
-  ifetch.io.pred.target    := bpu.io.pred.target
-  ifetch.io.pred.cfiOffset := bpu.io.pred.cfiOffset
-  ifetch.io.pred.cfiType   := bpu.io.pred.cfiType
+  ifetch.io.pred(0).valid     := bpu.io.pred.valid
+  ifetch.io.pred(0).taken     := bpu.io.pred.taken
+  ifetch.io.pred(0).target    := bpu.io.pred.target
+  ifetch.io.pred(0).cfiOffset := bpu.io.pred.cfiOffset
+  ifetch.io.pred(0).cfiType   := bpu.io.pred.cfiType
+  ifetch.io.pred(1).valid     := bpu.io.predSecondary.valid
+  ifetch.io.pred(1).taken     := bpu.io.predSecondary.taken
+  ifetch.io.pred(1).target    := bpu.io.predSecondary.target
+  ifetch.io.pred(1).cfiOffset := bpu.io.predSecondary.cfiOffset
+  ifetch.io.pred(1).cfiType   := bpu.io.predSecondary.cfiType
 
-  bpu.io.lookup.valid   := true.B
-  bpu.io.lookup.bits.pc := pcGen.io.pc
-  bpu.io.update.valid   := io.bpuUpdate.valid
-  bpu.io.update.bits    := io.bpuUpdate.bits
+  val firstBlockAddr = Cat(
+    pcGen.io.pc(cfg.addrWidth - 1, cfg.icache.offsetBits),
+    0.U(cfg.icache.offsetBits.W)
+  )
+  bpu.io.lookup.valid             := true.B
+  bpu.io.lookup.bits.pc           := pcGen.io.pc
+  bpu.io.lookupSecondary.valid    := true.B
+  bpu.io.lookupSecondary.bits.pc  := firstBlockAddr + cfg.fetchBytes.U
+  bpu.io.update.valid             := io.bpuUpdate.valid
+  bpu.io.update.bits              := io.bpuUpdate.bits
 
   ifetch.io.icacheReq <> iCache.io.req
   ifetch.io.icacheResp <> iCache.io.resp
+  ifetch.io.icacheAcceptedBlocks := iCache.io.acceptedBlocks
   iCache.io.invalidate := io.icacheInvalidate
 
   refillMmu.io.csrStatus     := io.csrStatus
@@ -100,6 +113,9 @@ class Frontend(
   io.pc := pcGen.io.pc
   io.fetch <> ifetch.io.fetch
 
+  private val fetchQueueSupplyStarved =
+    ifetch.io.fetchQueueEmpty && io.fetch.ready && !pcRedirect.valid && !io.icacheInvalidate
+
   private val perfEvents = Seq(
     FrontendPerfEvent.bit(FrontendPerfEvent.icacheRequest, iCache.io.perf.request),
     FrontendPerfEvent.bit(FrontendPerfEvent.icacheHit, iCache.io.perf.hit),
@@ -108,8 +124,16 @@ class Frontend(
     FrontendPerfEvent.bit(FrontendPerfEvent.backendRedirect, redirect.valid),
     FrontendPerfEvent.bit(FrontendPerfEvent.icacheInvalidate, io.icacheInvalidate),
     FrontendPerfEvent.bit(FrontendPerfEvent.frontendEmpty, io.fetch.ready && !io.fetch.valid),
-    FrontendPerfEvent.bit(FrontendPerfEvent.axiRequestWait, refillMmu.io.physReq.valid && !io.cacheRefillReq.ready)
+    FrontendPerfEvent.bit(FrontendPerfEvent.axiRequestWait, refillMmu.io.physReq.valid && !io.cacheRefillReq.ready),
+    FrontendPerfEvent.bit(
+      FrontendPerfEvent.fetchQueueEmptyWithBackendReady,
+      fetchQueueSupplyStarved
+    ),
+    FrontendPerfEvent.bit(FrontendPerfEvent.fetchQueueFull, ifetch.io.fetchQueueFull)
   ).reduce(_ | _)
 
-  perf.io.events := perfEvents
+  perf.io.events                 := perfEvents
+  perf.io.fetchQueueOccupancy    := ifetch.io.fetchQueueOccupancy.pad(32)
+  perf.io.fetchQueueEnqueueWidth := ifetch.io.fetchQueueEnqueueWidth.pad(32)
+  perf.io.fetchQueueDequeueWidth := ifetch.io.fetchQueueDequeueWidth.pad(32)
 }

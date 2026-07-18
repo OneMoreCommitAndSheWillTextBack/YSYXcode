@@ -384,9 +384,20 @@ extern "C" fn on_difftest_commit(opaque: *mut c_void, raw: *const ffi::NpcCommit
     host.checker.on_commit(host.machine, group);
 }
 
-extern "C" fn frontend_perf(opaque: *mut c_void, events: u32) {
+extern "C" fn frontend_perf(
+    opaque: *mut c_void,
+    events: u32,
+    fetch_queue_occupancy: u32,
+    fetch_queue_enqueue_width: u32,
+    fetch_queue_dequeue_width: u32,
+) {
     if let Some(host) = unsafe { host_from_opaque(opaque) } {
-        host.checker.on_frontend_perf(events);
+        host.checker.on_frontend_perf(
+            events,
+            fetch_queue_occupancy,
+            fetch_queue_enqueue_width,
+            fetch_queue_dequeue_width,
+        );
     }
 }
 

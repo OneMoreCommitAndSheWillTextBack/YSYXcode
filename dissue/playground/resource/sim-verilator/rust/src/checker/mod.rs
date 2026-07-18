@@ -259,10 +259,26 @@ impl Checker {
         self.pending_retire.record(group, sync_prefix);
     }
 
-    pub(crate) fn on_frontend_perf(&mut self, events: u32) {
-        self.perf.frontend_perf(events);
+    pub(crate) fn on_frontend_perf(
+        &mut self,
+        events: u32,
+        fetch_queue_occupancy: u32,
+        fetch_queue_enqueue_width: u32,
+        fetch_queue_dequeue_width: u32,
+    ) {
+        self.perf.frontend_perf(
+            events,
+            fetch_queue_occupancy,
+            fetch_queue_enqueue_width,
+            fetch_queue_dequeue_width,
+        );
         if self.detailed_trace.is_some() {
-            self.cycle_sample.record_frontend(events);
+            self.cycle_sample.record_frontend(
+                events,
+                fetch_queue_occupancy,
+                fetch_queue_enqueue_width,
+                fetch_queue_dequeue_width,
+            );
         }
     }
 
@@ -465,6 +481,16 @@ impl Checker {
             self.perf.frontend_event(PerfCounters::ICACHE_INVALIDATE),
             self.perf.frontend_event(PerfCounters::FRONTEND_EMPTY),
             self.perf.frontend_event(PerfCounters::AXI_REQUEST_WAIT)
+        );
+        crate::Log!(
+            "FetchQueue: samples: {}, avg occupancy: {:.3}, true starvation cycles: {}, full cycles: {}, accepted enqueue width total: {}, dequeued width total: {}, avg miss-start queue occupancy: {:.3}",
+            self.perf.fetch_queue_sample_cycles(),
+            self.perf.fetch_queue_average_occupancy(),
+            self.perf.fetch_queue_true_starvation_cycles(),
+            self.perf.fetch_queue_full_cycles(),
+            self.perf.fetch_queue_enqueue_width_total(),
+            self.perf.fetch_queue_dequeue_width_total(),
+            self.perf.fetch_queue_average_miss_start_occupancy()
         );
         crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",

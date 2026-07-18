@@ -32,7 +32,15 @@ pub struct NpcDpiCallbacks {
     pub pmem_read: Option<extern "C" fn(*mut c_void, u32, u32) -> u32>,
     pub pmem_write: Option<extern "C" fn(*mut c_void, addr: u32, len: u32, data: u32)>,
     pub time_read: Option<extern "C" fn(*mut c_void) -> u64>,
-    pub frontend_perf: Option<extern "C" fn(*mut c_void, events: u32)>,
+    pub frontend_perf: Option<
+        extern "C" fn(
+            *mut c_void,
+            events: u32,
+            fetch_queue_occupancy: u32,
+            fetch_queue_enqueue_width: u32,
+            fetch_queue_dequeue_width: u32,
+        ),
+    >,
     pub issue_queue_perf: Option<
         extern "C" fn(
             *mut c_void,

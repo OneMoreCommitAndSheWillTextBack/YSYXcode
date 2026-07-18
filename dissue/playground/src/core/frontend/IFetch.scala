@@ -3,13 +3,16 @@ package top.core.frontend.ifetch
 import chisel3._
 import chisel3.util._
 import top.config.{ICacheConfig, IFetchConfig}
-import top.core.frontend.bundle.{FetchControlMeta, FetchInst, FetchPred, ICacheReq, ICacheResp, PcRedirect}
+import top.core.frontend.bundle.{FetchControlMeta, FetchInst, FetchPred, ICacheFetchGroupReq, ICacheFetchGroupResp, ICacheReq, ICacheResp, PcRedirect}
 
-// two stage pipline
-// cache block -> 16bits block -> inst buffer
+object FetchWidth {
+  val backend                = 2
+  val frontend               = 4
+  val maxInstructionHalfwords = 2
+}
 
 class FetchPacket extends Bundle {
-  val insts = Vec(2, Valid(new FetchInst))
+  val insts = Vec(FetchWidth.backend, Valid(new FetchInst))
 }
 
 class HalfwordEntry(cfg: ICacheConfig) extends Bundle {
@@ -61,6 +64,50 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
     when(io.resp.exception.valid) {
       io.entries(i).exception.tval := io.entries(i).pc
     }
+  }
+}
+
+class FetchGroupSplitter(cfg: ICacheConfig) extends Module {
+  require(cfg.fetchGroupBlocks == 2, "FetchGroupSplitter requires two-block groups")
+
+  private val fetchHalfwords = cfg.fetchBytes / 2
+  private val enqWidth       = fetchHalfwords * cfg.fetchGroupBlocks
+  private val countWidth     = log2Ceil(enqWidth + 1)
+  private val blockCountWidth = log2Ceil(fetchHalfwords + 1)
+  private val parcelIndexWidth = log2Ceil(fetchHalfwords)
+
+  val io = IO(new Bundle {
+    val resp    = Input(new ICacheFetchGroupResp(cfg))
+    val entries = Output(Vec(enqWidth, new HalfwordEntry(cfg)))
+    val count   = Output(UInt(countWidth.W))
+  })
+
+  val firstBlock  = Module(new HalfwordSplitter(cfg))
+  val secondBlock = Module(new HalfwordSplitter(cfg))
+  firstBlock.io.resp  := io.resp.blocks(0).bits
+  secondBlock.io.resp := io.resp.blocks(1).bits
+
+  val secondCount = Mux(io.resp.blocks(1).valid, secondBlock.io.count, 0.U(blockCountWidth.W))
+  val totalCount  = Wire(UInt(countWidth.W))
+  totalCount := firstBlock.io.count +& secondCount
+  io.count := totalCount
+
+  for (parcel <- 0 until enqWidth) {
+    val parcelIndex = parcel.U(countWidth.W)
+    val firstIndex  = (parcel % fetchHalfwords).U(parcelIndexWidth.W)
+    val secondIndex = (parcelIndex - firstBlock.io.count)(parcelIndexWidth - 1, 0)
+    io.entries(parcel) := 0.U.asTypeOf(new HalfwordEntry(cfg))
+    when(parcelIndex < firstBlock.io.count) {
+      io.entries(parcel) := firstBlock.io.entries(firstIndex)
+    }.elsewhen(parcelIndex < totalCount) {
+      io.entries(parcel) := secondBlock.io.entries(secondIndex)
+    }
+  }
+
+  when(io.resp.blocks(1).valid) {
+    assert(io.resp.blocks(1).bits.meta.blockAddr ===
+      io.resp.blocks(0).bits.meta.blockAddr + cfg.fetchBytes.U)
+    assert(io.resp.blocks(1).bits.meta.control.pc === io.resp.blocks(1).bits.meta.blockAddr)
   }
 }
 
@@ -132,16 +179,19 @@ class HalfwordBuffer(cfg: ICacheConfig, depth: Int, enqWidth: Int, peekWidth: In
   }
 }
 
-class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
-  private val peekWidth  = 4
-  private val countWidth = log2Ceil(bufferDepth + 1)
-  private val needWidth  = log2Ceil(peekWidth + 1)
+class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
+  private val outputWidth = FetchWidth.frontend
+  private val peekWidth   = outputWidth * FetchWidth.maxInstructionHalfwords
+  private val countWidth  = log2Ceil(bufferDepth + 1)
+  private val parcelIndexWidth = log2Ceil(peekWidth)
+  private val startWidth       = log2Ceil(peekWidth + 1)
+  private val needWidth        = log2Ceil(FetchWidth.maxInstructionHalfwords + 1)
 
   val io = IO(new Bundle {
     val flush        = Input(Bool())
     val peek         = Input(Vec(peekWidth, new HalfwordEntry(cfg)))
     val count        = Input(UInt(countWidth.W))
-    val out          = Decoupled(new FetchPacket)
+    val out          = Decoupled(new FetchQueueEnqueue(cfg, outputWidth))
     val deq          = Output(UInt(countWidth.W))
     val predRedirect = Output(new PcRedirect)
   })
@@ -152,123 +202,102 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   private def cfiOffset(pc: UInt): UInt =
     pc(cfg.offsetBits - 1, 1)
 
-  val h0 = io.peek(0)
-  val h1 = io.peek(1)
-  val h2 = io.peek(2)
-  val h3 = io.peek(3)
+  val starts = Wire(Vec(outputWidth, UInt(startWidth.W)))
+  val needs  = Wire(Vec(outputWidth, UInt(needWidth.W)))
+  val ready  = Wire(Vec(outputWidth, Bool()))
 
-  val firstIsRVC = h0.bits(1, 0) =/= 3.U
-  val firstNeed  = Mux(firstIsRVC, 1.U(needWidth.W), 2.U(needWidth.W))
-  val firstReady = io.count >= firstNeed
-  val firstRaw   = Mux(firstIsRVC, Cat(0.U(16.W), h0.bits), Cat(h1.bits, h0.bits))
-  val firstException = Wire(new top.core.bundle.FetchException(cfg.addrWidth))
-  firstException := h0.exception
-  when(!firstIsRVC && h1.exception.valid) {
-    firstException := h1.exception
-  }
-
-  val secondLow  = Mux(firstIsRVC, h1.bits, h2.bits)
-  val secondHigh = Mux(firstIsRVC, h2.bits, h3.bits)
-  val secondPc   = Mux(firstIsRVC, h1.pc, h2.pc)
-  val secondHighPc = Mux(firstIsRVC, h2.pc, h3.pc)
-  val secondControl = Wire(new FetchControlMeta(cfg))
-  secondControl := Mux(firstIsRVC, h1.control, h2.control)
-  val secondHighControl = Wire(new FetchControlMeta(cfg))
-  secondHighControl := Mux(firstIsRVC, h2.control, h3.control)
-  val secondBlockAddr = Mux(firstIsRVC, h1.blockAddr, h2.blockAddr)
-  val secondHighBlockAddr = Mux(firstIsRVC, h2.blockAddr, h3.blockAddr)
-  val secondIsRVC = secondLow(1, 0) =/= 3.U
-  val secondNeed  = Mux(secondIsRVC, 1.U(needWidth.W), 2.U(needWidth.W))
-  val totalNeed   = firstNeed + secondNeed
-  val secondReady = firstReady && io.count >= totalNeed
-  val secondRaw   = Mux(secondIsRVC, Cat(0.U(16.W), secondLow), Cat(secondHigh, secondLow))
-  val secondException = Wire(new top.core.bundle.FetchException(cfg.addrWidth))
-  secondException := Mux(firstIsRVC, h1.exception, h2.exception)
-  when(!secondIsRVC) {
-    val highException = Mux(firstIsRVC, h2.exception, h3.exception)
-    when(highException.valid) {
-      secondException := highException
+  starts(0) := 0.U
+  for (lane <- 0 until outputWidth) {
+    val low  = io.peek(starts(lane)(parcelIndexWidth - 1, 0))
+    val isRVC = low.bits(1, 0) =/= 3.U
+    needs(lane) := Mux(isRVC, 1.U(needWidth.W), FetchWidth.maxInstructionHalfwords.U(needWidth.W))
+    ready(lane) := (if (lane == 0) true.B else ready(lane - 1)) &&
+      io.count >= starts(lane) +& needs(lane)
+    if (lane + 1 < outputWidth) {
+      starts(lane + 1) := starts(lane) + needs(lane)
     }
   }
 
-  val firstPred = h0.control.fastPrediction
-  val secondPred = secondControl.fastPrediction
-  val firstPredHit  = firstPred.valid && firstPred.cfiOffset === cfiOffset(h0.pc)
-  val secondPredHit = secondPred.valid && secondPred.cfiOffset === cfiOffset(secondPc)
+  val outputValid = Wire(Vec(outputWidth, Bool()))
+  val stopBefore  = Wire(Vec(outputWidth, Bool()))
+  val predTaken   = Wire(Vec(outputWidth, Bool()))
+  val exceptions  = Wire(Vec(outputWidth, new top.core.bundle.FetchException(cfg.addrWidth)))
+  val predictions = Wire(Vec(outputWidth, new FetchPred(cfg)))
+  val targets     = Wire(Vec(outputWidth, UInt(cfg.addrWidth.W)))
+  val expanders   = Seq.fill(outputWidth)(Module(new RvcExpander))
 
-  val firstPredTaken    = firstPredHit && firstPred.taken
-  val secondPredTaken   = secondPredHit && secondPred.taken
-  val firstFallThrough  = h0.pc +% instLen(firstIsRVC)
-  val secondFallThrough = secondPc +% instLen(secondIsRVC)
+  stopBefore(0) := false.B
+  io.out.bits   := 0.U.asTypeOf(new FetchQueueEnqueue(cfg, outputWidth))
 
-  val firstExpander  = Module(new RvcExpander)
-  val secondExpander = Module(new RvcExpander)
-  firstExpander.io.in  := firstRaw
-  secondExpander.io.in := secondRaw
+  for (lane <- 0 until outputWidth) {
+    val low       = io.peek(starts(lane)(parcelIndexWidth - 1, 0))
+    val highIndex = starts(lane) + 1.U
+    val high      = io.peek(highIndex(parcelIndexWidth - 1, 0))
+    val isRVC     = low.bits(1, 0) =/= 3.U
+    val rawInst   = Mux(isRVC, Cat(0.U(16.W), low.bits), Cat(high.bits, low.bits))
+    val exception = Wire(new top.core.bundle.FetchException(cfg.addrWidth))
+    exception := low.exception
+    when(!isRVC && high.exception.valid) {
+      exception := high.exception
+    }
 
-  val firstOutValid  = firstReady && !io.flush
-  val secondOutValid = secondReady && !io.flush
+    predictions(lane) := low.control.fastPrediction
+    val predHit = predictions(lane).valid && predictions(lane).cfiOffset === cfiOffset(low.pc)
+    predTaken(lane) := predHit && predictions(lane).taken
+    targets(lane)   := predictions(lane).target
+    exceptions(lane) := exception
+    outputValid(lane) := ready(lane) && !io.flush && !stopBefore(lane)
 
-  io.out.valid := firstOutValid
-  io.out.bits  := 0.U.asTypeOf(new FetchPacket)
+    expanders(lane).io.in := rawInst
+    io.out.bits.insts(lane).valid           := outputValid(lane)
+    io.out.bits.insts(lane).bits.inst.pc    := low.pc
+    io.out.bits.insts(lane).bits.inst.inst  := expanders(lane).io.out.bits
+    io.out.bits.insts(lane).bits.inst.rawInst := rawInst
+    io.out.bits.insts(lane).bits.inst.isRVC := isRVC
+    io.out.bits.insts(lane).bits.inst.instLen := instLen(isRVC)
+    io.out.bits.insts(lane).bits.inst.predHit := predHit
+    io.out.bits.insts(lane).bits.inst.predTaken := predTaken(lane)
+    io.out.bits.insts(lane).bits.inst.predNpc := Mux(predTaken(lane), predictions(lane).target, low.pc +% instLen(isRVC))
+    io.out.bits.insts(lane).bits.inst.predTarget := Mux(predHit, predictions(lane).target, 0.U)
+    io.out.bits.insts(lane).bits.inst.exception := exception
+    io.out.bits.insts(lane).bits.sequence := low.control.sequence
+    io.out.bits.insts(lane).bits.epoch    := low.control.epoch
 
-  io.out.bits.insts(0).valid           := firstOutValid
-  io.out.bits.insts(0).bits.pc         := h0.pc
-  io.out.bits.insts(0).bits.inst       := firstExpander.io.out.bits
-  io.out.bits.insts(0).bits.rawInst    := firstRaw
-  io.out.bits.insts(0).bits.isRVC      := firstIsRVC
-  io.out.bits.insts(0).bits.instLen    := instLen(firstIsRVC)
-  io.out.bits.insts(0).bits.predHit    := firstPredHit
-  io.out.bits.insts(0).bits.predTaken  := firstPredTaken
-  io.out.bits.insts(0).bits.predNpc    := Mux(firstPredTaken, firstPred.target, firstFallThrough)
-  io.out.bits.insts(0).bits.predTarget := Mux(firstPredHit, firstPred.target, 0.U)
-  io.out.bits.insts(0).bits.exception  := firstException
+    if (lane + 1 < outputWidth) {
+      stopBefore(lane + 1) := stopBefore(lane) ||
+        (outputValid(lane) && (predTaken(lane) || exception.valid))
+    }
 
-  io.out.bits.insts(1).valid           := secondOutValid && !firstPredTaken && !firstException.valid
-  io.out.bits.insts(1).bits.pc         := secondPc
-  io.out.bits.insts(1).bits.inst       := secondExpander.io.out.bits
-  io.out.bits.insts(1).bits.rawInst    := secondRaw
-  io.out.bits.insts(1).bits.isRVC      := secondIsRVC
-  io.out.bits.insts(1).bits.instLen    := instLen(secondIsRVC)
-  io.out.bits.insts(1).bits.predHit    := secondPredHit
-  io.out.bits.insts(1).bits.predTaken  := secondPredTaken
-  io.out.bits.insts(1).bits.predNpc    := Mux(secondPredTaken, secondPred.target, secondFallThrough)
-  io.out.bits.insts(1).bits.predTarget := Mux(secondPredHit, secondPred.target, 0.U)
-  io.out.bits.insts(1).bits.exception  := secondException
+    when(ready(lane) && !isRVC) {
+      assert(high.pc === low.pc + 2.U)
+      assert(high.control.epoch === low.control.epoch)
+      when(high.blockAddr =/= low.blockAddr) {
+        assert(high.control.sequence === low.control.sequence + 1.U)
+      }
+    }
+  }
 
-  val packetPredTaken =
-    (io.out.bits.insts(0).valid && firstPredTaken) ||
-      (io.out.bits.insts(1).valid && secondPredTaken)
-  val normalDeq       = Wire(UInt(countWidth.W))
-  normalDeq := Mux(secondReady, totalNeed, firstNeed)
+  val redirectMask  = VecInit((0 until outputWidth).map(lane => outputValid(lane) && predTaken(lane)))
+  val redirectTarget = Mux1H(PriorityEncoderOH(redirectMask.asUInt).asBools, targets)
+  val stopMask      = VecInit((0 until outputWidth).map { lane =>
+    outputValid(lane) && (predTaken(lane) || exceptions(lane).valid)
+  })
+  val consumedHalfwordsRaw = (0 until outputWidth)
+    .map(lane => Mux(outputValid(lane), needs(lane), 0.U(needWidth.W)))
+    .reduce(_ +&_)
+  val consumedHalfwords = Wire(UInt(countWidth.W))
+  consumedHalfwords := consumedHalfwordsRaw
 
-  io.predRedirect.valid := io.out.fire && packetPredTaken
-  io.predRedirect.value := Mux(firstPredTaken, firstPred.target, secondPred.target)
-
-  // A predicted-taken CFI changes the fetch stream at this packet boundary.
-  // Discard all currently buffered fall-through halfwords; target fetch starts
-  // only after the redirect is accepted by PCGen.
+  io.out.valid          := outputValid(0)
+  io.predRedirect.valid := io.out.fire && redirectMask.asUInt.orR
+  io.predRedirect.value := redirectTarget
   io.deq := Mux(
     io.out.fire,
-    Mux(packetPredTaken, io.count, normalDeq),
+    Mux(stopMask.asUInt.orR, io.count, consumedHalfwords),
     0.U(countWidth.W)
   )
 
   assert(io.deq <= io.count)
-  when(firstReady && !firstIsRVC) {
-    assert(h1.pc === h0.pc + 2.U)
-    assert(h0.control.epoch === h1.control.epoch)
-    when(h0.blockAddr =/= h1.blockAddr) {
-      assert(h1.control.sequence === h0.control.sequence + 1.U)
-    }
-  }
-  when(secondReady && !secondIsRVC) {
-    assert(secondHighPc === secondPc + 2.U)
-    assert(secondControl.epoch === secondHighControl.epoch)
-    when(secondBlockAddr =/= secondHighBlockAddr) {
-      assert(secondHighControl.sequence === secondControl.sequence + 1.U)
-    }
-  }
 }
 
 class InstBuffer(bufferDepth: Int = 8) extends Module {
@@ -334,60 +363,88 @@ class IFetch(
   require(log2Ceil(cfg.fetchTargetEntries) == cacheCfg.fetchTargetIndexBits, "FetchTargetQueue index width must match configuration")
 
   private val fetchHalfwords = cacheCfg.fetchBytes / 2
-  private val peekHalfwords  = 4
+  private val groupWidth     = cacheCfg.fetchGroupBlocks
+  private val groupCountWidth = log2Ceil(groupWidth + 1)
+  private val peekHalfwords  = FetchWidth.frontend * FetchWidth.maxInstructionHalfwords
 
   val io = IO(new Bundle {
     val redirect     = Input(new PcRedirect)
     val flush        = Input(Bool())
     val pc           = Input(UInt(cacheCfg.addrWidth.W))
-    val pred         = Input(new FetchPred(cacheCfg))
+    val pred         = Input(Vec(groupWidth, new FetchPred(cacheCfg)))
     val predRedirect = Output(new PcRedirect)
-    val pcAdvance    = Output(Bool())
-    val icacheReq    = Decoupled(new ICacheReq(cacheCfg))
-    val icacheResp   = Flipped(Decoupled(new ICacheResp(cacheCfg)))
+    val pcAdvanceBlocks = Output(UInt(groupCountWidth.W))
+    val icacheAcceptedBlocks = Input(UInt(groupCountWidth.W))
+    val icacheReq    = Decoupled(new ICacheFetchGroupReq(cacheCfg))
+    val icacheResp   = Flipped(Decoupled(new ICacheFetchGroupResp(cacheCfg)))
     val fetch        = Decoupled(new FetchPacket)
+    val fetchQueueOccupancy    = Output(UInt(log2Ceil(cfg.fetchQueueEntries + 1).W))
+    val fetchQueueEnqueueWidth = Output(UInt(log2Ceil(FetchWidth.frontend + 1).W))
+    val fetchQueueDequeueWidth = Output(UInt(log2Ceil(FetchWidth.backend + 1).W))
+    val fetchQueueEmpty        = Output(Bool())
+    val fetchQueueFull         = Output(Bool())
   })
 
-  val splitter       = Module(new HalfwordSplitter(cacheCfg))
-  val halfwordBuffer = Module(new HalfwordBuffer(cacheCfg, cfg.halfwordEntries, fetchHalfwords, peekHalfwords))
-  val assembler      = Module(new DualInstAssembler(cacheCfg, cfg.halfwordEntries))
-  val instBuffer     = Module(new InstBuffer(cfg.instBufferEntries))
+  val splitter       = Module(new FetchGroupSplitter(cacheCfg))
+  val halfwordBuffer = Module(new HalfwordBuffer(cacheCfg, cfg.halfwordEntries, fetchHalfwords * groupWidth, peekHalfwords))
+  val assembler      = Module(new SharedInstAssembler(cacheCfg, cfg.halfwordEntries))
+  val fetchQueue     = Module(new FetchQueue(cacheCfg, cfg.fetchQueueEntries, FetchWidth.frontend))
   val ftq            = Module(new FetchTargetQueue(cacheCfg, cfg.fetchTargetEntries))
-
-  val reqOutstanding = RegInit(false.B)
 
   val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
   val localPredRedirect   = assembler.io.predRedirect
-  val localException      = assembler.io.out.fire && assembler.io.out.bits.insts(0).bits.exception.valid
+  val localException      = assembler.io.out.fire && assembler.io.out.bits.insts(0).bits.inst.exception.valid
   val hardFlush           = io.redirect.valid || io.flush
   val frontendRedirect    = hardFlush || localPredRedirect.valid || localException
-  ftq.io.redirect      := frontendRedirect
-  ftq.io.allocatePc    := io.pc
-  ftq.io.allocatePred  := io.pred
+  val fetchQueueEpoch     = RegInit(0.U(cacheCfg.fetchEpochBits.W))
+  ftq.io.redirect := frontendRedirect
+  for (lane <- 0 until groupWidth) {
+    ftq.io.allocatePc(lane)   := 0.U
+    ftq.io.allocatePred(lane) := 0.U.asTypeOf(new FetchPred(cacheCfg))
+    ftq.io.releaseMeta(lane) := 0.U.asTypeOf(new FetchControlMeta(cacheCfg))
+  }
+  val firstBlockAddr = Cat(io.pc(cacheCfg.addrWidth - 1, cacheCfg.offsetBits), 0.U(cacheCfg.offsetBits.W))
+  val secondBlockPc  = firstBlockAddr +% cacheCfg.fetchBytes.U(cacheCfg.addrWidth.W)
+  ftq.io.allocatePc(0)   := io.pc
+  ftq.io.allocatePc(1)   := secondBlockPc
+  for (lane <- 0 until groupWidth) {
+    ftq.io.allocatePred(lane) := io.pred(lane)
+  }
+  ftq.io.allocateCount := io.icacheAcceptedBlocks
 
-  val req                 = ICacheReq.fromControl(ftq.io.allocateMeta, cacheCfg)
+  val req = Wire(new ICacheFetchGroupReq(cacheCfg))
+  req := 0.U.asTypeOf(new ICacheFetchGroupReq(cacheCfg))
+  for (lane <- 0 until groupWidth) {
+    req.blocks(lane).valid := true.B
+    req.blocks(lane).bits  := ICacheReq.fromControl(ftq.io.allocateMeta(lane), cacheCfg)
+  }
+
   val responseFire        = io.icacheResp.fire
-  val responseMeta        = io.icacheResp.bits.meta.control
-  val responseCurrentEpoch = responseMeta.epoch === ftq.io.epoch
-  val responseMatchesHead = ftq.io.head.valid &&
-    responseMeta.sequence === ftq.io.head.bits.sequence &&
-    responseMeta.epoch === ftq.io.head.bits.epoch &&
-    responseMeta.ftqIndex === ftq.io.head.bits.ftqIndex
+  val responseCount       = PopCount(io.icacheResp.bits.blocks.map(_.valid))
+  val responseMeta        = io.icacheResp.bits.blocks(0).bits.meta.control
+  val responseCurrentEpoch = io.icacheResp.bits.blocks(0).valid && responseMeta.epoch === ftq.io.epoch
+  val responseMatchesHead = (0 until groupWidth).map { lane =>
+    !io.icacheResp.bits.blocks(lane).valid ||
+      (ftq.io.peek(lane).valid &&
+        io.icacheResp.bits.blocks(lane).bits.meta.control.sequence === ftq.io.peek(lane).bits.sequence &&
+        io.icacheResp.bits.blocks(lane).bits.meta.control.epoch === ftq.io.peek(lane).bits.epoch &&
+        io.icacheResp.bits.blocks(lane).bits.meta.control.ftqIndex === ftq.io.peek(lane).bits.ftqIndex)
+  }.reduce(_ && _)
   val responseLive = responseCurrentEpoch && responseMatchesHead && !frontendRedirect
-  // A response retires the sole outstanding request before the clock edge, so
-  // a new request may reuse that slot in the same cycle.
-  val canReq              =
-    (!reqOutstanding || responseFire) && ftq.io.allocateReady && enoughSpaceForBlock && !frontendRedirect
+  val canReq       = ftq.io.allocateReady && enoughSpaceForBlock && !frontendRedirect
 
   io.icacheReq.valid := canReq
   io.icacheReq.bits  := req
-  io.pcAdvance       := io.icacheReq.fire
+  io.pcAdvanceBlocks := Mux(io.icacheReq.fire, io.icacheAcceptedBlocks, 0.U(groupCountWidth.W))
   io.predRedirect    := localPredRedirect
 
   val requestFire = io.icacheReq.fire
   ftq.io.allocate := requestFire
   ftq.io.release := responseFire && responseLive
-  ftq.io.releaseMeta := responseMeta
+  ftq.io.releaseCount := responseCount
+  for (lane <- 0 until groupWidth) {
+    ftq.io.releaseMeta(lane) := io.icacheResp.bits.blocks(lane).bits.meta.control
+  }
 
   splitter.io.resp := io.icacheResp.bits
 
@@ -403,21 +460,30 @@ class IFetch(
   assembler.io.count    := halfwordBuffer.io.count
   halfwordBuffer.io.deq := assembler.io.deq
 
-  instBuffer.io.flush := hardFlush
-  instBuffer.io.in <> assembler.io.out
-  io.fetch <> instBuffer.io.out
+  fetchQueue.io.flush        := hardFlush
+  fetchQueue.io.currentEpoch := fetchQueueEpoch
+  fetchQueue.io.enq.valid    := assembler.io.out.valid
+  fetchQueue.io.enq.bits     := assembler.io.out.bits
+  for (lane <- 0 until FetchWidth.frontend) {
+    fetchQueue.io.enq.bits.insts(lane).bits.epoch := fetchQueueEpoch
+  }
+  assembler.io.out.ready := fetchQueue.io.enq.ready
+  io.fetch <> fetchQueue.io.out
+  io.fetchQueueOccupancy    := fetchQueue.io.count
+  io.fetchQueueEnqueueWidth := fetchQueue.io.enqueueWidth
+  io.fetchQueueDequeueWidth := fetchQueue.io.dequeueWidth
+  io.fetchQueueEmpty        := fetchQueue.io.empty
+  io.fetchQueueFull         := fetchQueue.io.full
 
-  when(frontendRedirect) {
-    reqOutstanding := false.B
-  }.otherwise {
-    reqOutstanding := (reqOutstanding && !responseFire) || requestFire
+  when(hardFlush) {
+    fetchQueueEpoch := fetchQueueEpoch + 1.U
   }
 
   when(io.icacheResp.valid && responseCurrentEpoch && !frontendRedirect) {
     assert(responseMatchesHead)
   }
   when(responseFire && responseLive) {
-    assert(ftq.io.head.valid)
+    assert(ftq.io.peek(0).valid)
   }
-  assert(ftq.io.count <= 1.U)
+  assert(ftq.io.count <= groupWidth.U)
 }

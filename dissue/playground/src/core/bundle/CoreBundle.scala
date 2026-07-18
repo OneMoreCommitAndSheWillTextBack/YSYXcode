@@ -86,15 +86,17 @@ object MemPerfEvent {
 }
 
 object FrontendPerfEvent {
-  val icacheRequest       = 0
-  val icacheHit           = 1
-  val icacheMiss          = 2
-  val icacheMissWaitCycle = 3
-  val backendRedirect     = 4
-  val icacheInvalidate    = 5
-  val frontendEmpty       = 6
-  val axiRequestWait      = 7
-  val width               = 8
+  val icacheRequest                    = 0
+  val icacheHit                        = 1
+  val icacheMiss                       = 2
+  val icacheMissWaitCycle              = 3
+  val backendRedirect                  = 4
+  val icacheInvalidate                 = 5
+  val frontendEmpty                    = 6
+  val axiRequestWait                   = 7
+  val fetchQueueEmptyWithBackendReady  = 8
+  val fetchQueueFull                   = 9
+  val width                            = 10
 
   def bit(index: Int, enabled: Bool): UInt =
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))

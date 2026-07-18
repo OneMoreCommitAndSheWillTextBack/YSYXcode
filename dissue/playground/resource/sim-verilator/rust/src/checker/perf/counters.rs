@@ -90,6 +90,12 @@ impl BpuCfiCounters {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PerfCounters {
     frontend_events: [u64; Self::FRONTEND_EVENT_COUNT],
+    fetch_queue_sample_cycles: u64,
+    fetch_queue_occupancy_sum: u64,
+    fetch_queue_enqueue_width_total: u64,
+    fetch_queue_dequeue_width_total: u64,
+    fetch_queue_miss_start_samples: u64,
+    fetch_queue_miss_start_occupancy_sum: u64,
     iq_sample_cycles: u64,
     iq_issue_count: u64,
     iq_dual_issue_cycles: u64,
@@ -139,9 +145,27 @@ impl PerfCounters {
     pub const ICACHE_INVALIDATE: usize = 5;
     pub const FRONTEND_EMPTY: usize = 6;
     pub const AXI_REQUEST_WAIT: usize = 7;
-    pub const FRONTEND_EVENT_COUNT: usize = 8;
+    pub const FETCH_QUEUE_EMPTY_WITH_BACKEND_READY: usize = 8;
+    pub const FETCH_QUEUE_FULL: usize = 9;
+    pub const FRONTEND_EVENT_COUNT: usize = 10;
 
-    pub fn frontend_perf(&mut self, events: u32) {
+    pub fn frontend_perf(
+        &mut self,
+        events: u32,
+        fetch_queue_occupancy: u32,
+        fetch_queue_enqueue_width: u32,
+        fetch_queue_dequeue_width: u32,
+    ) {
+        self.fetch_queue_sample_cycles += 1;
+        self.fetch_queue_occupancy_sum += u64::from(fetch_queue_occupancy);
+        self.fetch_queue_enqueue_width_total += u64::from(fetch_queue_enqueue_width);
+        self.fetch_queue_dequeue_width_total += u64::from(fetch_queue_dequeue_width);
+
+        if (events & (1_u32 << Self::ICACHE_MISS)) != 0 {
+            self.fetch_queue_miss_start_samples += 1;
+            self.fetch_queue_miss_start_occupancy_sum += u64::from(fetch_queue_occupancy);
+        }
+
         for index in 0..Self::FRONTEND_EVENT_COUNT {
             if (events & (1_u32 << index)) != 0 {
                 self.frontend_events[index] += 1;
@@ -327,6 +351,43 @@ impl PerfCounters {
 
     pub fn frontend_event(&self, index: usize) -> u64 {
         self.frontend_events[index]
+    }
+
+    pub fn fetch_queue_sample_cycles(&self) -> u64 {
+        self.fetch_queue_sample_cycles
+    }
+
+    pub fn fetch_queue_average_occupancy(&self) -> f64 {
+        if self.fetch_queue_sample_cycles == 0 {
+            0.0
+        } else {
+            self.fetch_queue_occupancy_sum as f64 / self.fetch_queue_sample_cycles as f64
+        }
+    }
+
+    pub fn fetch_queue_true_starvation_cycles(&self) -> u64 {
+        self.frontend_event(Self::FETCH_QUEUE_EMPTY_WITH_BACKEND_READY)
+    }
+
+    pub fn fetch_queue_full_cycles(&self) -> u64 {
+        self.frontend_event(Self::FETCH_QUEUE_FULL)
+    }
+
+    pub fn fetch_queue_enqueue_width_total(&self) -> u64 {
+        self.fetch_queue_enqueue_width_total
+    }
+
+    pub fn fetch_queue_dequeue_width_total(&self) -> u64 {
+        self.fetch_queue_dequeue_width_total
+    }
+
+    pub fn fetch_queue_average_miss_start_occupancy(&self) -> f64 {
+        if self.fetch_queue_miss_start_samples == 0 {
+            0.0
+        } else {
+            self.fetch_queue_miss_start_occupancy_sum as f64
+                / self.fetch_queue_miss_start_samples as f64
+        }
     }
 
     pub fn dcache_hit_rate(&self) -> f64 {
