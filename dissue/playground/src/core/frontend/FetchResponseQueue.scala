@@ -48,16 +48,24 @@ class FetchResponseQueue(
   private val selected = Mux1H((0 until depth).map { slot =>
     matching(slot) -> entries(slot)
   })
+  private val incomingMeta    = io.insert.bits.blocks(0).bits.meta.control
+  private val incomingStale   = io.insert.bits.blocks(0).valid && incomingMeta.epoch =/= io.currentEpoch
+  private val bypassCandidate = !io.flush && io.insert.valid && io.insert.bits.blocks(0).valid &&
+    !incomingStale && oldestLive &&
+    sameKey(incomingMeta, io.oldest.bits) && !responseReady
+  private val bypassFire = !io.flush && bypassCandidate && io.out.ready
 
-  io.out.valid := !io.flush && responseReady
+  io.out.valid := !io.flush && (responseReady || bypassCandidate)
   io.out.bits  := 0.U.asTypeOf(new ICacheFetchGroupResp(cacheCfg))
   when(responseReady) {
     io.out.bits := selected
+  }.elsewhen(bypassCandidate) {
+    io.out.bits := io.insert.bits
   }
 
   private val releaseOH = PriorityEncoderOH(matching)
   private val staleOH   = PriorityEncoderOH(stale)
-  private val release   = io.out.fire
+  private val release   = io.out.fire && responseReady
   private val dropStale = !io.flush && !release && stale.orR
   private val removeOH  = Mux(release, releaseOH, Mux(dropStale, staleOH, 0.U(depth.W)))
 
@@ -66,12 +74,10 @@ class FetchResponseQueue(
     validAfterRemove(slot) := valid(slot) && !removeOH(slot)
   }
   private val freeAfterRemove = VecInit(validAfterRemove.map(value => !value)).asUInt
-  private val incomingMeta    = io.insert.bits.blocks(0).bits.meta.control
-  private val incomingStale   = io.insert.bits.blocks(0).valid && incomingMeta.epoch =/= io.currentEpoch
-  private val storeIncoming   = io.insert.fire && !incomingStale
+  private val storeIncoming   = io.insert.fire && !incomingStale && !bypassFire
   private val writeOH         = PriorityEncoderOH(freeAfterRemove)
 
-  io.insert.ready := !io.flush && (incomingStale || freeAfterRemove.orR)
+  io.insert.ready := !io.flush && (incomingStale || bypassFire || freeAfterRemove.orR)
 
   io.occupancy := occupancy
   io.empty     := occupancy === 0.U
@@ -121,8 +127,22 @@ class FetchResponseQueue(
 
   when(io.out.fire) {
     assert(oldestLive)
-    assert(PopCount(matching) === 1.U)
+    when(responseReady) {
+      assert(PopCount(matching) === 1.U)
+    }.otherwise {
+      assert(bypassCandidate)
+    }
+    when(!responseReady) {
+      assert(io.insert.fire)
+      assert(!storeIncoming)
+      assert(!release)
+    }
+    assert(io.out.bits.blocks(0).valid)
     assert(sameKey(io.out.bits.blocks(0).bits.meta.control, io.oldest.bits))
+  }
+  when(bypassCandidate && !io.out.ready && io.insert.fire) {
+    assert(storeIncoming)
+    assert(freeAfterRemove.orR)
   }
 
   when(io.flush) {
@@ -142,6 +162,7 @@ class FetchResponseQueue(
   assert(PopCount(writeOH) <= 1.U)
   when(io.out.valid) {
     assert(oldestLive)
+    assert(io.out.bits.blocks(0).valid)
     assert(io.out.bits.blocks(0).bits.meta.control.epoch === io.currentEpoch)
     assert(sameKey(io.out.bits.blocks(0).bits.meta.control, io.oldest.bits))
   }
