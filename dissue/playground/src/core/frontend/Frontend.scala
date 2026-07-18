@@ -68,6 +68,7 @@ class Frontend(
   pcGen.io.advance  := ifetch.io.pcAdvance
 
   ifetch.io.redirect       := redirect
+  ifetch.io.flush          := io.icacheInvalidate
   ifetch.io.pc             := pcGen.io.pc
   ifetch.io.pred.valid     := bpu.io.pred.valid
   ifetch.io.pred.taken     := bpu.io.pred.taken

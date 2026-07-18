@@ -35,10 +35,13 @@ final case class DCacheConfig(
 }
 
 final case class ICacheConfig(
-  addrWidth:  Int = 32,
-  fetchBytes: Int = 8,
-  sets:       Int = 64,
-  ways: Int = 1) {
+  addrWidth:         Int = 32,
+  fetchBytes:        Int = 8,
+  sets:              Int = 64,
+  ways:              Int = 1,
+  fetchSequenceBits: Int = 16,
+  fetchEpochBits:    Int = 8,
+  fetchTargetIndexBits: Int = 3) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
 
@@ -46,6 +49,9 @@ final case class ICacheConfig(
   require(isPow2(sets), "sets must be a power of two")
   require(ways > 0, "ways must be positive")
   require(ways == 1, "not support the group Set-associative")
+  require(fetchSequenceBits > 0, "fetchSequenceBits must be positive")
+  require(fetchEpochBits > 0, "fetchEpochBits must be positive")
+  require(fetchTargetIndexBits > 0, "fetchTargetIndexBits must be positive")
 
   val offsetBits: Int = log2Ceil(fetchBytes)
   val indexBits:  Int = log2Ceil(sets)
@@ -84,8 +90,9 @@ final case class BpuConfig(
 }
 
 final case class IFetchConfig(
-  halfwordEntries: Int = 16,
-  instBufferEntries: Int = 8) {
+  halfwordEntries:     Int = 16,
+  instBufferEntries:   Int = 8,
+  fetchTargetEntries:  Int = 8) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
 
@@ -93,23 +100,31 @@ final case class IFetchConfig(
   require(halfwordEntries > 4, "halfwordEntries must hold more than one fetch block")
   require(isPow2(instBufferEntries), "instBufferEntries must be a power of two")
   require(instBufferEntries > 1, "instBufferEntries must have at least two entries")
+  require(isPow2(fetchTargetEntries), "fetchTargetEntries must be a power of two")
+  require(fetchTargetEntries > 1, "fetchTargetEntries must have at least two entries")
 }
 
 final case class FrontendConfig(
-  addrWidth:       Int = 32,
-  fetchBytes:      Int = 8,
-  icacheSets:      Int = 64,
-  icacheWays:      Int = 1,
-  btbEntries:      Int = 64,
-  bhtEntries:      Int = 128,
-  btbWays:         Int = 1,
-  halfwordEntries: Int = 16,
-  instBufferEntries: Int = 8) {
+  addrWidth:           Int = 32,
+  fetchBytes:          Int = 8,
+  icacheSets:          Int = 64,
+  icacheWays:          Int = 1,
+  btbEntries:          Int = 64,
+  bhtEntries:          Int = 128,
+  btbWays:             Int = 1,
+  halfwordEntries:     Int = 16,
+  instBufferEntries:   Int = 8,
+  fetchTargetEntries:  Int = 8,
+  fetchSequenceBits:   Int = 16,
+  fetchEpochBits:      Int = 8) {
   val icache: ICacheConfig = ICacheConfig(
     addrWidth = addrWidth,
     fetchBytes = fetchBytes,
     sets = icacheSets,
-    ways = icacheWays
+    ways = icacheWays,
+    fetchSequenceBits = fetchSequenceBits,
+    fetchEpochBits = fetchEpochBits,
+    fetchTargetIndexBits = log2Ceil(fetchTargetEntries)
   )
 
   val bpu: BpuConfig = BpuConfig(
@@ -122,7 +137,8 @@ final case class FrontendConfig(
 
   val ifetch: IFetchConfig = IFetchConfig(
     halfwordEntries = halfwordEntries,
-    instBufferEntries = instBufferEntries
+    instBufferEntries = instBufferEntries,
+    fetchTargetEntries = fetchTargetEntries
   )
 }
 

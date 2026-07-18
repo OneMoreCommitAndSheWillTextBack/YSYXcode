@@ -3,7 +3,7 @@ package top.core.frontend.ifetch
 import chisel3._
 import chisel3.util._
 import top.config.{ICacheConfig, IFetchConfig}
-import top.core.frontend.bundle.{FetchInst, FetchPred, ICacheReq, ICacheResp, PcRedirect}
+import top.core.frontend.bundle.{FetchControlMeta, FetchInst, FetchPred, ICacheReq, ICacheResp, PcRedirect}
 
 // two stage pipline
 // cache block -> 16bits block -> inst buffer
@@ -16,7 +16,7 @@ class HalfwordEntry(cfg: ICacheConfig) extends Bundle {
   val pc        = UInt(cfg.addrWidth.W)
   val bits      = UInt(16.W)
   val blockAddr = UInt(cfg.addrWidth.W)
-  val pred      = new FetchPred(cfg)
+  val control   = new FetchControlMeta(cfg)
   val exception = new top.core.bundle.FetchException(cfg.addrWidth)
 }
 
@@ -37,7 +37,7 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
     rawHalfwords(i) := io.resp.data(16 * (i + 1) - 1, 16 * i)
   }
 
-  val startHalfword = io.resp.meta.pc(cfg.offsetBits - 1, 1)
+  val startHalfword = io.resp.meta.control.pc(cfg.offsetBits - 1, 1)
   val startCount    = Wire(UInt(countWidth.W))
   startCount := startHalfword
 
@@ -56,7 +56,7 @@ class HalfwordSplitter(cfg: ICacheConfig) extends Module {
       startOH(s) -> bits
     })
     io.entries(i).blockAddr := io.resp.meta.blockAddr
-    io.entries(i).pred      := io.resp.meta.pred
+    io.entries(i).control   := io.resp.meta.control
     io.entries(i).exception := io.resp.exception
     when(io.resp.exception.valid) {
       io.entries(i).exception.tval := io.entries(i).pc
@@ -170,8 +170,13 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val secondLow  = Mux(firstIsRVC, h1.bits, h2.bits)
   val secondHigh = Mux(firstIsRVC, h2.bits, h3.bits)
   val secondPc   = Mux(firstIsRVC, h1.pc, h2.pc)
-  val secondPred = Wire(new FetchPred(cfg))
-  secondPred := Mux(firstIsRVC, h1.pred, h2.pred)
+  val secondHighPc = Mux(firstIsRVC, h2.pc, h3.pc)
+  val secondControl = Wire(new FetchControlMeta(cfg))
+  secondControl := Mux(firstIsRVC, h1.control, h2.control)
+  val secondHighControl = Wire(new FetchControlMeta(cfg))
+  secondHighControl := Mux(firstIsRVC, h2.control, h3.control)
+  val secondBlockAddr = Mux(firstIsRVC, h1.blockAddr, h2.blockAddr)
+  val secondHighBlockAddr = Mux(firstIsRVC, h2.blockAddr, h3.blockAddr)
   val secondIsRVC = secondLow(1, 0) =/= 3.U
   val secondNeed  = Mux(secondIsRVC, 1.U(needWidth.W), 2.U(needWidth.W))
   val totalNeed   = firstNeed + secondNeed
@@ -186,10 +191,12 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     }
   }
 
-  val firstPredHit  = h0.pred.valid && h0.pred.cfiOffset === cfiOffset(h0.pc)
+  val firstPred = h0.control.fastPrediction
+  val secondPred = secondControl.fastPrediction
+  val firstPredHit  = firstPred.valid && firstPred.cfiOffset === cfiOffset(h0.pc)
   val secondPredHit = secondPred.valid && secondPred.cfiOffset === cfiOffset(secondPc)
 
-  val firstPredTaken    = firstPredHit && h0.pred.taken
+  val firstPredTaken    = firstPredHit && firstPred.taken
   val secondPredTaken   = secondPredHit && secondPred.taken
   val firstFallThrough  = h0.pc +% instLen(firstIsRVC)
   val secondFallThrough = secondPc +% instLen(secondIsRVC)
@@ -213,8 +220,8 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.out.bits.insts(0).bits.instLen    := instLen(firstIsRVC)
   io.out.bits.insts(0).bits.predHit    := firstPredHit
   io.out.bits.insts(0).bits.predTaken  := firstPredTaken
-  io.out.bits.insts(0).bits.predNpc    := Mux(firstPredTaken, h0.pred.target, firstFallThrough)
-  io.out.bits.insts(0).bits.predTarget := Mux(firstPredHit, h0.pred.target, 0.U)
+  io.out.bits.insts(0).bits.predNpc    := Mux(firstPredTaken, firstPred.target, firstFallThrough)
+  io.out.bits.insts(0).bits.predTarget := Mux(firstPredHit, firstPred.target, 0.U)
   io.out.bits.insts(0).bits.exception  := firstException
 
   io.out.bits.insts(1).valid           := secondOutValid && !firstPredTaken && !firstException.valid
@@ -236,7 +243,7 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   normalDeq := Mux(secondReady, totalNeed, firstNeed)
 
   io.predRedirect.valid := io.out.fire && packetPredTaken
-  io.predRedirect.value := Mux(firstPredTaken, h0.pred.target, secondPred.target)
+  io.predRedirect.value := Mux(firstPredTaken, firstPred.target, secondPred.target)
 
   // A predicted-taken CFI changes the fetch stream at this packet boundary.
   // Discard all currently buffered fall-through halfwords; target fetch starts
@@ -248,6 +255,20 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   )
 
   assert(io.deq <= io.count)
+  when(firstReady && !firstIsRVC) {
+    assert(h1.pc === h0.pc + 2.U)
+    assert(h0.control.epoch === h1.control.epoch)
+    when(h0.blockAddr =/= h1.blockAddr) {
+      assert(h1.control.sequence === h0.control.sequence + 1.U)
+    }
+  }
+  when(secondReady && !secondIsRVC) {
+    assert(secondHighPc === secondPc + 2.U)
+    assert(secondControl.epoch === secondHighControl.epoch)
+    when(secondBlockAddr =/= secondHighBlockAddr) {
+      assert(secondHighControl.sequence === secondControl.sequence + 1.U)
+    }
+  }
 }
 
 class InstBuffer(bufferDepth: Int = 8) extends Module {
@@ -310,12 +331,14 @@ class IFetch(
   cfg:      IFetchConfig = IFetchConfig())
     extends Module {
   require(cacheCfg.fetchBytes == 8, "IFetch currently assumes a 64-bit ICache fetch block")
+  require(log2Ceil(cfg.fetchTargetEntries) == cacheCfg.fetchTargetIndexBits, "FetchTargetQueue index width must match configuration")
 
   private val fetchHalfwords = cacheCfg.fetchBytes / 2
   private val peekHalfwords  = 4
 
   val io = IO(new Bundle {
     val redirect     = Input(new PcRedirect)
+    val flush        = Input(Bool())
     val pc           = Input(UInt(cacheCfg.addrWidth.W))
     val pred         = Input(new FetchPred(cacheCfg))
     val predRedirect = Output(new PcRedirect)
@@ -329,19 +352,32 @@ class IFetch(
   val halfwordBuffer = Module(new HalfwordBuffer(cacheCfg, cfg.halfwordEntries, fetchHalfwords, peekHalfwords))
   val assembler      = Module(new DualInstAssembler(cacheCfg, cfg.halfwordEntries))
   val instBuffer     = Module(new InstBuffer(cfg.instBufferEntries))
+  val ftq            = Module(new FetchTargetQueue(cacheCfg, cfg.fetchTargetEntries))
 
   val reqOutstanding = RegInit(false.B)
-  val dropResp       = RegInit(false.B)
 
-  val req                 = ICacheReq.fromPc(io.pc, cacheCfg, io.pred)
   val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
   val localPredRedirect   = assembler.io.predRedirect
-  val frontendRedirect    = io.redirect.valid || localPredRedirect.valid
+  val localException      = assembler.io.out.fire && assembler.io.out.bits.insts(0).bits.exception.valid
+  val hardFlush           = io.redirect.valid || io.flush
+  val frontendRedirect    = hardFlush || localPredRedirect.valid || localException
+  ftq.io.redirect      := frontendRedirect
+  ftq.io.allocatePc    := io.pc
+  ftq.io.allocatePred  := io.pred
+
+  val req                 = ICacheReq.fromControl(ftq.io.allocateMeta, cacheCfg)
   val responseFire        = io.icacheResp.fire
+  val responseMeta        = io.icacheResp.bits.meta.control
+  val responseCurrentEpoch = responseMeta.epoch === ftq.io.epoch
+  val responseMatchesHead = ftq.io.head.valid &&
+    responseMeta.sequence === ftq.io.head.bits.sequence &&
+    responseMeta.epoch === ftq.io.head.bits.epoch &&
+    responseMeta.ftqIndex === ftq.io.head.bits.ftqIndex
+  val responseLive = responseCurrentEpoch && responseMatchesHead && !frontendRedirect
   // A response retires the sole outstanding request before the clock edge, so
   // a new request may reuse that slot in the same cycle.
   val canReq              =
-    (!reqOutstanding || responseFire) && !dropResp && enoughSpaceForBlock && !frontendRedirect
+    (!reqOutstanding || responseFire) && ftq.io.allocateReady && enoughSpaceForBlock && !frontendRedirect
 
   io.icacheReq.valid := canReq
   io.icacheReq.bits  := req
@@ -349,34 +385,39 @@ class IFetch(
   io.predRedirect    := localPredRedirect
 
   val requestFire = io.icacheReq.fire
+  ftq.io.allocate := requestFire
+  ftq.io.release := responseFire && responseLive
+  ftq.io.releaseMeta := responseMeta
 
   splitter.io.resp := io.icacheResp.bits
 
-  // Backend redirects flush every queued frontend stage. A local prediction
-  // redirect keeps older packets in the instruction buffer, but discards any
-  // fall-through cache response that has not reached the halfword FIFO yet.
-  val discardResp = dropResp || frontendRedirect
-  halfwordBuffer.io.flush    := io.redirect.valid
-  halfwordBuffer.io.enqValid := io.icacheResp.fire && !discardResp
+  halfwordBuffer.io.flush    := frontendRedirect
+  halfwordBuffer.io.enqValid := responseFire && responseLive
   halfwordBuffer.io.enqCount := splitter.io.count
   halfwordBuffer.io.enqBits  := splitter.io.entries
 
-  io.icacheResp.ready := discardResp || halfwordBuffer.io.enqReady
+  io.icacheResp.ready := !responseLive || halfwordBuffer.io.enqReady
 
-  assembler.io.flush    := io.redirect.valid
+  assembler.io.flush    := hardFlush
   assembler.io.peek     := halfwordBuffer.io.peek
   assembler.io.count    := halfwordBuffer.io.count
   halfwordBuffer.io.deq := assembler.io.deq
 
-  instBuffer.io.flush := io.redirect.valid
+  instBuffer.io.flush := hardFlush
   instBuffer.io.in <> assembler.io.out
   io.fetch <> instBuffer.io.out
 
   when(frontendRedirect) {
-    dropResp       := (dropResp || reqOutstanding) && !responseFire
     reqOutstanding := false.B
   }.otherwise {
     reqOutstanding := (reqOutstanding && !responseFire) || requestFire
-    dropResp       := dropResp && !responseFire
   }
+
+  when(io.icacheResp.valid && responseCurrentEpoch && !frontendRedirect) {
+    assert(responseMatchesHead)
+  }
+  when(responseFire && responseLive) {
+    assert(ftq.io.head.valid)
+  }
+  assert(ftq.io.count <= 1.U)
 }

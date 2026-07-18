@@ -38,10 +38,17 @@ class FetchPred(cfg: ICacheConfig) extends Bundle {
   val cfiType   = UInt(CfiType.width.W)
 }
 
+class FetchControlMeta(cfg: ICacheConfig) extends Bundle {
+  val sequence       = UInt(cfg.fetchSequenceBits.W)
+  val epoch          = UInt(cfg.fetchEpochBits.W)
+  val ftqIndex       = UInt(cfg.fetchTargetIndexBits.W)
+  val pc             = UInt(cfg.addrWidth.W)
+  val fastPrediction = new FetchPred(cfg)
+}
+
 class IFetchBlockMeta(cfg: ICacheConfig) extends Bundle {
-  val pc        = UInt(cfg.addrWidth.W)
+  val control   = new FetchControlMeta(cfg)
   val blockAddr = UInt(cfg.addrWidth.W)
-  val pred      = new FetchPred(cfg)
 }
 
 class ICacheReq(cfg: ICacheConfig) extends Bundle {
@@ -72,18 +79,27 @@ class ICacheRefillResp(fetchBytes: Int = 8) extends Bundle {
 }
 
 object ICacheReq {
-  def fromPc(pc: UInt, cfg: ICacheConfig, pred: FetchPred): ICacheReq = {
-    val addrWidth   = pc.getWidth
+  def fromControl(control: FetchControlMeta, cfg: ICacheConfig): ICacheReq = {
+    val addrWidth   = control.pc.getWidth
     val offsetWidth = log2Ceil(cfg.fetchBytes)
     val req         = Wire(new ICacheReq(cfg))
 
-    req.meta.pc        := pc
+    req.meta.control := control
     req.meta.blockAddr := {
-      Cat(pc(addrWidth - 1, offsetWidth), 0.U(offsetWidth.W))
+      Cat(control.pc(addrWidth - 1, offsetWidth), 0.U(offsetWidth.W))
     }
-    req.meta.pred      := pred
 
-    return req
+    req
+  }
+
+  def fromPc(pc: UInt, cfg: ICacheConfig, pred: FetchPred): ICacheReq = {
+    val control = Wire(new FetchControlMeta(cfg))
+    control.sequence       := 0.U
+    control.epoch          := 0.U
+    control.ftqIndex       := 0.U
+    control.pc             := pc
+    control.fastPrediction := pred
+    fromControl(control, cfg)
   }
 
   def fromPc(pc: UInt, cfg: ICacheConfig): ICacheReq = {

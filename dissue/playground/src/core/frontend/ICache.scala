@@ -119,7 +119,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
     respReg.hit       := false.B
     respReg.exception := io.refillResp.bits.exception
     when(io.refillResp.bits.exception.valid) {
-      respReg.exception.tval := missReq.meta.pc
+      respReg.exception.tval := missReq.meta.control.pc
     }
   }
 
