@@ -2,7 +2,14 @@ package top.core.backend.dispatch
 
 import chisel3._
 import chisel3.util.{Decoupled, MuxLookup}
-import top.core.backend.bundle.{DecodePacket, IssueOperand, IssuePacket, RegFileReadPort, ScoreboardAlloc, ScoreboardQuery}
+import top.core.backend.bundle.{
+  DecodePacket,
+  IssueOperand,
+  IssuePacket,
+  RegFileReadPort,
+  ScoreboardAlloc,
+  ScoreboardQuery
+}
 import top.core.backend.decoder.{FuType, SrcType}
 import top.config.BackendConfig
 import top.core.bundle.CfiType
@@ -19,12 +26,6 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private def operandPort(lane: Int, operand: Int): Int =
     lane * cfg.operandsPerInst + operand
-
-  private def readsRs(decode: DecodePacket, srcType: UInt, rs: UInt): Bool =
-    decode.needsIssue && (srcType === SrcType.reg) && (rs =/= 0.U)
-
-  private def writesRd(decode: DecodePacket): Bool =
-    decode.needsIssue && decode.rfWen && (decode.rd =/= 0.U)
 
   private def isDispatchBoundary(decode: DecodePacket): Bool =
     decode.valid && (decode.isRetireOnly || (decode.cfi =/= CfiType.none))
@@ -63,22 +64,13 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
 
   if (cfg.dispatchWidth > 1) {
     for (lane <- 1 until cfg.dispatchWidth) {
-      val olderHazards = (0 until lane).map { olderLane =>
-        val older = io.in(olderLane)
-        val young = io.in(lane)
-
-        val raw              =
-          writesRd(older) &&
-            ((readsRs(young, young.src1Type, young.rs1) && (young.rs1 === older.rd)) ||
-              (readsRs(young, young.src2Type, young.rs2) && (young.rs2 === older.rd)))
-        val waw              = writesRd(older) && writesRd(young) && (older.rd === young.rd)
-        val dispatchBoundary = isDispatchBoundary(older)
-
-        !io.out(olderLane).fire || raw || waw || dispatchBoundary
+      val olderLaneBlocksDispatch = (0 until lane).map { olderLane =>
+        !io.out(olderLane).fire || isDispatchBoundary(io.in(olderLane))
       }.reduce(_ || _)
 
-      // Without rename, a dispatch group is only allowed to expose a dependency-free prefix.
-      laneAllowed(lane) := io.in(lane).valid && !olderHazards
+      // The scoreboard assigns same-packet RAW tags and preserves the youngest WAW producer.
+      // Only an older dispatch failure or an architectural boundary truncates the packet.
+      laneAllowed(lane) := io.in(lane).valid && !olderLaneBlocksDispatch
     }
   }
 
