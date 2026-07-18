@@ -89,7 +89,8 @@ typedef struct NpcDpiCallbacks {
                            uint8_t occupancy, uint8_t block_ready,
                            uint8_t block_operand);
   void (*div_perf)(void *opaque, uint32_t cycles, uint8_t special);
-  void (*bpu_perf)(void *opaque, uint8_t correct);
+  void (*bpu_perf)(void *opaque, uint8_t cfi_class, uint8_t pred_hit,
+                   uint8_t pred_taken, uint8_t actual_taken, uint8_t correct);
   void (*mem_perf)(void *opaque, uint32_t events, uint32_t mshr_occupancy,
                    uint32_t store_queue_occupancy,
                    uint32_t load_txn_occupancy);

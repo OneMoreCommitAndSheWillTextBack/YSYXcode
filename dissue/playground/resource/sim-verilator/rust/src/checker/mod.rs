@@ -17,7 +17,7 @@ use detailed_trace::{CycleSample, DetailedTrace};
 use difftest::{DiffTest, DifftestError};
 use event::AsyncInterrupt;
 use itrace::Itrace;
-use perf::{Perf, PerfCounters};
+use perf::{BpuCfiClass, Perf, PerfCounters};
 use statistics::Statistics;
 use std::{fmt, io, mem, path::PathBuf};
 
@@ -292,8 +292,16 @@ impl Checker {
         }
     }
 
-    pub(crate) fn on_bpu_prediction(&mut self, correct: bool) {
-        self.perf.bpu_prediction(correct);
+    pub(crate) fn on_bpu_prediction(
+        &mut self,
+        cfi_class: u8,
+        pred_hit: bool,
+        pred_taken: bool,
+        actual_taken: bool,
+        correct: bool,
+    ) {
+        self.perf
+            .bpu_prediction(cfi_class, pred_hit, pred_taken, actual_taken, correct);
         if self.detailed_trace.is_some() {
             self.cycle_sample.record_bpu_prediction(correct);
         }
@@ -490,6 +498,27 @@ impl Checker {
             self.perf.bpu_correct_predictions(),
             self.perf.bpu_accuracy() * 100.0
         );
+        for class in [
+            BpuCfiClass::Branch,
+            BpuCfiClass::Jal,
+            BpuCfiClass::Jalr,
+            BpuCfiClass::Return,
+        ] {
+            let counters = self.perf.bpu_cfi(class);
+            crate::Log!(
+                "BPU {}: total: {}, correct: {}, miss: {}, accuracy: {:.2}%, pred hit: {}, no prediction: {}, taken no prediction: {}, direction miss: {}, target miss: {}",
+                class.label(),
+                counters.total(),
+                counters.correct(),
+                counters.misses(),
+                counters.accuracy() * 100.0,
+                counters.pred_hit(),
+                counters.no_prediction(),
+                counters.taken_no_prediction(),
+                counters.direction_miss(),
+                counters.target_miss()
+            );
+        }
         crate::Log!(
             "DCache: access: {}, hit: {}, miss: {}, bypass: {}, hit rate: {:.2}%",
             self.perf.mem_event(PerfCounters::DCACHE_ACCESS),

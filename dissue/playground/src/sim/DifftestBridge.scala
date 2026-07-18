@@ -4,6 +4,7 @@ import chisel3._
 import top.config.BackendConfig
 import top.core.backend.bundle.RetireGroup
 import top.core.backend.csr.CsrTrapCommit
+import top.core.bundle.BpuCfiClass
 import top.dpi.{NpcBpuPerf, NpcDifftestCommit, NpcDifftestContext}
 
 class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
@@ -60,12 +61,20 @@ class DifftestBridge(cfg: BackendConfig = BackendConfig()) extends Module {
 
 class BpuPerfBridge extends Module {
   val io = IO(new Bundle {
-    val valid   = Input(Bool())
-    val correct = Input(Bool())
+    val valid       = Input(Bool())
+    val cfiClass    = Input(UInt(BpuCfiClass.width.W))
+    val predHit     = Input(Bool())
+    val predTaken   = Input(Bool())
+    val actualTaken = Input(Bool())
+    val correct     = Input(Bool())
   })
 
   NpcBpuPerf.callWithEnable(
     io.valid,
+    io.cfiClass.pad(32),
+    io.predHit,
+    io.predTaken,
+    io.actualTaken,
     io.correct
   )
 }

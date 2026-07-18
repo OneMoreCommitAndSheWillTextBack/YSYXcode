@@ -23,7 +23,8 @@ extern "C" void npc_frontend_perf(int events);
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,
                                      char block_ready, char block_operand);
 extern "C" void npc_div_perf(int cycles, char special);
-extern "C" void npc_bpu_perf(char correct);
+extern "C" void npc_bpu_perf(int cfi_class, char pred_hit, char pred_taken,
+                              char actual_taken, char correct);
 extern "C" void npc_mem_perf(int events, int mshr_occupancy,
                               int store_queue_occupancy,
                               int load_txn_occupancy);

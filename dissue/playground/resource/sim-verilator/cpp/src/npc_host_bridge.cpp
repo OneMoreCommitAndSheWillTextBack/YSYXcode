@@ -131,13 +131,16 @@ void NpcHostBridge::div_perf(uint32_t cycles, uint8_t special) {
   bridge->callbacks_.div_perf(active_opaque(), cycles, special);
 }
 
-void NpcHostBridge::bpu_perf(uint8_t correct) {
+void NpcHostBridge::bpu_perf(uint8_t cfi_class, uint8_t pred_hit,
+                             uint8_t pred_taken, uint8_t actual_taken,
+                             uint8_t correct) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.bpu_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.bpu_perf(active_opaque(), correct);
+  bridge->callbacks_.bpu_perf(active_opaque(), cfi_class, pred_hit,
+                               pred_taken, actual_taken, correct);
 }
 
 void NpcHostBridge::mem_perf(uint32_t events, uint32_t mshr_occupancy,

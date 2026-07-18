@@ -413,9 +413,22 @@ extern "C" fn div_perf(opaque: *mut c_void, cycles: u32, special: u8) {
     }
 }
 
-extern "C" fn bpu_perf(opaque: *mut c_void, correct: u8) {
+extern "C" fn bpu_perf(
+    opaque: *mut c_void,
+    cfi_class: u8,
+    pred_hit: u8,
+    pred_taken: u8,
+    actual_taken: u8,
+    correct: u8,
+) {
     if let Some(host) = unsafe { host_from_opaque(opaque) } {
-        host.checker.on_bpu_prediction(correct != 0);
+        host.checker.on_bpu_prediction(
+            cfi_class,
+            pred_hit != 0,
+            pred_taken != 0,
+            actual_taken != 0,
+            correct != 0,
+        );
     }
 }
 

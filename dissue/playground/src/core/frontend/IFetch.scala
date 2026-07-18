@@ -211,6 +211,7 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.out.bits.insts(0).bits.rawInst    := firstRaw
   io.out.bits.insts(0).bits.isRVC      := firstIsRVC
   io.out.bits.insts(0).bits.instLen    := instLen(firstIsRVC)
+  io.out.bits.insts(0).bits.predHit    := firstPredHit
   io.out.bits.insts(0).bits.predTaken  := firstPredTaken
   io.out.bits.insts(0).bits.predNpc    := Mux(firstPredTaken, h0.pred.target, firstFallThrough)
   io.out.bits.insts(0).bits.predTarget := Mux(firstPredHit, h0.pred.target, 0.U)
@@ -222,6 +223,7 @@ class DualInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.out.bits.insts(1).bits.rawInst    := secondRaw
   io.out.bits.insts(1).bits.isRVC      := secondIsRVC
   io.out.bits.insts(1).bits.instLen    := instLen(secondIsRVC)
+  io.out.bits.insts(1).bits.predHit    := secondPredHit
   io.out.bits.insts(1).bits.predTaken  := secondPredTaken
   io.out.bits.insts(1).bits.predNpc    := Mux(secondPredTaken, secondPred.target, secondFallThrough)
   io.out.bits.insts(1).bits.predTarget := Mux(secondPredHit, secondPred.target, 0.U)
