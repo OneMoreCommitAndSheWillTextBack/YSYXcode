@@ -115,7 +115,12 @@ object FrontendPerfEvent {
   val rasOverflow                      = 24
   val rasCheckpointRestore             = 25
   val rasRecoveryDiscard               = 26
-  val width                            = 27
+  val tageTaggedProvider               = 27
+  val tageAlternateDisagree            = 28
+  val tageAllocation                   = 29
+  val tageUsefulnessAging              = 30
+  val lateOverride                     = 31
+  val width                            = 32
 
   def bit(index: Int, enabled: Bool): UInt =
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))

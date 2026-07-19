@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const FRONTEND_EVENT_NAMES: [&str; 27] = [
+const FRONTEND_EVENT_NAMES: [&str; 32] = [
     "icache_request",
     "icache_hit",
     "icache_miss",
@@ -33,6 +33,11 @@ const FRONTEND_EVENT_NAMES: [&str; 27] = [
     "ras_overflow",
     "ras_checkpoint_restore",
     "ras_recovery_discard",
+    "tage_tagged_provider",
+    "tage_alternate_disagree",
+    "tage_allocation",
+    "tage_usefulness_aging",
+    "late_override",
 ];
 
 const MEMORY_EVENT_NAMES: [&str; 19] = [

@@ -1,13 +1,14 @@
 package top.core.frontend.bundle
 
 import chisel3._
-import chisel3.util.{MuxLookup, log2Ceil}
+import chisel3.util.{Cat, Fill, MuxLookup, log2Ceil}
 import top.config.ICacheConfig
 import top.core.bundle.CfiType
 
 object PredictorConstants {
   val commitUpdateWidth = 2
-  val providerBits      = 3
+  val latePredictionWidth = 4
+  val providerBits      = 5
   val confidenceBits    = 2
   val historyBits       = 16
   val rasEntries        = 8
@@ -16,10 +17,14 @@ object PredictorConstants {
 }
 
 object PredictorProvider {
-  val none    = 0.U(PredictorConstants.providerBits.W)
-  val fastBtb = 1.U(PredictorConstants.providerBits.W)
-  val tage    = 2.U(PredictorConstants.providerBits.W)
-  val ittage  = 3.U(PredictorConstants.providerBits.W)
+  val none      = 0.U(PredictorConstants.providerBits.W)
+  val fastBtb   = 1.U(PredictorConstants.providerBits.W)
+  val ras       = 2.U(PredictorConstants.providerBits.W)
+  val tageBase  = 3.U(PredictorConstants.providerBits.W)
+  val ittageBase = 4.U(PredictorConstants.providerBits.W)
+
+  def tageTable(index: Int): UInt = (5 + index).U(PredictorConstants.providerBits.W)
+  def ittageTable(index: Int): UInt = (11 + index).U(PredictorConstants.providerBits.W)
 }
 
 object RasAction {
@@ -104,6 +109,13 @@ class PredictionMeta(cfg: ICacheConfig = ICacheConfig()) extends Bundle {
   val instLen         = UInt(3.W)
   val rasAction       = UInt(RasAction.width.W)
   val rasUsed         = Bool()
+  val canonicalReturn = Bool()
+  val lateValid       = Bool()
+  val lateTaken       = Bool()
+  val specTaken       = Bool()
+  val alternateTaken  = Bool()
+  val lateTarget      = UInt(cfg.addrWidth.W)
+  val lateOverride    = Bool()
 
   val historyCheckpoint = UInt(PredictorConstants.historyBits.W)
   val pathCheckpoint    = UInt(PredictorConstants.historyBits.W)
@@ -113,6 +125,52 @@ class PredictionMeta(cfg: ICacheConfig = ICacheConfig()) extends Bundle {
 
 class PredictorRecovery(addrWidth: Int = 32) extends Bundle {
   val prediction = new PredictionMeta(ICacheConfig(addrWidth = addrWidth))
+  val cfiType    = UInt(CfiType.width.W)
+  val actualTaken = Bool()
+  val actualTarget = UInt(addrWidth.W)
+}
+
+class LatePredictQuery(cfg: ICacheConfig) extends Bundle {
+  val valid           = Bool()
+  val pc              = UInt(cfg.addrWidth.W)
+  val cfiType         = UInt(CfiType.width.W)
+  val fastValid       = Bool()
+  val fastTaken       = Bool()
+  val fastTarget      = UInt(cfg.addrWidth.W)
+  val canonicalReturn = Bool()
+  val history         = UInt(PredictorConstants.historyBits.W)
+  val pathHistory     = UInt(PredictorConstants.historyBits.W)
+}
+
+class LatePrediction(cfg: ICacheConfig) extends Bundle {
+  val valid             = Bool()
+  val taken             = Bool()
+  val target            = UInt(cfg.addrWidth.W)
+  val provider          = UInt(PredictorConstants.providerBits.W)
+  val alternate         = UInt(PredictorConstants.providerBits.W)
+  val confidence        = UInt(PredictorConstants.confidenceBits.W)
+  val alternateTaken    = Bool()
+  val historyCheckpoint = UInt(PredictorConstants.historyBits.W)
+  val pathCheckpoint    = UInt(PredictorConstants.historyBits.W)
+}
+
+class TaggedPredictorPerf extends Bundle {
+  val provider          = Bool()
+  val alternateDisagree = Bool()
+  val allocation        = Bool()
+  val usefulnessAging   = Bool()
+}
+
+object CfiTarget {
+  def branch(pc: UInt, inst: UInt): UInt = {
+    val offset = Cat(Fill(19, inst(31)), inst(31), inst(7), inst(30, 25), inst(11, 8), 0.U(1.W))
+    pc +% offset
+  }
+
+  def jal(pc: UInt, inst: UInt): UInt = {
+    val offset = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
+    pc +% offset
+  }
 }
 
 class RasPerf extends Bundle {
@@ -126,4 +184,9 @@ class RasPerf extends Bundle {
   val overflow         = Bool()
   val checkpointRestore = Bool()
   val recoveryDiscard  = Bool()
+  val taggedProvider   = Bool()
+  val alternateDisagree = Bool()
+  val allocation       = Bool()
+  val usefulnessAging  = Bool()
+  val lateOverride     = Bool()
 }

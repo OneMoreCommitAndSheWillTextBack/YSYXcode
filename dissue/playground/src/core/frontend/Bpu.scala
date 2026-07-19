@@ -161,10 +161,14 @@ class Bht(cfg: BpuConfig) extends Module {
 }
 
 class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
+  require(cfg.predictorHistoryBits == PredictorConstants.historyBits, "Prediction metadata and BPU history widths must match")
+
   val io = IO(new BpuBundle(cfg))
 
-  val btb = Module(new Btb(cfg))
-  val bht = Module(new Bht(cfg))
+  private val cacheCfg = ICacheConfig(addrWidth = cfg.addrWidth, fetchBytes = cfg.fetchBytes)
+  val btb  = Module(new Btb(cfg))
+  val bht  = Module(new Bht(cfg))
+  val tage = Module(new Tage(cfg))
 
   btb.io.lookupPc(0) := io.lookup.bits.pc
   btb.io.lookupPc(1) := io.lookupSecondary.bits.pc
@@ -181,6 +185,27 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     bht.io.update(lane).valid      := io.update(lane).valid && io.update(lane).bits.cfiType === CfiType.branch
     bht.io.update(lane).bits.pc    := io.update(lane).bits.pc
     bht.io.update(lane).bits.taken := io.update(lane).bits.taken
+  }
+  tage.io.update := io.update
+
+  private def advanceConditionalHistory(history: UInt, cfiType: UInt, taken: Bool): UInt =
+    Mux(cfiType === CfiType.branch, Cat(history(PredictorConstants.historyBits - 2, 0), taken), history)
+
+  private def isGenericIndirect(cfiType: UInt, canonicalReturn: Bool): Bool =
+    cfiType === CfiType.jalr && !canonicalReturn
+
+  private def advancePathHistory(
+    history:         UInt,
+    cfiType:         UInt,
+    canonicalReturn: Bool,
+    pc:              UInt,
+    target:          UInt): UInt = {
+    val pathBits = pc(5, 2) ^ target(5, 2)
+    Mux(
+      isGenericIndirect(cfiType, canonicalReturn),
+      Cat(history(PredictorConstants.historyBits - 5, 0), pathBits),
+      history
+    )
   }
 
   private def applyRas(
@@ -225,8 +250,45 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     )
   }
 
-  private val architecturalRas = RegInit(0.U.asTypeOf(new RasCheckpoint(cfg.addrWidth)))
-  private val speculativeRas   = RegInit(0.U.asTypeOf(new RasCheckpoint(cfg.addrWidth)))
+  private val architecturalRas     = RegInit(0.U.asTypeOf(new RasCheckpoint(cfg.addrWidth)))
+  private val speculativeRas       = RegInit(0.U.asTypeOf(new RasCheckpoint(cfg.addrWidth)))
+  private val architecturalHistory = RegInit(0.U(PredictorConstants.historyBits.W))
+  private val speculativeHistory   = RegInit(0.U(PredictorConstants.historyBits.W))
+  private val architecturalPath    = RegInit(0.U(PredictorConstants.historyBits.W))
+  private val speculativePath      = RegInit(0.U(PredictorConstants.historyBits.W))
+
+  private val tageQueries = Wire(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cacheCfg)))
+  var queryHistory: UInt = speculativeHistory
+  var queryPath: UInt = speculativePath
+  for (lane <- 0 until PredictorConstants.latePredictionWidth) {
+    val query = io.lateQuery(lane)
+    val historyBefore = queryHistory
+    val pathBefore    = queryPath
+
+    tageQueries(lane) := query
+    tageQueries(lane).history     := historyBefore
+    tageQueries(lane).pathHistory := pathBefore
+
+    val tageValid = cfg.enableTage.B && tage.io.prediction(lane).valid
+    val selectedTaken = Mux(cfg.enableLateOverride.B && tageValid, tage.io.prediction(lane).taken, query.fastTaken)
+
+    io.latePrediction(lane) := tage.io.prediction(lane)
+    io.latePrediction(lane).valid             := tageValid
+    io.latePrediction(lane).historyCheckpoint := historyBefore
+    io.latePrediction(lane).pathCheckpoint    := pathBefore
+
+    queryHistory = Mux(
+      query.valid && query.cfiType === CfiType.branch,
+      advanceConditionalHistory(historyBefore, query.cfiType, selectedTaken),
+      historyBefore
+    )
+    queryPath = Mux(
+      query.valid,
+      advancePathHistory(pathBefore, query.cfiType, query.canonicalReturn, query.pc, query.fastTarget),
+      pathBefore
+    )
+  }
+  tage.io.query := tageQueries
 
   private val firstCommitAction = Mux(io.update(0).valid, io.update(0).bits.rasAction, RasAction.none)
   private val firstCommitRas = applyRas(
@@ -244,6 +306,30 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   )
   architecturalRas := secondCommitRas._1
 
+  var committedHistory: UInt = architecturalHistory
+  var committedPath: UInt = architecturalPath
+  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
+    val update = io.update(lane)
+    committedHistory = Mux(
+      update.valid,
+      advanceConditionalHistory(committedHistory, update.bits.cfiType, update.bits.taken),
+      committedHistory
+    )
+    committedPath = Mux(
+      update.valid,
+      advancePathHistory(
+        committedPath,
+        update.bits.cfiType,
+        update.bits.prediction.canonicalReturn,
+        update.bits.pc,
+        update.bits.target
+      ),
+      committedPath
+    )
+  }
+  architecturalHistory := committedHistory
+  architecturalPath    := committedPath
+
   private val speculativeAction = Mux(io.rasSpecUpdate.valid, io.rasSpecUpdate.bits.rasAction, RasAction.none)
   private val speculativeNext = applyRas(
     speculativeRas,
@@ -252,18 +338,58 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     io.rasSpecUpdate.bits.instLen
   )
   private val recoveryNext = applyRas(
-    io.rasRecovery.bits.rasCheckpoint,
-    io.rasRecovery.bits.rasAction,
-    io.rasRecovery.bits.cfiPc,
-    io.rasRecovery.bits.instLen
+    io.rasRecovery.bits.prediction.rasCheckpoint,
+    io.rasRecovery.bits.prediction.rasAction,
+    io.rasRecovery.bits.prediction.cfiPc,
+    io.rasRecovery.bits.prediction.instLen
+  )
+
+  var speculativeHistoryNext: UInt = speculativeHistory
+  var speculativePathNext: UInt = speculativePath
+  for (lane <- 0 until PredictorConstants.latePredictionWidth) {
+    val update = io.lateSpecUpdate(lane)
+    speculativeHistoryNext = Mux(
+      update.valid,
+      advanceConditionalHistory(speculativeHistoryNext, update.bits.cfiType, update.bits.specTaken),
+      speculativeHistoryNext
+    )
+    speculativePathNext = Mux(
+      update.valid,
+      advancePathHistory(
+        speculativePathNext,
+        update.bits.cfiType,
+        update.bits.canonicalReturn,
+        update.bits.cfiPc,
+        update.bits.predictedTarget
+      ),
+      speculativePathNext
+    )
+  }
+  private val recoveredHistory = advanceConditionalHistory(
+    io.rasRecovery.bits.prediction.historyCheckpoint,
+    io.rasRecovery.bits.cfiType,
+    io.rasRecovery.bits.actualTaken
+  )
+  private val recoveredPath = advancePathHistory(
+    io.rasRecovery.bits.prediction.pathCheckpoint,
+    io.rasRecovery.bits.cfiType,
+    io.rasRecovery.bits.prediction.canonicalReturn,
+    io.rasRecovery.bits.prediction.cfiPc,
+    io.rasRecovery.bits.actualTarget
   )
 
   when(io.rasRecovery.valid) {
     speculativeRas := recoveryNext._1
+    speculativeHistory := recoveredHistory
+    speculativePath := recoveredPath
   }.elsewhen(io.rasFlush) {
     speculativeRas := secondCommitRas._1
+    speculativeHistory := committedHistory
+    speculativePath := committedPath
   }.otherwise {
     speculativeRas := speculativeNext._1
+    speculativeHistory := speculativeHistoryNext
+    speculativePath := speculativePathNext
   }
 
   io.rasTop        := Mux(speculativeRas.count =/= 0.U, speculativeRas.entries((speculativeRas.count - 1.U)(PredictorConstants.rasIndexBits - 1, 0)), 0.U)
@@ -293,12 +419,19 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   io.perf.overflow          := firstCommitRas._3 || secondCommitRas._3 || recoveryNext._3
   io.perf.checkpointRestore := io.rasRecovery.valid
   io.perf.recoveryDiscard   := io.rasRecovery.valid || io.rasFlush
+  io.perf.taggedProvider    := tage.io.perf.provider
+  io.perf.alternateDisagree := tage.io.perf.alternateDisagree
+  io.perf.allocation        := tage.io.perf.allocation
+  io.perf.usefulnessAging   := tage.io.perf.usefulnessAging
+  io.perf.lateOverride      := VecInit((0 until PredictorConstants.latePredictionWidth).map { lane =>
+    io.lateSpecUpdate(lane).valid && io.lateSpecUpdate(lane).bits.lateOverride
+  }).asUInt.orR
 
   when(io.rasSpecUpdate.valid) {
     assert(io.rasSpecUpdate.bits.checkpointValid)
   }
   when(io.rasRecovery.valid) {
-    assert(io.rasRecovery.bits.checkpointValid)
+    assert(io.rasRecovery.bits.prediction.checkpointValid)
   }
 
   private def predictionFor(lookupValid: Bool, lookupPc: UInt, lane: Int): BpuPred = {

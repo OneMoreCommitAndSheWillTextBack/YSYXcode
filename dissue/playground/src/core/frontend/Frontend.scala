@@ -86,6 +86,8 @@ class Frontend(
   ifetch.io.rasTop            := bpu.io.rasTop
   ifetch.io.rasValid          := bpu.io.rasValid
   ifetch.io.rasCheckpoint     := bpu.io.rasCheckpoint
+  ifetch.io.latePrediction    := bpu.io.latePrediction
+  ifetch.io.lateOverrideEnable := cfg.bpu.enableLateOverride.B
   ifetch.io.predictorRecovery.valid := io.predictorRecovery.valid
   ifetch.io.predictorRecovery.bits  := io.predictorRecovery.bits.prediction
 
@@ -100,9 +102,11 @@ class Frontend(
   for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
     bpu.io.update(lane) := io.bpuUpdates(lane)
   }
+  bpu.io.lateQuery := ifetch.io.lateQuery
+  bpu.io.lateSpecUpdate := ifetch.io.lateSpecUpdate
   bpu.io.rasSpecUpdate := ifetch.io.rasSpecUpdate
   bpu.io.rasRecovery.valid := io.predictorRecovery.valid
-  bpu.io.rasRecovery.bits  := ifetch.io.recoveryPrediction
+  bpu.io.rasRecovery.bits  := io.predictorRecovery.bits
   bpu.io.rasFlush := io.icacheInvalidate || io.trapRedirect.valid || io.predRedirect.valid ||
     (io.branchRedirect.valid && !io.predictorRecovery.valid)
 
@@ -184,7 +188,12 @@ class Frontend(
     FrontendPerfEvent.bit(FrontendPerfEvent.rasUnderflow, bpu.io.perf.underflow),
     FrontendPerfEvent.bit(FrontendPerfEvent.rasOverflow, bpu.io.perf.overflow),
     FrontendPerfEvent.bit(FrontendPerfEvent.rasCheckpointRestore, bpu.io.perf.checkpointRestore),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasRecoveryDiscard, bpu.io.perf.recoveryDiscard)
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasRecoveryDiscard, bpu.io.perf.recoveryDiscard),
+    FrontendPerfEvent.bit(FrontendPerfEvent.tageTaggedProvider, bpu.io.perf.taggedProvider),
+    FrontendPerfEvent.bit(FrontendPerfEvent.tageAlternateDisagree, bpu.io.perf.alternateDisagree),
+    FrontendPerfEvent.bit(FrontendPerfEvent.tageAllocation, bpu.io.perf.allocation),
+    FrontendPerfEvent.bit(FrontendPerfEvent.tageUsefulnessAging, bpu.io.perf.usefulnessAging),
+    FrontendPerfEvent.bit(FrontendPerfEvent.lateOverride, bpu.io.perf.lateOverride)
   ).reduce(_ | _)
 
   perf.io.events                 := perfEvents

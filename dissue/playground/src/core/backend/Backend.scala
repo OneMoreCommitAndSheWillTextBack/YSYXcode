@@ -100,8 +100,7 @@ class Backend(
     retire.io.redirect.branchRedirect.target,
     recovery.io.redirect.target
   )
-  io.redirect.predictorRecovery.valid            := recovery.io.predictorRecovery.valid
-  io.redirect.predictorRecovery.bits.prediction := recovery.io.predictorRecovery.bits
+  io.redirect.predictorRecovery := recovery.io.predictorRecovery
 
   private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
   private val pending  = RegInit(false.B)

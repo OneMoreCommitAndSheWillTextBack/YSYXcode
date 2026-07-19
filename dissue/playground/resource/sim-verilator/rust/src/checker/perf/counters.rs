@@ -164,7 +164,12 @@ impl PerfCounters {
     pub const RAS_OVERFLOW: usize = 24;
     pub const RAS_CHECKPOINT_RESTORE: usize = 25;
     pub const RAS_RECOVERY_DISCARD: usize = 26;
-    pub const FRONTEND_EVENT_COUNT: usize = 27;
+    pub const TAGE_TAGGED_PROVIDER: usize = 27;
+    pub const TAGE_ALTERNATE_DISAGREE: usize = 28;
+    pub const TAGE_ALLOCATION: usize = 29;
+    pub const TAGE_USEFULNESS_AGING: usize = 30;
+    pub const LATE_OVERRIDE: usize = 31;
+    pub const FRONTEND_EVENT_COUNT: usize = 32;
 
     pub fn frontend_perf(
         &mut self,

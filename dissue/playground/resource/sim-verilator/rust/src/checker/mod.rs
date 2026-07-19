@@ -506,6 +506,16 @@ impl Checker {
             self.perf.frontend_event(PerfCounters::RAS_RECOVERY_DISCARD)
         );
         crate::Log!(
+            "TAGE/ITTAGE: tagged providers: {}, alternate disagreements: {}, allocations: {}, usefulness aging: {}, late overrides: {}",
+            self.perf.frontend_event(PerfCounters::TAGE_TAGGED_PROVIDER),
+            self.perf
+                .frontend_event(PerfCounters::TAGE_ALTERNATE_DISAGREE),
+            self.perf.frontend_event(PerfCounters::TAGE_ALLOCATION),
+            self.perf
+                .frontend_event(PerfCounters::TAGE_USEFULNESS_AGING),
+            self.perf.frontend_event(PerfCounters::LATE_OVERRIDE)
+        );
+        crate::Log!(
             "FetchQueue: samples: {}, avg occupancy: {:.3}, true starvation cycles: {}, full cycles: {}, accepted enqueue width total: {}, dequeued width total: {}, avg miss-start queue occupancy: {:.3}",
             self.perf.fetch_queue_sample_cycles(),
             self.perf.fetch_queue_average_occupancy(),

@@ -78,7 +78,17 @@ final case class BpuConfig(
   fetchBytes: Int = 8,
   btbEntries: Int = 64,
   bhtEntries: Int = 128,
-  btbWays: Int = 1) {
+  btbWays: Int = 1,
+  predictorHistoryBits: Int = 16,
+  tageEntries: Int = 64,
+  tageTagBits: Int = 8,
+  tageHistoryLengths: Seq[Int] = Seq(2, 4, 8, 16),
+  ittageEntries: Int = 64,
+  ittageTagBits: Int = 8,
+  ittageHistoryLengths: Seq[Int] = Seq(2, 4, 8, 16),
+  enableTage: Boolean = true,
+  enableIttage: Boolean = false,
+  enableLateOverride: Boolean = false) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
 
@@ -88,12 +98,25 @@ final case class BpuConfig(
   require(isPow2(bhtEntries), "bhtEntries must be a power of two")
   require(btbWays > 0, "btbWays must be positive")
   require(btbWays == 1, "set-associative BTB is not supported yet")
+  require(predictorHistoryBits > 0, "predictorHistoryBits must be positive")
+  require(isPow2(tageEntries), "tageEntries must be a power of two")
+  require(tageTagBits > 0, "tageTagBits must be positive")
+  require(tageHistoryLengths.length >= 4 && tageHistoryLengths.length <= 6, "TAGE needs four to six tagged tables")
+  require(tageHistoryLengths.forall(_ > 0), "TAGE history lengths must be positive")
+  require(tageHistoryLengths == tageHistoryLengths.sorted.distinct, "TAGE history lengths must increase uniquely")
+  require(isPow2(ittageEntries), "ittageEntries must be a power of two")
+  require(ittageTagBits > 0, "ittageTagBits must be positive")
+  require(ittageHistoryLengths.length >= 4 && ittageHistoryLengths.length <= 6, "ITTAGE needs four to six tagged tables")
+  require(ittageHistoryLengths.forall(_ > 0), "ITTAGE history lengths must be positive")
+  require(ittageHistoryLengths == ittageHistoryLengths.sorted.distinct, "ITTAGE history lengths must increase uniquely")
 
   val offsetBits:    Int = log2Ceil(fetchBytes)
   val cfiOffsetBits: Int = log2Ceil(fetchBytes / 2)
   val btbIndexBits:  Int = log2Ceil(btbEntries)
   val bhtIndexBits:  Int = log2Ceil(bhtEntries)
   val btbTagBits:    Int = addrWidth - offsetBits - btbIndexBits
+  val tageIndexBits: Int = log2Ceil(tageEntries)
+  val ittageIndexBits: Int = log2Ceil(ittageEntries)
 
   require(btbTagBits > 0, "addrWidth must cover BTB tag, index, and block offset")
 }
