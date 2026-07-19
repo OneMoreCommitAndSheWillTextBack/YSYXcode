@@ -182,8 +182,10 @@ class Tage(cfg: BpuConfig) extends Module {
   }
 
   for (table <- 0 until tableCount) {
-    val update0Provider = update0Active && io.update(0).bits.prediction.provider === PredictorProvider.tageTable(table)
     val update0Index = tableIndex(io.update(0).bits.pc, io.update(0).bits.prediction.historyCheckpoint, table)
+    val update0Provider = update0Active && io.update(0).bits.prediction.provider === PredictorProvider.tageTable(table) &&
+      validTables(table)(update0Index) &&
+      tagTables(table)(update0Index) === tableTag(io.update(0).bits.pc, io.update(0).bits.prediction.historyCheckpoint, table)
     val update0Ctr = TaggedCounter.direction(ctrTables(table)(update0Index), io.update(0).bits.taken)
     val update0Useful = {
       val correct = io.update(0).bits.prediction.lateTaken === io.update(0).bits.taken
@@ -199,8 +201,10 @@ class Tage(cfg: BpuConfig) extends Module {
       usefulTables(table)(update0Index) := update0Useful
     }
 
-    val update1Provider = update1Active && io.update(1).bits.prediction.provider === PredictorProvider.tageTable(table)
     val update1Index = tableIndex(io.update(1).bits.pc, io.update(1).bits.prediction.historyCheckpoint, table)
+    val update1Provider = update1Active && io.update(1).bits.prediction.provider === PredictorProvider.tageTable(table) &&
+      validTables(table)(update1Index) &&
+      tagTables(table)(update1Index) === tableTag(io.update(1).bits.pc, io.update(1).bits.prediction.historyCheckpoint, table)
     val update1Matches0 = update0Provider && update0Index === update1Index
     val update1CtrPrior = Mux(update1Matches0, update0Ctr, ctrTables(table)(update1Index))
     val update1UsefulPrior = Mux(update1Matches0, update0Useful, usefulTables(table)(update1Index))

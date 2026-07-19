@@ -46,17 +46,31 @@ class Btb(cfg: BpuConfig) extends Module {
   val cfitpArray  = Reg(Vec(cfg.btbEntries, UInt(CfiType.width.W)))
   val cfioffArray = Reg(Vec(cfg.btbEntries, UInt(cfg.cfiOffsetBits.W)))
 
-  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
-    val updateSet = index(io.update(lane).bits.pc)
-    val updateTag = tag(io.update(lane).bits.pc)
+  private val firstUpdateSet = index(io.update(0).bits.pc)
+  private val firstUpdateTag = tag(io.update(0).bits.pc)
+  private val secondUpdateSet = index(io.update(1).bits.pc)
+  private val secondUpdateTag = tag(io.update(1).bits.pc)
+  private val sameBlockUpdates = io.update(0).valid && io.update(1).valid &&
+    firstUpdateSet === secondUpdateSet && firstUpdateTag === secondUpdateTag
 
-    when(io.update(lane).valid) {
-      validArray(updateSet)  := true.B
-      tagArray(updateSet)    := updateTag
-      targetArray(updateSet) := io.update(lane).bits.target
-      cfitpArray(updateSet)  := io.update(lane).bits.cfiType
-      cfioffArray(updateSet) := io.update(lane).bits.cfiOffset
-    }
+  when(io.update(0).valid) {
+    validArray(firstUpdateSet)  := true.B
+    tagArray(firstUpdateSet)    := firstUpdateTag
+    targetArray(firstUpdateSet) := io.update(0).bits.target
+    cfitpArray(firstUpdateSet)  := io.update(0).bits.cfiType
+    cfioffArray(firstUpdateSet) := io.update(0).bits.cfiOffset
+  }
+
+  when(io.update(1).valid && !sameBlockUpdates) {
+    validArray(secondUpdateSet)  := true.B
+    tagArray(secondUpdateSet)    := secondUpdateTag
+    targetArray(secondUpdateSet) := io.update(1).bits.target
+    cfitpArray(secondUpdateSet)  := io.update(1).bits.cfiType
+    cfioffArray(secondUpdateSet) := io.update(1).bits.cfiOffset
+  }
+
+  when(sameBlockUpdates) {
+    assert(io.update(0).bits.pc < io.update(1).bits.pc)
   }
 
   for (lane <- 0 until 2) {
@@ -172,8 +186,13 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
 
   btb.io.lookupPc(0) := io.lookup.bits.pc
   btb.io.lookupPc(1) := io.lookupSecondary.bits.pc
-  bht.io.lookupPc(0) := io.lookup.bits.pc
-  bht.io.lookupPc(1) := io.lookupSecondary.bits.pc
+  private def cfiPc(lookupPc: UInt, response: BtbResp): UInt = {
+    val blockPc = Cat(lookupPc(cfg.addrWidth - 1, cfg.offsetBits), 0.U(cfg.offsetBits.W))
+    blockPc +% (response.cfiOffset << 1)
+  }
+
+  bht.io.lookupPc(0) := cfiPc(io.lookup.bits.pc, btb.io.resp(0))
+  bht.io.lookupPc(1) := cfiPc(io.lookupSecondary.bits.pc, btb.io.resp(1))
 
   for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
     btb.io.update(lane).valid          := io.update(lane).valid && io.update(lane).bits.taken

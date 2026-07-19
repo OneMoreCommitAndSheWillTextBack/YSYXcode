@@ -1,7 +1,7 @@
 package top.core.frontend.ifetch
 
 import chisel3._
-import chisel3.util.{log2Ceil, Valid}
+import chisel3.util.{Cat, log2Ceil, Valid}
 import top.config.ICacheConfig
 import top.core.frontend.bundle.{FetchControlMeta, FetchPred, PredictionMeta, PredictorProvider}
 
@@ -30,7 +30,7 @@ class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int, groupWidth: Int = 2) 
     val releaseMeta  = Input(Vec(groupWidth, new FetchControlMeta(cacheCfg)))
     val peek         = Output(Vec(groupWidth, Valid(new FetchControlMeta(cacheCfg))))
 
-    val checkpointWrite   = Input(Valid(new PredictionMeta(cacheCfg)))
+    val checkpointWrite   = Input(Vec(FetchWidth.frontend, Valid(new PredictionMeta(cacheCfg))))
     val checkpointRead    = Input(new PredictionMeta(cacheCfg))
     val checkpointReadHit = Output(Bool())
     val checkpointReadMeta = Output(new PredictionMeta(cacheCfg))
@@ -42,9 +42,18 @@ class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int, groupWidth: Int = 2) 
   private def ptrAdd(ptr: UInt, increment: UInt): UInt =
     (ptr + increment)(ptrWidth - 1, 0)
 
+  private val checkpointsPerEntry = cacheCfg.fetchBytes / 2
+  private val checkpointEntries   = depth * checkpointsPerEntry
+
+  private def checkpointIndex(meta: PredictionMeta): UInt = {
+    val entryIndex = meta.ftqIndex(ptrWidth - 1, 0)
+    if (checkpointsPerEntry == 1) entryIndex
+    else Cat(entryIndex, meta.cfiPc(cacheCfg.offsetBits - 1, 1))
+  }
+
   val entries      = Reg(Vec(depth, new FetchControlMeta(cacheCfg)))
-  val checkpoints  = Reg(Vec(depth, new PredictionMeta(cacheCfg)))
-  val checkpointValid = RegInit(VecInit(Seq.fill(depth)(false.B)))
+  val checkpoints  = Reg(Vec(checkpointEntries, new PredictionMeta(cacheCfg)))
+  val checkpointValid = RegInit(VecInit(Seq.fill(checkpointEntries)(false.B)))
   val readPtr      = RegInit(0.U(ptrWidth.W))
   val writePtr     = RegInit(0.U(ptrWidth.W))
   val count        = RegInit(0.U(countWidth.W))
@@ -58,7 +67,7 @@ class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int, groupWidth: Int = 2) 
   allocateCountWide := io.allocateCount
   private val releasedSlots = Mux(io.release, releaseCountWide, 0.U(countWidth.W))
 
-  private val checkpointReadIndex = io.checkpointRead.ftqIndex
+  private val checkpointReadIndex = checkpointIndex(io.checkpointRead)
   private val checkpointReadEntry = checkpoints(checkpointReadIndex)
   io.checkpointReadHit := checkpointValid(checkpointReadIndex) &&
     checkpointReadEntry.sequence === io.checkpointRead.sequence &&
@@ -114,10 +123,12 @@ class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int, groupWidth: Int = 2) 
     count := count + allocatedSlots - releasedSlots
   }
 
-  when(io.checkpointWrite.valid) {
-    val index = io.checkpointWrite.bits.ftqIndex
-    checkpoints(index)    := io.checkpointWrite.bits
-    checkpointValid(index) := true.B
+  for (lane <- 0 until FetchWidth.frontend) {
+    when(io.checkpointWrite(lane).valid) {
+      val index = checkpointIndex(io.checkpointWrite(lane).bits)
+      checkpoints(index)    := io.checkpointWrite(lane).bits
+      checkpointValid(index) := true.B
+    }
   }
 
   assert(count <= depth.U)
@@ -140,7 +151,9 @@ class FetchTargetQueue(cacheCfg: ICacheConfig, depth: Int, groupWidth: Int = 2) 
       }
     }
   }
-  when(io.checkpointWrite.valid) {
-    assert(io.checkpointWrite.bits.checkpointValid)
+  for (lane <- 0 until FetchWidth.frontend) {
+    when(io.checkpointWrite(lane).valid) {
+      assert(io.checkpointWrite(lane).bits.checkpointValid)
+    }
   }
 }

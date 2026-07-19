@@ -203,7 +203,7 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     val lateSpecUpdate = Output(Vec(PredictorConstants.latePredictionWidth, Valid(new PredictionMeta(cfg))))
     val lateOverrideEnable = Input(Bool())
     val rasSpecUpdate = Output(Valid(new PredictionMeta(cfg)))
-    val checkpointWrite = Output(Valid(new PredictionMeta(cfg)))
+    val checkpointWrite = Output(Vec(PredictorConstants.latePredictionWidth, Valid(new PredictionMeta(cfg))))
   })
 
   private def instLen(isRVC: Bool): UInt =
@@ -244,10 +244,10 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   queryStopBefore(0) := false.B
   io.out.bits   := 0.U.asTypeOf(new FetchQueueEnqueue(cfg, outputWidth))
   io.rasSpecUpdate := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
-  io.checkpointWrite := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
   for (lane <- 0 until PredictorConstants.latePredictionWidth) {
     io.lateQuery(lane) := 0.U.asTypeOf(new LatePredictQuery(cfg))
     io.lateSpecUpdate(lane) := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
+    io.checkpointWrite(lane) := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
   }
 
   for (lane <- 0 until outputWidth) {
@@ -317,7 +317,7 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     predictionMeta(lane).lateTarget := late.target
     predictionMeta(lane).lateOverride := (lateConditionalOverride || lateIndirectOverride) &&
       fastNpc =/= Mux(predTaken(lane), targets(lane), fallThrough)
-    when(late.valid) {
+    when(io.lateQuery(lane).valid) {
       predictionMeta(lane).provider := late.provider
       predictionMeta(lane).alternate := late.alternate
       predictionMeta(lane).confidence := late.confidence
@@ -355,6 +355,8 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
 
     io.lateSpecUpdate(lane).valid := io.out.fire && outputValid(lane) && cfiTypes(lane) =/= CfiType.none
     io.lateSpecUpdate(lane).bits := predictionMeta(lane)
+    io.checkpointWrite(lane).valid := io.out.fire && outputValid(lane) && cfiTypes(lane) =/= CfiType.none
+    io.checkpointWrite(lane).bits := predictionMeta(lane)
 
     when(ready(lane) && !isRVC) {
       assert(high.pc === low.pc + 2.U)
@@ -386,12 +388,6 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.rasSpecUpdate.valid := io.out.fire && rasSpecMask.asUInt.orR
   io.rasSpecUpdate.bits := Mux1H(rasSpecGrant, predictionMeta)
 
-  val checkpointMask = VecInit((0 until outputWidth).map { lane =>
-    outputValid(lane) && cfiTypes(lane) =/= CfiType.none
-  })
-  val checkpointGrant = PriorityEncoderOH(checkpointMask.asUInt).asBools
-  io.checkpointWrite.valid := io.out.fire && checkpointMask.asUInt.orR
-  io.checkpointWrite.bits := Mux1H(checkpointGrant, predictionMeta)
   io.deq := Mux(
     io.out.fire,
     Mux(stopMask.asUInt.orR, io.count, consumedHalfwords),

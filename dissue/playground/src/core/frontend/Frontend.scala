@@ -105,8 +105,11 @@ class Frontend(
   bpu.io.lateQuery := ifetch.io.lateQuery
   bpu.io.lateSpecUpdate := ifetch.io.lateSpecUpdate
   bpu.io.rasSpecUpdate := ifetch.io.rasSpecUpdate
+  val bpuRecovery = Wire(Valid(new PredictorRecovery(cfg.addrWidth)))
+  bpuRecovery := io.predictorRecovery
+  bpuRecovery.bits.prediction := ifetch.io.recoveryPrediction
   bpu.io.rasRecovery.valid := io.predictorRecovery.valid
-  bpu.io.rasRecovery.bits  := io.predictorRecovery.bits
+  bpu.io.rasRecovery.bits  := bpuRecovery.bits
   bpu.io.rasFlush := io.icacheInvalidate || io.trapRedirect.valid || io.predRedirect.valid ||
     (io.branchRedirect.valid && !io.predictorRecovery.valid)
 

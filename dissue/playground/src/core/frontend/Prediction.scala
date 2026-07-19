@@ -11,6 +11,9 @@ object PredictorConstants {
   val providerBits      = 5
   val confidenceBits    = 2
   val historyBits       = 16
+  val sequenceBits      = 16
+  val epochBits         = 8
+  val ftqIndexBits      = 8
   val rasEntries        = 8
   val rasIndexBits      = log2Ceil(rasEntries)
   val rasCountBits      = log2Ceil(rasEntries + 1)
@@ -38,13 +41,14 @@ object RasAction {
   def isLink(reg: UInt): Bool =
     reg === 1.U(5.W) || reg === 5.U(5.W)
 
+  def isJalr(inst: UInt): Bool =
+    inst(6, 0) === "b1100111".U && inst(14, 12) === 0.U
+
   def cfiType(inst: UInt): UInt =
-    MuxLookup(inst(6, 0), CfiType.none)(
-      Seq(
-        "b1100011".U -> CfiType.branch,
-        "b1101111".U -> CfiType.jal,
-        "b1100111".U -> CfiType.jalr
-      )
+    Mux(
+      inst(6, 0) === "b1100011".U,
+      CfiType.branch,
+      Mux(inst(6, 0) === "b1101111".U, CfiType.jal, Mux(isJalr(inst), CfiType.jalr, CfiType.none))
     )
 
   def action(inst: UInt): UInt = {
@@ -58,7 +62,7 @@ object RasAction {
       opcode === "b1101111".U,
       Mux(rdLink, push, none),
       Mux(
-        opcode === "b1100111".U,
+        isJalr(inst),
         Mux(
           !rdLink && !rs1Link,
           none,
@@ -74,7 +78,7 @@ object RasAction {
   }
 
   def isCanonicalReturn(inst: UInt): Bool =
-    inst(6, 0) === "b1100111".U && inst(11, 7) === 0.U && isLink(inst(19, 15)) && inst(31, 20) === 0.U
+    isJalr(inst) && inst(11, 7) === 0.U && isLink(inst(19, 15)) && inst(31, 20) === 0.U
 }
 
 class FetchPred(cfg: ICacheConfig) extends Bundle {
@@ -94,9 +98,13 @@ class RasCheckpoint(addrWidth: Int = 32) extends Bundle {
 
 /** Immutable prediction and recovery data carried with a fetched instruction. */
 class PredictionMeta(cfg: ICacheConfig = ICacheConfig()) extends Bundle {
-  val sequence       = UInt(cfg.fetchSequenceBits.W)
-  val epoch          = UInt(cfg.fetchEpochBits.W)
-  val ftqIndex       = UInt(cfg.fetchTargetIndexBits.W)
+  require(cfg.fetchSequenceBits <= PredictorConstants.sequenceBits, "Prediction sequence field is too narrow")
+  require(cfg.fetchEpochBits <= PredictorConstants.epochBits, "Prediction epoch field is too narrow")
+  require(cfg.fetchTargetIndexBits <= PredictorConstants.ftqIndexBits, "Prediction FTQ index field is too narrow")
+
+  val sequence       = UInt(PredictorConstants.sequenceBits.W)
+  val epoch          = UInt(PredictorConstants.epochBits.W)
+  val ftqIndex       = UInt(PredictorConstants.ftqIndexBits.W)
   val fastPrediction = new FetchPred(cfg)
 
   val provider       = UInt(PredictorConstants.providerBits.W)
