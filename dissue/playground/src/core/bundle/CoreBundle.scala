@@ -2,6 +2,8 @@ package top.core.bundle
 
 import chisel3._
 import chisel3.util.Valid
+import top.config.ICacheConfig
+import top.core.frontend.bundle.{PredictionMeta, PredictorRecovery, RasAction}
 
 /** Identifies the youngest instruction that survives a selective backend recovery.
   *
@@ -103,7 +105,17 @@ object FrontendPerfEvent {
   val redirectDuringMshr               = 14
   val redirectDuringMshrTargetHit      = 15
   val staleResponseDrop                = 16
-  val width                            = 17
+  val rasPush                          = 17
+  val rasPop                           = 18
+  val rasPopThenPush                   = 19
+  val rasUse                           = 20
+  val rasHit                           = 21
+  val rasMiss                          = 22
+  val rasUnderflow                     = 23
+  val rasOverflow                      = 24
+  val rasCheckpointRestore             = 25
+  val rasRecoveryDiscard               = 26
+  val width                            = 27
 
   def bit(index: Int, enabled: Bool): UInt =
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))
@@ -148,6 +160,8 @@ class FetchInstPayload(addrWidth: Int = 32) extends Bundle {
   val predNpc    = UInt(addrWidth.W)
   val predTarget = UInt(addrWidth.W)
 
+  val prediction = new PredictionMeta(ICacheConfig(addrWidth = addrWidth))
+
   val exception = new FetchException(addrWidth)
 }
 
@@ -167,14 +181,17 @@ class BpuUpdatePayload(addrWidth: Int = 32) extends Bundle {
   val taken   = Bool()
   val target  = UInt(addrWidth.W)
   val instLen = UInt(3.W)
+  val rasAction = UInt(RasAction.width.W)
+  val prediction = new PredictionMeta(ICacheConfig(addrWidth = addrWidth))
 }
 
-class BackendToFrontend(addrWidth: Int = 32) extends Bundle {
+class BackendToFrontend(addrWidth: Int = 32, commitWidth: Int = 2) extends Bundle {
   val trapRedirect   = new Redirect(addrWidth)
   val branchRedirect = new Redirect(addrWidth)
   val predRedirect   = new Redirect(addrWidth)
   val icacheInvalidate = Bool()
-  val bpuUpdate      = Valid(new BpuUpdatePayload(addrWidth))
+  val bpuUpdates     = Vec(commitWidth, Valid(new BpuUpdatePayload(addrWidth)))
+  val predictorRecovery = Valid(new PredictorRecovery(addrWidth))
 }
 
 class InstMemReq(addrWidth: Int = 32) extends Bundle {

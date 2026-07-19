@@ -6,7 +6,7 @@ import top.core.backend.csr.CsrStatus
 import top.core.bundle.{DataMemReq, DataMemResp, FrontendPerfEvent}
 import top.config.{BackendConfig, FrontendConfig}
 import top.core.frontend.Bpu.Bpu
-import top.core.frontend.bundle.{BpuUpdate, ICacheRefillReq, ICacheRefillResp, PcRedirect}
+import top.core.frontend.bundle.{BpuUpdate, ICacheRefillReq, ICacheRefillResp, PredictorConstants, PredictorRecovery, PcRedirect}
 import top.core.frontend.ifetch.{FetchPacket, IFetch}
 import top.core.frontend.pcgen.PCGen
 import top.core.frontend.icache._
@@ -17,12 +17,14 @@ class Frontend(
   cfg:         FrontendConfig = FrontendConfig())
     extends Module {
   private val backendCfg = BackendConfig(addrWidth = cfg.addrWidth)
+  require(backendCfg.commitWidth == PredictorConstants.commitUpdateWidth, "BPU update width must match backend commit width")
 
   val io = IO(new Bundle {
     val trapRedirect   = Input(new PcRedirect)
     val branchRedirect = Input(new PcRedirect)
     val predRedirect   = Input(new PcRedirect)
-    val bpuUpdate      = Flipped(Valid(new BpuUpdate(cfg.bpu)))
+    val bpuUpdates     = Input(Vec(PredictorConstants.commitUpdateWidth, Valid(new BpuUpdate(cfg.bpu))))
+    val predictorRecovery = Input(Valid(new PredictorRecovery(cfg.addrWidth)))
 
     val pc    = Output(UInt(cfg.addrWidth.W))
     val fetch = Decoupled(new FetchPacket)
@@ -81,6 +83,11 @@ class Frontend(
   ifetch.io.pred(1).target    := bpu.io.predSecondary.target
   ifetch.io.pred(1).cfiOffset := bpu.io.predSecondary.cfiOffset
   ifetch.io.pred(1).cfiType   := bpu.io.predSecondary.cfiType
+  ifetch.io.rasTop            := bpu.io.rasTop
+  ifetch.io.rasValid          := bpu.io.rasValid
+  ifetch.io.rasCheckpoint     := bpu.io.rasCheckpoint
+  ifetch.io.predictorRecovery.valid := io.predictorRecovery.valid
+  ifetch.io.predictorRecovery.bits  := io.predictorRecovery.bits.prediction
 
   val firstBlockAddr = Cat(
     pcGen.io.pc(cfg.addrWidth - 1, cfg.icache.offsetBits),
@@ -90,8 +97,14 @@ class Frontend(
   bpu.io.lookup.bits.pc           := pcGen.io.pc
   bpu.io.lookupSecondary.valid    := true.B
   bpu.io.lookupSecondary.bits.pc  := firstBlockAddr + cfg.fetchBytes.U
-  bpu.io.update.valid             := io.bpuUpdate.valid
-  bpu.io.update.bits              := io.bpuUpdate.bits
+  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
+    bpu.io.update(lane) := io.bpuUpdates(lane)
+  }
+  bpu.io.rasSpecUpdate := ifetch.io.rasSpecUpdate
+  bpu.io.rasRecovery.valid := io.predictorRecovery.valid
+  bpu.io.rasRecovery.bits  := ifetch.io.recoveryPrediction
+  bpu.io.rasFlush := io.icacheInvalidate || io.trapRedirect.valid || io.predRedirect.valid ||
+    (io.branchRedirect.valid && !io.predictorRecovery.valid)
 
   ifetch.io.icacheReq <> iCache.io.req
   ifetch.io.icacheResp <> iCache.io.resp
@@ -161,7 +174,17 @@ class Frontend(
     FrontendPerfEvent.bit(
       FrontendPerfEvent.staleResponseDrop,
       ifetch.io.staleResponseDrop || iCache.io.perf.staleResponseDrop
-    )
+    ),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasPush, bpu.io.perf.push),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasPop, bpu.io.perf.pop),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasPopThenPush, bpu.io.perf.popThenPush),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasUse, bpu.io.perf.use),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasHit, bpu.io.perf.hit),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasMiss, bpu.io.perf.miss),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasUnderflow, bpu.io.perf.underflow),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasOverflow, bpu.io.perf.overflow),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasCheckpointRestore, bpu.io.perf.checkpointRestore),
+    FrontendPerfEvent.bit(FrontendPerfEvent.rasRecoveryDiscard, bpu.io.perf.recoveryDiscard)
   ).reduce(_ | _)
 
   perf.io.events                 := perfEvents

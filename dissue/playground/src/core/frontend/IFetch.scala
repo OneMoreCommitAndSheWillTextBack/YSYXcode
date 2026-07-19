@@ -3,7 +3,8 @@ package top.core.frontend.ifetch
 import chisel3._
 import chisel3.util._
 import top.config.{ICacheConfig, IFetchConfig}
-import top.core.frontend.bundle.{FetchControlMeta, FetchInst, FetchPred, ICacheFetchGroupReq, ICacheFetchGroupResp, ICacheReq, ICacheResp, PcRedirect}
+import top.core.bundle.CfiType
+import top.core.frontend.bundle.{FetchControlMeta, FetchInst, FetchPred, ICacheFetchGroupReq, ICacheFetchGroupResp, ICacheReq, ICacheResp, PcRedirect, PredictionMeta, RasAction, RasCheckpoint}
 
 object FetchWidth {
   val backend                = 2
@@ -194,6 +195,11 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     val out          = Decoupled(new FetchQueueEnqueue(cfg, outputWidth))
     val deq          = Output(UInt(countWidth.W))
     val predRedirect = Output(new PcRedirect)
+    val rasTop       = Input(UInt(cfg.addrWidth.W))
+    val rasValid     = Input(Bool())
+    val rasCheckpoint = Input(new RasCheckpoint(cfg.addrWidth))
+    val rasSpecUpdate = Output(Valid(new PredictionMeta(cfg)))
+    val checkpointWrite = Output(Valid(new PredictionMeta(cfg)))
   })
 
   private def instLen(isRVC: Bool): UInt =
@@ -224,10 +230,15 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val exceptions  = Wire(Vec(outputWidth, new top.core.bundle.FetchException(cfg.addrWidth)))
   val predictions = Wire(Vec(outputWidth, new FetchPred(cfg)))
   val targets     = Wire(Vec(outputWidth, UInt(cfg.addrWidth.W)))
+  val cfiTypes    = Wire(Vec(outputWidth, UInt(CfiType.width.W)))
+  val rasActions  = Wire(Vec(outputWidth, UInt(RasAction.width.W)))
+  val predictionMeta = Wire(Vec(outputWidth, new PredictionMeta(cfg)))
   val expanders   = Seq.fill(outputWidth)(Module(new RvcExpander))
 
   stopBefore(0) := false.B
   io.out.bits   := 0.U.asTypeOf(new FetchQueueEnqueue(cfg, outputWidth))
+  io.rasSpecUpdate := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
+  io.checkpointWrite := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
 
   for (lane <- 0 until outputWidth) {
     val low       = io.peek(starts(lane)(parcelIndexWidth - 1, 0))
@@ -241,14 +252,30 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
       exception := high.exception
     }
 
+    expanders(lane).io.in := rawInst
     predictions(lane) := low.control.fastPrediction
-    val predHit = predictions(lane).valid && predictions(lane).cfiOffset === cfiOffset(low.pc)
-    predTaken(lane) := predHit && predictions(lane).taken
-    targets(lane)   := predictions(lane).target
+    cfiTypes(lane) := RasAction.cfiType(expanders(lane).io.out.bits)
+    rasActions(lane) := RasAction.action(expanders(lane).io.out.bits)
+    val fastPredHit = predictions(lane).valid && predictions(lane).cfiOffset === cfiOffset(low.pc)
+    val rasReturnHit = RasAction.isCanonicalReturn(expanders(lane).io.out.bits) && io.rasValid
+    val predHit = fastPredHit || rasReturnHit
+    predTaken(lane) := (fastPredHit && predictions(lane).taken) || rasReturnHit
+    targets(lane)   := Mux(rasReturnHit, io.rasTop, predictions(lane).target)
     exceptions(lane) := exception
     outputValid(lane) := ready(lane) && !io.flush && !stopBefore(lane)
 
-    expanders(lane).io.in := rawInst
+    predictionMeta(lane) := low.control.prediction
+    predictionMeta(lane).fastPrediction := predictions(lane)
+    predictionMeta(lane).predictedTarget := Mux(predTaken(lane), targets(lane), 0.U)
+    predictionMeta(lane).predictedNpc := Mux(predTaken(lane), targets(lane), low.pc +% instLen(isRVC))
+    predictionMeta(lane).cfiPc := low.pc
+    predictionMeta(lane).cfiType := cfiTypes(lane)
+    predictionMeta(lane).instLen := instLen(isRVC)
+    predictionMeta(lane).rasAction := rasActions(lane)
+    predictionMeta(lane).rasUsed := rasReturnHit
+    predictionMeta(lane).checkpointValid := ready(lane) && cfiTypes(lane) =/= CfiType.none
+    predictionMeta(lane).rasCheckpoint := io.rasCheckpoint
+
     io.out.bits.insts(lane).valid           := outputValid(lane)
     io.out.bits.insts(lane).bits.inst.pc    := low.pc
     io.out.bits.insts(lane).bits.inst.inst  := expanders(lane).io.out.bits
@@ -257,8 +284,9 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     io.out.bits.insts(lane).bits.inst.instLen := instLen(isRVC)
     io.out.bits.insts(lane).bits.inst.predHit := predHit
     io.out.bits.insts(lane).bits.inst.predTaken := predTaken(lane)
-    io.out.bits.insts(lane).bits.inst.predNpc := Mux(predTaken(lane), predictions(lane).target, low.pc +% instLen(isRVC))
-    io.out.bits.insts(lane).bits.inst.predTarget := Mux(predHit, predictions(lane).target, 0.U)
+    io.out.bits.insts(lane).bits.inst.predNpc := Mux(predTaken(lane), targets(lane), low.pc +% instLen(isRVC))
+    io.out.bits.insts(lane).bits.inst.predTarget := Mux(predHit, targets(lane), 0.U)
+    io.out.bits.insts(lane).bits.inst.prediction := predictionMeta(lane)
     io.out.bits.insts(lane).bits.inst.exception := exception
     io.out.bits.insts(lane).bits.sequence := low.control.sequence
     io.out.bits.insts(lane).bits.epoch    := low.control.epoch
@@ -291,6 +319,19 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   io.out.valid          := outputValid(0)
   io.predRedirect.valid := io.out.fire && redirectMask.asUInt.orR
   io.predRedirect.value := redirectTarget
+  val rasSpecMask = VecInit((0 until outputWidth).map { lane =>
+    outputValid(lane) && predTaken(lane) && rasActions(lane) =/= RasAction.none
+  })
+  val rasSpecGrant = PriorityEncoderOH(rasSpecMask.asUInt).asBools
+  io.rasSpecUpdate.valid := io.out.fire && rasSpecMask.asUInt.orR
+  io.rasSpecUpdate.bits := Mux1H(rasSpecGrant, predictionMeta)
+
+  val checkpointMask = VecInit((0 until outputWidth).map { lane =>
+    outputValid(lane) && cfiTypes(lane) =/= CfiType.none
+  })
+  val checkpointGrant = PriorityEncoderOH(checkpointMask.asUInt).asBools
+  io.checkpointWrite.valid := io.out.fire && checkpointMask.asUInt.orR
+  io.checkpointWrite.bits := Mux1H(checkpointGrant, predictionMeta)
   io.deq := Mux(
     io.out.fire,
     Mux(stopMask.asUInt.orR, io.count, consumedHalfwords),
@@ -372,6 +413,12 @@ class IFetch(
     val flush        = Input(Bool())
     val pc           = Input(UInt(cacheCfg.addrWidth.W))
     val pred         = Input(Vec(groupWidth, new FetchPred(cacheCfg)))
+    val rasTop       = Input(UInt(cacheCfg.addrWidth.W))
+    val rasValid     = Input(Bool())
+    val rasCheckpoint = Input(new RasCheckpoint(cacheCfg.addrWidth))
+    val predictorRecovery = Input(Valid(new PredictionMeta(cacheCfg)))
+    val recoveryPrediction = Output(new PredictionMeta(cacheCfg))
+    val rasSpecUpdate = Output(Valid(new PredictionMeta(cacheCfg)))
     val predRedirect = Output(new PcRedirect)
     val pcAdvanceBlocks = Output(UInt(groupCountWidth.W))
     val icacheAcceptedBlocks = Input(UInt(groupCountWidth.W))
@@ -405,6 +452,11 @@ class IFetch(
   responseQueue.io.flush        := frontendRedirect
   responseQueue.io.currentEpoch := ftq.io.epoch
   responseQueue.io.oldest       := ftq.io.peek(0)
+  ftq.io.checkpointRead := io.predictorRecovery.bits
+  io.recoveryPrediction := io.predictorRecovery.bits
+  when(ftq.io.checkpointReadHit) {
+    io.recoveryPrediction := ftq.io.checkpointReadMeta
+  }
   for (lane <- 0 until groupWidth) {
     ftq.io.allocatePc(lane)   := 0.U
     ftq.io.allocatePred(lane) := 0.U.asTypeOf(new FetchPred(cacheCfg))
@@ -474,7 +526,12 @@ class IFetch(
   assembler.io.flush    := hardFlush
   assembler.io.peek     := halfwordBuffer.io.peek
   assembler.io.count    := halfwordBuffer.io.count
+  assembler.io.rasTop   := io.rasTop
+  assembler.io.rasValid := io.rasValid
+  assembler.io.rasCheckpoint := io.rasCheckpoint
   halfwordBuffer.io.deq := assembler.io.deq
+  ftq.io.checkpointWrite := assembler.io.checkpointWrite
+  io.rasSpecUpdate := assembler.io.rasSpecUpdate
 
   fetchQueue.io.flush        := hardFlush
   fetchQueue.io.currentEpoch := fetchQueueEpoch

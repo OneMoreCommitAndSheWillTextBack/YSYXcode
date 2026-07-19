@@ -19,6 +19,7 @@ import top.core.backend.csr.{
 }
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo, TrapLane, TrapUnit}
 import top.core.bundle.{BackendToFrontend, BpuCfiClass, CfiType, DataMemKind, DataMemReq, DataMemTxn}
+import top.core.frontend.bundle.RasAction
 import top.config.BackendConfig
 import top.sim.BpuPerfBridge
 
@@ -38,7 +39,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     val hold             = Input(Bool())
     val storesDrained    = Input(Bool())
     val retire           = Output(new RetireGroup(cfg))
-    val redirect         = Output(new BackendToFrontend(cfg.addrWidth))
+    val redirect         = Output(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
 
     val fenceIReq    = Decoupled(Bool())
     val fenceIDone   = Input(Bool())
@@ -57,11 +58,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     if (values.isEmpty) true.B else values.reduce(_ && _)
 
   private def bpuCfiClass(cfi: UInt, inst: UInt): UInt = {
-    val rd         = inst(11, 7)
-    val rs1        = inst(19, 15)
-    // x1/x5 are RISC-V link registers; compressed returns are already expanded here.
-    val jalrReturn = cfi === CfiType.jalr && rd === 0.U &&
-      (rs1 === 1.U || rs1 === 5.U) && inst(31, 20) === 0.U
+    val jalrReturn = cfi === CfiType.jalr && RasAction.isCanonicalReturn(inst)
 
     MuxLookup(cfi, BpuCfiClass.jalr)(
       Seq(
@@ -153,7 +150,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.rob(i).ready := canRetire(i)
   }
 
-  io.redirect := 0.U.asTypeOf(new BackendToFrontend(cfg.addrWidth))
+  io.redirect := 0.U.asTypeOf(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
 
   private val trapUnit = Module(new TrapUnit(cfg))
   trapUnit.io.csrStatus := io.csrStatus
@@ -305,13 +302,6 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
   io.redirect.icacheInvalidate := fenceICommit || sfenceCommit || satpWriteCommit || privilegeTransition
 
-  private val bpuUpdateValid   = Wire(Vec(cfg.commitWidth, Bool()))
-  private val bpuUpdatePc      = Wire(Vec(cfg.commitWidth, UInt(cfg.addrWidth.W)))
-  private val bpuUpdateType    = Wire(Vec(cfg.commitWidth, UInt(CfiType.width.W)))
-  private val bpuUpdateTaken   = Wire(Vec(cfg.commitWidth, Bool()))
-  private val bpuUpdateTarget  = Wire(Vec(cfg.commitWidth, UInt(cfg.addrWidth.W)))
-  private val bpuUpdateInstLen = Wire(Vec(cfg.commitWidth, UInt(3.W)))
-
   io.retire := 0.U.asTypeOf(new RetireGroup(cfg))
 
   for (i <- 0 until cfg.commitWidth) {
@@ -363,12 +353,14 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.retire.lanes(i).exception.blocksYounger := trapRetire(i)
     io.retire.lanes(i).finish                  := canRetire(i) && io.rob(i).bits.isEbreak
 
-    bpuUpdateValid(i)   := normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
-    bpuUpdatePc(i)      := io.rob(i).bits.fetch.pc
-    bpuUpdateType(i)    := io.rob(i).bits.cfi
-    bpuUpdateTaken(i)   := io.rob(i).bits.branchTaken
-    bpuUpdateTarget(i)  := io.rob(i).bits.branchTarget
-    bpuUpdateInstLen(i) := io.rob(i).bits.fetch.instLen
+    io.redirect.bpuUpdates(i).valid           := normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
+    io.redirect.bpuUpdates(i).bits.pc         := io.rob(i).bits.fetch.pc
+    io.redirect.bpuUpdates(i).bits.cfiType    := io.rob(i).bits.cfi
+    io.redirect.bpuUpdates(i).bits.taken      := io.rob(i).bits.branchTaken
+    io.redirect.bpuUpdates(i).bits.target     := io.rob(i).bits.branchTarget
+    io.redirect.bpuUpdates(i).bits.instLen    := io.rob(i).bits.fetch.instLen
+    io.redirect.bpuUpdates(i).bits.rasAction  := RasAction.action(io.rob(i).bits.fetch.inst)
+    io.redirect.bpuUpdates(i).bits.prediction := io.rob(i).bits.fetch.prediction
   }
 
   io.retire.validMask  := canRetire.asUInt
@@ -384,14 +376,6 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     Mux1H(latestRetireOH, nextPc),
     0.U
   )
-
-  private val bpuUpdateGrantOH = PriorityEncoderOH(bpuUpdateValid.asUInt).asBools
-  io.redirect.bpuUpdate.valid        := bpuUpdateValid.asUInt.orR
-  io.redirect.bpuUpdate.bits.pc      := Mux1H(bpuUpdateGrantOH, bpuUpdatePc)
-  io.redirect.bpuUpdate.bits.cfiType := Mux1H(bpuUpdateGrantOH, bpuUpdateType)
-  io.redirect.bpuUpdate.bits.taken   := Mux1H(bpuUpdateGrantOH, bpuUpdateTaken)
-  io.redirect.bpuUpdate.bits.target  := Mux1H(bpuUpdateGrantOH, bpuUpdateTarget)
-  io.redirect.bpuUpdate.bits.instLen := Mux1H(bpuUpdateGrantOH, bpuUpdateInstLen)
 
   io.context.valid := io.retire.validMask.orR
   io.context.pc    := Mux(

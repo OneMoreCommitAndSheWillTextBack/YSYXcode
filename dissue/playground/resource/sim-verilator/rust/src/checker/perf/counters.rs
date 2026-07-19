@@ -154,7 +154,17 @@ impl PerfCounters {
     pub const REDIRECT_DURING_MSHR: usize = 14;
     pub const REDIRECT_DURING_MSHR_TARGET_HIT: usize = 15;
     pub const STALE_RESPONSE_DROP: usize = 16;
-    pub const FRONTEND_EVENT_COUNT: usize = 17;
+    pub const RAS_PUSH: usize = 17;
+    pub const RAS_POP: usize = 18;
+    pub const RAS_POP_THEN_PUSH: usize = 19;
+    pub const RAS_USE: usize = 20;
+    pub const RAS_HIT: usize = 21;
+    pub const RAS_MISS: usize = 22;
+    pub const RAS_UNDERFLOW: usize = 23;
+    pub const RAS_OVERFLOW: usize = 24;
+    pub const RAS_CHECKPOINT_RESTORE: usize = 25;
+    pub const RAS_RECOVERY_DISCARD: usize = 26;
+    pub const FRONTEND_EVENT_COUNT: usize = 27;
 
     pub fn frontend_perf(
         &mut self,

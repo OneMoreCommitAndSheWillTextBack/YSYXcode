@@ -34,7 +34,7 @@ class Backend(
 
   val io = IO(new Bundle {
     val frontend = Flipped(Decoupled(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
-    val redirect = Output(new BackendToFrontend(cfg.addrWidth))
+    val redirect = Output(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
 
     val dmemReq    = Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
     val dmemResp   = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
@@ -100,6 +100,8 @@ class Backend(
     retire.io.redirect.branchRedirect.target,
     recovery.io.redirect.target
   )
+  io.redirect.predictorRecovery.valid            := recovery.io.predictorRecovery.valid
+  io.redirect.predictorRecovery.bits.prediction := recovery.io.predictorRecovery.bits
 
   private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
   private val pending  = RegInit(false.B)

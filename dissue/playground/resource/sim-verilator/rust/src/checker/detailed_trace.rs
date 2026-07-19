@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const FRONTEND_EVENT_NAMES: [&str; 17] = [
+const FRONTEND_EVENT_NAMES: [&str; 27] = [
     "icache_request",
     "icache_hit",
     "icache_miss",
@@ -23,6 +23,16 @@ const FRONTEND_EVENT_NAMES: [&str; 17] = [
     "redirect_during_mshr",
     "redirect_during_mshr_target_hit",
     "stale_response_drop",
+    "ras_push",
+    "ras_pop",
+    "ras_pop_then_push",
+    "ras_use",
+    "ras_hit",
+    "ras_miss",
+    "ras_underflow",
+    "ras_overflow",
+    "ras_checkpoint_restore",
+    "ras_recovery_discard",
 ];
 
 const MEMORY_EVENT_NAMES: [&str; 19] = [

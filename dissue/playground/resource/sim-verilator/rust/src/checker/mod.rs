@@ -493,6 +493,19 @@ impl Checker {
             self.perf.frontend_event(PerfCounters::AXI_REQUEST_WAIT)
         );
         crate::Log!(
+            "RAS: push: {}, pop: {}, pop-then-push: {}, use: {}, hit: {}, miss: {}, underflow: {}, overflow: {}, checkpoint restores: {}, recovery discards: {}",
+            self.perf.frontend_event(PerfCounters::RAS_PUSH),
+            self.perf.frontend_event(PerfCounters::RAS_POP),
+            self.perf.frontend_event(PerfCounters::RAS_POP_THEN_PUSH),
+            self.perf.frontend_event(PerfCounters::RAS_USE),
+            self.perf.frontend_event(PerfCounters::RAS_HIT),
+            self.perf.frontend_event(PerfCounters::RAS_MISS),
+            self.perf.frontend_event(PerfCounters::RAS_UNDERFLOW),
+            self.perf.frontend_event(PerfCounters::RAS_OVERFLOW),
+            self.perf.frontend_event(PerfCounters::RAS_CHECKPOINT_RESTORE),
+            self.perf.frontend_event(PerfCounters::RAS_RECOVERY_DISCARD)
+        );
+        crate::Log!(
             "FetchQueue: samples: {}, avg occupancy: {:.3}, true starvation cycles: {}, full cycles: {}, accepted enqueue width total: {}, dequeued width total: {}, avg miss-start queue occupancy: {:.3}",
             self.perf.fetch_queue_sample_cycles(),
             self.perf.fetch_queue_average_occupancy(),

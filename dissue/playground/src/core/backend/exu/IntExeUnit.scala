@@ -242,6 +242,7 @@ class IntExeUnit(
   resolveInput.bits.taken         := exuResult.bits.branchTaken
   resolveInput.bits.branchTarget  := exuResult.bits.branchTarget
   resolveInput.bits.instLen       := io.in.bits.fetch.instLen
+  resolveInput.bits.prediction    := io.in.bits.fetch.prediction
 
   private val resolveReg = RegInit(0.U.asTypeOf(Valid(new BranchResolve(cfg))))
   when(io.flush) {
