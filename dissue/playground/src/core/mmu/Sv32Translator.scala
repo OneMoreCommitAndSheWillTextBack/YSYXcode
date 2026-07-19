@@ -19,31 +19,31 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
   })
 
   private val sIdle :: sPte1Req :: sPte1Resp :: sPte0Req :: sPte0Resp :: sDone :: Nil = Enum(6)
-  private val state = RegInit(sIdle)
+  private val state                                                                   = RegInit(sIdle)
 
   private val reqReg  = Reg(new MmuTranslateReq(cfg))
   private val respReg = Reg(new MmuTranslateResp(cfg))
   private val pte1Reg = Reg(UInt(cfg.dataWidth.W))
 
   private def satpMode(satp: UInt): UInt = satp(31)
-  private def satpPpn(satp: UInt): UInt = satp(21, 0)
-  private def vpn1(vaddr: UInt): UInt = vaddr(31, 22)
-  private def vpn0(vaddr: UInt): UInt = vaddr(21, 12)
+  private def satpPpn(satp:  UInt): UInt = satp(21, 0)
+  private def vpn1(vaddr:    UInt): UInt = vaddr(31, 22)
+  private def vpn0(vaddr:    UInt): UInt = vaddr(21, 12)
   private def pageOff(vaddr: UInt): UInt = vaddr(11, 0)
 
-  private def pteV(pte: UInt): Bool = pte(0)
-  private def pteR(pte: UInt): Bool = pte(1)
-  private def pteW(pte: UInt): Bool = pte(2)
-  private def pteX(pte: UInt): Bool = pte(3)
-  private def pteU(pte: UInt): Bool = pte(4)
-  private def pteA(pte: UInt): Bool = pte(6)
-  private def pteD(pte: UInt): Bool = pte(7)
+  private def pteV(pte:    UInt): Bool = pte(0)
+  private def pteR(pte:    UInt): Bool = pte(1)
+  private def pteW(pte:    UInt): Bool = pte(2)
+  private def pteX(pte:    UInt): Bool = pte(3)
+  private def pteU(pte:    UInt): Bool = pte(4)
+  private def pteA(pte:    UInt): Bool = pte(6)
+  private def pteD(pte:    UInt): Bool = pte(7)
   private def ptePpn0(pte: UInt): UInt = pte(19, 10)
   private def ptePpn1(pte: UInt): UInt = pte(31, 20)
-  private def ptePpn(pte: UInt): UInt = pte(31, 10)
+  private def ptePpn(pte:  UInt): UInt = pte(31, 10)
 
-  private def isLeaf(pte: UInt): Bool = pteR(pte) || pteX(pte)
-  private def invalidPte(pte: UInt): Bool = !pteV(pte) || (!pteR(pte) && pteW(pte))
+  private def isLeaf(pte:            UInt): Bool = pteR(pte) || pteX(pte)
+  private def invalidPte(pte:        UInt): Bool = !pteV(pte) || (!pteR(pte) && pteW(pte))
   private def invalidNonLeafPte(pte: UInt): Bool = pteU(pte) || pteA(pte) || pteD(pte)
 
   private def pageFaultCause(access: UInt): UInt =
@@ -98,7 +98,9 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
       )
     )
 
-    !accessOk || !privOk || !pteA(pte) || ((access === MmuAccessType.store || access === MmuAccessType.amo) && !pteD(pte))
+    !accessOk || !privOk || !pteA(pte) || ((access === MmuAccessType.store || access === MmuAccessType.amo) && !pteD(
+      pte
+    ))
   }
 
   private def pteAddr(ppn: UInt, vpn: UInt): UInt =
@@ -114,7 +116,7 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
   private val translateDisabled =
     satpMode(io.req.bits.satp) === 0.U || io.req.bits.priv === PrivMode.M
 
-  io.req.ready := state === sIdle
+  io.req.ready  := state === sIdle
   io.resp.valid := state === sDone
   io.resp.bits  := respReg
 
@@ -130,9 +132,9 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
     state := sIdle
   }.elsewhen(state === sIdle) {
     when(io.req.fire) {
-      reqReg                := io.req.bits
-      respReg.paddr         := io.req.bits.vaddr
-      respReg.exception     := ExceptionInfo.none(cfg)
+      reqReg            := io.req.bits
+      respReg.paddr     := io.req.bits.vaddr
+      respReg.exception := ExceptionInfo.none(cfg)
       when(translateDisabled) {
         state := sDone
       }.otherwise {
