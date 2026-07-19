@@ -299,7 +299,9 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     ittageQueries(lane).pathHistory := pathBefore
 
     val tageValid = cfg.enableTage.B && tage.io.prediction(lane).valid
+    val ittageValid = cfg.enableIttage.B && ittage.io.prediction(lane).valid
     val selectedTaken = Mux(cfg.enableLateOverride.B && tageValid, tage.io.prediction(lane).taken, query.fastTaken)
+    val selectedPathTarget = Mux(cfg.enableLateOverride.B && ittageValid, ittage.io.prediction(lane).target, query.fastTarget)
 
     val conditionalPrediction = Wire(new LatePrediction(cacheCfg))
     conditionalPrediction := tage.io.prediction(lane)
@@ -328,7 +330,7 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     )
     queryPath = Mux(
       query.valid,
-      advancePathHistory(pathBefore, query.cfiType, query.canonicalReturn, query.pc, query.fastTarget),
+      advancePathHistory(pathBefore, query.cfiType, query.canonicalReturn, query.pc, selectedPathTarget),
       pathBefore
     )
   }

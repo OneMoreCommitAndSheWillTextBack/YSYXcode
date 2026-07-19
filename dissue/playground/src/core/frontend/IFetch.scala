@@ -202,6 +202,7 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     val lateQuery      = Output(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cfg)))
     val lateSpecUpdate = Output(Vec(PredictorConstants.latePredictionWidth, Valid(new PredictionMeta(cfg))))
     val lateOverrideEnable = Input(Bool())
+    val lateRecovery = Output(Valid(new PredictionMeta(cfg)))
     val rasSpecUpdate = Output(Valid(new PredictionMeta(cfg)))
     val checkpointWrite = Output(Vec(PredictorConstants.latePredictionWidth, Valid(new PredictionMeta(cfg))))
   })
@@ -243,6 +244,7 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   stopBefore(0) := false.B
   queryStopBefore(0) := false.B
   io.out.bits   := 0.U.asTypeOf(new FetchQueueEnqueue(cfg, outputWidth))
+  io.lateRecovery := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
   io.rasSpecUpdate := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
   for (lane <- 0 until PredictorConstants.latePredictionWidth) {
     io.lateQuery(lane) := 0.U.asTypeOf(new LatePredictQuery(cfg))
@@ -266,8 +268,9 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     predictions(lane) := low.control.fastPrediction
     cfiTypes(lane) := RasAction.cfiType(expanders(lane).io.out.bits)
     rasActions(lane) := RasAction.action(expanders(lane).io.out.bits)
-    val fastPredHit = predictions(lane).valid && predictions(lane).cfiOffset === cfiOffset(low.pc)
     val canonicalReturn = RasAction.isCanonicalReturn(expanders(lane).io.out.bits)
+    val fastPredHit = predictions(lane).valid && predictions(lane).cfiOffset === cfiOffset(low.pc) &&
+      predictions(lane).cfiType === cfiTypes(lane)
     val rasReturnHit = canonicalReturn && io.rasValid
     val fastTaken = (fastPredHit && predictions(lane).taken) || rasReturnHit
     val fastTarget = Mux(rasReturnHit, io.rasTop, predictions(lane).target)
@@ -319,12 +322,12 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     predictionMeta(lane).alternateTarget := late.alternateTarget
     predictionMeta(lane).lateOverride := (lateConditionalOverride || lateIndirectOverride) &&
       fastNpc =/= Mux(predTaken(lane), targets(lane), fallThrough)
+    predictionMeta(lane).historyCheckpoint := late.historyCheckpoint
+    predictionMeta(lane).pathCheckpoint := late.pathCheckpoint
     when(late.queried) {
       predictionMeta(lane).provider := late.provider
       predictionMeta(lane).alternate := late.alternate
       predictionMeta(lane).confidence := late.confidence
-      predictionMeta(lane).historyCheckpoint := late.historyCheckpoint
-      predictionMeta(lane).pathCheckpoint := late.pathCheckpoint
     }.otherwise {
       predictionMeta(lane).provider := Mux(rasReturnHit, PredictorProvider.ras, Mux(fastPredHit, PredictorProvider.fastBtb, PredictorProvider.none))
       predictionMeta(lane).alternate := PredictorProvider.none
@@ -389,6 +392,13 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val rasSpecGrant = PriorityEncoderOH(rasSpecMask.asUInt).asBools
   io.rasSpecUpdate.valid := io.out.fire && rasSpecMask.asUInt.orR
   io.rasSpecUpdate.bits := Mux1H(rasSpecGrant, predictionMeta)
+
+  val lateRecoveryMask = VecInit((0 until outputWidth).map { lane =>
+    outputValid(lane) && predictionMeta(lane).lateOverride
+  })
+  val lateRecoveryGrant = PriorityEncoderOH(lateRecoveryMask.asUInt).asBools
+  io.lateRecovery.valid := io.out.fire && lateRecoveryMask.asUInt.orR
+  io.lateRecovery.bits := Mux1H(lateRecoveryGrant, predictionMeta)
 
   io.deq := Mux(
     io.out.fire,
@@ -478,6 +488,7 @@ class IFetch(
     val lateQuery      = Output(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cacheCfg)))
     val lateSpecUpdate = Output(Vec(PredictorConstants.latePredictionWidth, Valid(new PredictionMeta(cacheCfg))))
     val lateOverrideEnable = Input(Bool())
+    val lateRecovery = Output(Valid(new PredictionMeta(cacheCfg)))
     val predictorRecovery = Input(Valid(new PredictionMeta(cacheCfg)))
     val recoveryPrediction = Output(new PredictionMeta(cacheCfg))
     val rasSpecUpdate = Output(Valid(new PredictionMeta(cacheCfg)))
@@ -598,6 +609,7 @@ class IFetch(
   io.rasSpecUpdate := assembler.io.rasSpecUpdate
   io.lateQuery := assembler.io.lateQuery
   io.lateSpecUpdate := assembler.io.lateSpecUpdate
+  io.lateRecovery := assembler.io.lateRecovery
 
   fetchQueue.io.flush        := hardFlush
   fetchQueue.io.currentEpoch := fetchQueueEpoch

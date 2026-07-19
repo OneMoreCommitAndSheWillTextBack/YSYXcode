@@ -88,7 +88,7 @@ final case class BpuConfig(
   ittageHistoryLengths: Seq[Int] = Seq(2, 4, 8, 16),
   enableTage: Boolean = true,
   enableIttage: Boolean = true,
-  enableLateOverride: Boolean = false) {
+  enableLateOverride: Boolean = true) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
 
@@ -100,12 +100,14 @@ final case class BpuConfig(
   require(btbWays == 1, "set-associative BTB is not supported yet")
   require(predictorHistoryBits > 0, "predictorHistoryBits must be positive")
   require(isPow2(tageEntries), "tageEntries must be a power of two")
+  require(tageEntries > 1, "tageEntries must have an index bit")
   require(tageTagBits > 0, "tageTagBits must be positive")
   require(tageHistoryLengths.length >= 4 && tageHistoryLengths.length <= 6, "TAGE needs four to six tagged tables")
   require(tageHistoryLengths.forall(_ > 0), "TAGE history lengths must be positive")
   require(tageHistoryLengths == tageHistoryLengths.sorted.distinct, "TAGE history lengths must increase uniquely")
   require(tageHistoryLengths.last <= predictorHistoryBits, "TAGE history must fit predictorHistoryBits")
   require(isPow2(ittageEntries), "ittageEntries must be a power of two")
+  require(ittageEntries > 1, "ittageEntries must have an index bit")
   require(ittageTagBits > 0, "ittageTagBits must be positive")
   require(ittageHistoryLengths.length >= 4 && ittageHistoryLengths.length <= 6, "ITTAGE needs four to six tagged tables")
   require(ittageHistoryLengths.forall(_ > 0), "ITTAGE history lengths must be positive")

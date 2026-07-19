@@ -105,11 +105,21 @@ class Frontend(
   bpu.io.lateQuery := ifetch.io.lateQuery
   bpu.io.lateSpecUpdate := ifetch.io.lateSpecUpdate
   bpu.io.rasSpecUpdate := ifetch.io.rasSpecUpdate
+  val localPredictorRecovery = Wire(Valid(new PredictorRecovery(cfg.addrWidth)))
+  localPredictorRecovery := 0.U.asTypeOf(Valid(new PredictorRecovery(cfg.addrWidth)))
+  localPredictorRecovery.valid := ifetch.io.lateRecovery.valid
+  localPredictorRecovery.bits.prediction := ifetch.io.lateRecovery.bits
+  localPredictorRecovery.bits.cfiType := ifetch.io.lateRecovery.bits.cfiType
+  localPredictorRecovery.bits.actualTaken := ifetch.io.lateRecovery.bits.specTaken
+  localPredictorRecovery.bits.actualTarget := ifetch.io.lateRecovery.bits.predictedTarget
+
   val bpuRecovery = Wire(Valid(new PredictorRecovery(cfg.addrWidth)))
-  bpuRecovery := io.predictorRecovery
-  bpuRecovery.bits.prediction := ifetch.io.recoveryPrediction
-  bpu.io.rasRecovery.valid := io.predictorRecovery.valid
-  bpu.io.rasRecovery.bits  := bpuRecovery.bits
+  bpuRecovery := localPredictorRecovery
+  when(io.predictorRecovery.valid) {
+    bpuRecovery := io.predictorRecovery
+    bpuRecovery.bits.prediction := ifetch.io.recoveryPrediction
+  }
+  bpu.io.rasRecovery := bpuRecovery
   bpu.io.rasFlush := io.icacheInvalidate || io.trapRedirect.valid || io.predRedirect.valid ||
     (io.branchRedirect.valid && !io.predictorRecovery.valid)
 
