@@ -183,6 +183,7 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   val btb  = Module(new Btb(cfg))
   val bht  = Module(new Bht(cfg))
   val tage = Module(new Tage(cfg))
+  val ittage = Module(new Ittage(cfg))
 
   btb.io.lookupPc(0) := io.lookup.bits.pc
   btb.io.lookupPc(1) := io.lookupSecondary.bits.pc
@@ -205,7 +206,12 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     bht.io.update(lane).bits.pc    := io.update(lane).bits.pc
     bht.io.update(lane).bits.taken := io.update(lane).bits.taken
   }
-  tage.io.update := io.update
+  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
+    tage.io.update(lane).valid := io.update(lane).valid && cfg.enableTage.B
+    tage.io.update(lane).bits  := io.update(lane).bits
+    ittage.io.update(lane).valid := io.update(lane).valid && cfg.enableIttage.B
+    ittage.io.update(lane).bits  := io.update(lane).bits
+  }
 
   private def advanceConditionalHistory(history: UInt, cfiType: UInt, taken: Bool): UInt =
     Mux(cfiType === CfiType.branch, Cat(history(PredictorConstants.historyBits - 2, 0), taken), history)
@@ -277,6 +283,7 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   private val speculativePath      = RegInit(0.U(PredictorConstants.historyBits.W))
 
   private val tageQueries = Wire(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cacheCfg)))
+  private val ittageQueries = Wire(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cacheCfg)))
   var queryHistory: UInt = speculativeHistory
   var queryPath: UInt = speculativePath
   for (lane <- 0 until PredictorConstants.latePredictionWidth) {
@@ -287,12 +294,30 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     tageQueries(lane) := query
     tageQueries(lane).history     := historyBefore
     tageQueries(lane).pathHistory := pathBefore
+    ittageQueries(lane) := query
+    ittageQueries(lane).history     := historyBefore
+    ittageQueries(lane).pathHistory := pathBefore
 
     val tageValid = cfg.enableTage.B && tage.io.prediction(lane).valid
     val selectedTaken = Mux(cfg.enableLateOverride.B && tageValid, tage.io.prediction(lane).taken, query.fastTaken)
 
-    io.latePrediction(lane) := tage.io.prediction(lane)
-    io.latePrediction(lane).valid             := tageValid
+    val conditionalPrediction = Wire(new LatePrediction(cacheCfg))
+    conditionalPrediction := tage.io.prediction(lane)
+    conditionalPrediction.queried := cfg.enableTage.B && tage.io.prediction(lane).queried
+    conditionalPrediction.valid   := cfg.enableTage.B && tage.io.prediction(lane).valid
+
+    val indirectPrediction = Wire(new LatePrediction(cacheCfg))
+    indirectPrediction := ittage.io.prediction(lane)
+    indirectPrediction.queried := cfg.enableIttage.B && ittage.io.prediction(lane).queried
+    indirectPrediction.valid   := cfg.enableIttage.B && ittage.io.prediction(lane).valid
+
+    io.latePrediction(lane) := 0.U.asTypeOf(new LatePrediction(cacheCfg))
+    when(query.cfiType === CfiType.branch) {
+      io.latePrediction(lane) := conditionalPrediction
+    }
+    when(isGenericIndirect(query.cfiType, query.canonicalReturn)) {
+      io.latePrediction(lane) := indirectPrediction
+    }
     io.latePrediction(lane).historyCheckpoint := historyBefore
     io.latePrediction(lane).pathCheckpoint    := pathBefore
 
@@ -308,6 +333,7 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
     )
   }
   tage.io.query := tageQueries
+  ittage.io.query := ittageQueries
 
   private val firstCommitAction = Mux(io.update(0).valid, io.update(0).bits.rasAction, RasAction.none)
   private val firstCommitRas = applyRas(
@@ -438,10 +464,10 @@ class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
   io.perf.overflow          := firstCommitRas._3 || secondCommitRas._3 || recoveryNext._3
   io.perf.checkpointRestore := io.rasRecovery.valid
   io.perf.recoveryDiscard   := io.rasRecovery.valid || io.rasFlush
-  io.perf.taggedProvider    := tage.io.perf.provider
-  io.perf.alternateDisagree := tage.io.perf.alternateDisagree
-  io.perf.allocation        := tage.io.perf.allocation
-  io.perf.usefulnessAging   := tage.io.perf.usefulnessAging
+  io.perf.taggedProvider    := tage.io.perf.provider || ittage.io.perf.provider
+  io.perf.alternateDisagree := tage.io.perf.alternateDisagree || ittage.io.perf.alternateDisagree
+  io.perf.allocation        := tage.io.perf.allocation || ittage.io.perf.allocation
+  io.perf.usefulnessAging   := tage.io.perf.usefulnessAging || ittage.io.perf.usefulnessAging
   io.perf.lateOverride      := VecInit((0 until PredictorConstants.latePredictionWidth).map { lane =>
     io.lateSpecUpdate(lane).valid && io.lateSpecUpdate(lane).bits.lateOverride
   }).asUInt.orR

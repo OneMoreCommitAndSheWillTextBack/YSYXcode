@@ -87,7 +87,7 @@ final case class BpuConfig(
   ittageTagBits: Int = 8,
   ittageHistoryLengths: Seq[Int] = Seq(2, 4, 8, 16),
   enableTage: Boolean = true,
-  enableIttage: Boolean = false,
+  enableIttage: Boolean = true,
   enableLateOverride: Boolean = false) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0

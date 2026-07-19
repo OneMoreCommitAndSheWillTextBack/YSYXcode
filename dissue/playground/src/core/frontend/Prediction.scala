@@ -118,11 +118,13 @@ class PredictionMeta(cfg: ICacheConfig = ICacheConfig()) extends Bundle {
   val rasAction       = UInt(RasAction.width.W)
   val rasUsed         = Bool()
   val canonicalReturn = Bool()
+  val lateQueried     = Bool()
   val lateValid       = Bool()
   val lateTaken       = Bool()
   val specTaken       = Bool()
   val alternateTaken  = Bool()
   val lateTarget      = UInt(cfg.addrWidth.W)
+  val alternateTarget = UInt(cfg.addrWidth.W)
   val lateOverride    = Bool()
 
   val historyCheckpoint = UInt(PredictorConstants.historyBits.W)
@@ -151,6 +153,7 @@ class LatePredictQuery(cfg: ICacheConfig) extends Bundle {
 }
 
 class LatePrediction(cfg: ICacheConfig) extends Bundle {
+  val queried           = Bool()
   val valid             = Bool()
   val taken             = Bool()
   val target            = UInt(cfg.addrWidth.W)
@@ -158,6 +161,7 @@ class LatePrediction(cfg: ICacheConfig) extends Bundle {
   val alternate         = UInt(PredictorConstants.providerBits.W)
   val confidence        = UInt(PredictorConstants.confidenceBits.W)
   val alternateTaken    = Bool()
+  val alternateTarget   = UInt(cfg.addrWidth.W)
   val historyCheckpoint = UInt(PredictorConstants.historyBits.W)
   val pathCheckpoint    = UInt(PredictorConstants.historyBits.W)
 }

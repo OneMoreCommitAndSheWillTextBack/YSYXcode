@@ -127,12 +127,14 @@ class Tage(cfg: BpuConfig) extends Module {
     val active         = query.valid && query.cfiType === CfiType.branch
 
     io.prediction(lane) := 0.U.asTypeOf(new LatePrediction(cacheCfg))
+    io.prediction(lane).queried           := active
     io.prediction(lane).valid             := active
     io.prediction(lane).taken             := providerTaken
     io.prediction(lane).provider          := providerId
     io.prediction(lane).alternate         := alternateId
     io.prediction(lane).confidence        := Mux(hasProvider, providerCounter, baseCounter)
     io.prediction(lane).alternateTaken    := alternateTaken
+    io.prediction(lane).alternateTarget   := 0.U
     io.prediction(lane).historyCheckpoint := query.history
     io.prediction(lane).pathCheckpoint    := query.pathHistory
 
@@ -163,7 +165,7 @@ class Tage(cfg: BpuConfig) extends Module {
     val update = io.update(lane)
     val active = update.valid && update.bits.cfiType === CfiType.branch
     val provider = providerTable(update.bits.prediction.provider)
-    val mispredict = active && update.bits.prediction.lateValid &&
+    val mispredict = active && update.bits.prediction.lateQueried &&
       update.bits.prediction.lateTaken =/= update.bits.taken
     val eligible = Wire(Vec(tableCount, Bool()))
     for (table <- 0 until tableCount) {

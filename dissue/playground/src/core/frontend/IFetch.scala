@@ -310,14 +310,16 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     predictionMeta(lane).rasAction := rasActions(lane)
     predictionMeta(lane).rasUsed := rasReturnHit
     predictionMeta(lane).canonicalReturn := canonicalReturn
+    predictionMeta(lane).lateQueried := late.queried
     predictionMeta(lane).lateValid := late.valid
     predictionMeta(lane).lateTaken := late.taken
     predictionMeta(lane).specTaken := predTaken(lane)
     predictionMeta(lane).alternateTaken := late.alternateTaken
     predictionMeta(lane).lateTarget := late.target
+    predictionMeta(lane).alternateTarget := late.alternateTarget
     predictionMeta(lane).lateOverride := (lateConditionalOverride || lateIndirectOverride) &&
       fastNpc =/= Mux(predTaken(lane), targets(lane), fallThrough)
-    when(io.lateQuery(lane).valid) {
+    when(late.queried) {
       predictionMeta(lane).provider := late.provider
       predictionMeta(lane).alternate := late.alternate
       predictionMeta(lane).confidence := late.confidence
