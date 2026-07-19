@@ -176,38 +176,6 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
   val queuedHasMiss = queuedMissOH.orR
   val queuedResp    = responseForRequest(queuedReq, queuedCount, queuedHit, queuedData)
 
-  /*   val refillResponsePending =
-    mshrState === SRefillResp && io.refillResp.valid
-
-  表示：当前 MSHR 正在等回包，而且回包已经到 ICache 门口。本拍优先处理它，不再同时接收一个
-  hit group，避免争同一个 responseReg 和状态更新路径。
-
-  val acceptHitUnderMiss =
-    mshrActive && !requestHasMiss &&
-    !refillResponsePending && responseAvailable
-
-  当前有 miss 在飞，但新 group 全命中，可以直接返回。这就是 hit-under-miss。
-
-  val acceptQueuedMiss =
-    mshrActive && requestHasMiss &&
-    !requestSharesMshr && !queuedValid
-
-  当前有一个 MSHR，新 group 也 miss，但不是同一条正在等待的 cache block，且 queued slot 为
-  空，所以先把新 group 暂存进 queuedReq。
-
-  val acceptFreshMiss =
-    !mshrActive && !queuedValid && requestHasMiss
-
-  当前没有未完成 miss，新 group miss，可以直接分配 MSHR。
-
-  val acceptFreshHit =
-    !mshrActive && !queuedValid &&
-    !requestHasMiss && responseAvailable
-
-  当前空闲，新 group 全命中，且 response 槽能放下，直接接收。
-
-   */
-
   // mshrActive 当前是否有未完成 miss
   val mshrActive               = mshrState =/= ICacheMshrState.SIdle
   val requestSharesMshr        = VecInit((0 until groupWidth).map { requestLane =>
@@ -437,12 +405,14 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
       assert(!queuedValid)
     }
   }
+
   when(
     io.req.valid && mshrActive && requestHasMiss && requestSharesOutstanding &&
       !io.invalidate && !io.redirect
   ) {
     assert(!io.req.ready)
   }
+
   when(io.resp.valid) {
     assert(io.resp.bits.blocks(0).valid)
     when(io.resp.bits.blocks(1).valid) {
@@ -460,6 +430,7 @@ class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
       )
     }
   }
+
   when(io.refillReq.fire) {
     assert(mshrState === ICacheMshrState.SRefillReq)
     assert(mshrPending(mshrSlot))
