@@ -231,7 +231,6 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
 
   val outputValid = Wire(Vec(outputWidth, Bool()))
   val stopBefore  = Wire(Vec(outputWidth, Bool()))
-  val queryStopBefore = Wire(Vec(outputWidth, Bool()))
   val predTaken   = Wire(Vec(outputWidth, Bool()))
   val exceptions  = Wire(Vec(outputWidth, new top.core.bundle.FetchException(cfg.addrWidth)))
   val predictions = Wire(Vec(outputWidth, new FetchPred(cfg)))
@@ -242,7 +241,6 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
   val expanders   = Seq.fill(outputWidth)(Module(new RvcExpander))
 
   stopBefore(0) := false.B
-  queryStopBefore(0) := false.B
   io.out.bits   := 0.U.asTypeOf(new FetchQueueEnqueue(cfg, outputWidth))
   io.lateRecovery := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
   io.rasSpecUpdate := 0.U.asTypeOf(Valid(new PredictionMeta(cfg)))
@@ -294,7 +292,7 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     exceptions(lane) := exception
     outputValid(lane) := ready(lane) && !io.flush && !stopBefore(lane)
 
-    io.lateQuery(lane).valid := ready(lane) && !io.flush && !queryStopBefore(lane) &&
+    io.lateQuery(lane).valid := ready(lane) && !io.flush &&
       !exception.valid && cfiTypes(lane) =/= CfiType.none
     io.lateQuery(lane).pc := low.pc
     io.lateQuery(lane).cfiType := cfiTypes(lane)
@@ -354,8 +352,6 @@ class SharedInstAssembler(cfg: ICacheConfig, bufferDepth: Int) extends Module {
     if (lane + 1 < outputWidth) {
       stopBefore(lane + 1) := stopBefore(lane) ||
         (outputValid(lane) && (predTaken(lane) || exception.valid))
-      queryStopBefore(lane + 1) := queryStopBefore(lane) ||
-        (ready(lane) && (fastTaken || exception.valid))
     }
 
     io.lateSpecUpdate(lane).valid := io.out.fire && outputValid(lane) && cfiTypes(lane) =/= CfiType.none

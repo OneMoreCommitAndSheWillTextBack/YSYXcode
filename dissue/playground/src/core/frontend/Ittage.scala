@@ -16,7 +16,7 @@ private object IttageCounter {
 
 class Ittage(cfg: BpuConfig) extends Module {
   require(cfg.predictorHistoryBits == PredictorConstants.historyBits, "Prediction metadata and ITTAGE history widths must match")
-  require(cfg.ittageTagBits + 2 <= cfg.addrWidth, "ITTAGE tags must leave PC alignment bits")
+  require(cfg.ittageIndexBits + cfg.ittageTagBits + 2 <= cfg.addrWidth, "ITTAGE index and tag must fit the PC")
 
   private val cacheCfg       = ICacheConfig(addrWidth = cfg.addrWidth, fetchBytes = cfg.fetchBytes)
   private val tableCount     = cfg.ittageHistoryLengths.length
@@ -47,7 +47,7 @@ class Ittage(cfg: BpuConfig) extends Module {
       foldPathHistory(pathHistory, entryIndexBits, cfg.ittageHistoryLengths(table))
 
   private def tableTag(pc: UInt, pathHistory: UInt, table: Int): UInt =
-    pc(cfg.ittageTagBits + 1, 2) ^
+    pc(cfg.ittageIndexBits + cfg.ittageTagBits + 1, cfg.ittageIndexBits + 2) ^
       foldPathHistory(pathHistory, cfg.ittageTagBits, cfg.ittageHistoryLengths(table)) ^
       (table + 1).U(cfg.ittageTagBits.W)
 

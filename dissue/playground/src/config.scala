@@ -102,6 +102,7 @@ final case class BpuConfig(
   require(isPow2(tageEntries), "tageEntries must be a power of two")
   require(tageEntries > 1, "tageEntries must have an index bit")
   require(tageTagBits > 0, "tageTagBits must be positive")
+  require(log2Ceil(tageEntries) + tageTagBits + 2 <= addrWidth, "TAGE index and tag must fit the PC")
   require(tageHistoryLengths.length >= 4 && tageHistoryLengths.length <= 6, "TAGE needs four to six tagged tables")
   require(tageHistoryLengths.forall(_ > 0), "TAGE history lengths must be positive")
   require(tageHistoryLengths == tageHistoryLengths.sorted.distinct, "TAGE history lengths must increase uniquely")
@@ -109,6 +110,7 @@ final case class BpuConfig(
   require(isPow2(ittageEntries), "ittageEntries must be a power of two")
   require(ittageEntries > 1, "ittageEntries must have an index bit")
   require(ittageTagBits > 0, "ittageTagBits must be positive")
+  require(log2Ceil(ittageEntries) + ittageTagBits + 2 <= addrWidth, "ITTAGE index and tag must fit the PC")
   require(ittageHistoryLengths.length >= 4 && ittageHistoryLengths.length <= 6, "ITTAGE needs four to six tagged tables")
   require(ittageHistoryLengths.forall(_ > 0), "ITTAGE history lengths must be positive")
   require(ittageHistoryLengths == ittageHistoryLengths.sorted.distinct, "ITTAGE history lengths must increase uniquely")
@@ -157,7 +159,8 @@ final case class FrontendConfig(
   fetchTargetEntries:  Int = 8,
   fetchQueueEntries:   Int = 32,
   fetchSequenceBits:   Int = 16,
-  fetchEpochBits:      Int = 8) {
+  fetchEpochBits:      Int = 8,
+  bpuConfig:           BpuConfig = BpuConfig()) {
   val icache: ICacheConfig = ICacheConfig(
     addrWidth = addrWidth,
     fetchBytes = fetchBytes,
@@ -169,7 +172,7 @@ final case class FrontendConfig(
     fetchTargetIndexBits = log2Ceil(fetchTargetEntries)
   )
 
-  val bpu: BpuConfig = BpuConfig(
+  val bpu: BpuConfig = bpuConfig.copy(
     addrWidth = addrWidth,
     fetchBytes = fetchBytes,
     btbEntries = btbEntries,

@@ -50,7 +50,7 @@ class Tage(cfg: BpuConfig) extends Module {
     pc(cfg.tageIndexBits + 1, 2) ^ foldHistory(history, cfg.tageIndexBits, cfg.tageHistoryLengths(table))
 
   private def tableTag(pc: UInt, history: UInt, table: Int): UInt =
-    pc(cfg.tageTagBits + 1, 2) ^
+    pc(cfg.tageIndexBits + cfg.tageTagBits + 1, cfg.tageIndexBits + 2) ^
       foldHistory(history, cfg.tageTagBits, cfg.tageHistoryLengths(table)) ^
       (table + 1).U(cfg.tageTagBits.W)
 
