@@ -35,7 +35,7 @@ typedef struct {
   vaddr_t pc;
   riscv32_CPU_csr csr;
   CPU_MODE priv;
-  bool INTR;
+  bool legacy_timer_interrupt_pending;
 } MUXDEF(CONFIG_RV64, riscv64_CPU_state, riscv32_CPU_state);
 
 // decode

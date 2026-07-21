@@ -11,7 +11,8 @@
 #include <device/plic.h>
 #endif
 
-static uint32_t software_mip_pending = 0;
+static uint32_t device_mip_pending = 0;
+static uint32_t csr_mip_pending = 0;
 extern uint64_t g_nr_guest_inst;
 
 #define CSR_BIT(n) (1u << (n))
@@ -40,12 +41,16 @@ typedef struct {
 static inline uint32_t sie_mask(void) { return MIE_SSIE | MIE_STIE | MIE_SEIE; }
 static inline uint32_t sip_mask(void) { return MIP_SSIP | MIP_STIP | MIP_SEIP; }
 
-static inline uint32_t mideleg_writable_mask(void) {
+static inline uint32_t mip_device_pending_mask(void) {
+  return MIP_MSIP | MIP_MTIP;
+}
+
+static inline uint32_t mip_csr_writable_mask(void) {
   return MIP_SSIP | MIP_STIP | MIP_SEIP;
 }
 
-static inline uint32_t mip_writable_mask(void) {
-  return MIP_MSIP | MIP_MTIP | MIP_SSIP | MIP_STIP;
+static inline uint32_t mideleg_writable_mask(void) {
+  return MIP_SSIP | MIP_STIP | MIP_SEIP;
 }
 
 static inline uint32_t sip_writable_mask(void) { return MIP_SSIP; }
@@ -106,8 +111,9 @@ void riscv_csr_reset(void) {
     }
   }
 
-  software_mip_pending = 0;
-  cpu.INTR = false;
+  device_mip_pending = 0;
+  csr_mip_pending = 0;
+  cpu.legacy_timer_interrupt_pending = false;
 }
 
 bool riscv_csr_read(uint32_t csr_num, uint32_t *data) {
@@ -147,7 +153,7 @@ bool riscv_csr_write(uint32_t csr_num, uint32_t data) {
 }
 
 static inline uint32_t mip_value(void) {
-  uint32_t value = software_mip_pending & mip_writable_mask();
+  uint32_t value = device_mip_pending | csr_mip_pending;
 #ifdef CONFIG_HAS_PLIC
   if (query_plic_intr_ctx(0, NULL)) {
     value |= MIP_MEIP;
@@ -161,14 +167,13 @@ static inline uint32_t mip_value(void) {
 
 uint32_t riscv_csr_mip_value(void) { return mip_value(); }
 
-void riscv_csr_set_mip_pending(uint32_t mask, bool pending) {
-  mask &= mip_writable_mask();
+void riscv_csr_set_device_pending(uint32_t mask, bool pending) {
+  mask &= mip_device_pending_mask();
   if (pending) {
-    software_mip_pending |= mask;
+    device_mip_pending |= mask;
   } else {
-    software_mip_pending &= ~mask;
+    device_mip_pending &= ~mask;
   }
-  cpu.INTR = (software_mip_pending & MIP_MTIP) != 0;
 }
 
 #define ZICNTR_MCOUNTINHIBIT_MASK 0x5u
@@ -250,9 +255,8 @@ static void virt_csr_instreth_write(uint32_t data) { disable_write(data); }
 static uint32_t virt_csr_mip_read(void) { return mip_value(); }
 
 static void virt_csr_mip_write(uint32_t data) {
-  uint32_t mask = mip_writable_mask();
-  software_mip_pending = (software_mip_pending & ~mask) | (data & mask);
-  cpu.INTR = (software_mip_pending & MIP_MTIP) != 0;
+  uint32_t mask = mip_csr_writable_mask();
+  csr_mip_pending = (csr_mip_pending & ~mask) | (data & mask);
 }
 
 static uint32_t virt_csr_sip_read(void) {
@@ -262,7 +266,7 @@ static uint32_t virt_csr_sip_read(void) {
 
 static void virt_csr_sip_write(uint32_t data) {
   uint32_t mask = sip_mask() & cpu.csr.mideleg & sip_writable_mask();
-  software_mip_pending = (software_mip_pending & ~mask) | (data & mask);
+  csr_mip_pending = (csr_mip_pending & ~mask) | (data & mask);
 }
 
 static uint32_t virt_csr_sie_read(void) {
