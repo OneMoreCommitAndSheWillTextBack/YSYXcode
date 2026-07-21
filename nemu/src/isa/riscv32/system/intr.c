@@ -59,23 +59,20 @@ typedef struct {
 } intr_source_t;
 
 static const intr_source_t intr_sources_in_priority_order[] = {
-    {IRQ_M_EXTERNAL, MIP_MEIP, MIE_MEIE},
-    {IRQ_M_SOFTWARE, MIP_MSIP, MIE_MSIE},
-    {IRQ_M_TIMER, MIP_MTIP, MIE_MTIE},
-    {IRQ_S_EXTERNAL, MIP_SEIP, MIE_SEIE},
-    {IRQ_S_SOFTWARE, MIP_SSIP, MIE_SSIE},
-    {IRQ_S_TIMER, MIP_STIP, MIE_STIE},
+    {IRQ_M_EXTERNAL, MIP_MEIP, MIE_MEIE}, {IRQ_M_SOFTWARE, MIP_MSIP, MIE_MSIE},
+    {IRQ_M_TIMER, MIP_MTIP, MIE_MTIE},    {IRQ_S_EXTERNAL, MIP_SEIP, MIE_SEIE},
+    {IRQ_S_SOFTWARE, MIP_SSIP, MIE_SSIE}, {IRQ_S_TIMER, MIP_STIP, MIE_STIE},
 };
 
 static intr_target_t interrupt_target(word_t cause) {
   if (cpu.priv == M_MODE) {
     // A delegated interrupt cannot lower M-mode's privilege.
     return is_delegated_to_supervisor(cause) ? INTR_TARGET_NONE
-                                               : INTR_TARGET_MACHINE;
+                                             : INTR_TARGET_MACHINE;
   }
 
   return is_delegated_to_supervisor(cause) ? INTR_TARGET_SUPERVISOR
-                                             : INTR_TARGET_MACHINE;
+                                           : INTR_TARGET_MACHINE;
 }
 
 static bool target_interrupts_are_globally_enabled(intr_target_t target) {

@@ -46,7 +46,8 @@ static inline uint32_t mip_device_pending_mask(void) {
 }
 
 static inline uint32_t mip_csr_writable_mask(void) {
-  return MIP_SSIP | MIP_STIP | MIP_SEIP;
+  // SEIP needs separate B|E read-modify-write semantics.
+  return MIP_SSIP | MIP_STIP;
 }
 
 static inline uint32_t mideleg_writable_mask(void) {
