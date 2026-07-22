@@ -21,7 +21,7 @@
 #include <isa.h>
 #include <stdint.h>
 
-static inline uint32_t encode_mpp(CPU_MODE priv) {
+inline static uint32_t encode_mpp(CPU_MODE priv) {
   switch (priv) {
   case M_MODE:
     return MSTATUS_MPP_M;
@@ -69,7 +69,7 @@ static const intr_source_t intr_sources_in_priority_order[] = {
 };
 // clang-format on
 
-static inline intr_target_t interrupt_target(word_t cause) {
+inline static intr_target_t interrupt_target(word_t cause) {
   if (cpu.priv == M_MODE) {
     // A delegated interrupt cannot lower M-mode's privilege.
     return is_delegated_to_supervisor(cause) ? INTR_TARGET_NONE
@@ -80,7 +80,7 @@ static inline intr_target_t interrupt_target(word_t cause) {
                                            : INTR_TARGET_MACHINE;
 }
 
-static inline bool
+inline static bool
 target_interrupts_are_globally_enabled(intr_target_t target) {
   switch (target) {
   case INTR_TARGET_MACHINE:
@@ -105,7 +105,7 @@ static uint32_t pending_interrupts(void) {
   return pending;
 }
 
-static inline bool interrupt_source_is_ready(const intr_source_t *source,
+inline static bool interrupt_source_is_ready(const intr_source_t *source,
                                              uint32_t pending) {
   return (pending & source->pending_bit) != 0 &&
          (cpu.csr.mie & source->enable_bit) != 0;
