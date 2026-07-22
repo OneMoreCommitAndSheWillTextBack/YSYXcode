@@ -58,13 +58,18 @@ typedef struct {
   uint32_t enable_bit;
 } intr_source_t;
 
+// clang-format off
 static const intr_source_t intr_sources_in_priority_order[] = {
-    {IRQ_M_EXTERNAL, MIP_MEIP, MIE_MEIE}, {IRQ_M_SOFTWARE, MIP_MSIP, MIE_MSIE},
-    {IRQ_M_TIMER, MIP_MTIP, MIE_MTIE},    {IRQ_S_EXTERNAL, MIP_SEIP, MIE_SEIE},
-    {IRQ_S_SOFTWARE, MIP_SSIP, MIE_SSIE}, {IRQ_S_TIMER, MIP_STIP, MIE_STIE},
+  {IRQ_M_EXTERNAL  , MIP_MEIP, MIE_MEIE},
+  {IRQ_M_SOFTWARE  , MIP_MSIP, MIE_MSIE},
+  {IRQ_M_TIMER     , MIP_MTIP, MIE_MTIE},
+  {IRQ_S_EXTERNAL  , MIP_SEIP, MIE_SEIE},
+  {IRQ_S_SOFTWARE  , MIP_SSIP, MIE_SSIE},
+  {IRQ_S_TIMER     , MIP_STIP, MIE_STIE},
 };
+// clang-format on
 
-static intr_target_t interrupt_target(word_t cause) {
+static inline intr_target_t interrupt_target(word_t cause) {
   if (cpu.priv == M_MODE) {
     // A delegated interrupt cannot lower M-mode's privilege.
     return is_delegated_to_supervisor(cause) ? INTR_TARGET_NONE
@@ -75,7 +80,8 @@ static intr_target_t interrupt_target(word_t cause) {
                                            : INTR_TARGET_MACHINE;
 }
 
-static bool target_interrupts_are_globally_enabled(intr_target_t target) {
+static inline bool
+target_interrupts_are_globally_enabled(intr_target_t target) {
   switch (target) {
   case INTR_TARGET_MACHINE:
     return cpu.priv != M_MODE || (cpu.csr.mstatus & MSTATUS_MIE) != 0;
@@ -99,8 +105,8 @@ static uint32_t pending_interrupts(void) {
   return pending;
 }
 
-static bool interrupt_source_is_ready(const intr_source_t *source,
-                                      uint32_t pending) {
+static inline bool interrupt_source_is_ready(const intr_source_t *source,
+                                             uint32_t pending) {
   return (pending & source->pending_bit) != 0 &&
          (cpu.csr.mie & source->enable_bit) != 0;
 }
@@ -113,6 +119,7 @@ static word_t highest_priority_interrupt_for(intr_target_t target,
 
   for (int i = 0; i < ARRLEN(intr_sources_in_priority_order); i++) {
     const intr_source_t *source = &intr_sources_in_priority_order[i];
+    // only return intr or excp for target privilige
     if (interrupt_target(source->cause) != target) {
       continue;
     }
@@ -131,6 +138,7 @@ inline static word_t get_trap_pc(word_t NO, word_t tvec) {
   bool is_intr = (NO & TRAP_CAUSE_INT_BIT) != 0;
   uint32_t cause = NO & ~TRAP_CAUSE_INT_BIT;
 
+  // mtval[1:0] set the mode
   if (mode == 0) {
     return base;
   } else if (mode == 1) {
