@@ -180,7 +180,7 @@ static word_t raise_intr(word_t NO, vaddr_t epc, word_t tval, bool sync) {
   return trap_pc;
 }
 
-static void acknowledge_legacy_timer_interrupt(word_t NO) {
+inline static void acknowledge_legacy_timer_interrupt(word_t NO) {
 #ifndef CONFIG_HAS_CLINT
   if (NO == IRQ_M_TIMER) {
     cpu.legacy_timer_interrupt_pending = false;
