@@ -80,8 +80,7 @@ inline static intr_target_t interrupt_target(word_t cause) {
                                            : INTR_TARGET_MACHINE;
 }
 
-inline static bool
-target_interrupts_are_globally_enabled(intr_target_t target) {
+inline static bool can_target_accept_interrupt(intr_target_t target) {
   switch (target) {
   case INTR_TARGET_MACHINE:
     return cpu.priv != M_MODE || (cpu.csr.mstatus & MSTATUS_MIE) != 0;
@@ -113,7 +112,7 @@ inline static bool interrupt_source_is_ready(const intr_source_t *source,
 
 static word_t highest_priority_interrupt_for(intr_target_t target,
                                              uint32_t pending) {
-  if (!target_interrupts_are_globally_enabled(target)) {
+  if (!can_target_accept_interrupt(target)) {
     return INTR_EMPTY;
   }
 
@@ -218,6 +217,11 @@ word_t isa_query_intr() {
       highest_priority_interrupt_for(INTR_TARGET_MACHINE, pending);
   if (interrupt != INTR_EMPTY) {
     return interrupt;
+  }
+
+  // Delegated interrupts cannot lower M-mode's privilege to S-mode.
+  if (cpu.priv == M_MODE) {
+    return INTR_EMPTY;
   }
 
   return highest_priority_interrupt_for(INTR_TARGET_SUPERVISOR, pending);
