@@ -8,6 +8,7 @@ void __am_get_cur_as(Context *c);
 void __am_switch(Context *c);
 
 #define MSTATUS_SIE (1u << 1)
+#define MSTATUS_MIE (1u << 3)
 #define MSTATUS_MPIE (1u << 7)
 #define MSTATUS_MPP_M (3u << 11)
 
@@ -88,6 +89,16 @@ void yield() {
 #endif
 }
 
-bool ienabled() { return false; }
+bool ienabled() {
+  uintptr_t mstatus;
+  asm volatile("csrr %0, mstatus" : "=r"(mstatus));
+  return (mstatus & MSTATUS_MIE) != 0;
+}
 
-void iset(bool enable) {}
+void iset(bool enable) {
+  if (enable) {
+    asm volatile("csrsi mstatus, 8" ::: "memory");
+  } else {
+    asm volatile("csrci mstatus, 8" ::: "memory");
+  }
+}
