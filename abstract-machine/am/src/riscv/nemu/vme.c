@@ -47,7 +47,8 @@ static PTE *walk(AddrSpace *as, void *va, bool alloc) {
     if (!alloc)
       return NULL;
     pgt0 = pgalloc_usr(PGSIZE);
-    assert(pgt0 != NULL);
+    if (pgt0 == NULL)
+      return NULL;
     memset(pgt0, 0, PGSIZE);
     pgt1[pte1_idx] = (((uintptr_t)pgt0 >> 2) & PPN_MASK) | PTE_V;
   } else {
@@ -80,6 +81,21 @@ bool vme_init(void *(*pgalloc_f)(int), void (*pgfree_f)(void *)) {
   vme_flush(&kas, NULL);
   vme_enable = 1;
 
+  return true;
+}
+
+bool vme_attach(AddrSpace *kernel_as, void *(*pgalloc_f)(int),
+                void (*pgfree_f)(void *)) {
+  if (kernel_as == NULL || kernel_as->ptr == NULL || pgalloc_f == NULL ||
+      pgfree_f == NULL)
+    return false;
+
+  pgalloc_usr = pgalloc_f;
+  pgfree_usr = pgfree_f;
+  kas = *kernel_as;
+  if (kas.pgsize == 0)
+    kas.pgsize = PGSIZE;
+  vme_enable = 1;
   return true;
 }
 
@@ -125,15 +141,21 @@ void __am_switch(Context *c) {
 }
 
 void map(AddrSpace *as, void *va, void *pa, int prot) {
+  assert(vme_map(as, va, pa, prot));
+}
+
+bool vme_map(AddrSpace *as, void *va, void *pa, int prot) {
   assert(as != NULL && as->ptr != NULL);
   assert(((uintptr_t)va & OFFSET_MASK) == 0);
   assert(((uintptr_t)pa & OFFSET_MASK) == 0);
   assert(!(prot & PTE_W) || (prot & PTE_R));
 
   PTE *pte = walk(as, va, true);
-  assert((*pte & PTE_V) == 0);
+  if (pte == NULL || (*pte & PTE_V) != 0)
+    return false;
   *pte = (((uintptr_t)pa >> 2) & PPN_MASK) | PTE_V | prot;
   vme_flush(as, va);
+  return true;
 }
 
 void unmap(AddrSpace *as, void *va, void **pa) {
