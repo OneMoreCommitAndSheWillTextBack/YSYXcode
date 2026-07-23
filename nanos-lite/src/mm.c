@@ -46,7 +46,7 @@ int mm_brk(uintptr_t brk) {
     Log("mm_brk: map va=%p -> pa=%p", (void *)va, pa);
     map(&current->as, (void *)va, pa, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
   }
-  current->max_brk = brk;
+  current->max_brk = brk_end;
   Log("mm_brk: updated current_max_brk=0x%x", current->max_brk);
 
   return 0;
