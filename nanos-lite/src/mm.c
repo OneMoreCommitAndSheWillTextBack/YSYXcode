@@ -27,7 +27,8 @@ static void *pg_alloc(int n) {
 void free_page(void *p) { panic("not implement yet"); }
 
 int mm_brk(uintptr_t brk) {
-  if (brk < current->max_brk)
+  // Physical pages are not reclaimed yet, so max_brk is a high-water mark.
+  if (brk <= current->max_brk)
     return 0;
 
   if (current->max_brk == 0) {
@@ -36,13 +37,13 @@ int mm_brk(uintptr_t brk) {
     return 0;
   }
 
-  // Treat brk as the last address that may be touched by user space in this
-  // lab setup. Some user-space allocators may probe/write metadata around the
-  // heap top on page boundaries, so keep one extra page mapped as a guard.
-  uintptr_t va = ROUNDUP(current->max_brk + 1, PGSIZE);
-  uintptr_t brk_end = ROUNDUP(brk + PGSIZE + 1, PGSIZE);
-  for (; va < brk_end; va += PGSIZE) {
+  // brk is the first address outside the heap. The page containing the old
+  // break is already mapped, so allocate only newly crossed pages.
+  uintptr_t va = ROUNDUP(current->max_brk, PGSIZE);
+  uintptr_t end = ROUNDUP(brk, PGSIZE);
+  for (; va < end; va += PGSIZE) {
     void *pa = new_page(1);
+    memset(pa, 0, PGSIZE);
     Log("mm_brk: map va=%p -> pa=%p", (void *)va, pa);
     map(&current->as, (void *)va, pa, PTE_U | PTE_R | PTE_W | PTE_A | PTE_D);
   }

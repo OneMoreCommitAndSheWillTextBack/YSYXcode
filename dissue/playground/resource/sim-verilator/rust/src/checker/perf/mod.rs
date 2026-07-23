@@ -12,8 +12,19 @@ impl Perf {
         Self::default()
     }
 
-    pub fn frontend_perf(&mut self, events: u32) {
-        self.counters.frontend_perf(events);
+    pub fn frontend_perf(
+        &mut self,
+        events: u32,
+        fetch_queue_occupancy: u32,
+        fetch_queue_enqueue_width: u32,
+        fetch_queue_dequeue_width: u32,
+    ) {
+        self.counters.frontend_perf(
+            events,
+            fetch_queue_occupancy,
+            fetch_queue_enqueue_width,
+            fetch_queue_dequeue_width,
+        );
     }
 
     pub fn issue_queue_perf(
@@ -128,6 +139,34 @@ impl Perf {
 
     pub fn frontend_event(&self, index: usize) -> u64 {
         self.counters.frontend_event(index)
+    }
+
+    pub fn fetch_queue_sample_cycles(&self) -> u64 {
+        self.counters.fetch_queue_sample_cycles()
+    }
+
+    pub fn fetch_queue_average_occupancy(&self) -> f64 {
+        self.counters.fetch_queue_average_occupancy()
+    }
+
+    pub fn fetch_queue_true_starvation_cycles(&self) -> u64 {
+        self.counters.fetch_queue_true_starvation_cycles()
+    }
+
+    pub fn fetch_queue_full_cycles(&self) -> u64 {
+        self.counters.fetch_queue_full_cycles()
+    }
+
+    pub fn fetch_queue_enqueue_width_total(&self) -> u64 {
+        self.counters.fetch_queue_enqueue_width_total()
+    }
+
+    pub fn fetch_queue_dequeue_width_total(&self) -> u64 {
+        self.counters.fetch_queue_dequeue_width_total()
+    }
+
+    pub fn fetch_queue_average_miss_start_occupancy(&self) -> f64 {
+        self.counters.fetch_queue_average_miss_start_occupancy()
     }
 
     pub fn dcache_hit_rate(&self) -> f64 {

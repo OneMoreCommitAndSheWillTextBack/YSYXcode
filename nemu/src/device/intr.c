@@ -23,7 +23,7 @@
 void dev_raise_intr() {
 #if defined(CONFIG_ISA_riscv) && defined(CONFIG_HAS_CLINT)
   clint_update_mtime(get_time());
-#else
-  cpu.INTR = true;
+#elif defined(CONFIG_ISA_riscv)
+  cpu.legacy_timer_interrupt_pending = true;
 #endif
 }

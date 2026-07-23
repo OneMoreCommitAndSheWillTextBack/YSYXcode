@@ -1,11 +1,11 @@
-use super::{event::CommitGroup, itrace::write_instruction_summary};
+use super::{event::CommitGroup, itrace::write_instruction_summary, perf::PerfCounters};
 use std::{
     fs::{self, File},
     io::{self, LineWriter, Write},
     path::{Path, PathBuf},
 };
 
-const FRONTEND_EVENT_NAMES: [&str; 8] = [
+const FRONTEND_EVENT_NAMES: [&str; 32] = [
     "icache_request",
     "icache_hit",
     "icache_miss",
@@ -14,6 +14,30 @@ const FRONTEND_EVENT_NAMES: [&str; 8] = [
     "icache_invalidate",
     "frontend_empty",
     "axi_request_wait",
+    "fetch_queue_empty_with_backend_ready",
+    "fetch_queue_full",
+    "icache_mshr_active",
+    "icache_hit_under_miss",
+    "icache_same_line_wait",
+    "icache_queued_miss",
+    "redirect_during_mshr",
+    "redirect_during_mshr_target_hit",
+    "stale_response_drop",
+    "ras_push",
+    "ras_pop",
+    "ras_pop_then_push",
+    "ras_use",
+    "ras_hit",
+    "ras_miss",
+    "ras_underflow",
+    "ras_overflow",
+    "ras_checkpoint_restore",
+    "ras_recovery_discard",
+    "tage_tagged_provider",
+    "tage_alternate_disagree",
+    "tage_allocation",
+    "tage_usefulness_aging",
+    "late_override",
 ];
 
 const MEMORY_EVENT_NAMES: [&str; 19] = [
@@ -41,11 +65,19 @@ const MEMORY_EVENT_NAMES: [&str; 19] = [
 /// Raw performance callbacks observed during one post-reset driver step.
 #[derive(Debug, Default)]
 pub(super) struct CycleSample {
-    frontend_events: Option<u32>,
+    frontend: Option<FrontendSample>,
     issue_queue: Option<IssueQueueSample>,
     memory: Option<MemorySample>,
     div_completions: Vec<DivCompletion>,
     bpu_predictions: Vec<bool>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FrontendSample {
+    events: u32,
+    fetch_queue_occupancy: u32,
+    fetch_queue_enqueue_width: u32,
+    fetch_queue_dequeue_width: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -75,8 +107,19 @@ impl CycleSample {
         *self = Self::default();
     }
 
-    pub(super) fn record_frontend(&mut self, events: u32) {
-        self.frontend_events = Some(events);
+    pub(super) fn record_frontend(
+        &mut self,
+        events: u32,
+        fetch_queue_occupancy: u32,
+        fetch_queue_enqueue_width: u32,
+        fetch_queue_dequeue_width: u32,
+    ) {
+        self.frontend = Some(FrontendSample {
+            events,
+            fetch_queue_occupancy,
+            fetch_queue_enqueue_width,
+            fetch_queue_dequeue_width,
+        });
     }
 
     pub(super) fn record_issue_queue(
@@ -158,11 +201,7 @@ impl DetailedTrace {
         write!(self.writer, "cycle={cycle:012} commits={commits} ")?;
         self.write_slots(groups)?;
         write!(self.writer, " frontend=")?;
-        write_optional_events(
-            &mut self.writer,
-            sample.frontend_events,
-            &FRONTEND_EVENT_NAMES,
-        )?;
+        write_frontend(&mut self.writer, sample.frontend)?;
         write!(self.writer, " iq=")?;
         write_issue_queue(&mut self.writer, sample.issue_queue)?;
         write!(self.writer, " memory=")?;
@@ -199,15 +238,27 @@ impl DetailedTrace {
     }
 }
 
-fn write_optional_events<W: Write>(
-    writer: &mut W,
-    events: Option<u32>,
-    names: &[&str],
-) -> io::Result<()> {
-    match events {
-        Some(events) => write_event_list(writer, events, names),
-        None => write!(writer, "-"),
+fn write_frontend<W: Write>(writer: &mut W, sample: Option<FrontendSample>) -> io::Result<()> {
+    let Some(sample) = sample else {
+        return write!(writer, "-");
+    };
+
+    write!(writer, "{{events=")?;
+    write_event_list(writer, sample.events, &FRONTEND_EVENT_NAMES)?;
+    write!(
+        writer,
+        ",fetch_queue={{occupancy={},accepted_enqueue_width={},dequeue_width={},miss_start_occupancy=",
+        sample.fetch_queue_occupancy,
+        sample.fetch_queue_enqueue_width,
+        sample.fetch_queue_dequeue_width
+    )?;
+    if (sample.events & (1_u32 << PerfCounters::ICACHE_MISS)) != 0 {
+        write!(writer, "{}", sample.fetch_queue_occupancy)?;
+    } else {
+        write!(writer, "-")?;
     }
+
+    write!(writer, "}}}}")
 }
 
 fn write_event_list<W: Write>(writer: &mut W, events: u32, names: &[&str]) -> io::Result<()> {

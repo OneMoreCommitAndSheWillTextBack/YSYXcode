@@ -37,16 +37,21 @@ static void clint_set_mip_pending(uint32_t hart, uint32_t bit, bool pending) {
     return;
   }
 
-  riscv_csr_set_mip_pending(bit, pending);
+  riscv_csr_set_device_pending(bit, pending);
 }
 
 static void clint_update_timer_pending() {
   uint32_t hart = clint_current_hart();
   if (!CLINT_HART_VALID(hart)) {
+    Log("Try to access invalid clint hart");
     return;
   }
 
+#if STANDARD_MTIME
   clint_set_mip_pending(hart, MIP_MTIP, mtime_reg >= mtimecmp_regs[hart]);
+#else /* !STANDARD_MTIME */
+  clint_set_mip_pending(hart, MIP_MTIP, true);
+#endif
 }
 
 void clint_update_mtime(uint64_t mtime) {

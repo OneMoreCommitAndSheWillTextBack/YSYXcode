@@ -49,7 +49,10 @@ object NpcFrontendPerf extends DPIClockedVoidFunctionImport {
   override def functionName: String              = "npc_frontend_perf"
   override def inputNames:   Option[Seq[String]] = Some(
     Seq(
-      "events"
+      "events",
+      "fetchQueueOccupancy",
+      "fetchQueueEnqueueWidth",
+      "fetchQueueDequeueWidth"
     )
   )
 }

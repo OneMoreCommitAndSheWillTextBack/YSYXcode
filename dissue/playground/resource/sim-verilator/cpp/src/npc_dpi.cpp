@@ -108,8 +108,14 @@ extern "C" void npc_pmem_write(int addr, int len, int data) {
 
 extern "C" uint64_t npc_time_read() { return NpcHostBridge::time_read(); }
 
-extern "C" void npc_frontend_perf(int events) {
-  NpcHostBridge::frontend_perf(static_cast<uint32_t>(events));
+extern "C" void npc_frontend_perf(int events, int fetch_queue_occupancy,
+                                   int fetch_queue_enqueue_width,
+                                   int fetch_queue_dequeue_width) {
+  NpcHostBridge::frontend_perf(
+      static_cast<uint32_t>(events),
+      static_cast<uint32_t>(fetch_queue_occupancy),
+      static_cast<uint32_t>(fetch_queue_enqueue_width),
+      static_cast<uint32_t>(fetch_queue_dequeue_width));
 }
 
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,

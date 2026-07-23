@@ -259,10 +259,26 @@ impl Checker {
         self.pending_retire.record(group, sync_prefix);
     }
 
-    pub(crate) fn on_frontend_perf(&mut self, events: u32) {
-        self.perf.frontend_perf(events);
+    pub(crate) fn on_frontend_perf(
+        &mut self,
+        events: u32,
+        fetch_queue_occupancy: u32,
+        fetch_queue_enqueue_width: u32,
+        fetch_queue_dequeue_width: u32,
+    ) {
+        self.perf.frontend_perf(
+            events,
+            fetch_queue_occupancy,
+            fetch_queue_enqueue_width,
+            fetch_queue_dequeue_width,
+        );
         if self.detailed_trace.is_some() {
-            self.cycle_sample.record_frontend(events);
+            self.cycle_sample.record_frontend(
+                events,
+                fetch_queue_occupancy,
+                fetch_queue_enqueue_width,
+                fetch_queue_dequeue_width,
+            );
         }
     }
 
@@ -460,11 +476,54 @@ impl Checker {
                 .frontend_event(PerfCounters::ICACHE_MISS_WAIT_CYCLE)
         );
         crate::Log!(
+            "Icache MSHR: active cycles: {}, hit-under-miss: {}, same-line wait cycles: {}, queued different miss: {}, recovery redirects during MSHR: {}, redirected-target hits: {}, stale-response drop cycles: {}",
+            self.perf.frontend_event(PerfCounters::ICACHE_MSHR_ACTIVE_CYCLE),
+            self.perf.frontend_event(PerfCounters::ICACHE_HIT_UNDER_MISS),
+            self.perf.frontend_event(PerfCounters::ICACHE_SAME_LINE_WAIT_CYCLE),
+            self.perf.frontend_event(PerfCounters::ICACHE_QUEUED_MISS),
+            self.perf.frontend_event(PerfCounters::REDIRECT_DURING_MSHR),
+            self.perf.frontend_event(PerfCounters::REDIRECT_DURING_MSHR_TARGET_HIT),
+            self.perf.frontend_event(PerfCounters::STALE_RESPONSE_DROP)
+        );
+        crate::Log!(
             "Frontend: redirects: {}, invalidates: {}, empty while backend ready: {}, AXI request wait cycles: {}",
             self.perf.frontend_event(PerfCounters::BACKEND_REDIRECT),
             self.perf.frontend_event(PerfCounters::ICACHE_INVALIDATE),
             self.perf.frontend_event(PerfCounters::FRONTEND_EMPTY),
             self.perf.frontend_event(PerfCounters::AXI_REQUEST_WAIT)
+        );
+        crate::Log!(
+            "RAS: push: {}, pop: {}, pop-then-push: {}, use: {}, hit: {}, miss: {}, underflow: {}, overflow: {}, checkpoint restores: {}, recovery discards: {}",
+            self.perf.frontend_event(PerfCounters::RAS_PUSH),
+            self.perf.frontend_event(PerfCounters::RAS_POP),
+            self.perf.frontend_event(PerfCounters::RAS_POP_THEN_PUSH),
+            self.perf.frontend_event(PerfCounters::RAS_USE),
+            self.perf.frontend_event(PerfCounters::RAS_HIT),
+            self.perf.frontend_event(PerfCounters::RAS_MISS),
+            self.perf.frontend_event(PerfCounters::RAS_UNDERFLOW),
+            self.perf.frontend_event(PerfCounters::RAS_OVERFLOW),
+            self.perf.frontend_event(PerfCounters::RAS_CHECKPOINT_RESTORE),
+            self.perf.frontend_event(PerfCounters::RAS_RECOVERY_DISCARD)
+        );
+        crate::Log!(
+            "TAGE/ITTAGE: tagged providers: {}, alternate disagreements: {}, allocations: {}, usefulness aging: {}, late overrides: {}",
+            self.perf.frontend_event(PerfCounters::TAGE_TAGGED_PROVIDER),
+            self.perf
+                .frontend_event(PerfCounters::TAGE_ALTERNATE_DISAGREE),
+            self.perf.frontend_event(PerfCounters::TAGE_ALLOCATION),
+            self.perf
+                .frontend_event(PerfCounters::TAGE_USEFULNESS_AGING),
+            self.perf.frontend_event(PerfCounters::LATE_OVERRIDE)
+        );
+        crate::Log!(
+            "FetchQueue: samples: {}, avg occupancy: {:.3}, true starvation cycles: {}, full cycles: {}, accepted enqueue width total: {}, dequeued width total: {}, avg miss-start queue occupancy: {:.3}",
+            self.perf.fetch_queue_sample_cycles(),
+            self.perf.fetch_queue_average_occupancy(),
+            self.perf.fetch_queue_true_starvation_cycles(),
+            self.perf.fetch_queue_full_cycles(),
+            self.perf.fetch_queue_enqueue_width_total(),
+            self.perf.fetch_queue_dequeue_width_total(),
+            self.perf.fetch_queue_average_miss_start_occupancy()
         );
         crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",

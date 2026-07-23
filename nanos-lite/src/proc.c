@@ -153,6 +153,9 @@ void context_uload(PCB *p, const char *filename, char *argv[], char *envp[]) {
   if (p->cp == NULL) {
     pcb_num++;
   }
+  // execve installs a new address space, so the previous program's heap
+  // high-water mark must not be reused by the new program.
+  p->max_brk = 0;
   protect(&p->as);
   uint8_t *kstack_high = p->stack + STACK_SIZE;
   void *new_alloc = new_page(8);

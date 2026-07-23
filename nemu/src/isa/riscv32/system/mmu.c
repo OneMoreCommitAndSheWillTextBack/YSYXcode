@@ -211,6 +211,8 @@ static paddr_t isa_mmu_pagewalk(vaddr_t vaddr, int type) {
   word_t cause = 0;
 
   if (!isa_mmu_pagewalk_safe(vaddr, type, &addr_res, &cause)) {
+    Log("isa mmu pagewalk safe for vaddr 0x%08x faild, type is %d", vaddr,
+        cause);
     cpu_throw_exception(cause, vaddr);
   }
 

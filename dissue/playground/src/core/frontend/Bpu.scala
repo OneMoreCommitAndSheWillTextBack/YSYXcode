@@ -22,9 +22,9 @@ class BtbUpdate(cfg: BpuConfig) extends Bundle {
 }
 
 class BtbBundle(cfg: BpuConfig) extends Bundle {
-  val lookupPc = Input(UInt(cfg.addrWidth.W))
-  val resp     = Output(new BtbResp(cfg))
-  val update   = Flipped(Valid(new BtbUpdate(cfg)))
+  val lookupPc = Input(Vec(2, UInt(cfg.addrWidth.W)))
+  val resp     = Output(Vec(2, new BtbResp(cfg)))
+  val update   = Input(Vec(PredictorConstants.commitUpdateWidth, Valid(new BtbUpdate(cfg))))
 }
 
 class Btb(cfg: BpuConfig) extends Module {
@@ -46,25 +46,43 @@ class Btb(cfg: BpuConfig) extends Module {
   val cfitpArray  = Reg(Vec(cfg.btbEntries, UInt(CfiType.width.W)))
   val cfioffArray = Reg(Vec(cfg.btbEntries, UInt(cfg.cfiOffsetBits.W)))
 
-  val updateSet = index(io.update.bits.pc)
-  val updateTag = tag(io.update.bits.pc)
+  private val firstUpdateSet = index(io.update(0).bits.pc)
+  private val firstUpdateTag = tag(io.update(0).bits.pc)
+  private val secondUpdateSet = index(io.update(1).bits.pc)
+  private val secondUpdateTag = tag(io.update(1).bits.pc)
+  private val sameBlockUpdates = io.update(0).valid && io.update(1).valid &&
+    firstUpdateSet === secondUpdateSet && firstUpdateTag === secondUpdateTag
 
-  when(io.update.fire) {
-    validArray(updateSet)  := true.B
-    tagArray(updateSet)    := updateTag
-    targetArray(updateSet) := io.update.bits.target
-    cfitpArray(updateSet)  := io.update.bits.cfiType
-    cfioffArray(updateSet) := io.update.bits.cfiOffset
+  when(io.update(0).valid) {
+    validArray(firstUpdateSet)  := true.B
+    tagArray(firstUpdateSet)    := firstUpdateTag
+    targetArray(firstUpdateSet) := io.update(0).bits.target
+    cfitpArray(firstUpdateSet)  := io.update(0).bits.cfiType
+    cfioffArray(firstUpdateSet) := io.update(0).bits.cfiOffset
   }
 
-  val reqSet = index(io.lookupPc)
-  val reqTag = tag(io.lookupPc)
-  val hit    = validArray(reqSet) === true.B && tagArray(reqSet) === reqTag
+  when(io.update(1).valid && !sameBlockUpdates) {
+    validArray(secondUpdateSet)  := true.B
+    tagArray(secondUpdateSet)    := secondUpdateTag
+    targetArray(secondUpdateSet) := io.update(1).bits.target
+    cfitpArray(secondUpdateSet)  := io.update(1).bits.cfiType
+    cfioffArray(secondUpdateSet) := io.update(1).bits.cfiOffset
+  }
 
-  io.resp.hit       := hit
-  io.resp.target    := Mux(hit, targetArray(reqSet), 0.U)
-  io.resp.cfiOffset := Mux(hit, cfioffArray(reqSet), 0.U)
-  io.resp.cfiType   := Mux(hit, cfitpArray(reqSet), CfiType.none)
+  when(sameBlockUpdates) {
+    assert(io.update(0).bits.pc < io.update(1).bits.pc)
+  }
+
+  for (lane <- 0 until 2) {
+    val reqSet = index(io.lookupPc(lane))
+    val reqTag = tag(io.lookupPc(lane))
+    val hit    = validArray(reqSet) && tagArray(reqSet) === reqTag
+
+    io.resp(lane).hit       := hit
+    io.resp(lane).target    := Mux(hit, targetArray(reqSet), 0.U)
+    io.resp(lane).cfiOffset := Mux(hit, cfioffArray(reqSet), 0.U)
+    io.resp(lane).cfiType   := Mux(hit, cfitpArray(reqSet), CfiType.none)
+  }
 }
 
 class BhtUpdate(cfg: BpuConfig) extends Bundle {
@@ -73,9 +91,9 @@ class BhtUpdate(cfg: BpuConfig) extends Bundle {
 }
 
 class BhtBundle(cfg: BpuConfig) extends Bundle {
-  val lookupPc = Input(UInt(cfg.addrWidth.W))
-  val taken    = Output(Bool())
-  val update   = Flipped(Valid(new BhtUpdate(cfg)))
+  val lookupPc = Input(Vec(2, UInt(cfg.addrWidth.W)))
+  val taken    = Output(Vec(2, Bool()))
+  val update   = Input(Vec(PredictorConstants.commitUpdateWidth, Valid(new BhtUpdate(cfg))))
 }
 
 object TakenState extends ChiselEnum {
@@ -118,51 +136,368 @@ class Bht(cfg: BpuConfig) extends Module {
   val validArray = RegInit(VecInit(Seq.fill(cfg.bhtEntries)(false.B)))
   val takenArray = Reg(Vec(cfg.bhtEntries, TakenState()))
 
-  val updateSet = idx(io.update.bits.pc)
-  when(io.update.fire) {
-    when(validArray(updateSet)) {
-      takenArray(updateSet) := nextTakenState(takenArray(updateSet), io.update.bits.taken)
-    }.otherwise {
-      validArray(updateSet) := true.B
-      takenArray(updateSet) := Mux(io.update.bits.taken, TakenState.weakTaken, TakenState.weakNotTaken)
-    }
+  private def initialTakenState(taken: Bool): TakenState.Type =
+    Mux(taken, TakenState.weakTaken, TakenState.weakNotTaken)
+
+  private val firstUpdateSet   = idx(io.update(0).bits.pc)
+  private val firstUpdateState = Mux(
+    validArray(firstUpdateSet),
+    nextTakenState(takenArray(firstUpdateSet), io.update(0).bits.taken),
+    initialTakenState(io.update(0).bits.taken)
+  )
+
+  when(io.update(0).valid) {
+    validArray(firstUpdateSet) := true.B
+    takenArray(firstUpdateSet) := firstUpdateState
   }
 
-  val reqIdx   = idx(io.lookupPc)
-  val reqTaken = takenArray(reqIdx)
+  private val secondUpdateSet  = idx(io.update(1).bits.pc)
+  private val secondMatchesFirst = io.update(0).valid && firstUpdateSet === secondUpdateSet
+  private val secondPriorValid = Mux(secondMatchesFirst, true.B, validArray(secondUpdateSet))
+  private val secondPriorState = Mux(secondMatchesFirst, firstUpdateState, takenArray(secondUpdateSet))
+  private val secondUpdateState = Mux(
+    secondPriorValid,
+    nextTakenState(secondPriorState, io.update(1).bits.taken),
+    initialTakenState(io.update(1).bits.taken)
+  )
 
-  io.taken := validArray(reqIdx) && predictTaken(reqTaken)
+  when(io.update(1).valid) {
+    validArray(secondUpdateSet) := true.B
+    takenArray(secondUpdateSet) := secondUpdateState
+  }
+
+  for (lane <- 0 until 2) {
+    val reqIdx   = idx(io.lookupPc(lane))
+    val reqTaken = takenArray(reqIdx)
+
+    io.taken(lane) := validArray(reqIdx) && predictTaken(reqTaken)
+  }
 }
 
 class Bpu(cfg: BpuConfig = BpuConfig()) extends Module {
+  require(cfg.predictorHistoryBits == PredictorConstants.historyBits, "Prediction metadata and BPU history widths must match")
+
   val io = IO(new BpuBundle(cfg))
 
-  val btb = Module(new Btb(cfg))
-  val bht = Module(new Bht(cfg))
+  private val cacheCfg = ICacheConfig(addrWidth = cfg.addrWidth, fetchBytes = cfg.fetchBytes)
+  val btb  = Module(new Btb(cfg))
+  val bht  = Module(new Bht(cfg))
+  val tage = Module(new Tage(cfg))
+  val ittage = Module(new Ittage(cfg))
 
-  btb.io.lookupPc := io.lookup.bits.pc
-  bht.io.lookupPc := io.lookup.bits.pc
+  btb.io.lookupPc(0) := io.lookup.bits.pc
+  btb.io.lookupPc(1) := io.lookupSecondary.bits.pc
+  private def cfiPc(lookupPc: UInt, response: BtbResp): UInt = {
+    val blockPc = Cat(lookupPc(cfg.addrWidth - 1, cfg.offsetBits), 0.U(cfg.offsetBits.W))
+    blockPc +% (response.cfiOffset << 1)
+  }
 
-  btb.io.update.valid          := io.update.valid && io.update.bits.taken
-  btb.io.update.bits.pc        := io.update.bits.pc
-  btb.io.update.bits.target    := io.update.bits.target
-  btb.io.update.bits.cfiOffset := io.update.bits.pc(cfg.offsetBits - 1, 1)
-  btb.io.update.bits.cfiType   := io.update.bits.cfiType
+  bht.io.lookupPc(0) := cfiPc(io.lookup.bits.pc, btb.io.resp(0))
+  bht.io.lookupPc(1) := cfiPc(io.lookupSecondary.bits.pc, btb.io.resp(1))
 
-  bht.io.update.valid      := io.update.valid && io.update.bits.cfiType === CfiType.branch
-  bht.io.update.bits.pc    := io.update.bits.pc
-  bht.io.update.bits.taken := io.update.bits.taken
+  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
+    btb.io.update(lane).valid          := io.update(lane).valid && io.update(lane).bits.taken
+    btb.io.update(lane).bits.pc        := io.update(lane).bits.pc
+    btb.io.update(lane).bits.target    := io.update(lane).bits.target
+    btb.io.update(lane).bits.cfiOffset := io.update(lane).bits.pc(cfg.offsetBits - 1, 1)
+    btb.io.update(lane).bits.cfiType   := io.update(lane).bits.cfiType
 
-  val lookupOffset = io.lookup.bits.pc(cfg.offsetBits - 1, 1)
-  val isBranch     = btb.io.resp.cfiType === CfiType.branch
-  val hasCfi       = btb.io.resp.cfiType =/= CfiType.none
-  val btbHit       = io.lookup.valid && btb.io.resp.hit && hasCfi
-  val cfiInWindow  = btbHit && btb.io.resp.cfiOffset >= lookupOffset
-  val predTaken    = cfiInWindow && Mux(isBranch, bht.io.taken, true.B)
+    bht.io.update(lane).valid      := io.update(lane).valid && io.update(lane).bits.cfiType === CfiType.branch
+    bht.io.update(lane).bits.pc    := io.update(lane).bits.pc
+    bht.io.update(lane).bits.taken := io.update(lane).bits.taken
+  }
+  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
+    tage.io.update(lane).valid := io.update(lane).valid && cfg.enableTage.B
+    tage.io.update(lane).bits  := io.update(lane).bits
+    ittage.io.update(lane).valid := io.update(lane).valid && cfg.enableIttage.B
+    ittage.io.update(lane).bits  := io.update(lane).bits
+  }
 
-  io.pred.valid     := cfiInWindow
-  io.pred.taken     := predTaken
-  io.pred.target    := Mux(predTaken, btb.io.resp.target, 0.U)
-  io.pred.cfiOffset := Mux(cfiInWindow, btb.io.resp.cfiOffset, 0.U)
-  io.pred.cfiType   := Mux(cfiInWindow, btb.io.resp.cfiType, CfiType.none)
+  private def advanceConditionalHistory(history: UInt, cfiType: UInt, taken: Bool): UInt =
+    Mux(cfiType === CfiType.branch, Cat(history(PredictorConstants.historyBits - 2, 0), taken), history)
+
+  private def isGenericIndirect(cfiType: UInt, canonicalReturn: Bool): Bool =
+    cfiType === CfiType.jalr && !canonicalReturn
+
+  private def advancePathHistory(
+    history:         UInt,
+    cfiType:         UInt,
+    canonicalReturn: Bool,
+    pc:              UInt,
+    target:          UInt): UInt = {
+    val pathBits = pc(5, 2) ^ target(5, 2)
+    Mux(
+      isGenericIndirect(cfiType, canonicalReturn),
+      Cat(history(PredictorConstants.historyBits - 5, 0), pathBits),
+      history
+    )
+  }
+
+  private def applyRas(
+    checkpoint: RasCheckpoint,
+    action:     UInt,
+    pc:         UInt,
+    instLen:    UInt): (RasCheckpoint, Bool, Bool) = {
+    val next       = Wire(new RasCheckpoint(cfg.addrWidth))
+    val nonEmpty   = checkpoint.count =/= 0.U
+    val full       = checkpoint.count === PredictorConstants.rasEntries.U
+    val pushIndex  = checkpoint.count(PredictorConstants.rasIndexBits - 1, 0)
+    val popIndex   = (checkpoint.count - 1.U)(PredictorConstants.rasIndexBits - 1, 0)
+    val returnAddr = pc +% instLen
+
+    next := checkpoint
+    switch(action) {
+      is(RasAction.push) {
+        when(!full) {
+          next.entries(pushIndex) := returnAddr
+          next.count              := checkpoint.count + 1.U
+        }
+      }
+      is(RasAction.pop) {
+        when(nonEmpty) {
+          next.count := checkpoint.count - 1.U
+        }
+      }
+      is(RasAction.popThenPush) {
+        when(nonEmpty) {
+          next.entries(popIndex) := returnAddr
+        }.otherwise {
+          next.entries(0) := returnAddr
+          next.count      := 1.U
+        }
+      }
+    }
+
+    (
+      next,
+      (action === RasAction.pop || action === RasAction.popThenPush) && !nonEmpty,
+      action === RasAction.push && full
+    )
+  }
+
+  private val architecturalRas     = RegInit(0.U.asTypeOf(new RasCheckpoint(cfg.addrWidth)))
+  private val speculativeRas       = RegInit(0.U.asTypeOf(new RasCheckpoint(cfg.addrWidth)))
+  private val architecturalHistory = RegInit(0.U(PredictorConstants.historyBits.W))
+  private val speculativeHistory   = RegInit(0.U(PredictorConstants.historyBits.W))
+  private val architecturalPath    = RegInit(0.U(PredictorConstants.historyBits.W))
+  private val speculativePath      = RegInit(0.U(PredictorConstants.historyBits.W))
+
+  private val tageQueries = Wire(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cacheCfg)))
+  private val ittageQueries = Wire(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cacheCfg)))
+  var queryHistory: UInt = speculativeHistory
+  var queryPath: UInt = speculativePath
+  for (lane <- 0 until PredictorConstants.latePredictionWidth) {
+    val query = io.lateQuery(lane)
+    val historyBefore = queryHistory
+    val pathBefore    = queryPath
+
+    tageQueries(lane) := query
+    tageQueries(lane).history     := historyBefore
+    tageQueries(lane).pathHistory := pathBefore
+    ittageQueries(lane) := query
+    ittageQueries(lane).history     := historyBefore
+    ittageQueries(lane).pathHistory := pathBefore
+
+    val tageValid = cfg.enableTage.B && tage.io.prediction(lane).valid
+    val ittageValid = cfg.enableIttage.B && ittage.io.prediction(lane).valid
+    val selectedTaken = Mux(cfg.enableLateOverride.B && tageValid, tage.io.prediction(lane).taken, query.fastTaken)
+    val selectedPathTarget = Mux(cfg.enableLateOverride.B && ittageValid, ittage.io.prediction(lane).target, query.fastTarget)
+
+    val conditionalPrediction = Wire(new LatePrediction(cacheCfg))
+    conditionalPrediction := tage.io.prediction(lane)
+    conditionalPrediction.queried := cfg.enableTage.B && tage.io.prediction(lane).queried
+    conditionalPrediction.valid   := cfg.enableTage.B && tage.io.prediction(lane).valid
+
+    val indirectPrediction = Wire(new LatePrediction(cacheCfg))
+    indirectPrediction := ittage.io.prediction(lane)
+    indirectPrediction.queried := cfg.enableIttage.B && ittage.io.prediction(lane).queried
+    indirectPrediction.valid   := cfg.enableIttage.B && ittage.io.prediction(lane).valid
+
+    io.latePrediction(lane) := 0.U.asTypeOf(new LatePrediction(cacheCfg))
+    when(query.cfiType === CfiType.branch) {
+      io.latePrediction(lane) := conditionalPrediction
+    }
+    when(isGenericIndirect(query.cfiType, query.canonicalReturn)) {
+      io.latePrediction(lane) := indirectPrediction
+    }
+    io.latePrediction(lane).historyCheckpoint := historyBefore
+    io.latePrediction(lane).pathCheckpoint    := pathBefore
+
+    queryHistory = Mux(
+      query.valid && query.cfiType === CfiType.branch,
+      advanceConditionalHistory(historyBefore, query.cfiType, selectedTaken),
+      historyBefore
+    )
+    queryPath = Mux(
+      query.valid,
+      advancePathHistory(pathBefore, query.cfiType, query.canonicalReturn, query.pc, selectedPathTarget),
+      pathBefore
+    )
+  }
+  tage.io.query := tageQueries
+  ittage.io.query := ittageQueries
+
+  private val firstCommitAction = Mux(io.update(0).valid, io.update(0).bits.rasAction, RasAction.none)
+  private val firstCommitRas = applyRas(
+    architecturalRas,
+    firstCommitAction,
+    io.update(0).bits.pc,
+    io.update(0).bits.instLen
+  )
+  private val secondCommitAction = Mux(io.update(1).valid, io.update(1).bits.rasAction, RasAction.none)
+  private val secondCommitRas = applyRas(
+    firstCommitRas._1,
+    secondCommitAction,
+    io.update(1).bits.pc,
+    io.update(1).bits.instLen
+  )
+  architecturalRas := secondCommitRas._1
+
+  var committedHistory: UInt = architecturalHistory
+  var committedPath: UInt = architecturalPath
+  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
+    val update = io.update(lane)
+    committedHistory = Mux(
+      update.valid,
+      advanceConditionalHistory(committedHistory, update.bits.cfiType, update.bits.taken),
+      committedHistory
+    )
+    committedPath = Mux(
+      update.valid,
+      advancePathHistory(
+        committedPath,
+        update.bits.cfiType,
+        update.bits.prediction.canonicalReturn,
+        update.bits.pc,
+        update.bits.target
+      ),
+      committedPath
+    )
+  }
+  architecturalHistory := committedHistory
+  architecturalPath    := committedPath
+
+  private val speculativeAction = Mux(io.rasSpecUpdate.valid, io.rasSpecUpdate.bits.rasAction, RasAction.none)
+  private val speculativeNext = applyRas(
+    speculativeRas,
+    speculativeAction,
+    io.rasSpecUpdate.bits.cfiPc,
+    io.rasSpecUpdate.bits.instLen
+  )
+  private val recoveryNext = applyRas(
+    io.rasRecovery.bits.prediction.rasCheckpoint,
+    io.rasRecovery.bits.prediction.rasAction,
+    io.rasRecovery.bits.prediction.cfiPc,
+    io.rasRecovery.bits.prediction.instLen
+  )
+
+  var speculativeHistoryNext: UInt = speculativeHistory
+  var speculativePathNext: UInt = speculativePath
+  for (lane <- 0 until PredictorConstants.latePredictionWidth) {
+    val update = io.lateSpecUpdate(lane)
+    speculativeHistoryNext = Mux(
+      update.valid,
+      advanceConditionalHistory(speculativeHistoryNext, update.bits.cfiType, update.bits.specTaken),
+      speculativeHistoryNext
+    )
+    speculativePathNext = Mux(
+      update.valid,
+      advancePathHistory(
+        speculativePathNext,
+        update.bits.cfiType,
+        update.bits.canonicalReturn,
+        update.bits.cfiPc,
+        update.bits.predictedTarget
+      ),
+      speculativePathNext
+    )
+  }
+  private val recoveredHistory = advanceConditionalHistory(
+    io.rasRecovery.bits.prediction.historyCheckpoint,
+    io.rasRecovery.bits.cfiType,
+    io.rasRecovery.bits.actualTaken
+  )
+  private val recoveredPath = advancePathHistory(
+    io.rasRecovery.bits.prediction.pathCheckpoint,
+    io.rasRecovery.bits.cfiType,
+    io.rasRecovery.bits.prediction.canonicalReturn,
+    io.rasRecovery.bits.prediction.cfiPc,
+    io.rasRecovery.bits.actualTarget
+  )
+
+  when(io.rasRecovery.valid) {
+    speculativeRas := recoveryNext._1
+    speculativeHistory := recoveredHistory
+    speculativePath := recoveredPath
+  }.elsewhen(io.rasFlush) {
+    speculativeRas := secondCommitRas._1
+    speculativeHistory := committedHistory
+    speculativePath := committedPath
+  }.otherwise {
+    speculativeRas := speculativeNext._1
+    speculativeHistory := speculativeHistoryNext
+    speculativePath := speculativePathNext
+  }
+
+  io.rasTop        := Mux(speculativeRas.count =/= 0.U, speculativeRas.entries((speculativeRas.count - 1.U)(PredictorConstants.rasIndexBits - 1, 0)), 0.U)
+  io.rasValid      := speculativeRas.count =/= 0.U
+  io.rasCheckpoint := speculativeRas
+
+  private val rasUse = VecInit((0 until PredictorConstants.commitUpdateWidth).map { lane =>
+    io.update(lane).valid && io.update(lane).bits.prediction.rasUsed
+  }).asUInt.orR
+  private val rasHit = VecInit((0 until PredictorConstants.commitUpdateWidth).map { lane =>
+    io.update(lane).valid && io.update(lane).bits.prediction.rasUsed &&
+      io.update(lane).bits.target === io.update(lane).bits.prediction.predictedTarget
+  }).asUInt.orR
+  private def committedAction(action: UInt): Bool =
+    VecInit((0 until PredictorConstants.commitUpdateWidth).map { lane =>
+      io.update(lane).valid && io.update(lane).bits.rasAction === action
+    }).asUInt.orR
+
+  io.perf := 0.U.asTypeOf(new RasPerf)
+  io.perf.push              := committedAction(RasAction.push)
+  io.perf.pop               := committedAction(RasAction.pop)
+  io.perf.popThenPush       := committedAction(RasAction.popThenPush)
+  io.perf.use               := rasUse
+  io.perf.hit               := rasHit
+  io.perf.miss              := rasUse && !rasHit
+  io.perf.underflow         := firstCommitRas._2 || secondCommitRas._2 || recoveryNext._2
+  io.perf.overflow          := firstCommitRas._3 || secondCommitRas._3 || recoveryNext._3
+  io.perf.checkpointRestore := io.rasRecovery.valid
+  io.perf.recoveryDiscard   := io.rasRecovery.valid || io.rasFlush
+  io.perf.taggedProvider    := tage.io.perf.provider || ittage.io.perf.provider
+  io.perf.alternateDisagree := tage.io.perf.alternateDisagree || ittage.io.perf.alternateDisagree
+  io.perf.allocation        := tage.io.perf.allocation || ittage.io.perf.allocation
+  io.perf.usefulnessAging   := tage.io.perf.usefulnessAging || ittage.io.perf.usefulnessAging
+  io.perf.lateOverride      := VecInit((0 until PredictorConstants.latePredictionWidth).map { lane =>
+    io.lateSpecUpdate(lane).valid && io.lateSpecUpdate(lane).bits.lateOverride
+  }).asUInt.orR
+
+  when(io.rasSpecUpdate.valid) {
+    assert(io.rasSpecUpdate.bits.checkpointValid)
+  }
+  when(io.rasRecovery.valid) {
+    assert(io.rasRecovery.bits.prediction.checkpointValid)
+  }
+
+  private def predictionFor(lookupValid: Bool, lookupPc: UInt, lane: Int): BpuPred = {
+    val lookupOffset = lookupPc(cfg.offsetBits - 1, 1)
+    val isBranch     = btb.io.resp(lane).cfiType === CfiType.branch
+    val hasCfi       = btb.io.resp(lane).cfiType =/= CfiType.none
+    val btbHit       = lookupValid && btb.io.resp(lane).hit && hasCfi
+    val cfiInWindow  = btbHit && btb.io.resp(lane).cfiOffset >= lookupOffset
+    val predTaken    = cfiInWindow && Mux(isBranch, bht.io.taken(lane), true.B)
+    val prediction   = Wire(new BpuPred(cfg))
+
+    prediction.valid     := cfiInWindow
+    prediction.taken     := predTaken
+    prediction.target    := Mux(predTaken, btb.io.resp(lane).target, 0.U)
+    prediction.cfiOffset := Mux(cfiInWindow, btb.io.resp(lane).cfiOffset, 0.U)
+    prediction.cfiType   := Mux(cfiInWindow, btb.io.resp(lane).cfiType, CfiType.none)
+    prediction
+  }
+
+  io.pred          := predictionFor(io.lookup.valid, io.lookup.bits.pc, 0)
+  io.predSecondary := predictionFor(io.lookupSecondary.valid, io.lookupSecondary.bits.pc, 1)
 }

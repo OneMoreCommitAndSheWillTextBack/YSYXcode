@@ -9,7 +9,7 @@ import top.core.bundle.{DataMemTxn, FrontendToBackend, MemPerfEvent}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
 import top.core.mem.{Mem, RecoverableDmemQueue}
 import top.core.frontend.Frontend
-import top.core.frontend.bundle.BpuUpdate
+import top.core.frontend.bundle.{BpuUpdate, PredictorConstants}
 import top.sim.MemPerfBridge
 
 class Core(resetVector: BigInt) extends Module {
@@ -61,13 +61,18 @@ class Core(resetVector: BigInt) extends Module {
   frontend.io.predRedirect.value := backend.io.redirect.predRedirect.target
   frontend.io.icacheInvalidate  := backend.io.redirect.icacheInvalidate
 
-  frontend.io.bpuUpdate.valid        := backend.io.redirect.bpuUpdate.valid
-  frontend.io.bpuUpdate.bits         := 0.U.asTypeOf(new BpuUpdate(frontendCfg.bpu))
-  frontend.io.bpuUpdate.bits.pc      := backend.io.redirect.bpuUpdate.bits.pc
-  frontend.io.bpuUpdate.bits.cfiType := backend.io.redirect.bpuUpdate.bits.cfiType
-  frontend.io.bpuUpdate.bits.taken   := backend.io.redirect.bpuUpdate.bits.taken
-  frontend.io.bpuUpdate.bits.target  := backend.io.redirect.bpuUpdate.bits.target
-  frontend.io.bpuUpdate.bits.instLen := backend.io.redirect.bpuUpdate.bits.instLen
+  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
+    frontend.io.bpuUpdates(lane).valid        := backend.io.redirect.bpuUpdates(lane).valid
+    frontend.io.bpuUpdates(lane).bits         := 0.U.asTypeOf(new BpuUpdate(frontendCfg.bpu))
+    frontend.io.bpuUpdates(lane).bits.pc      := backend.io.redirect.bpuUpdates(lane).bits.pc
+    frontend.io.bpuUpdates(lane).bits.cfiType := backend.io.redirect.bpuUpdates(lane).bits.cfiType
+    frontend.io.bpuUpdates(lane).bits.taken   := backend.io.redirect.bpuUpdates(lane).bits.taken
+    frontend.io.bpuUpdates(lane).bits.target  := backend.io.redirect.bpuUpdates(lane).bits.target
+    frontend.io.bpuUpdates(lane).bits.instLen := backend.io.redirect.bpuUpdates(lane).bits.instLen
+    frontend.io.bpuUpdates(lane).bits.rasAction := backend.io.redirect.bpuUpdates(lane).bits.rasAction
+    frontend.io.bpuUpdates(lane).bits.prediction := backend.io.redirect.bpuUpdates(lane).bits.prediction
+  }
+  frontend.io.predictorRecovery := backend.io.redirect.predictorRecovery
 
   backend.io.frontend.valid := frontend.io.fetch.valid
   backend.io.frontend.bits  := 0.U.asTypeOf(new FrontendToBackend(backendCfg.issueWidth, backendCfg.addrWidth))
@@ -84,6 +89,7 @@ class Core(resetVector: BigInt) extends Module {
     backend.io.frontend.bits.insts(i).bits.predTaken  := frontend.io.fetch.bits.insts(i).bits.predTaken
     backend.io.frontend.bits.insts(i).bits.predNpc    := frontend.io.fetch.bits.insts(i).bits.predNpc
     backend.io.frontend.bits.insts(i).bits.predTarget := frontend.io.fetch.bits.insts(i).bits.predTarget
+    backend.io.frontend.bits.insts(i).bits.prediction := frontend.io.fetch.bits.insts(i).bits.prediction
     backend.io.frontend.bits.insts(i).bits.exception  := frontend.io.fetch.bits.insts(i).bits.exception
   }
 

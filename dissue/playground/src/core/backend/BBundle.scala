@@ -5,7 +5,8 @@ import top.core.backend.csr.CsrAddr
 import top.core.backend.decoder.{FuOp, FuType, SrcType}
 import top.core.backend.exception.ExceptionInfo
 import top.core.bundle.{CfiType, FetchInstPayload}
-import top.config.BackendConfig
+import top.config.{BackendConfig, ICacheConfig}
+import top.core.frontend.bundle.PredictionMeta
 
 class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid       = Bool()
@@ -264,6 +265,7 @@ class BranchResolve(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val taken        = Bool()
   val branchTarget = UInt(cfg.addrWidth.W)
   val instLen      = UInt(3.W)
+  val prediction   = new PredictionMeta(ICacheConfig(addrWidth = cfg.addrWidth))
 }
 
 /** The portion of a ROB entry needed to reconstruct register dependencies after selective recovery. */

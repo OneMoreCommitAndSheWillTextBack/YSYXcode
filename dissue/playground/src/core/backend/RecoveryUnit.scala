@@ -5,6 +5,7 @@ import chisel3.util.{Mux1H, PopCount, Valid}
 import top.config.BackendConfig
 import top.core.backend.bundle.BranchResolve
 import top.core.bundle.{Redirect, RobAge, RobRecovery}
+import top.core.frontend.bundle.PredictorRecovery
 
 /** Converts registered EXU control-flow outcomes into one selective recovery request.
   *
@@ -19,6 +20,7 @@ class RecoveryUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     val recover  = Output(new RobRecovery(cfg.robIdxWidth))
     val redirect = Output(new Redirect(cfg.addrWidth))
+    val predictorRecovery = Output(Valid(new PredictorRecovery(cfg.addrWidth)))
   })
 
   private val mispredict = Wire(Vec(cfg.intIssueWidth, Bool()))
@@ -44,6 +46,14 @@ class RecoveryUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   io.recover.robIdx := Mux1H(grant, io.resolve.map(_.bits.robIdx))
   io.redirect.valid := anyGrant
   io.redirect.target := Mux1H(grant, io.resolve.map(_.bits.actualNpc))
+  io.predictorRecovery.valid := anyGrant
+  io.predictorRecovery.bits := 0.U.asTypeOf(new PredictorRecovery(cfg.addrWidth))
+  when(anyGrant) {
+    io.predictorRecovery.bits.prediction   := Mux1H(grant, io.resolve.map(_.bits.prediction))
+    io.predictorRecovery.bits.cfiType      := Mux1H(grant, io.resolve.map(_.bits.cfiType))
+    io.predictorRecovery.bits.actualTaken  := Mux1H(grant, io.resolve.map(_.bits.taken))
+    io.predictorRecovery.bits.actualTarget := Mux1H(grant, io.resolve.map(_.bits.actualNpc))
+  }
 
   assert(PopCount(grant) <= 1.U)
 }
