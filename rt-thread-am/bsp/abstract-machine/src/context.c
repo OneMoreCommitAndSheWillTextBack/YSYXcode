@@ -1,20 +1,21 @@
+#include "rtdef.h"
 #include <am.h>
 #include <klib.h>
 #include <rtthread.h>
-#include <stdint.h>
 
 // clang-format off
-static rt_ubase_t global_to, global_from;
 
 static Context* ev_handler(Event e, Context *c) {
   // printf("get event ID = %d\n", e.event);
+  rt_thread_t pcb = rt_thread_self();
+  rt_uint32_t *user_data_p = (void *)&(pcb->user_data);
   switch (e.event) {
     case EVENT_YIELD:
     case EVENT_SYSCALL:
-      if(global_from){
-        *(Context**)global_from = c;
+      if (user_data_p[1]) {
+        *(Context**)user_data_p[1] = c;
       }
-      c = *(Context **)global_to;
+      c = *(Context **)user_data_p[0];
       break;
     case EVENT_IRQ_TIMER:
     break;
@@ -28,15 +29,25 @@ void __am_cte_init() {
   cte_init(ev_handler);
 }
 
+// to and from is the pointer point to the pointer of the context
 void rt_hw_context_switch_to(rt_ubase_t to) {
-  global_to = to;
+  rt_thread_t pcb = rt_thread_self();
+  rt_ubase_t userdata_store = pcb->user_data;
+  rt_uint32_t *user_data_p = (void *)&(pcb->user_data);
+  user_data_p[0] = to;
+  user_data_p[1] = 0;
   yield();
+  pcb->user_data = userdata_store;
 }
 
 void rt_hw_context_switch(rt_ubase_t from, rt_ubase_t to) {
-  global_to = to;
-  global_from = from;
+  rt_thread_t pcb = rt_thread_self();
+  rt_ubase_t userdata_store = pcb->user_data;
+  rt_uint32_t *user_data_p = (void *)&(pcb->user_data);
+  user_data_p[0] = to;
+  user_data_p[1] = from;
   yield();
+  pcb->user_data = userdata_store;
 }
 
 void rt_hw_context_switch_interrupt(void *context, rt_ubase_t from, rt_ubase_t to, struct rt_thread *to_thread) {
