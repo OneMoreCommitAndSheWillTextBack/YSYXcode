@@ -4,7 +4,6 @@
 #include <rtthread.h>
 
 // clang-format off
-// static rt_ubase_t global_to, global_from;
 
 static Context* ev_handler(Event e, Context *c) {
   // printf("get event ID = %d\n", e.event);
@@ -30,6 +29,7 @@ void __am_cte_init() {
   cte_init(ev_handler);
 }
 
+// to and from is the pointer point to the pointer of the context
 void rt_hw_context_switch_to(rt_ubase_t to) {
   rt_thread_t pcb = rt_thread_self();
   rt_ubase_t userdata_store = pcb->user_data;
