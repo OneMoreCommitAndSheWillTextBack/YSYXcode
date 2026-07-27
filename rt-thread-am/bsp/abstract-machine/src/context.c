@@ -13,6 +13,9 @@ static Context* ev_handler(Event e, Context *c) {
   switch (e.event) {
     case EVENT_YIELD:
     case EVENT_SYSCALL:
+      if (user_data_p[1]) {
+        *(Context**)user_data_p[1] = c;
+      }
       c = *(Context **)user_data_p[0];
       break;
     case EVENT_IRQ_TIMER:
