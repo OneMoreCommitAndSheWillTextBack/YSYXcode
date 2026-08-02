@@ -68,12 +68,28 @@ int strncmp(const char *s1, const char *s2, size_t n) {
   return 0;
 }
 
-char  *strchr    (const char *s, int c) {
+char *strchr (const char *s, int c) {
   char *ptr = (char *)s;
   while(*ptr != '\0') {
     if(*ptr == c) {
       return ptr;
     }
+    ptr ++;
+  }
+
+  return NULL;
+}
+
+char *strrchr(const char *s, int c) {
+  char *ptr = (char *)s;
+
+  while(*ptr != '\0') ptr++;
+
+  while(ptr >= s) {
+    if(*ptr == c) {
+      return ptr;
+    }
+    ptr --;
   }
 
   return NULL;
@@ -125,4 +141,4 @@ int memcmp(const void *s1, const void *s2, size_t n) {
 
 #endif
 
-// clang-format on
+// cptr --;lang-format on
