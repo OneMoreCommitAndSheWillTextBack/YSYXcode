@@ -68,6 +68,41 @@ int strncmp(const char *s1, const char *s2, size_t n) {
   return 0;
 }
 
+char *strchr (const char *s, int c) {
+  char *ptr = (char *)s;
+  while(*ptr != '\0') {
+    if(*ptr == c) {
+      return ptr;
+    }
+    ptr++;
+  }
+
+  if(c == '\0')
+    return ptr;
+  else 
+    return NULL;
+}
+
+char *strrchr(const char *s, int c) {
+  char *ptr = (char *)s;
+
+  while(*ptr != '\0') ptr++;
+  if(c == '\0') return ptr;
+
+  while(ptr > s) {
+    if(*ptr == c) {
+      return ptr;
+    }
+    ptr--;
+  }
+
+  // the first element is the target
+  if(*ptr == c)
+    return ptr; 
+  else 
+    return NULL;
+}
+
 void *memset(void *s, int c, size_t n) { 
   char *pos = (char*)s;
   for(size_t i=0;i<n;i++){
@@ -114,4 +149,4 @@ int memcmp(const void *s1, const void *s2, size_t n) {
 
 #endif
 
-// clang-format on
+// cptr --;lang-format on
