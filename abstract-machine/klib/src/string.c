@@ -74,25 +74,33 @@ char *strchr (const char *s, int c) {
     if(*ptr == c) {
       return ptr;
     }
-    ptr ++;
+    ptr++;
   }
 
-  return NULL;
+  if(c == '\0')
+    return ptr;
+  else 
+    return NULL;
 }
 
 char *strrchr(const char *s, int c) {
   char *ptr = (char *)s;
 
   while(*ptr != '\0') ptr++;
+  if(c == '\0') return ptr;
 
-  while(ptr >= s) {
+  while(ptr > s) {
     if(*ptr == c) {
       return ptr;
     }
-    ptr --;
+    ptr--;
   }
 
-  return NULL;
+  // the first element is the target
+  if(*ptr == c)
+    return ptr; 
+  else 
+    return NULL;
 }
 
 void *memset(void *s, int c, size_t n) { 
