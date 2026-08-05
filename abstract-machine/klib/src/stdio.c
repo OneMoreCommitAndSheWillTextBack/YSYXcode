@@ -1,338 +1,477 @@
 #include <am.h>
 #include <klib-macros.h>
 #include <klib.h>
+#include <limits.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
-#define PRINTF_BUFFER_SIZE 1024
-#define SPRINTF_LIMIT 512
-#define VSNPRINTF_LIMIT 512
+typedef enum {
+  FMT_LEN_DEFAULT,
+  FMT_LEN_HH,
+  FMT_LEN_H,
+  FMT_LEN_L,
+  FMT_LEN_LL,
+  FMT_LEN_Z,
+} fmt_length;
 
-static_assert(VSNPRINTF_LIMIT < PRINTF_BUFFER_SIZE);
-static_assert(SPRINTF_LIMIT < PRINTF_BUFFER_SIZE);
+/*
+* width: fmt occupide width
+* precision: fmt output width (spec by num aft .)
+*/
+typedef struct {
+  unsigned base; // 8、10、16
+  fmt_length len;
+  size_t width;
+  int precision; // -1 mean not spec
+  bool left_align;
+  bool zero_pad;
+  bool alternate;
+  bool uppercase;
+} fmt_spec;
+
+typedef int (*fmt_write_fn)(void *ctx, const char *data, size_t len);
+
+typedef struct {
+  fmt_write_fn write;
+  void *ctx;
+} fmt_writer;
+
+typedef struct {
+  char *cursor;
+  size_t remaining;
+} fmt_buffer;
+
+static fmt_length parse_length(const char **fmt) {
+  if((*fmt)[0] == 'h' && (*fmt)[1] == 'h') {
+    *fmt += 2;
+    return FMT_LEN_HH;
+  }
+
+  if((*fmt)[0] == 'h') {
+    *fmt += 1;
+    return FMT_LEN_H;
+  }
+
+  if((*fmt)[0] == 'l' && (*fmt)[1] == 'l') {
+    *fmt += 2;
+    return FMT_LEN_LL;
+  }
+
+  if((*fmt)[0] == 'l') {
+    *fmt += 1;
+    return FMT_LEN_L;
+  }
+
+  if((*fmt)[0] == 'z') {
+    *fmt += 1;
+    return FMT_LEN_Z;
+  }
+
+  return FMT_LEN_DEFAULT;
+}
+
+static bool parse_decimal(const char **fmt, size_t maximum, size_t *value) {
+  size_t parsed = 0;
+
+  while(**fmt >= '0' && **fmt <= '9') {
+    size_t digit = (size_t)(**fmt - '0');
+    if(parsed > (maximum - digit) / 10) return false;
+    parsed = parsed * 10 + digit;
+    (*fmt)++;
+  }
+
+  *value = parsed;
+  return true;
+}
+
+static bool parse_format_spec(const char **fmt, fmt_spec *spec) {
+  *spec = (fmt_spec) {
+    .precision = -1,
+  };
+
+  bool parsing_flags = true;
+  while(parsing_flags) {
+    switch(**fmt) {
+      case '-':
+        spec->left_align = true;
+        (*fmt)++;
+        break;
+      case '0':
+        spec->zero_pad = true;
+        (*fmt)++;
+        break;
+      case '#':
+        spec->alternate = true;
+        (*fmt)++;
+        break;
+      default:
+        parsing_flags = false;
+        break;
+    }
+  }
+
+  if(!parse_decimal(fmt, SIZE_MAX, &spec->width)) return false;
+
+  if(**fmt == '.') {
+    size_t precision = 0;
+    (*fmt)++;
+    if(!parse_decimal(fmt, INT_MAX, &precision)) return false;
+    spec->precision = (int)precision;
+  }
+
+  spec->len = parse_length(fmt);
+  return **fmt != '\0';
+}
+
+static intmax_t read_signed_arg(va_list *args, fmt_length length) {
+  switch(length) {
+    case FMT_LEN_HH:
+      return (signed char)va_arg(*args, int);
+    case FMT_LEN_H:
+      return (short)va_arg(*args, int);
+    case FMT_LEN_L:
+      return va_arg(*args, long);
+    case FMT_LEN_LL:
+      return va_arg(*args, long long);
+    case FMT_LEN_DEFAULT:
+    default:
+      return va_arg(*args, int);
+  }
+}
+
+static uintmax_t read_unsigned_arg(va_list *args, fmt_length length) {
+  switch(length) {
+    case FMT_LEN_HH:
+      return (unsigned char)va_arg(*args, unsigned int);
+    case FMT_LEN_H:
+      return (unsigned short)va_arg(*args, unsigned int);
+    case FMT_LEN_L:
+      return va_arg(*args, unsigned long);
+    case FMT_LEN_LL:
+      return va_arg(*args, unsigned long long);
+    case FMT_LEN_Z:
+      return va_arg(*args, size_t);
+    case FMT_LEN_DEFAULT:
+    default:
+      return va_arg(*args, unsigned int);
+  }
+}
+
+// stdio writer
+static int console_writer(void *ctx, const char *data, size_t len) {
+  (void)ctx;
+  if(len > INT_MAX) return -1;
+
+  size_t count = 0;
+  while(count < len) {
+    putch(data[count]);
+    count++;
+  }
+  return (int)count;
+}
+
+static int buffer_writer(void *ctx, const char *data, size_t len) {
+  fmt_buffer *buffer = ctx;
+  if(len > INT_MAX) return -1;
+
+  size_t writable =
+      buffer->remaining > 0 ? buffer->remaining - 1 : 0;
+  size_t copy_size = len < writable ? len : writable;
+
+  if(copy_size > 0) {
+    memcpy(buffer->cursor, data, copy_size);
+    buffer->cursor += copy_size;
+    buffer->remaining -= copy_size;
+  }
+
+  return (int)len;
+}
+
+static void finish_buffer(fmt_buffer *buffer) {
+  if(buffer->remaining > 0) {
+    *buffer->cursor = '\0';
+  }
+}
+
+// stdio impl
+static int emit_string(fmt_writer *writer, const char *src,
+                       const fmt_spec *spec) {
+  const char *str = (src == NULL) ? "(null)" : src;
+  int rt_size = 0;
+  size_t outlen = 0;
+
+  while(str[outlen] != '\0' &&
+    ((spec->precision == -1) || (outlen < (size_t)spec->precision))) {
+      outlen++;
+    }
+
+  if(spec->width == 0) {
+    // width is zero mean that width is no spec
+    return writer->write(writer->ctx, str, outlen);
+  }
+
+  size_t padding_size = spec->width > outlen ? spec->width - outlen : 0;
+  if(!spec->left_align) {
+    while(padding_size > 0) {
+      rt_size += writer->write(writer->ctx, " ", 1);
+      padding_size--;
+    }
+    rt_size += writer->write(writer->ctx, str, outlen);
+    return rt_size;
+  } else {
+    rt_size += writer->write(writer->ctx, str, outlen);
+    while(padding_size > 0) {
+      rt_size += writer->write(writer->ctx, " ", 1);
+      padding_size--;
+    }
+    return rt_size;
+  }
+}
+
+static int emit_character(fmt_writer *writer, char ch, const fmt_spec *spec) {
+  char buffer[2] = {};
+  buffer[0] = ch;
+  return writer->write(writer->ctx, buffer, 1);
+}
+
+static int emit_integer(fmt_writer *writer, uintmax_t magnitude,
+                        bool negative, const fmt_spec *spec) {
+  char buffer[sizeof(uintmax_t) * CHAR_BIT];
+  char *const buffer_end = buffer + sizeof(buffer);
+  char *digits_begin = buffer_end;
+  static const char lower_digits[] = "0123456789abcdef";
+  static const char upper_digits[] = "0123456789ABCDEF";
+  const char *digit_table = spec->uppercase ? upper_digits : lower_digits;
+  int rt_size = 0;
+
+  if(spec->base == 10) {
+    do {
+      *--digits_begin = digit_table[magnitude % 10];
+      magnitude /= 10;
+    } while(magnitude != 0);
+  } else {
+    uint32_t mask = 0;
+    uint32_t shift = 0;
+    switch (spec->base) {
+      case 2:
+        mask = 0b1;
+        shift = 1;
+        break;
+      case 8:
+        mask = 0b111;
+        shift = 3;
+        break;
+      case 16:
+        mask = 0b1111;
+        shift = 4;
+        break;
+      default:
+        panic("[klib printf error] unsupport fmt base");
+    }
+
+    do {
+      *--digits_begin = digit_table[magnitude & mask];
+      magnitude >>= shift;
+    } while(magnitude != 0);
+  }
+
+  size_t counter = (size_t)(buffer_end - digits_begin);
+  size_t content_size = counter + (negative ? 1 : 0);
+  size_t padding_size =
+      spec->width > content_size ? spec->width - content_size : 0;
+
+  if(!spec->left_align) {
+    while(padding_size > 0) {
+      rt_size += writer->write(writer->ctx, " ", 1);
+      padding_size--;
+    }
+    if(negative) rt_size += writer->write(writer->ctx, "-", 1);
+    rt_size += writer->write(writer->ctx, digits_begin, counter);
+    return rt_size;
+  } else {
+    if(negative) rt_size += writer->write(writer->ctx, "-", 1);
+    rt_size += writer->write(writer->ctx, digits_begin, counter);
+    while(padding_size > 0) {
+      rt_size += writer->write(writer->ctx, " ", 1);
+      padding_size--;
+    }
+    return rt_size;
+  }
+}
+
+static int format_signed_integer(fmt_writer *writer, intmax_t value,
+                                 const fmt_spec *spec) {
+  bool negative = value < 0;
+  uintmax_t magnitude = (uintmax_t)value;
+
+  if(negative) {
+    magnitude = 0 - magnitude;
+  }
+
+  return emit_integer(writer, magnitude, negative, spec);
+}
+
+static int format_unsigned_integer(fmt_writer *writer, uintmax_t value,
+                                   const fmt_spec *spec) {
+  return emit_integer(writer, value, false, spec);
+}
+
+static int format_conversion(fmt_writer *writer, va_list *args,
+                             char conversion, fmt_spec spec) {
+  switch(conversion) {
+    case 'd':
+    case 'i':
+      if(spec.len == FMT_LEN_Z) return -1;
+      spec.base = 10;
+      return format_signed_integer(
+          writer, read_signed_arg(args, spec.len), &spec);
+
+    case 'u':
+      spec.base = 10;
+      return format_unsigned_integer(
+          writer, read_unsigned_arg(args, spec.len), &spec);
+
+    case 'o':
+      spec.base = 8;
+      return format_unsigned_integer(
+          writer, read_unsigned_arg(args, spec.len), &spec);
+
+    case 'x':
+    case 'X':
+      spec.base = 16;
+      spec.uppercase = conversion == 'X';
+      return format_unsigned_integer(
+          writer, read_unsigned_arg(args, spec.len), &spec);
+
+    case 's': {
+      if(spec.len != FMT_LEN_DEFAULT) return -1;
+      char *value = va_arg(*args, char *);
+      return emit_string(writer, value, &spec);
+    }
+
+    case 'c': {
+      if(spec.len != FMT_LEN_DEFAULT) return -1;
+      int value = va_arg(*args, int);
+      return emit_character(writer, (char)value, &spec);
+    }
+
+    case 'p': {
+      if(spec.len != FMT_LEN_DEFAULT) return -1;
+      void *value = va_arg(*args, void *);
+      spec.base = 16;
+      return format_unsigned_integer(
+          writer, (uintmax_t)(uintptr_t)value, &spec);
+    }
+
+    case '%':
+      if(spec.len != FMT_LEN_DEFAULT) {
+        // it should regard invalid fmt as usual str
+        // but I dont want to spend time here
+        panic("[klib printf error] invalid fmt");
+      }
+      return writer->write(writer->ctx, "%", 1);
+
+    default:
+      return -1;
+  }
+}
+
+static int format_all(fmt_writer *writer, const char *fmt, va_list *args) {
+  int rt_size = 0;
+
+  while(*fmt != '\0') {
+    const char *literal_begin = fmt;
+    while(*fmt != '\0' && *fmt != '%') fmt++;
+
+    size_t literal_size = (size_t)(fmt - literal_begin);
+    if(literal_size > 0) {
+      if(literal_size > (size_t)(INT_MAX - rt_size)) goto fail;
+
+      int written = writer->write(writer->ctx, literal_begin, literal_size);
+      if(written < 0 || (size_t)written != literal_size) goto fail;
+      rt_size += written;
+    }
+
+    if(*fmt == '\0') break;
+    fmt++;
+
+    fmt_spec spec;
+    if(!parse_format_spec(&fmt, &spec)) goto fail;
+    if(spec.width > (size_t)(INT_MAX - rt_size)) goto fail;
+
+    char conversion = *fmt++;
+    int written = format_conversion(writer, args, conversion, spec);
+    if(written < 0 || written > INT_MAX - rt_size) goto fail;
+    rt_size += written;
+  }
+
+  return rt_size;
+
+fail:
+  return -1;
+}
+
+int vprintf(const char *fmt, va_list ap) {
+  fmt_writer writer = {
+    .write = console_writer,
+    .ctx = NULL,
+  };
+
+  va_list args;
+  va_copy(args, ap);
+  int result = format_all(&writer, fmt, &args);
+  va_end(args);
+  return result;
+}
 
 int printf(const char *fmt, ...) {
-  char buffer[PRINTF_BUFFER_SIZE];
   va_list ap;
   va_start(ap, fmt);
-  int size = vsprintf(buffer, fmt, ap);
+  int result = vprintf(fmt, ap);
   va_end(ap);
-  for (int i = 0; buffer[i] != '\0'; i++) {
-    putch(buffer[i]);
-  }
-  return size;
+  return result;
+}
+
+int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
+  fmt_buffer buffer = {
+    .cursor = out,
+    .remaining = n,
+  };
+  fmt_writer writer = {
+    .write = buffer_writer,
+    .ctx = &buffer,
+  };
+
+  va_list args;
+  va_copy(args, ap);
+  int result = format_all(&writer, fmt, &args);
+  va_end(args);
+
+  finish_buffer(&buffer);
+  return result;
 }
 
 int vsprintf(char *out, const char *fmt, va_list ap) {
-  return vsnprintf(out, VSNPRINTF_LIMIT, fmt, ap);
+  return vsnprintf(out, SIZE_MAX, fmt, ap);
 }
 
 int sprintf(char *out, const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int size = vsnprintf(out, SPRINTF_LIMIT, fmt, ap);
+  int result = vsprintf(out, fmt, ap);
   va_end(ap);
-  return size;
+  return result;
 }
 
 int snprintf(char *out, size_t n, const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int size = vsnprintf(out, n, fmt, ap);
+  int result = vsnprintf(out, n, fmt, ap);
   va_end(ap);
-  return size;
-}
-
-size_t printf_str(void *buf, const char *src, size_t limit) {
-  size_t counter = 0;
-  const char *p = src;
-  char *dst = buf;
-  while (*p != '\0' && limit-- > 0) {
-    *dst = *p;
-    p++;
-    dst++;
-    counter++;
-  }
-  return counter;
-}
-
-size_t printf_hex(void *buf, unsigned int num, size_t width, char fill,
-                  size_t limit) {
-  static char trantb[] = "0123456789abcdef";
-  char buffer[10];
-  int counter = 0;
-
-  // 处理 num == 0 的情况
-  if (num == 0) {
-    counter = 1;
-    buffer[7] = '0';
-  } else {
-    while (num > 0) {
-      buffer[7 - counter] = trantb[num % 16];
-      num = num >> 4;
-      counter++;
-    }
-  }
-
-  if (width != 0) {
-    if (width < counter) {
-      width = counter;
-    }
-
-    size_t remin = width - counter;
-    limit = limit - counter;
-
-    if (fill == 0) {
-      fill = ' ';
-    }
-
-    // 填充应该在数字之前（左侧填充）
-    // 数字当前存储在 buffer[7-counter+1] 到 buffer[7] 的位置（从右往左）
-    // 例如：counter=2时，数字在 buffer[6] 和 buffer[7]
-    // 如果 width=4，需要在 buffer[4] 和 buffer[5] 填充
-    // 填充位置：buffer[7-width+1] 到 buffer[7-width+remin]
-    if (remin > 0) {
-      // 填充左侧
-      for (int i = 0; i < remin; i++) {
-        buffer[7 - width + 1 + i] = fill;
-      }
-      counter = width;
-    }
-  }
-
-  size_t res = counter;
-  // 复制：从 buffer[7-width+1] 开始复制到 buffer[7]（如果width>0）
-  // 或者从 buffer[7-counter+1] 开始复制到 buffer[7]（如果width==0）
-  int start_idx = (width > 0) ? (7 - width + 1) : (7 - counter + 1);
-  for (int i = 0; i < counter; i++) {
-    ((char *)buf)[i] = buffer[start_idx + i];
-  }
-
-  return res;
-}
-
-size_t printf_int32(char *buf, unsigned int num, int is_sign, char fill,
-                    size_t width) {
-  char buffer[16]; // 足够存储32位整数的十进制表示（最多10位数字+符号）
-  int counter = 0;
-  int is_negative = 0;
-  unsigned int abs_num = num;
-
-  // 如果是有符号数，转换为有符号数判断是否为负数
-  if (is_sign) {
-    int signed_num = (int)num;
-    if (signed_num < 0) {
-      is_negative = 1;
-      abs_num = (unsigned int)(-signed_num); // 取绝对值
-    }
-  }
-
-  // 处理 abs_num == 0 的情况
-  if (abs_num == 0) {
-    counter = 1;
-    buffer[15] = '0';
-  } else {
-    while (abs_num > 0) {
-      buffer[15 - counter] = (abs_num % 10) + '0';
-      abs_num = abs_num / 10;
-      counter++;
-    }
-  }
-
-  // 计算总字符数（包括符号）
-  int total_chars = counter;
-  int has_sign = 0;
-  if (is_negative) {
-    has_sign = 1;
-    total_chars++;
-  }
-
-  if (width != 0) {
-    if (total_chars > width) {
-      width = total_chars; // 如果数字本身超过宽度，使用数字长度
-    }
-
-    size_t remin = width - total_chars;
-    if (fill == 0) {
-      fill = ' ';
-    }
-
-    // 填充逻辑：
-    // - 零填充：符号在填充之前（如 %05d 和 -123 → "-0123"）
-    // - 空格填充：符号在填充之后（如 %5d 和 -123 → " -123"）
-    if (remin > 0) {
-      // 计算数字的最终位置
-      int num_start = 15 - width + 1 + remin + has_sign;
-      // 移动数字到最终位置（如果需要）
-      if (num_start != 15 - counter + 1) {
-        for (int i = 0; i < counter; i++) {
-          buffer[num_start + i] = buffer[15 - counter + 1 + i];
-        }
-      }
-
-      if (has_sign && fill == '0') {
-        // 零填充：符号在第一位
-        buffer[15 - width + 1] = '-';
-        // 填充0
-        for (int i = 0; i < remin; i++) {
-          buffer[15 - width + 1 + 1 + i] = fill;
-        }
-      } else {
-        // 填充空格（或无符号数的零填充）
-        for (int i = 0; i < remin; i++) {
-          buffer[15 - width + 1 + i] = fill;
-        }
-        // 放符号（如果有，且是空格填充）
-        if (has_sign) {
-          buffer[15 - width + 1 + remin] = '-';
-        }
-      }
-      counter = width;
-    } else if (has_sign) {
-      // 不需要填充，但需要添加符号
-      // 移动数字，为符号腾出空间
-      for (int i = 0; i < counter; i++) {
-        buffer[15 - counter + i] = buffer[15 - counter + 1 + i];
-      }
-      buffer[15 - counter] = '-';
-      counter++;
-    }
-  } else if (has_sign) {
-    // 没有指定宽度，但需要添加符号
-    buffer[15 - counter] = '-';
-    counter++;
-  }
-
-  // 复制到输出缓冲区
-  // 从 buffer[15-width+1] 开始复制到 buffer[15]（如果width>0）
-  // 或者从 buffer[15-counter+1] 开始复制到 buffer[15]（如果width==0）
-  int start_idx = (width > 0) ? (15 - width + 1) : (15 - counter + 1);
-  for (int i = 0; i < counter; i++) {
-    buf[i] = buffer[start_idx + i];
-  }
-  buf[counter] = '\0'; // 添加字符串结束符
-
-  return counter; // 返回写入的字符数
-}
-
-int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
-  size_t outn = 0;
-  size_t fmtn = 0;
-  int intarg = 0;
-  char *chararg = NULL;
-  char buf[64]; // 增加了缓冲区大小，以容纳更大的整数转换
-  int zerofill = 0;
-  int width = 0; // 用于存储字段宽度
-  int i = 0;
-  int utype = 0;
-
-  while (outn < n - 1) { // 保留一个字符的空间给终止符
-    char ch = fmt[fmtn];
-    if (ch == '\0') {
-      break;
-    }
-
-    if (ch == '%') {
-      fmtn++;
-      ch = fmt[fmtn];
-
-      // 重置宽度和零填充标志
-      width = 0;
-      zerofill = 0;
-
-      // 检查零填充标志
-      if (ch == '0') {
-        zerofill = 1;
-        fmtn++;
-        ch = fmt[fmtn];
-      }
-
-      // 解析字段宽度（数字）
-      while (ch >= '0' && ch <= '9') {
-        width = width * 10 + (ch - '0');
-        fmtn++;
-        ch = fmt[fmtn];
-      }
-
-      switch (ch) {
-      case 'c':
-        if (outn < n - 1) {
-          out[outn++] = (char)va_arg(ap, int);
-        }
-        fmtn++;
-        break;
-
-      case 'u':
-        utype = 1;
-      case 'd':
-        intarg = va_arg(ap, int);
-        {
-          char fill_char = zerofill ? '0' : 0;
-          size_t int_len = printf_int32(buf, (unsigned int)intarg,
-                                        utype ? 0 : 1, fill_char, width);
-          for (i = 0; i < int_len && outn < n - 1; i++) {
-            out[outn++] = buf[i];
-          }
-        }
-        utype = 0;
-        fmtn++;
-        break;
-
-      case 's':
-        chararg = va_arg(ap, char *);
-        outn = outn + printf_str(out + outn, chararg, n - outn - 1);
-        fmtn++;
-        break;
-
-      case 'x':
-        intarg = va_arg(ap, int);
-        char fill_char = zerofill ? '0' : 0;
-        size_t hex_len = printf_hex(buf, (unsigned int)intarg, width, fill_char,
-                                    n - outn - 1);
-        for (i = 0; i < hex_len && outn < n - 1; i++) {
-          out[outn++] = buf[i];
-        }
-        fmtn++;
-        break;
-
-      case 'p':
-        intarg = va_arg(ap, int);
-        size_t pin_len =
-            printf_hex(buf, (unsigned int)intarg, 8, '0', n - outn - 1);
-        for (i = 0; i < pin_len && outn < n - 1; i++) {
-          out[outn++] = buf[i];
-        }
-        fmtn++;
-        break;
-
-      default:
-        // 对于不支持的格式说明符，直接复制到输出（可能导致错误）
-        if (outn < n - 1) {
-          out[outn++] = '%';
-        }
-        if (outn < n - 1) {
-          out[outn++] = ch;
-        }
-        fmtn++;
-        break;
-      }
-
-      // 重置宽度和零填充标志
-      width = 0;
-      zerofill = 0;
-    } else {
-      if (outn < n - 1) {
-        out[outn++] = ch;
-      }
-      fmtn++;
-    }
-  }
-
-  if (outn < n - 1)
-    out[outn] = '\0'; // 确保字符串以null终止
-  else
-    out[n] = '\0';
-  return outn;
+  return result;
 }
 
 #endif

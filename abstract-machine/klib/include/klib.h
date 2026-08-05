@@ -4,6 +4,7 @@
 #include <am.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <klib-macros.h>
 
 #ifdef __cplusplus
 extern "C" {
