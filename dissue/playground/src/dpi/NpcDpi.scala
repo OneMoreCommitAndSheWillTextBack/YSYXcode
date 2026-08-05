@@ -103,3 +103,24 @@ object NpcMemPerf extends DPIClockedVoidFunctionImport {
     )
   )
 }
+
+object NpcPipelineTrace extends DPIClockedVoidFunctionImport {
+  override def functionName: String              = "npc_pipeline_trace"
+  override def inputNames:   Option[Seq[String]] = Some(
+    Seq(
+      "kind",
+      "flags",
+      "slot",
+      "robIdx",
+      "producer0",
+      "producer1",
+      "pc",
+      "inst",
+      "rawInst",
+      "sequence",
+      "epoch",
+      "resource",
+      "txnId"
+    )
+  )
+}

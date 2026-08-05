@@ -86,9 +86,15 @@ pub fn show_trace(config: &SimulationConfig) {
         .as_ref()
         .map(|path| format!("{}{}{}", ANSI_FG_GREEN, path.display(), ANSI_RESET))
         .unwrap_or_else(|| state(false));
+    let kanata_state = config
+        .checker
+        .kanata_path
+        .as_ref()
+        .map(|path| format!("{}{}{}", ANSI_FG_GREEN, path.display(), ANSI_RESET))
+        .unwrap_or_else(|| state(false));
 
     eprintln!(
-        "{}trace: wave={}{} {}itrace={}{} {}detailed={}{} {}difftest={}{}",
+        "{}trace: wave={}{} {}itrace={}{} {}detailed={}{} {}kanata={}{} {}difftest={}{}",
         ANSI_FG_BLUE,
         ANSI_RESET,
         wave_state,
@@ -98,6 +104,9 @@ pub fn show_trace(config: &SimulationConfig) {
         ANSI_FG_BLUE,
         ANSI_RESET,
         detailed_state,
+        ANSI_FG_BLUE,
+        ANSI_RESET,
+        kanata_state,
         ANSI_FG_BLUE,
         ANSI_RESET,
         state(config.checker.difftest_enabled()),

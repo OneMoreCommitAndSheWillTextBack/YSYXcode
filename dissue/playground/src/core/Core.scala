@@ -9,8 +9,10 @@ import top.core.bundle.{DataMemTxn, FrontendToBackend, MemPerfEvent}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
 import top.core.mem.{Mem, RecoverableDmemQueue}
 import top.core.frontend.Frontend
+import top.core.frontend.ifetch.FetchWidth
 import top.core.frontend.bundle.{BpuUpdate, PredictorConstants}
-import top.sim.MemPerfBridge
+import top.core.trace.{BackendPipelineTrace, PipelineTraceEvent}
+import top.sim.{MemPerfBridge, PipelineTraceBridge}
 
 class Core(resetVector: BigInt) extends Module {
   private val frontendCfg = FrontendConfig()
@@ -46,6 +48,17 @@ class Core(resetVector: BigInt) extends Module {
     )
   )
   val memPerf          = Module(new MemPerfBridge)
+  private val pipelineTraceEventCount = FetchWidth.frontend + BackendPipelineTrace.eventCount(backendCfg)
+  val pipelineTrace = Module(new PipelineTraceBridge(pipelineTraceEventCount))
+
+  private val pipelineTraceEvents = Wire(Vec(pipelineTraceEventCount, Valid(new PipelineTraceEvent)))
+  for (lane <- 0 until FetchWidth.frontend) {
+    pipelineTraceEvents(lane) := frontend.io.pipelineTrace(lane)
+  }
+  for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
+    pipelineTraceEvents(FetchWidth.frontend + event) := backend.io.pipelineTrace(event)
+  }
+  pipelineTrace.io.events := pipelineTraceEvents
 
   frontend.io.csrStatus := backend.io.csrStatus
   backend.io.interrupt  := io.interrupt

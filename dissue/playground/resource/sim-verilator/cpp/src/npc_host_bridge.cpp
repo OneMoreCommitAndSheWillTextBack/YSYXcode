@@ -160,3 +160,22 @@ void NpcHostBridge::mem_perf(uint32_t events, uint32_t mshr_occupancy,
   bridge->callbacks_.mem_perf(active_opaque(), events, mshr_occupancy,
                               store_queue_occupancy, load_txn_occupancy);
 }
+
+void NpcHostBridge::pipeline_trace(
+    uint32_t kind, uint32_t flags, uint32_t slot, uint32_t rob_idx,
+    uint32_t producer0, uint32_t producer1, uint32_t pc, uint32_t inst,
+    uint32_t raw_inst, uint32_t sequence, uint32_t epoch, uint32_t resource,
+    uint32_t txn_id) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.pipeline_trace == nullptr) {
+    return;
+  }
+
+  NpcPipelineEvent event = {
+      kind,       flags,    slot,     rob_idx, producer0,
+      producer1,  pc,       inst,     raw_inst, sequence,
+      epoch,      resource, txn_id,
+  };
+  bridge->callbacks_.pipeline_trace(active_opaque(), &event);
+}

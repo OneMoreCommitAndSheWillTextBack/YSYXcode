@@ -312,6 +312,7 @@ fn build_dpi_callbacks() -> ffi::NpcDpiCallbacks {
         div_perf: Some(div_perf),
         bpu_perf: Some(bpu_perf),
         mem_perf: Some(mem_perf),
+        pipeline_trace: Some(pipeline_trace),
     }
 }
 
@@ -458,4 +459,14 @@ extern "C" fn mem_perf(
             load_txn_occupancy,
         );
     }
+}
+
+extern "C" fn pipeline_trace(opaque: *mut c_void, event: *const ffi::NpcPipelineEvent) {
+    let Some(host) = (unsafe { host_from_opaque(opaque) }) else {
+        return;
+    };
+    let Some(event) = (unsafe { event.as_ref() }) else {
+        return;
+    };
+    host.checker.on_pipeline_event(*event);
 }

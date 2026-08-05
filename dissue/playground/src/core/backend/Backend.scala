@@ -23,6 +23,7 @@ import top.core.backend.lsu.{LSU, StoreQueue}
 import top.core.backend.regfile._
 import top.core.backend.retire.RetireUnit
 import top.core.backend.rob.ROB
+import top.core.trace.{BackendPipelineTrace, PipelineTraceEvent}
 import top.sim.DifftestMonitor
 
 class Backend(
@@ -53,6 +54,7 @@ class Backend(
     val memPerf   = Output(new BackendMemPerf(cfg))
     val interrupt = Input(new CsrInterruptPending)
     val mtime     = Input(UInt(64.W))
+    val pipelineTrace = Output(Vec(BackendPipelineTrace.eventCount(cfg), Valid(new PipelineTraceEvent)))
   })
 
   private val slotIdxWidth   = math.max(log2Ceil(cfg.issueWidth), 1)
@@ -72,6 +74,7 @@ class Backend(
   val retire     = Module(new RetireUnit(cfg))
   val difftest   = Module(new DifftestMonitor(resetVector, cfg))
   val recovery   = Module(new RecoveryUnit(cfg))
+  val traceObserver = Module(new BackendPipelineTrace(cfg))
 
   io.csrStatus := csrFile.io.status
 
@@ -292,18 +295,20 @@ class Backend(
   lsu.io.in.valid              := issueQueue.io.memIssue.valid && !backendBlocked
   lsu.io.in.bits               := issueQueue.io.memIssue.bits
 
+  private val writeback = Wire(Vec(cfg.writebackWidth, Valid(new RobWritebackPacket(cfg))))
   for (i    <- 0 until cfg.writebackWidth) {
-    rob.io.writeback(i)     := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))
+    writeback(i)             := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))
     issueQueue.io.wakeup(i) := 0.U.asTypeOf(new IssueWakeup(cfg))
   }
   for (port <- 0 until cfg.intIssueWidth) {
-    rob.io.writeback(port)     := execute.io.writeback(port)
+    writeback(port)             := execute.io.writeback(port)
     issueQueue.io.wakeup(port) := execute.io.wakeup(port)
   }
 
   private val lsuWritebackPort = cfg.intIssueWidth
-  rob.io.writeback(lsuWritebackPort)     := lsu.io.writeback
+  writeback(lsuWritebackPort)             := lsu.io.writeback
   issueQueue.io.wakeup(lsuWritebackPort) := lsu.io.wakeup
+  rob.io.writeback                        := writeback
 
   for (i <- 0 until cfg.commitWidth) {
     issueQueue.io.commitWakeup(i).valid  := retire.io.scoreboardCommit(i).valid && retire.io.scoreboardCommit(i).rfWen
@@ -374,4 +379,30 @@ class Backend(
   io.memPerf.loadTxnFullStall            := lsu.io.loadTxnFullStall
   io.memPerf.sqOccupancy                 := storeQueue.io.perf.occupancy
   io.memPerf.loadTxnOccupancy            := lsu.io.loadTxnOccupancy
+
+  traceObserver.io.frontendFire := io.frontend.fire
+  traceObserver.io.frontend     := io.frontend.bits
+  for (lane <- 0 until cfg.dispatchWidth) {
+    traceObserver.io.dispatchFire(lane)   := dispatch.io.out(lane).fire
+    traceObserver.io.dispatchDecode(lane) := dispatchDecode(lane)
+    traceObserver.io.dispatchIssue(lane)  := dispatch.io.out(lane).bits
+  }
+  for (port <- 0 until cfg.intIssueWidth) {
+    traceObserver.io.intIssueFire(port) := issueQueue.io.intIssue(port).fire
+    traceObserver.io.intIssue(port)     := issueQueue.io.intIssue(port).bits
+  }
+  traceObserver.io.memIssueFire := issueQueue.io.memIssue.fire
+  traceObserver.io.memIssue     := issueQueue.io.memIssue.bits
+  traceObserver.io.writeback    := writeback
+  traceObserver.io.retire       := retire.io.retire
+  traceObserver.io.storeReady   := lsu.io.storeUpdate
+  traceObserver.io.memoryRequestFire   := io.dmemReq.fire && lsuReqSelected
+  traceObserver.io.memoryRequestRobIdx := lsu.io.dmemReqRobIdx
+  traceObserver.io.memoryRequestKind   := lsu.io.dmemReq.bits.kind
+  traceObserver.io.memoryRequestWrite  := lsu.io.dmemReq.bits.write
+  traceObserver.io.memoryRequestTxnId  := lsu.io.dmemReq.bits.txnId
+  traceObserver.io.robHead             := rob.io.head
+  traceObserver.io.recover             := selectiveRecovery
+  traceObserver.io.globalFlush         := globalFlush
+  io.pipelineTrace                     := traceObserver.io.events
 }

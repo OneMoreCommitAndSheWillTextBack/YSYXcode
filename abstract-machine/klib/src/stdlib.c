@@ -1,11 +1,8 @@
 #include <am.h>
 #include <klib-macros.h>
 #include <klib.h>
-
-#define LONG_MAX 2147483647L
-#define LONG_MIN (-2147483647L - 1)
-#define LLONG_MIN -9223372036854775807LL - 1
-#define LLONG_MAX 9223372036854775807LL
+#include <limits.h>
+#include <stdint.h>
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 static unsigned long int next = 1;
@@ -50,217 +47,158 @@ void *malloc(size_t size) {
 
 void free(void *ptr) {}
 
-static inline int isvalidbasech(int ch, int base) {
-  if (base < 2 || base > 36)
-    return 0;
+typedef struct {
+  uintmax_t magnitude; // means number without sign-sym 
+  const char *end;
+  bool negative;
+  bool overflow;
+} strto_parse_result;
 
-  int val;
-  if (ch >= '0' && ch <= '9') {
-    val = ch - '0';
-  } else if (ch >= 'A' && ch <= 'Z') {
-    val = ch - 'A' + 10;
-  } else if (ch >= 'a' && ch <= 'z') {
-    val = ch - 'a' + 10;
-  } else {
-    return 0;
+static inline int digit_value(unsigned char ch) {
+  if(ch >= '0' && ch <= '9') return ch - '0';
+  if(ch >= 'a' && ch <= 'z') return ch - 'a' + 10;
+  if(ch >= 'A' && ch <= 'Z') return ch - 'A' + 10;
+  return -1;
+}
+
+static inline int resolve_base_and_prefix(const char **cursor, int base) {
+  const char *current = *cursor;
+  int prefixed_base = 0;
+
+  if(current[0] == '0') {
+    switch(current[1]) {
+      case 'x':
+      case 'X':
+        prefixed_base = 16;
+        break;
+      case 'b':
+      case 'B':
+        prefixed_base = 2;
+        break;
+      case 'o':
+      case 'O':
+        prefixed_base = 8;
+        break;
+      default:
+        break;
+    }
   }
 
-  return val < base;
+  if(prefixed_base != 0 && (base == 0 || base == prefixed_base)) {
+    int first_digit = digit_value((unsigned char)current[2]);
+    if(first_digit >= 0 && first_digit < prefixed_base) {
+      *cursor = current + 2;
+      return prefixed_base;
+    }
+  }
+
+  if(base == 0) {
+    return current[0] == '0' ? 8 : 10;
+  }
+
+  return base;
+}
+
+static inline strto_parse_result parse_integer(
+    const char *nptr,
+    int base,
+    uintmax_t positive_limit,
+    uintmax_t negative_limit) {
+
+  strto_parse_result result = {
+    .end = nptr,
+  };
+
+  if(base != 0 && (base < 2 || base > 36)) return result;
+
+  const char *cursor = nptr;
+  while(isspace((unsigned char)*cursor)) cursor++;
+
+  if(*cursor == '+' || *cursor == '-') {
+    result.negative = *cursor == '-';
+    cursor++;
+  }
+
+  base = resolve_base_and_prefix(&cursor, base);
+
+  uintmax_t limit = result.negative ? negative_limit : positive_limit;
+  uintmax_t cutoff = limit / (unsigned)base;
+  unsigned cutlim = (unsigned)(limit % (unsigned)base);
+  bool converted = false;
+
+  for(;; cursor++) {
+    int digit = digit_value((unsigned char)*cursor);
+    if(digit < 0 || digit >= base) break;
+    converted = true;
+
+    if(!result.overflow) {
+      if(result.magnitude > cutoff ||
+         (result.magnitude == cutoff && (unsigned)digit > cutlim)) {
+        result.magnitude = limit;
+        result.overflow = true;
+      } else {
+        result.magnitude =
+            result.magnitude * (unsigned)base + (unsigned)digit;
+      }
+    }
+  }
+
+  if(converted) result.end = cursor;
+  return result;
 }
 
 long strtol(const char *nptr, char **endptr, int base) {
-  if ((base < 2 || base > 36) && base != 0) {
-    return 0;
-  }
-  const char *ptr = nptr;
-  while (isspace(*ptr)) {
-    ptr++;
+  uintmax_t negative_limit = (uintmax_t)LONG_MAX + 1;
+  strto_parse_result parsed =
+      parse_integer(nptr, base, (uintmax_t)LONG_MAX, negative_limit);
+
+  if(endptr != NULL) *endptr = (char *)parsed.end;
+
+  if(parsed.overflow) {
+    return parsed.negative ? LONG_MIN : LONG_MAX;
   }
 
-  int flag = 1;
-  if (*ptr == '+') {
-    ptr++;
-  } else if (*ptr == '-') {
-    flag = -1;
-    ptr++;
-  }
+  if(!parsed.negative) return (long)parsed.magnitude;
+  if(parsed.magnitude == negative_limit) return LONG_MIN;
+  return -(long)parsed.magnitude;
+}
 
-  // handle prefix like 0x, 0b, 0o
-  int prefix = *ptr;
-  if (base == 0) {
-    if (prefix == '0') {
-      switch (*(ptr + 1)) {
-      case 'X':
-      case 'x':
-        base = 16;
-        ptr += 2;
-        break;
-      case 'B':
-      case 'b':
-        base = 2;
-        ptr += 2;
-        break;
-      default:
-        base = 8;
-        ptr += 1;
-      }
-    } else if (prefix > '0' && prefix <= '9') {
-      base = 10;
-      // do not move the ptr
-    } else {
-      if (endptr != NULL) {
-        *endptr = (char *)&(*nptr);
-      }
-      return 0;
-    }
-  } else if (base == 16) {
-    if (*ptr == '0' && (*(ptr + 1) == 'x' || *(ptr + 1) == 'X')) {
-      ptr += 2;
-    }
-  } else if (base == 8) {
-    if (*ptr == '0' && (*(ptr + 1) == 'o' || *(ptr + 1) == 'O')) {
-      ptr += 2;
-    }
-  } else if (base == 2) {
-    if (*ptr == '0' && (*(ptr + 1) == 'b' || *(ptr + 1) == 'B')) {
-      ptr += 2;
-    }
-  }
+unsigned long strtoul(const char *nptr, char **endptr, int base) {
+  strto_parse_result parsed =
+      parse_integer(nptr, base, (uintmax_t)ULONG_MAX, (uintmax_t)ULONG_MAX);
 
-  // now the ptr should point to the first ch in the string
-  unsigned long res = 0;
-  unsigned long limit =
-      flag == 1 ? (unsigned long)LONG_MAX : (unsigned long)LONG_MAX + 1;
-  int overflow = 0;
-  while (isvalidbasech(*ptr, base)) {
-    int val;
-    char c = *ptr;
-    if (c >= '0' && c <= '9')
-      val = c - '0';
-    else if (c >= 'A' && c <= 'Z')
-      val = c - 'A' + 10;
-    else if (c >= 'a' && c <= 'z')
-      val = c - 'a' + 10;
+  if(endptr != NULL) *endptr = (char *)parsed.end;
+  if(parsed.overflow) return ULONG_MAX;
 
-    if (!overflow) {
-      if (res > (limit - (unsigned long)val) / (unsigned long)base) {
-        overflow = 1;
-      } else {
-        res = res * (unsigned long)base + (unsigned long)val;
-      }
-    }
-    ptr++;
-  }
-  if (endptr != NULL) {
-    *endptr = (char *)&(*nptr);
-  }
-  if (overflow) {
-    return flag == 1 ? LONG_MAX : LONG_MIN;
-  }
-  if (flag == -1) {
-    if (res == (unsigned long)LONG_MAX + 1) {
-      return LONG_MIN;
-    }
-    return -(long)res;
-  }
-  return (long)res;
+  unsigned long magnitude = (unsigned long)parsed.magnitude;
+  return parsed.negative ? 0UL - magnitude : magnitude;
 }
 
 long long strtoll(const char *nptr, char **endptr, int base) {
-  if ((base < 2 || base > 36) && base != 0) {
-    return 0;
-  }
-  const char *ptr = nptr;
-  while (isspace(*ptr)) {
-    ptr++;
+  uintmax_t negative_limit = (uintmax_t)LLONG_MAX + 1;
+  strto_parse_result parsed =
+      parse_integer(nptr, base, (uintmax_t)LLONG_MAX, negative_limit);
+
+  if(endptr != NULL) *endptr = (char *)parsed.end;
+
+  if(parsed.overflow) {
+    return parsed.negative ? LLONG_MIN : LLONG_MAX;
   }
 
-  int flag = 1;
-  if (*ptr == '+') {
-    ptr++;
-  } else if (*ptr == '-') {
-    flag = -1;
-    ptr++;
-  }
-
-  // handle prefix like 0x, 0b, 0o
-  int prefix = *ptr;
-  if (base == 0) {
-    if (prefix == '0') {
-      switch (*(ptr + 1)) {
-      case 'X':
-      case 'x':
-        base = 16;
-        ptr += 2;
-        break;
-      case 'B':
-      case 'b':
-        base = 2;
-        ptr += 2;
-        break;
-      default:
-        base = 8;
-        ptr += 1;
-      }
-    } else if (prefix > '0' && prefix <= '9') {
-      base = 10;
-      // do not move the ptr
-    } else {
-      if (nptr != NULL) {
-        *endptr = (char *)&(*nptr);
-      }
-      return 0;
-    }
-  } else if (base == 16) {
-    if (*ptr == '0' && (*(ptr + 1) == 'x' || *(ptr + 1) == 'X')) {
-      ptr += 2;
-    }
-  } else if (base == 8) {
-    if (*ptr == '0' && (*(ptr + 1) == 'o' || *(ptr + 1) == 'O')) {
-      ptr += 2;
-    }
-  } else if (base == 2) {
-    if (*ptr == '0' && (*(ptr + 1) == 'b' || *(ptr + 1) == 'B')) {
-      ptr += 2;
-    }
-  }
-
-  // now the ptr should point to the first ch in the string
-  unsigned long long res = 0;
-  unsigned long long limit = flag == 1 ? (unsigned long long)LLONG_MAX
-                                       : (unsigned long long)LLONG_MAX + 1;
-  int overflow = 0;
-  while (isvalidbasech(*ptr, base)) {
-    int val;
-    char c = *ptr;
-    if (c >= '0' && c <= '9')
-      val = c - '0';
-    else if (c >= 'A' && c <= 'Z')
-      val = c - 'A' + 10;
-    else if (c >= 'a' && c <= 'z')
-      val = c - 'a' + 10;
-
-    if (!overflow) {
-      if (res > (limit - (unsigned long long)val) / (unsigned long long)base) {
-        overflow = 1;
-      } else {
-        res = res * (unsigned long long)base + (unsigned long long)val;
-      }
-    }
-    ptr++;
-  }
-  if (endptr != NULL) {
-    *endptr = (char *)&(*nptr);
-  }
-  if (overflow) {
-    return flag == 1 ? LLONG_MAX : LLONG_MIN;
-  }
-  if (flag == -1) {
-    if (res == (unsigned long long)LLONG_MAX + 1) {
-      return LLONG_MIN;
-    }
-    return -(long long)res;
-  }
-  return (long long)res;
+  if(!parsed.negative) return (long long)parsed.magnitude;
+  if(parsed.magnitude == negative_limit) return LLONG_MIN;
+  return -(long long)parsed.magnitude;
 }
+
+unsigned long long strtoull(const char *nptr, char **endptr, int base) {
+  strto_parse_result parsed = parse_integer(
+      nptr, base, (uintmax_t)ULLONG_MAX, (uintmax_t)ULLONG_MAX);
+
+  if(endptr != NULL) *endptr = (char *)parsed.end;
+  if(parsed.overflow) return ULLONG_MAX;
+
+  unsigned long long magnitude = (unsigned long long)parsed.magnitude;
+  return parsed.negative ? 0ULL - magnitude : magnitude;
+}
+
 #endif

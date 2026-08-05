@@ -146,3 +146,17 @@ extern "C" void npc_mem_perf(int events, int mshr_occupancy,
       static_cast<uint32_t>(store_queue_occupancy),
       static_cast<uint32_t>(load_txn_occupancy));
 }
+
+extern "C" void npc_pipeline_trace(int kind, int flags, int slot, int rob_idx,
+                                    int producer0, int producer1, int pc,
+                                    int inst, int raw_inst, int sequence,
+                                    int epoch, int resource, int txn_id) {
+  NpcHostBridge::pipeline_trace(
+      static_cast<uint32_t>(kind), static_cast<uint32_t>(flags),
+      static_cast<uint32_t>(slot), static_cast<uint32_t>(rob_idx),
+      static_cast<uint32_t>(producer0), static_cast<uint32_t>(producer1),
+      static_cast<uint32_t>(pc), static_cast<uint32_t>(inst),
+      static_cast<uint32_t>(raw_inst), static_cast<uint32_t>(sequence),
+      static_cast<uint32_t>(epoch), static_cast<uint32_t>(resource),
+      static_cast<uint32_t>(txn_id));
+}

@@ -74,6 +74,22 @@ typedef struct NpcCpuContext {
   NpcCsrContext csr;
 } NpcCpuContext;
 
+typedef struct NpcPipelineEvent {
+  uint32_t kind;
+  uint32_t flags;
+  uint32_t slot;
+  uint32_t rob_idx;
+  uint32_t producer0;
+  uint32_t producer1;
+  uint32_t pc;
+  uint32_t inst;
+  uint32_t raw_inst;
+  uint32_t sequence;
+  uint32_t epoch;
+  uint32_t resource;
+  uint32_t txn_id;
+} NpcPipelineEvent;
+
 typedef struct NpcDpiCallbacks {
   // Used by the compatibility reset and step entry points.
   void *opaque;
@@ -97,6 +113,7 @@ typedef struct NpcDpiCallbacks {
   void (*mem_perf)(void *opaque, uint32_t events, uint32_t mshr_occupancy,
                    uint32_t store_queue_occupancy,
                    uint32_t load_txn_occupancy);
+  void (*pipeline_trace)(void *opaque, const NpcPipelineEvent *event);
 } NpcDpiCallbacks;
 
 #endif

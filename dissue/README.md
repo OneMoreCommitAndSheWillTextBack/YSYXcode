@@ -14,6 +14,10 @@
 
 架构状态只允许在 commit 边界改变。这条规则是后续支持异常、trap、difftest、store 提交和 Linux boot 的基础。
 
+## 流水线可视化
+
+仿真器可以输出 Konata v4 流水线日志。使用 `--konata` 写入默认的 `run/konata.log`，或用 `--konata-path <path>` 指定路径。事件边界、lane 定义、乱序身份映射及扩展方式见 [Konata 流水线追踪](docs/konata-trace.md)。
+
 ## 未来实现
 
 当前双发射主干已经基本接通，但距离可 boot Linux 还需要补齐下面这些部分。

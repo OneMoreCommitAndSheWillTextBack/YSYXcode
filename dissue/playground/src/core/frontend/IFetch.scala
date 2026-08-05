@@ -5,6 +5,7 @@ import chisel3.util._
 import top.config.{ICacheConfig, IFetchConfig}
 import top.core.bundle.CfiType
 import top.core.frontend.bundle.{CfiTarget, FetchControlMeta, FetchInst, FetchPred, ICacheFetchGroupReq, ICacheFetchGroupResp, ICacheReq, ICacheResp, LatePrediction, LatePredictQuery, PcRedirect, PredictionMeta, PredictorConstants, PredictorProvider, RasAction, RasCheckpoint}
+import top.core.trace.{FrontendPipelineTrace, PipelineTraceEvent}
 
 object FetchWidth {
   val backend                = 2
@@ -501,6 +502,7 @@ class IFetch(
     val fetchQueueFull         = Output(Bool())
     val frontendRedirect       = Output(Bool())
     val staleResponseDrop      = Output(Bool())
+    val pipelineTrace          = Output(Vec(FetchWidth.frontend, Valid(new PipelineTraceEvent)))
   })
 
   val splitter       = Module(new FetchGroupSplitter(cacheCfg))
@@ -509,6 +511,7 @@ class IFetch(
   val fetchQueue     = Module(new FetchQueue(cacheCfg, cfg.fetchQueueEntries, FetchWidth.frontend))
   val ftq            = Module(new FetchTargetQueue(cacheCfg, cfg.fetchTargetEntries))
   val responseQueue  = Module(new FetchResponseQueue(cacheCfg, cfg.fetchTargetEntries))
+  val traceObserver  = Module(new FrontendPipelineTrace(cacheCfg, FetchWidth.frontend))
 
   val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
   val localPredRedirect   = assembler.io.predRedirect
@@ -616,6 +619,9 @@ class IFetch(
   }
   assembler.io.out.ready := fetchQueue.io.enq.ready
   io.fetch <> fetchQueue.io.out
+  traceObserver.io.enqueueFire := fetchQueue.io.enq.fire
+  traceObserver.io.enqueue     := fetchQueue.io.enq.bits
+  io.pipelineTrace             := traceObserver.io.events
   io.fetchQueueOccupancy    := fetchQueue.io.count
   io.fetchQueueEnqueueWidth := fetchQueue.io.enqueueWidth
   io.fetchQueueDequeueWidth := fetchQueue.io.dequeueWidth

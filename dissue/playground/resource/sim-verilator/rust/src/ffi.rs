@@ -24,6 +24,24 @@ pub struct NpcCommitGroupEvent {
     pub async_intr_epc: u32,
 }
 
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct NpcPipelineEvent {
+    pub kind: u32,
+    pub flags: u32,
+    pub slot: u32,
+    pub rob_idx: u32,
+    pub producer0: u32,
+    pub producer1: u32,
+    pub pc: u32,
+    pub inst: u32,
+    pub raw_inst: u32,
+    pub sequence: u32,
+    pub epoch: u32,
+    pub resource: u32,
+    pub txn_id: u32,
+}
+
 #[repr(C)]
 pub struct NpcDpiCallbacks {
     pub opaque: *mut c_void,
@@ -70,6 +88,7 @@ pub struct NpcDpiCallbacks {
             load_txn_occupancy: u32,
         ),
     >,
+    pub pipeline_trace: Option<extern "C" fn(*mut c_void, *const NpcPipelineEvent)>,
 }
 
 unsafe extern "C" {

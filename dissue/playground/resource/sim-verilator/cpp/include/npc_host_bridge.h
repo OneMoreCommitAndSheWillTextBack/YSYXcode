@@ -54,6 +54,12 @@ public:
   static void mem_perf(uint32_t events, uint32_t mshr_occupancy,
                        uint32_t store_queue_occupancy,
                        uint32_t load_txn_occupancy);
+  static void pipeline_trace(uint32_t kind, uint32_t flags, uint32_t slot,
+                             uint32_t rob_idx, uint32_t producer0,
+                             uint32_t producer1, uint32_t pc, uint32_t inst,
+                             uint32_t raw_inst, uint32_t sequence,
+                             uint32_t epoch, uint32_t resource,
+                             uint32_t txn_id);
 
   void *configured_opaque() const;
 
