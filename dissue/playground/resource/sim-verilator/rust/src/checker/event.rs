@@ -1,5 +1,7 @@
 //! Retire observations emitted by the RTL DPI bridge.
 
+use crate::ffi;
+
 const CSR_SIP: u32 = 0x144;
 const CSR_MIP: u32 = 0x344;
 
@@ -62,42 +64,27 @@ pub(crate) struct CommitTraceEntry {
 }
 
 impl CommitGroup {
-    pub(crate) fn new(
-        valid_mask: u32,
-        finish_mask: u32,
-        mem_valid_mask: u32,
-        mem_write_mask: u32,
-        pc: [u32; COMMIT_GROUP_WIDTH],
-        inst: [u32; COMMIT_GROUP_WIDTH],
-        raw_inst: [u32; COMMIT_GROUP_WIDTH],
-        inst_len: [u32; COMMIT_GROUP_WIDTH],
-        next_pc: [u32; COMMIT_GROUP_WIDTH],
-        mem_addr: [u32; COMMIT_GROUP_WIDTH],
-        mem_size: [u32; COMMIT_GROUP_WIDTH],
-        async_intr_valid: u32,
-        async_intr_cause: u32,
-        async_intr_epc: u32,
-    ) -> Self {
+    fn from_ffi(raw: &ffi::NpcCommitGroupEvent) -> Self {
         let lanes = std::array::from_fn(|index| CommitLane {
-            valid: ((valid_mask >> index) & 1) != 0,
-            finish: ((finish_mask >> index) & 1) != 0,
-            pc: pc[index],
-            inst: inst[index],
-            raw_inst: raw_inst[index],
-            inst_len: inst_len[index],
-            next_pc: next_pc[index],
-            mem_valid: ((mem_valid_mask >> index) & 1) != 0,
-            mem_write: ((mem_write_mask >> index) & 1) != 0,
-            mem_addr: mem_addr[index],
-            mem_size: mem_size[index],
+            valid: ((raw.valid_mask >> index) & 1) != 0,
+            finish: ((raw.finish_mask >> index) & 1) != 0,
+            pc: raw.pc[index],
+            inst: raw.inst[index],
+            raw_inst: raw.raw_inst[index],
+            inst_len: raw.inst_len[index],
+            next_pc: raw.next_pc[index],
+            mem_valid: ((raw.mem_valid_mask >> index) & 1) != 0,
+            mem_write: ((raw.mem_write_mask >> index) & 1) != 0,
+            mem_addr: raw.mem_addr[index],
+            mem_size: raw.mem_size[index],
         });
 
         Self {
             lanes,
             async_interrupt: AsyncInterrupt::from_raw(
-                async_intr_valid,
-                async_intr_cause,
-                async_intr_epc,
+                raw.async_intr_valid,
+                raw.async_intr_cause,
+                raw.async_intr_epc,
             ),
         }
     }
@@ -176,6 +163,12 @@ impl CommitGroup {
             count += 1;
         }
         None
+    }
+}
+
+impl From<&ffi::NpcCommitGroupEvent> for CommitGroup {
+    fn from(raw: &ffi::NpcCommitGroupEvent) -> Self {
+        Self::from_ffi(raw)
     }
 }
 

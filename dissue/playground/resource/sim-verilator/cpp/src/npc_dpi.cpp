@@ -21,20 +21,23 @@ extern "C" void npc_difftest_commit(int valid_mask, int finish_mask,
                                     int mem_addr1, int mem_size1,
                                     int async_intr_valid, int async_intr_cause,
                                     int async_intr_epc) {
-  NpcHostBridge::difftest_commit(
-      static_cast<uint32_t>(valid_mask), static_cast<uint32_t>(finish_mask),
+  const NpcCommitGroupEvent event = {
+      static_cast<uint32_t>(valid_mask),
+      static_cast<uint32_t>(finish_mask),
       static_cast<uint32_t>(mem_valid_mask),
-      static_cast<uint32_t>(mem_write_mask), static_cast<uint32_t>(pc0),
-      static_cast<uint32_t>(inst0), static_cast<uint32_t>(raw_inst0),
-      static_cast<uint32_t>(inst_len0), static_cast<uint32_t>(next_pc0),
-      static_cast<uint32_t>(mem_addr0), static_cast<uint32_t>(mem_size0),
-      static_cast<uint32_t>(pc1), static_cast<uint32_t>(inst1),
-      static_cast<uint32_t>(raw_inst1), static_cast<uint32_t>(inst_len1),
-      static_cast<uint32_t>(next_pc1), static_cast<uint32_t>(mem_addr1),
-      static_cast<uint32_t>(mem_size1),
+      static_cast<uint32_t>(mem_write_mask),
+      {static_cast<uint32_t>(pc0), static_cast<uint32_t>(pc1)},
+      {static_cast<uint32_t>(inst0), static_cast<uint32_t>(inst1)},
+      {static_cast<uint32_t>(raw_inst0), static_cast<uint32_t>(raw_inst1)},
+      {static_cast<uint32_t>(inst_len0), static_cast<uint32_t>(inst_len1)},
+      {static_cast<uint32_t>(next_pc0), static_cast<uint32_t>(next_pc1)},
+      {static_cast<uint32_t>(mem_addr0), static_cast<uint32_t>(mem_addr1)},
+      {static_cast<uint32_t>(mem_size0), static_cast<uint32_t>(mem_size1)},
       static_cast<uint32_t>(async_intr_valid),
       static_cast<uint32_t>(async_intr_cause),
-      static_cast<uint32_t>(async_intr_epc));
+      static_cast<uint32_t>(async_intr_epc),
+  };
+  NpcHostBridge::difftest_commit(event);
 }
 
 extern "C" void npc_difftest_context(int valid, int pc, int priv,
@@ -46,43 +49,10 @@ extern "C" void npc_difftest_context(int valid, int pc, int priv,
   context.pc = static_cast<uint32_t>(pc);
   context.priv_ = static_cast<uint8_t>(priv & 0x3);
 
-  context.csr.mepc = dpi_word(csr, 0);
-  context.csr.sepc = dpi_word(csr, 1);
-  context.csr.misa = dpi_word(csr, 2);
-  context.csr.mstatus = dpi_word(csr, 3);
-  context.csr.mstatush = dpi_word(csr, 4);
-  context.csr.mcause = dpi_word(csr, 5);
-  context.csr.mtval = dpi_word(csr, 6);
-  context.csr.mtvec = dpi_word(csr, 7);
-  context.csr.mscratch = dpi_word(csr, 8);
-  context.csr.satp = dpi_word(csr, 9);
-  context.csr.medeleg = dpi_word(csr, 10);
-  context.csr.mideleg = dpi_word(csr, 11);
-  context.csr.mvendorid = dpi_word(csr, 12);
-  context.csr.marchid = dpi_word(csr, 13);
-  context.csr.mhartid = dpi_word(csr, 14);
-  context.csr.mimpid = dpi_word(csr, 15);
-  context.csr.pmpaddr0 = dpi_word(csr, 16);
-  context.csr.pmpaddr1 = dpi_word(csr, 17);
-  context.csr.pmpaddr2 = dpi_word(csr, 18);
-  context.csr.pmpaddr3 = dpi_word(csr, 19);
-  context.csr.pmpaddr4 = dpi_word(csr, 20);
-  context.csr.pmpaddr5 = dpi_word(csr, 21);
-  context.csr.pmpaddr6 = dpi_word(csr, 22);
-  context.csr.pmpaddr7 = dpi_word(csr, 23);
-  context.csr.pmpcfg0 = dpi_word(csr, 24);
-  context.csr.pmpcfg1 = dpi_word(csr, 25);
-  context.csr.scause = dpi_word(csr, 26);
-  context.csr.stval = dpi_word(csr, 27);
-  context.csr.sscratch = dpi_word(csr, 28);
-  context.csr.stvec = dpi_word(csr, 29);
-  context.csr.mie = dpi_word(csr, 30);
-  context.csr.mcounteren = dpi_word(csr, 31);
-  context.csr.scounteren = dpi_word(csr, 32);
-  context.csr.mcountinhibit = dpi_word(csr, 33);
-  context.csr.mip = dpi_word(csr, 34);
-  context.csr.mcycle = dpi_word(csr, 35);
-  context.csr.minstret = dpi_word(csr, 36);
+#define NPC_CSR_FIELD(name, dpi_index)                                      \
+  context.csr.name = dpi_word(csr, dpi_index);
+  NPC_FOR_EACH_CSR_FIELD(NPC_CSR_FIELD)
+#undef NPC_CSR_FIELD
 
   for (uint32_t idx = 0; idx < NPC_GPR_COUNT; ++idx) {
     context.gpr.x[idx] = dpi_word(gpr, idx);

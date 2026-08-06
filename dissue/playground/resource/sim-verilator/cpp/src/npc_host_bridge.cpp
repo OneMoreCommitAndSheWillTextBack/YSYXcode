@@ -27,36 +27,13 @@ void *NpcHostBridge::active_opaque() { return current_opaque; }
 
 void *NpcHostBridge::configured_opaque() const { return callbacks_.opaque; }
 
-void NpcHostBridge::difftest_commit(
-    uint32_t valid_mask, uint32_t finish_mask, uint32_t mem_valid_mask,
-    uint32_t mem_write_mask, uint32_t pc0, uint32_t inst0, uint32_t raw_inst0,
-    uint32_t inst_len0, uint32_t next_pc0, uint32_t mem_addr0,
-    uint32_t mem_size0, uint32_t pc1, uint32_t inst1, uint32_t raw_inst1,
-    uint32_t inst_len1, uint32_t next_pc1, uint32_t mem_addr1,
-    uint32_t mem_size1, uint32_t async_intr_valid,
-    uint32_t async_intr_cause, uint32_t async_intr_epc) {
+void NpcHostBridge::difftest_commit(const NpcCommitGroupEvent &event) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.on_difftest_commit == nullptr) {
     return;
   }
 
-  NpcCommitGroupEvent event = {
-      valid_mask,
-      finish_mask,
-      mem_valid_mask,
-      mem_write_mask,
-      {pc0, pc1},
-      {inst0, inst1},
-      {raw_inst0, raw_inst1},
-      {inst_len0, inst_len1},
-      {next_pc0, next_pc1},
-      {mem_addr0, mem_addr1},
-      {mem_size0, mem_size1},
-      async_intr_valid,
-      async_intr_cause,
-      async_intr_epc,
-  };
   bridge->callbacks_.on_difftest_commit(active_opaque(), &event);
 }
 

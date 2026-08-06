@@ -27,17 +27,7 @@ public:
   NpcHostBridge(const NpcHostBridge &) = delete;
   NpcHostBridge &operator=(const NpcHostBridge &) = delete;
 
-  static void difftest_commit(uint32_t valid_mask, uint32_t finish_mask,
-                              uint32_t mem_valid_mask, uint32_t mem_write_mask,
-                              uint32_t pc0, uint32_t inst0, uint32_t raw_inst0,
-                              uint32_t inst_len0, uint32_t next_pc0,
-                              uint32_t mem_addr0, uint32_t mem_size0,
-                              uint32_t pc1, uint32_t inst1, uint32_t raw_inst1,
-                              uint32_t inst_len1, uint32_t next_pc1,
-                              uint32_t mem_addr1, uint32_t mem_size1,
-                              uint32_t async_intr_valid,
-                              uint32_t async_intr_cause,
-                              uint32_t async_intr_epc);
+  static void difftest_commit(const NpcCommitGroupEvent &event);
   static void difftest_context(const NpcCpuContext *context);
   static uint32_t pmem_read(uint32_t addr, uint32_t len);
   static void pmem_write(uint32_t addr, uint32_t len, uint32_t data);

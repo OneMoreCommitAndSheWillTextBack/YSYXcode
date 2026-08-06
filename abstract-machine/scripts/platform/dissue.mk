@@ -18,9 +18,10 @@ CFLAGS += -I$(AM_HOME)/am/src/riscv/dissue/include
 
 ARGS = --image $(IMAGE).bin
 ARGS += --batch
-# ARGS += --wave-path $(DISSUE_HOME)/wave.vcd
+# ARGS += --wave-path $(DISSUE_HOME)/run/wave.vcd
 ARGS += --difftest-ref nemu
 # ARGS += --wave
+ARGS += --konata-path $(DISSUE_HOME)/run/konata.log
 
 image: $(IMAGE).elf
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt

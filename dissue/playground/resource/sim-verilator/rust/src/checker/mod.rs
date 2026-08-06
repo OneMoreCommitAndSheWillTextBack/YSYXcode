@@ -377,6 +377,8 @@ impl Checker {
     }
 
     pub(crate) fn on_pipeline_event(&mut self, event: NpcPipelineEvent) {
+        // Only record pipeline events if Kanata tracing is enabled
+        // since the events are only used for Kanata trace generation.
         if self.kanata.is_some() {
             self.pipeline_events.push(event);
         }

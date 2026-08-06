@@ -16,7 +16,27 @@
 
 ## 流水线可视化
 
-仿真器可以输出 Konata v4 流水线日志。使用 `--konata` 写入默认的 `run/konata.log`，或用 `--konata-path <path>` 指定路径。事件边界、lane 定义、乱序身份映射及扩展方式见 [Konata 流水线追踪](docs/konata-trace.md)。
+仿真器可以输出 Konata v4 流水线日志。该功能默认关闭：
+
+```bash
+./build/verilator-exec --batch --image <program.bin> --konata
+./build/verilator-exec --batch --image <program.bin> --konata-path <output.log>
+```
+
+`--konata` 默认写入 `run/konata.log`。指令在进入 FetchQueue 时使用 `(prediction.epoch, prediction.sequence, pc)` 建立身份，dispatch 时再绑定 `robIdx`；映射一直保留到 retire 或 flush，因此长时间停留在 ROB 以及 ROB 槽回绕都不会丢失指令。selective recovery 按全局指令序清除 boundary 之后的指令，而不是直接比较环形 ROB 编号。
+
+当前 lane 定义为：
+
+```text
+lane 0: FQ -> DC -> IQ -> X-* -> RT
+lane 1: ROB-N -> ROB-D
+lane 2: SQ-U -> SQ-R / LTQ / ATQ
+lane 3: XLAT -> DMQ-*
+```
+
+追踪实现保持三层边界：RTL 的 `PipelineTrace.scala` 只产生不反压的语义事件；C++ 只转发固定 `NpcPipelineEvent`；Rust 的 `checker/kanata.rs` 集中负责同拍排序、ID 映射、lane、stage 和 Kanata 文本。修改显示策略只需要改 Rust writer，移动流水阶段通常只需要改一个 RTL 观察器；只有现有事件字段无法表达新语义时才扩展 DPI ABI。
+
+lane 3 的 `DMQ-*` 表示请求已经进入 backend dmem queue，不代表 DCache 内部 MSHR/refill 的完整状态。store retire 后的外部响应也不延长指令行；这些信息继续由 memory performance trace 记录。
 
 ## 未来实现
 

@@ -5,7 +5,7 @@ import chisel3.util.{MuxLookup, Valid}
 import top.config.{BackendConfig, ICacheConfig}
 import top.core.backend.bundle.{DecodePacket, IssuePacket, RetireGroup, RobWritebackPacket, StoreQueueUpdate}
 import top.core.backend.decoder.FuType
-import top.core.bundle.{DataMemKind, FrontendToBackend, RobAge, RobRecovery}
+import top.core.bundle.{DataMemKind, DataMemTxn, FrontendToBackend, RobAge, RobRecovery}
 import top.core.frontend.ifetch.FetchQueueEnqueue
 
 /** Stable semantic events exported by the RTL pipeline observer.
@@ -198,7 +198,7 @@ class BackendPipelineTrace(cfg: BackendConfig) extends Module {
     val memoryRequestRobIdx = Input(UInt(cfg.robIdxWidth.W))
     val memoryRequestKind   = Input(UInt(DataMemKind.width.W))
     val memoryRequestWrite  = Input(Bool())
-    val memoryRequestTxnId  = Input(UInt(4.W))
+    val memoryRequestTxnId  = Input(UInt(DataMemTxn.width.W))
 
     val robHead     = Input(UInt(cfg.robIdxWidth.W))
     val recover     = Input(new RobRecovery(cfg.robIdxWidth))

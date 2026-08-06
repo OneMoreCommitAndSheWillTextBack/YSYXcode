@@ -5,10 +5,14 @@ include $(PRJ)/resource/difftest/difftest.mk
 
 DIFFTEST_REF ?= nemu
 DIFFTEST_ARGS ?= --difftest-ref $(DIFFTEST_REF)
-DIFFTEST_ARGS += --batch
-DIFFTEST_ARGS += --wave
 
-WAVE_PATH ?= ./wave.vcd
+DEFAULT_ARGS += --batch
+
+WAVE_PATH ?= $(DISSUE_HOME)/run/wave.vcd
+KONATA_PATH ?= $(DISSUE_HOME)/run/konata.log
+
+TRACE_ARGS += --wave-path $(WAVE_PATH) --konata-path $(KONATA_PATH)
+DEFAULT_ARGS += $(TRACE_ARGS) ${DIFFTEST_ARGS}
 
 ARGS ?= $(DIFFTEST_ARGS)
 

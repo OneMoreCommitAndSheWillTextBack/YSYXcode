@@ -5,6 +5,47 @@
 
 #define NPC_GPR_COUNT 32
 
+// X(field_name, dpi_word_index)
+// Keep declaration order stable: NpcCsrContext is part of the C ABI.
+#define NPC_FOR_EACH_CSR_FIELD(X)                                           \
+  X(mstatus, 3)                                                             \
+  X(mtvec, 7)                                                               \
+  X(mepc, 0)                                                                \
+  X(mcause, 5)                                                              \
+  X(mtval, 6)                                                               \
+  X(mie, 30)                                                                \
+  X(mip, 34)                                                                \
+  X(mscratch, 8)                                                            \
+  X(mcycle, 35)                                                             \
+  X(minstret, 36)                                                           \
+  X(sepc, 1)                                                                \
+  X(misa, 2)                                                                \
+  X(mstatush, 4)                                                            \
+  X(satp, 9)                                                                \
+  X(medeleg, 10)                                                            \
+  X(mideleg, 11)                                                            \
+  X(mvendorid, 12)                                                          \
+  X(marchid, 13)                                                            \
+  X(mhartid, 14)                                                            \
+  X(mimpid, 15)                                                             \
+  X(pmpaddr0, 16)                                                           \
+  X(pmpaddr1, 17)                                                           \
+  X(pmpaddr2, 18)                                                           \
+  X(pmpaddr3, 19)                                                           \
+  X(pmpaddr4, 20)                                                           \
+  X(pmpaddr5, 21)                                                           \
+  X(pmpaddr6, 22)                                                           \
+  X(pmpaddr7, 23)                                                           \
+  X(pmpcfg0, 24)                                                            \
+  X(pmpcfg1, 25)                                                            \
+  X(scause, 26)                                                             \
+  X(stval, 27)                                                              \
+  X(sscratch, 28)                                                           \
+  X(stvec, 29)                                                              \
+  X(mcounteren, 31)                                                         \
+  X(scounteren, 32)                                                         \
+  X(mcountinhibit, 33)
+
 typedef struct NpcCommitGroupEvent {
   uint32_t valid_mask;
   uint32_t finish_mask;
@@ -27,43 +68,9 @@ typedef struct NpcGprContext {
 } NpcGprContext;
 
 typedef struct NpcCsrContext {
-  uint32_t mstatus;
-  uint32_t mtvec;
-  uint32_t mepc;
-  uint32_t mcause;
-  uint32_t mtval;
-  uint32_t mie;
-  uint32_t mip;
-  uint32_t mscratch;
-  uint32_t mcycle;
-  uint32_t minstret;
-  uint32_t sepc;
-  uint32_t misa;
-  uint32_t mstatush;
-  uint32_t satp;
-  uint32_t medeleg;
-  uint32_t mideleg;
-  uint32_t mvendorid;
-  uint32_t marchid;
-  uint32_t mhartid;
-  uint32_t mimpid;
-  uint32_t pmpaddr0;
-  uint32_t pmpaddr1;
-  uint32_t pmpaddr2;
-  uint32_t pmpaddr3;
-  uint32_t pmpaddr4;
-  uint32_t pmpaddr5;
-  uint32_t pmpaddr6;
-  uint32_t pmpaddr7;
-  uint32_t pmpcfg0;
-  uint32_t pmpcfg1;
-  uint32_t scause;
-  uint32_t stval;
-  uint32_t sscratch;
-  uint32_t stvec;
-  uint32_t mcounteren;
-  uint32_t scounteren;
-  uint32_t mcountinhibit;
+#define NPC_CSR_FIELD(name, dpi_index) uint32_t name;
+  NPC_FOR_EACH_CSR_FIELD(NPC_CSR_FIELD)
+#undef NPC_CSR_FIELD
 } NpcCsrContext;
 
 typedef struct NpcCpuContext {
