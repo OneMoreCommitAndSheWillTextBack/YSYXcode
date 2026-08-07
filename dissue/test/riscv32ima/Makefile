@@ -3,6 +3,7 @@ MARCH := rv32ima
 MABI := ilp32
 NO_DIFF_TESTS := a-ext \
 	a-lr-sc-success \
+	a-lr-normal-store-clear \
 	a-sc-fail-no-reservation \
 	a-sc-clear-after-success \
 	a-lr-reservation-replace \

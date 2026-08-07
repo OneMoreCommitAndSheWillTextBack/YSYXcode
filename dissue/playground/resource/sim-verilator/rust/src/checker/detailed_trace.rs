@@ -40,7 +40,7 @@ const FRONTEND_EVENT_NAMES: [&str; 32] = [
     "late_override",
 ];
 
-const MEMORY_EVENT_NAMES: [&str; 19] = [
+const MEMORY_EVENT_NAMES: [&str; 21] = [
     "dcache_access",
     "dcache_hit",
     "dcache_miss",
@@ -60,6 +60,8 @@ const MEMORY_EVENT_NAMES: [&str; 19] = [
     "forward_partial",
     "forward_unresolved_stall",
     "store_drain",
+    "store_commit",
+    "store_response",
 ];
 
 /// Raw performance callbacks observed during one post-reset driver step.

@@ -36,7 +36,7 @@ lane 3: XLAT -> DMQ-*
 
 追踪实现保持三层边界：RTL 的 `PipelineTrace.scala` 只产生不反压的语义事件；C++ 只转发固定 `NpcPipelineEvent`；Rust 的 `checker/kanata.rs` 集中负责同拍排序、ID 映射、lane、stage 和 Kanata 文本。修改显示策略只需要改 Rust writer，移动流水阶段通常只需要改一个 RTL 观察器；只有现有事件字段无法表达新语义时才扩展 DPI ABI。
 
-lane 3 的 `DMQ-*` 表示请求已经进入 backend dmem queue，不代表 DCache 内部 MSHR/refill 的完整状态。store retire 后的外部响应也不延长指令行；这些信息继续由 memory performance trace 记录。
+lane 3 的 `DMQ-*` 表示请求已经进入 LSU 的 recoverable outbound queue，不代表 DCache 内部 MSHR/refill 的完整状态。普通 store 在架构 retire 时结束原指令行，同时建立以 `sqIdx` 为身份的 thread-1 drain 行；该行用 `SQ-C -> SQ-I` 和 `DMQ-ST` 持续到 response，因此 ROB 槽复用不会把后续 store 事件关联到错误指令。串行 MMIO store 在 response 前不 retire，继续使用原指令行。
 
 ## 未来实现
 
@@ -58,8 +58,9 @@ lane 3 的 `DMQ-*` 表示请求已经进入 backend dmem queue，不代表 DCach
 
 内存系统：
 
-- 当前 store 在 commit 侧产生外部写内存副作用，这是正确但保守的第一版。
-- 后续需要 StoreQueue/LoadQueue、store-to-load forwarding、load violation replay。
+- LSU 统一拥有 StoreQueue、LoadTxnQueue、store drain engine、原子/PTW 仲裁和 recoverable outbound queue；retire 只提交 `sqIdx` 对应的 store 语义，不再构造写内存请求。
+- StoreQueue 支持双路分配/提交、多个已提交 store 在途、按字节 youngest-older forwarding，以及 recovery 后独立于 ROB 槽复用的事务跟踪。
+- 后续仍需要更激进的 speculative load、load violation detection/replay，以及支持 coherence 后的跨 hart LR/SC reservation 失效。
 - Linux boot 需要更完整的 AXI/memory map、CSR/trap/interrupt、CLINT/PLIC、timer、privilege 和可能的 MMU 支持。
 
 验证：

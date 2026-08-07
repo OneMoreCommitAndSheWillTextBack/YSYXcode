@@ -7,7 +7,7 @@ import top.core.backend.csr.CsrInterruptPending
 import top.bus.axi.AxiPort
 import top.core.bundle.{DataMemTxn, FrontendToBackend, MemPerfEvent}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
-import top.core.mem.{Mem, RecoverableDmemQueue}
+import top.core.mem.Mem
 import top.core.frontend.Frontend
 import top.core.frontend.ifetch.FetchWidth
 import top.core.frontend.bundle.{BpuUpdate, PredictorConstants}
@@ -18,15 +18,14 @@ class Core(resetVector: BigInt) extends Module {
   private val frontendCfg = FrontendConfig()
   private val backendCfg  = BackendConfig()
   private val memCfg      = MemConfig()
-  private val dmemQueueDepth = 4
 
   require(backendCfg.addrWidth == frontendCfg.addrWidth, "frontend/backend addrWidth must match")
   require(backendCfg.addrWidth == memCfg.addrWidth, "backend/mem addrWidth must match")
   require(backendCfg.dataWidth == memCfg.axiDataWidth, "backend dataWidth must match memory data width")
   require(backendCfg.issueWidth == 2, "Core bridge currently assumes the frontend produces two slots")
   require(
-    dmemQueueDepth + Mem.cancelPorts(memCfg.dcache) <= backendCfg.recoveryCancelPorts,
-    "BackendConfig.recoveryCancelPorts must cover dmem queue and memory cancellation sources"
+    Mem.cancelPorts(memCfg.dcache) <= backendCfg.recoveryCancelPorts,
+    "BackendConfig.recoveryCancelPorts must cover lower-memory cancellation sources"
   )
 
   val io = IO(new Bundle {
@@ -35,24 +34,15 @@ class Core(resetVector: BigInt) extends Module {
     val axi       = new AxiPort
   })
 
-  val frontend         = Module(new Frontend(resetVector, frontendCfg))
-  val backend          = Module(new Backend(resetVector, backendCfg))
-  val mem              = Module(new Mem(memCfg, backendCfg.robEntries))
-  val dmemRequestQueue = Module(
-    new RecoverableDmemQueue(
-      addrWidth = memCfg.addrWidth,
-      dataWidth = memCfg.axiDataWidth,
-      robIdxWidth = backendCfg.robIdxWidth,
-      robEntries = backendCfg.robEntries,
-      depth = dmemQueueDepth
-    )
-  )
-  val memPerf          = Module(new MemPerfBridge)
+  val frontend                        = Module(new Frontend(resetVector, frontendCfg))
+  val backend                         = Module(new Backend(resetVector, backendCfg))
+  val mem                             = Module(new Mem(memCfg, backendCfg.robEntries))
+  val memPerf                         = Module(new MemPerfBridge)
   private val pipelineTraceEventCount = FetchWidth.frontend + BackendPipelineTrace.eventCount(backendCfg)
-  val pipelineTrace = Module(new PipelineTraceBridge(pipelineTraceEventCount))
+  val pipelineTrace                   = Module(new PipelineTraceBridge(pipelineTraceEventCount))
 
   private val pipelineTraceEvents = Wire(Vec(pipelineTraceEventCount, Valid(new PipelineTraceEvent)))
-  for (lane <- 0 until FetchWidth.frontend) {
+  for (lane  <- 0 until FetchWidth.frontend) {
     pipelineTraceEvents(lane) := frontend.io.pipelineTrace(lane)
   }
   for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
@@ -72,17 +62,17 @@ class Core(resetVector: BigInt) extends Module {
 
   frontend.io.predRedirect.valid := backend.io.redirect.predRedirect.valid
   frontend.io.predRedirect.value := backend.io.redirect.predRedirect.target
-  frontend.io.icacheInvalidate  := backend.io.redirect.icacheInvalidate
+  frontend.io.icacheInvalidate   := backend.io.redirect.icacheInvalidate
 
   for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
-    frontend.io.bpuUpdates(lane).valid        := backend.io.redirect.bpuUpdates(lane).valid
-    frontend.io.bpuUpdates(lane).bits         := 0.U.asTypeOf(new BpuUpdate(frontendCfg.bpu))
-    frontend.io.bpuUpdates(lane).bits.pc      := backend.io.redirect.bpuUpdates(lane).bits.pc
-    frontend.io.bpuUpdates(lane).bits.cfiType := backend.io.redirect.bpuUpdates(lane).bits.cfiType
-    frontend.io.bpuUpdates(lane).bits.taken   := backend.io.redirect.bpuUpdates(lane).bits.taken
-    frontend.io.bpuUpdates(lane).bits.target  := backend.io.redirect.bpuUpdates(lane).bits.target
-    frontend.io.bpuUpdates(lane).bits.instLen := backend.io.redirect.bpuUpdates(lane).bits.instLen
-    frontend.io.bpuUpdates(lane).bits.rasAction := backend.io.redirect.bpuUpdates(lane).bits.rasAction
+    frontend.io.bpuUpdates(lane).valid           := backend.io.redirect.bpuUpdates(lane).valid
+    frontend.io.bpuUpdates(lane).bits            := 0.U.asTypeOf(new BpuUpdate(frontendCfg.bpu))
+    frontend.io.bpuUpdates(lane).bits.pc         := backend.io.redirect.bpuUpdates(lane).bits.pc
+    frontend.io.bpuUpdates(lane).bits.cfiType    := backend.io.redirect.bpuUpdates(lane).bits.cfiType
+    frontend.io.bpuUpdates(lane).bits.taken      := backend.io.redirect.bpuUpdates(lane).bits.taken
+    frontend.io.bpuUpdates(lane).bits.target     := backend.io.redirect.bpuUpdates(lane).bits.target
+    frontend.io.bpuUpdates(lane).bits.instLen    := backend.io.redirect.bpuUpdates(lane).bits.instLen
+    frontend.io.bpuUpdates(lane).bits.rasAction  := backend.io.redirect.bpuUpdates(lane).bits.rasAction
     frontend.io.bpuUpdates(lane).bits.prediction := backend.io.redirect.bpuUpdates(lane).bits.prediction
   }
   frontend.io.predictorRecovery := backend.io.redirect.predictorRecovery
@@ -120,30 +110,20 @@ class Core(resetVector: BigInt) extends Module {
   backend.io.fenceIReq.ready := mem.io.fenceIReq.ready
   backend.io.fenceIDone      := mem.io.fenceIDone
 
-  dmemRequestQueue.io.enq.valid := backend.io.dmemReq.valid
-  dmemRequestQueue.io.enq.bits  := backend.io.dmemReq.bits
-  backend.io.dmemReq.ready      := dmemRequestQueue.io.enq.ready
-  dmemRequestQueue.io.flush     := backend.io.globalFlush
-  dmemRequestQueue.io.recover   := backend.io.recover
-  dmemRequestQueue.io.robHead   := backend.io.robHead
-
-  mem.io.dmemReq.valid          := dmemRequestQueue.io.deq.valid
-  mem.io.dmemReq.bits           := dmemRequestQueue.io.deq.bits
-  dmemRequestQueue.io.deq.ready := mem.io.dmemReq.ready
-  mem.io.flush                   := backend.io.globalFlush
-  mem.io.recover                 := backend.io.recover
-  mem.io.robHead                 := backend.io.robHead
-  mem.io.unresolvedCfi           := backend.io.unresolvedCfi
+  mem.io.dmemReq.valid     := backend.io.dmemReq.valid
+  mem.io.dmemReq.bits      := backend.io.dmemReq.bits
+  backend.io.dmemReq.ready := mem.io.dmemReq.ready
+  mem.io.flush             := backend.io.globalFlush
+  mem.io.recover           := backend.io.recover
+  mem.io.robHead           := backend.io.robHead
+  mem.io.unresolvedCfi     := backend.io.unresolvedCfi
 
   private val dmemCancel = Wire(Vec(backendCfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
   for (port <- 0 until backendCfg.recoveryCancelPorts) {
     dmemCancel(port) := 0.U.asTypeOf(Valid(UInt(DataMemTxn.width.W)))
   }
-  for (port <- 0 until dmemQueueDepth) {
-    dmemCancel(port) := dmemRequestQueue.io.cancel(port)
-  }
   for (port <- 0 until Mem.cancelPorts(memCfg.dcache)) {
-    dmemCancel(dmemQueueDepth + port) := mem.io.dmemCancel(port)
+    dmemCancel(port) := mem.io.dmemCancel(port)
   }
   backend.io.dmemCancel := dmemCancel
 
@@ -178,7 +158,9 @@ class Core(resetVector: BigInt) extends Module {
     MemPerfEvent.bit(MemPerfEvent.forwardFull, backend.io.memPerf.forwardFull),
     MemPerfEvent.bit(MemPerfEvent.forwardPartial, backend.io.memPerf.forwardPartial),
     MemPerfEvent.bit(MemPerfEvent.forwardUnresolvedStallCycle, backend.io.memPerf.forwardUnresolvedStoreStall),
-    MemPerfEvent.bit(MemPerfEvent.storeDrain, backend.io.memPerf.storeDrain)
+    MemPerfEvent.bit(MemPerfEvent.storeDrain, backend.io.memPerf.storeDrain),
+    MemPerfEvent.bit(MemPerfEvent.storeCommit, backend.io.memPerf.storeCommit),
+    MemPerfEvent.bit(MemPerfEvent.storeResponse, backend.io.memPerf.storeResponse)
   ).reduce(_ | _)
 
   memPerf.io.events              := memPerfEvents

@@ -31,6 +31,8 @@ impl Stage {
     pub(super) const ROB_DONE: Self = Self("ROB-D");
     pub(super) const STORE_QUEUE_UNRESOLVED: Self = Self("SQ-U");
     pub(super) const STORE_QUEUE_READY: Self = Self("SQ-R");
+    pub(super) const STORE_QUEUE_COMMITTED: Self = Self("SQ-C");
+    pub(super) const STORE_QUEUE_ISSUED: Self = Self("SQ-I");
     pub(super) const LOAD_TRANSACTION_QUEUE: Self = Self("LTQ");
     pub(super) const ATOMIC_TRANSACTION_QUEUE: Self = Self("ATQ");
     pub(super) const ADDRESS_TRANSLATION: Self = Self("XLAT");
@@ -38,6 +40,7 @@ impl Stage {
     pub(super) const MEMORY_PAGE_TABLE_WALK: Self = Self("DMQ-PTW");
     pub(super) const MEMORY_ATOMIC_READ: Self = Self("DMQ-AMO-R");
     pub(super) const MEMORY_ATOMIC_WRITE: Self = Self("DMQ-AMO-W");
+    pub(super) const MEMORY_STORE: Self = Self("DMQ-ST");
     pub(super) const MEMORY_UNKNOWN: Self = Self("DMQ-UNKNOWN");
 
     pub(super) fn is_execution(self) -> bool {
@@ -96,6 +99,14 @@ impl KonataWriter {
 
     pub(super) fn create_instruction(&mut self, id: InstructionId) -> io::Result<()> {
         writeln!(self.output, "I\t{}\t{}\t0", id.0, id.0)
+    }
+
+    pub(super) fn create_store_transaction(
+        &mut self,
+        id: InstructionId,
+        transaction_id: u64,
+    ) -> io::Result<()> {
+        writeln!(self.output, "I\t{}\t{}\t1", id.0, transaction_id)
     }
 
     pub(super) fn label(

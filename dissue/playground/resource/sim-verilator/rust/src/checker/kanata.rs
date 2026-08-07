@@ -17,7 +17,7 @@ mod writer;
 use crate::ffi::NpcPipelineEvent;
 use event::{
     DispatchEvent, ExecutionUnit, InstructionBits, InstructionKey, MemoryRequestKind,
-    PipelineEvent, RobIndex,
+    PipelineEvent, RobIndex, StoreIndex,
 };
 use std::{
     collections::HashMap,
@@ -75,6 +75,12 @@ struct ActiveInstruction {
     deferred_pipeline: Option<DeferredTransition>,
 }
 
+#[derive(Debug)]
+struct StoreTransaction {
+    id: InstructionId,
+    lanes: LaneStates,
+}
+
 impl ActiveInstruction {
     fn new(key: InstructionKey) -> Self {
         Self {
@@ -99,8 +105,10 @@ pub(super) struct KanataTrace {
     writer: KonataWriter,
     next_instruction_id: u64,
     next_retire_id: u64,
+    next_store_retire_id: u64,
     by_key: HashMap<InstructionKey, InstructionId>,
     by_rob: HashMap<RobIndex, InstructionId>,
+    by_sq: HashMap<StoreIndex, StoreTransaction>,
     active: HashMap<InstructionId, ActiveInstruction>,
 }
 
@@ -111,8 +119,10 @@ impl KanataTrace {
             writer: KonataWriter::create(path)?,
             next_instruction_id: 0,
             next_retire_id: 0,
+            next_store_retire_id: 0,
             by_key: HashMap::new(),
             by_rob: HashMap::new(),
+            by_sq: HashMap::new(),
             active: HashMap::new(),
         })
     }
@@ -165,6 +175,11 @@ impl KanataTrace {
             PipelineEvent::Issue { rob, unit } => self.issue(cycle, rob, unit)?,
             PipelineEvent::MemoryRequest { rob, kind } => self.memory_request(cycle, rob, kind)?,
             PipelineEvent::StoreReady { rob } => self.store_ready(cycle, rob)?,
+            PipelineEvent::StoreCommit { rob, sq } => self.store_commit(cycle, rob, sq)?,
+            PipelineEvent::StoreRequest { rob, sq } => self.store_request(cycle, rob, sq)?,
+            PipelineEvent::StoreResponse { rob, sq, fault } => {
+                self.store_response(rob, sq, fault)?
+            }
             PipelineEvent::Writeback { rob } => self.writeback(cycle, rob)?,
             PipelineEvent::Retire { rob, trapped } => self.retire(rob, trapped)?,
             PipelineEvent::Recover { boundary } => self.recover(boundary)?,
@@ -263,6 +278,9 @@ impl KanataTrace {
             MemoryRequestKind::AtomicRead | MemoryRequestKind::AtomicWrite => {
                 self.start_tracking(id, Stage::ATOMIC_TRANSACTION_QUEUE, cycle)?;
             }
+            MemoryRequestKind::Store => {
+                self.start_tracking(id, Stage::STORE_QUEUE_ISSUED, cycle)?;
+            }
             MemoryRequestKind::PageTableWalk | MemoryRequestKind::Unknown => {}
         }
         Ok(())
@@ -274,6 +292,149 @@ impl KanataTrace {
         };
         self.start_tracking(id, Stage::STORE_QUEUE_READY, cycle)?;
         self.end_stage(id, Lane::Memory)
+    }
+
+    fn store_commit(&mut self, cycle: u64, rob: RobIndex, sq: StoreIndex) -> io::Result<()> {
+        let Some(&id) = self.by_rob.get(&rob) else {
+            return Ok(());
+        };
+        if self.by_sq.contains_key(&sq) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "SQ {} was committed while its previous trace transaction was live",
+                    sq.0
+                ),
+            ));
+        }
+        let pc = self
+            .active
+            .get(&id)
+            .map_or(0, |instruction| instruction.key.pc);
+        self.writer
+            .label(id, Lane::Tracking, format_args!("SQ={} committed", sq.0))?;
+        self.end_stage(id, Lane::Tracking)?;
+
+        // Architectural retirement ends the instruction row at this cycle. A separate thread-1 row follows the
+        // durable SQ entry so request/response timing remains visible after the ROB index is reused.
+        let transaction_id = InstructionId(self.next_instruction_id);
+        self.next_instruction_id += 1;
+        self.writer
+            .create_store_transaction(transaction_id, self.next_store_retire_id)?;
+        self.writer.label(
+            transaction_id,
+            Lane::Pipeline,
+            format_args!("store drain: 0x{pc:08x} ROB={} SQ={}", rob.0, sq.0),
+        )?;
+        self.writer
+            .start(transaction_id, Lane::Tracking, Stage::STORE_QUEUE_COMMITTED)?;
+        let mut lanes = LaneStates::default();
+        lanes.tracking = Some(OpenStage {
+            name: Stage::STORE_QUEUE_COMMITTED,
+            start_cycle: cycle,
+        });
+        self.by_sq.insert(
+            sq,
+            StoreTransaction {
+                id: transaction_id,
+                lanes,
+            },
+        );
+        Ok(())
+    }
+
+    fn store_request(&mut self, cycle: u64, rob: RobIndex, sq: StoreIndex) -> io::Result<()> {
+        if self.by_sq.contains_key(&sq) {
+            self.start_store_transaction_stage(
+                sq,
+                Lane::Tracking,
+                Stage::STORE_QUEUE_ISSUED,
+                cycle,
+            )?;
+            self.start_store_transaction_stage(sq, Lane::Memory, Stage::MEMORY_STORE, cycle)?;
+            return Ok(());
+        }
+
+        // Serialized MMIO stores request memory before architectural retirement and therefore remain ROB keyed.
+        let Some(&id) = self.by_rob.get(&rob) else {
+            return Ok(());
+        };
+        self.writer
+            .label(id, Lane::Tracking, format_args!("SQ={}", sq.0))?;
+        self.start_tracking(id, Stage::STORE_QUEUE_ISSUED, cycle)?;
+        self.start_memory(id, Stage::MEMORY_STORE, cycle)
+    }
+
+    fn store_response(&mut self, rob: RobIndex, sq: StoreIndex, fault: bool) -> io::Result<()> {
+        if let Some(mut transaction) = self.by_sq.remove(&sq) {
+            self.writer.label(
+                transaction.id,
+                Lane::Tracking,
+                format_args!("SQ={} response{}", sq.0, if fault { " fault" } else { "" }),
+            )?;
+            self.end_store_transaction_stage(&mut transaction, Lane::Memory)?;
+            self.end_store_transaction_stage(&mut transaction, Lane::Tracking)?;
+            self.writer.retire(
+                transaction.id,
+                self.next_store_retire_id,
+                RetireCause::Retire,
+            )?;
+            self.next_store_retire_id += 1;
+            return Ok(());
+        }
+
+        let Some(&id) = self.by_rob.get(&rob) else {
+            return Ok(());
+        };
+        self.writer.label(
+            id,
+            Lane::Tracking,
+            format_args!("SQ={} response{}", sq.0, if fault { " fault" } else { "" }),
+        )?;
+        self.end_stage(id, Lane::Memory)?;
+        self.end_stage(id, Lane::Tracking)
+    }
+
+    fn start_store_transaction_stage(
+        &mut self,
+        sq: StoreIndex,
+        lane: Lane,
+        stage: Stage,
+        cycle: u64,
+    ) -> io::Result<()> {
+        let Some(transaction) = self.by_sq.get_mut(&sq) else {
+            return Ok(());
+        };
+        if transaction
+            .lanes
+            .get(lane)
+            .is_some_and(|open| open.name == stage)
+        {
+            return Ok(());
+        }
+
+        self.writer.start(transaction.id, lane, stage)?;
+        transaction.lanes.set(
+            lane,
+            Some(OpenStage {
+                name: stage,
+                start_cycle: cycle,
+            }),
+        );
+        Ok(())
+    }
+
+    fn end_store_transaction_stage(
+        &mut self,
+        transaction: &mut StoreTransaction,
+        lane: Lane,
+    ) -> io::Result<()> {
+        let Some(stage) = transaction.lanes.get(lane) else {
+            return Ok(());
+        };
+        self.writer.end(transaction.id, lane, stage.name)?;
+        transaction.lanes.set(lane, None);
+        Ok(())
     }
 
     fn writeback(&mut self, cycle: u64, rob: RobIndex) -> io::Result<()> {
@@ -499,6 +660,133 @@ const fn memory_stage(kind: MemoryRequestKind) -> Stage {
         MemoryRequestKind::PageTableWalk => Stage::MEMORY_PAGE_TABLE_WALK,
         MemoryRequestKind::AtomicRead => Stage::MEMORY_ATOMIC_READ,
         MemoryRequestKind::AtomicWrite => Stage::MEMORY_ATOMIC_WRITE,
+        MemoryRequestKind::Store => Stage::MEMORY_STORE,
         MemoryRequestKind::Unknown => Stage::MEMORY_UNKNOWN,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::KanataTrace;
+    use crate::ffi::NpcPipelineEvent;
+    use std::{fs, process, time::SystemTime};
+
+    const FETCH: u32 = 1;
+    const DISPATCH: u32 = 3;
+    const STORE_READY: u32 = 6;
+    const RETIRE: u32 = 8;
+    const STORE_COMMIT: u32 = 11;
+    const STORE_REQUEST: u32 = 12;
+    const STORE_RESPONSE: u32 = 13;
+    const NEEDS_ISSUE: u32 = 1 << 0;
+    const STORE: u32 = 1 << 4;
+
+    fn event(kind: u32) -> NpcPipelineEvent {
+        NpcPipelineEvent {
+            kind,
+            flags: 0,
+            slot: 0,
+            rob_idx: 0,
+            producer0: 0,
+            producer1: 0,
+            pc: 0,
+            inst: 0,
+            raw_inst: 0,
+            sequence: 0,
+            epoch: 0,
+            resource: 0,
+            txn_id: 0,
+        }
+    }
+
+    fn write(
+        trace: &mut KanataTrace,
+        cycle: u64,
+        events: impl IntoIterator<Item = NpcPipelineEvent>,
+    ) {
+        let mut events = events.into_iter().collect::<Vec<_>>();
+        trace.write_cycle(cycle, &mut events).unwrap();
+    }
+
+    #[test]
+    fn committed_store_trace_survives_rob_index_reuse_by_sq_index() {
+        let nonce = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("dissue-kanata-store-{}-{nonce}.log", process::id()));
+
+        {
+            let mut trace = KanataTrace::create(&path).unwrap();
+
+            let mut fetch = event(FETCH);
+            fetch.pc = 0x8000_1000;
+            fetch.inst = 0x00b7_a023;
+            fetch.raw_inst = fetch.inst;
+            fetch.sequence = 1;
+            let mut dispatch = fetch;
+            dispatch.kind = DISPATCH;
+            dispatch.flags = NEEDS_ISSUE | STORE;
+            dispatch.rob_idx = 3;
+            write(&mut trace, 1, [fetch, dispatch]);
+
+            let mut ready = event(STORE_READY);
+            ready.rob_idx = 3;
+            write(&mut trace, 2, [ready]);
+
+            let mut commit = event(STORE_COMMIT);
+            commit.rob_idx = 3;
+            commit.producer0 = 1;
+            let mut retire = event(RETIRE);
+            retire.rob_idx = 3;
+            write(&mut trace, 3, [retire, commit]);
+
+            let mut younger_fetch = event(FETCH);
+            younger_fetch.pc = 0x8000_2000;
+            younger_fetch.inst = 0x0000_0013;
+            younger_fetch.raw_inst = younger_fetch.inst;
+            younger_fetch.sequence = 2;
+            let mut younger_dispatch = younger_fetch;
+            younger_dispatch.kind = DISPATCH;
+            younger_dispatch.flags = NEEDS_ISSUE;
+            younger_dispatch.rob_idx = 3;
+            write(&mut trace, 4, [younger_fetch, younger_dispatch]);
+
+            let mut request = event(STORE_REQUEST);
+            request.rob_idx = 3;
+            request.producer0 = 1;
+            write(&mut trace, 5, [request]);
+
+            let mut response = event(STORE_RESPONSE);
+            response.rob_idx = 3;
+            response.producer0 = 1;
+            write(&mut trace, 6, [response]);
+        }
+
+        let log = fs::read_to_string(&path).unwrap();
+        fs::remove_file(&path).unwrap();
+
+        assert!(
+            log.contains("R\t0\t0\t0"),
+            "original store must retire architecturally"
+        );
+        assert!(
+            log.contains("I\t1\t0\t1"),
+            "committed SQ entry needs a thread-1 transaction row"
+        );
+        assert!(log.contains("store drain: 0x80001000 ROB=3 SQ=1"));
+        assert!(log.contains("S\t1\t2\tSQ-C"));
+        assert!(log.contains("S\t1\t2\tSQ-I"));
+        assert!(log.contains("S\t1\t3\tDMQ-ST"));
+        assert!(log.contains("E\t1\t3\tDMQ-ST"));
+        assert!(
+            log.contains("R\t1\t0\t0"),
+            "store transaction must end on its response"
+        );
+        assert!(
+            !log.contains("S\t2\t2\tSQ-I"),
+            "the reused ROB slot must not receive the older store request"
+        );
     }
 }

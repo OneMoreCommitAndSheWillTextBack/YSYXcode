@@ -647,11 +647,13 @@ impl Checker {
             self.perf.mem_event(PerfCounters::REFILL_FAULT)
         );
         crate::Log!(
-            "StoreQueue: alloc: {}, full stall cycles: {}, drain: {}, avg occupancy: {:.3}",
+            "StoreQueue: allocation cycles: {}, full stall cycles: {}, commit cycles: {}, requests: {}, responses: {}, avg occupancy: {:.3}",
             self.perf.mem_event(PerfCounters::STORE_QUEUE_ALLOC),
             self.perf
                 .mem_event(PerfCounters::STORE_QUEUE_FULL_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::STORE_COMMIT),
             self.perf.mem_event(PerfCounters::STORE_DRAIN),
+            self.perf.mem_event(PerfCounters::STORE_RESPONSE),
             self.perf.average_store_queue_occupancy()
         );
         crate::Log!(

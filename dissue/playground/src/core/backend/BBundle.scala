@@ -57,14 +57,17 @@ class IssueControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
 }
 
 class IssuePortStatus extends Bundle {
-  val alu   = Bool()
-  val mul   = Bool()
-  val div   = Bool()
-  val lsu   = Bool()
-  val bru   = Bool()
-  val jmp   = Bool()
-  val csr   = Bool()
-  val fence = Bool()
+  val alu    = Bool()
+  val mul    = Bool()
+  val div    = Bool()
+  val lsu    = Bool()
+  val bru    = Bool()
+  val jmp    = Bool()
+  val csr    = Bool()
+  val fence  = Bool()
+  val load   = Bool()
+  val store  = Bool()
+  val atomic = Bool()
 }
 
 class IssueWakeup(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -85,28 +88,48 @@ class StoreQueueAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
 }
 
 class StoreQueueUpdate(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val valid  = Bool()
+  val sqIdx  = UInt(cfg.sqIdxWidth.W)
   val robIdx = UInt(cfg.robIdxWidth.W)
+  val vaddr  = UInt(cfg.addrWidth.W)
   val addr   = UInt(cfg.addrWidth.W)
   val data   = UInt(cfg.dataWidth.W)
   val mask   = UInt((cfg.dataWidth / 8).W)
+  val size   = UInt(3.W)
+  val mmio   = Bool()
 }
 
 class StoreQueueCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid  = Bool()
+  val sqIdx  = UInt(cfg.sqIdxWidth.W)
   val robIdx = UInt(cfg.robIdxWidth.W)
 }
 
-class StoreQueueDrain(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val valid  = Bool()
+class StoreQueueEvent(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val sqIdx  = UInt(cfg.sqIdxWidth.W)
   val robIdx = UInt(cfg.robIdxWidth.W)
+}
+
+class StoreDrainRequest(cfg: BackendConfig = BackendConfig()) extends StoreQueueEvent(cfg) {
+  val vaddr = UInt(cfg.addrWidth.W)
+  val addr  = UInt(cfg.addrWidth.W)
+  val data  = UInt(cfg.dataWidth.W)
+  val mask  = UInt((cfg.dataWidth / 8).W)
+  val size  = UInt(3.W)
+  val mmio  = Bool()
+}
+
+class StoreResponseEvent(cfg: BackendConfig = BackendConfig()) extends StoreQueueEvent(cfg) {
+  val fault = Bool()
+  val mmio  = Bool()
 }
 
 class StoreQueuePerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val alloc     = Bool()
   val fullStall = Bool()
-  val drain     = Bool()
-  val occupancy = UInt(math.max(chisel3.util.log2Ceil(cfg.robEntries + 1), 1).W)
+  val commit    = Bool()
+  val request   = Bool()
+  val response  = Bool()
+  val occupancy = UInt(math.max(chisel3.util.log2Ceil(cfg.storeQueueEntries + 1), 1).W)
 }
 
 class BackendMemPerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -115,9 +138,11 @@ class BackendMemPerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val forwardFull                 = Bool()
   val forwardPartial              = Bool()
   val forwardUnresolvedStoreStall = Bool()
+  val storeCommit                 = Bool()
   val storeDrain                  = Bool()
+  val storeResponse               = Bool()
   val loadTxnFullStall            = Bool()
-  val sqOccupancy                 = UInt(math.max(chisel3.util.log2Ceil(cfg.robEntries + 1), 1).W)
+  val sqOccupancy                 = UInt(math.max(chisel3.util.log2Ceil(cfg.storeQueueEntries + 1), 1).W)
   val loadTxnOccupancy            = UInt(math.max(chisel3.util.log2Ceil(cfg.loadTxnEntries + 1), 1).W)
 }
 
@@ -162,6 +187,7 @@ class RetireControl(cfg: BackendConfig = BackendConfig()) extends Bundle {
 class RetireLane(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid     = Bool()
   val robIdx    = UInt(cfg.robIdxWidth.W)
+  val sqIdx     = UInt(cfg.sqIdxWidth.W)
   val fetch     = new FetchInstPayload(cfg.addrWidth)
   val nextPc    = UInt(cfg.addrWidth.W)
   val rf        = new CommitRegWrite(cfg)
@@ -189,6 +215,7 @@ class IssuePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val fetch       = new FetchInstPayload(cfg.addrWidth)
   val legal       = Bool()
   val robIdx      = UInt(cfg.robIdxWidth.W)
+  val sqIdx       = UInt(cfg.sqIdxWidth.W)
   val rd          = UInt(5.W)
   val imm         = UInt(32.W)
   val src1        = new IssueOperand(cfg)
@@ -234,6 +261,7 @@ class ScoreboardCommit(cfg: BackendConfig = BackendConfig()) extends Bundle {
 
 class RobAllocPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val decode = new DecodePacket(cfg)
+  val sqIdx  = UInt(cfg.sqIdxWidth.W)
 }
 
 class RobWritebackPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -278,6 +306,7 @@ class RobProducerEntry(cfg: BackendConfig = BackendConfig()) extends Bundle {
 
 class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx         = UInt(cfg.robIdxWidth.W)
+  val sqIdx          = UInt(cfg.sqIdxWidth.W)
   val fetch          = new FetchInstPayload(cfg.addrWidth)
   val rd             = UInt(5.W)
   val rfWen          = Bool()

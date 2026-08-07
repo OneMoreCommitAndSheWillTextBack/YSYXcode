@@ -1,7 +1,7 @@
 package top.core.bundle
 
 import chisel3._
-import chisel3.util.Valid
+import chisel3.util.{Cat, Valid}
 import top.config.ICacheConfig
 import top.core.frontend.bundle.{PredictionMeta, PredictorRecovery, RasAction}
 
@@ -49,16 +49,40 @@ object DataMemKind {
 }
 
 object DataMemTxn {
-  val width = 4
+  val classWidth = 2
+  val slotWidth  = 2
+  val width      = classWidth + slotWidth
+  val slotCount  = 1 << slotWidth
 
-  // Keep normal-load tags below the fixed protocol tags used by non-load paths.
-  val loadTagCount = 12
-  val atomic       = 12.U(width.W)
-  val ptw          = 13.U(width.W)
-  val store        = 14.U(width.W)
+  private val loadClass   = 0
+  private val storeClass  = 1
+  private val ptwClass    = 2
+  private val atomicClass = 3
 
-  def isLoad(txnId: UInt): Bool =
-    txnId < loadTagCount.U(width.W)
+  private def encode(txnClass: Int, slot: UInt): UInt = {
+    val result = Wire(UInt(width.W))
+    result := (txnClass << slotWidth).U(width.W) | slot
+    result
+  }
+
+  def loadTag(slot: UInt): UInt = encode(loadClass, slot)
+
+  def storeTag(slot: UInt): UInt = encode(storeClass, slot)
+
+  val ptwTag:    UInt = "b1000".U(width.W)
+  val atomicTag: UInt = "b1100".U(width.W)
+
+  def txnClass(txnId: UInt): UInt = txnId(width - 1, slotWidth)
+
+  def slot(txnId: UInt): UInt = txnId(slotWidth - 1, 0)
+
+  def isLoad(txnId: UInt): Bool = txnClass(txnId) === loadClass.U
+
+  def isStore(txnId: UInt): Bool = txnClass(txnId) === storeClass.U
+
+  def isPtw(txnId: UInt): Bool = txnClass(txnId) === ptwClass.U
+
+  def isAtomic(txnId: UInt): Bool = txnClass(txnId) === atomicClass.U
 }
 
 object MemPerfEvent {
@@ -81,46 +105,48 @@ object MemPerfEvent {
   val forwardPartial              = 16
   val forwardUnresolvedStallCycle = 17
   val storeDrain                  = 18
-  val width                       = 19
+  val storeCommit                 = 19
+  val storeResponse               = 20
+  val width                       = 21
 
   def bit(index: Int, enabled: Bool): UInt =
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))
 }
 
 object FrontendPerfEvent {
-  val icacheRequest                    = 0
-  val icacheHit                        = 1
-  val icacheMiss                       = 2
-  val icacheMissWaitCycle              = 3
-  val backendRedirect                  = 4
-  val icacheInvalidate                 = 5
-  val frontendEmpty                    = 6
-  val axiRequestWait                   = 7
-  val fetchQueueEmptyWithBackendReady  = 8
-  val fetchQueueFull                   = 9
-  val icacheMshrActiveCycle            = 10
-  val icacheHitUnderMiss               = 11
-  val icacheSameLineWaitCycle          = 12
-  val icacheQueuedMiss                 = 13
-  val redirectDuringMshr               = 14
-  val redirectDuringMshrTargetHit      = 15
-  val staleResponseDrop                = 16
-  val rasPush                          = 17
-  val rasPop                           = 18
-  val rasPopThenPush                   = 19
-  val rasUse                           = 20
-  val rasHit                           = 21
-  val rasMiss                          = 22
-  val rasUnderflow                     = 23
-  val rasOverflow                      = 24
-  val rasCheckpointRestore             = 25
-  val rasRecoveryDiscard               = 26
-  val tageTaggedProvider               = 27
-  val tageAlternateDisagree            = 28
-  val tageAllocation                   = 29
-  val tageUsefulnessAging              = 30
-  val lateOverride                     = 31
-  val width                            = 32
+  val icacheRequest                   = 0
+  val icacheHit                       = 1
+  val icacheMiss                      = 2
+  val icacheMissWaitCycle             = 3
+  val backendRedirect                 = 4
+  val icacheInvalidate                = 5
+  val frontendEmpty                   = 6
+  val axiRequestWait                  = 7
+  val fetchQueueEmptyWithBackendReady = 8
+  val fetchQueueFull                  = 9
+  val icacheMshrActiveCycle           = 10
+  val icacheHitUnderMiss              = 11
+  val icacheSameLineWaitCycle         = 12
+  val icacheQueuedMiss                = 13
+  val redirectDuringMshr              = 14
+  val redirectDuringMshrTargetHit     = 15
+  val staleResponseDrop               = 16
+  val rasPush                         = 17
+  val rasPop                          = 18
+  val rasPopThenPush                  = 19
+  val rasUse                          = 20
+  val rasHit                          = 21
+  val rasMiss                         = 22
+  val rasUnderflow                    = 23
+  val rasOverflow                     = 24
+  val rasCheckpointRestore            = 25
+  val rasRecoveryDiscard              = 26
+  val tageTaggedProvider              = 27
+  val tageAlternateDisagree           = 28
+  val tageAllocation                  = 29
+  val tageUsefulnessAging             = 30
+  val lateOverride                    = 31
+  val width                           = 32
 
   def bit(index: Int, enabled: Bool): UInt =
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))
@@ -181,21 +207,21 @@ class FrontendToBackend(issueWidth: Int = 2, addrWidth: Int = 32) extends Bundle
 }
 
 class BpuUpdatePayload(addrWidth: Int = 32) extends Bundle {
-  val pc      = UInt(addrWidth.W)
-  val cfiType = UInt(CfiType.width.W)
-  val taken   = Bool()
-  val target  = UInt(addrWidth.W)
-  val instLen = UInt(3.W)
-  val rasAction = UInt(RasAction.width.W)
+  val pc         = UInt(addrWidth.W)
+  val cfiType    = UInt(CfiType.width.W)
+  val taken      = Bool()
+  val target     = UInt(addrWidth.W)
+  val instLen    = UInt(3.W)
+  val rasAction  = UInt(RasAction.width.W)
   val prediction = new PredictionMeta(ICacheConfig(addrWidth = addrWidth))
 }
 
 class BackendToFrontend(addrWidth: Int = 32, commitWidth: Int = 2) extends Bundle {
-  val trapRedirect   = new Redirect(addrWidth)
-  val branchRedirect = new Redirect(addrWidth)
-  val predRedirect   = new Redirect(addrWidth)
-  val icacheInvalidate = Bool()
-  val bpuUpdates     = Vec(commitWidth, Valid(new BpuUpdatePayload(addrWidth)))
+  val trapRedirect      = new Redirect(addrWidth)
+  val branchRedirect    = new Redirect(addrWidth)
+  val predRedirect      = new Redirect(addrWidth)
+  val icacheInvalidate  = Bool()
+  val bpuUpdates        = Vec(commitWidth, Valid(new BpuUpdatePayload(addrWidth)))
   val predictorRecovery = Valid(new PredictorRecovery(addrWidth))
 }
 
@@ -227,9 +253,8 @@ class DataMemOwner(robIdxWidth: Int) extends Bundle {
 
 /** Defines when a data request may become externally visible.
   *
-  * Cacheable requests may execute speculatively inside the core, but a new AXI
-  * transaction is permitted only after every older control-flow instruction has
-  * resolved. Non-squashable owners are retirement-side requests and therefore
+  * Cacheable requests may execute speculatively inside the core, but a new AXI transaction is permitted only after
+  * every older control-flow instruction has resolved. Non-squashable owners are retirement-side requests and therefore
   * already architecturally committed.
   */
 object DataMemExternalization {
@@ -238,12 +263,13 @@ object DataMemExternalization {
     unresolvedCfi: Vec[Bool],
     robHead:       UInt,
     robEntries:    Int,
-    robIdxWidth:   Int): Bool = {
+    robIdxWidth:   Int
+  ): Bool = {
     require(robEntries > 0, "robEntries must be positive")
 
     owner.squashable && VecInit((0 until robEntries).map { cfiRobIdx =>
       unresolvedCfi(cfiRobIdx) &&
-        RobAge.isYounger(owner.robIdx, cfiRobIdx.U(robIdxWidth.W), robHead, robEntries, robIdxWidth)
+      RobAge.isYounger(owner.robIdx, cfiRobIdx.U(robIdxWidth.W), robHead, robEntries, robIdxWidth)
     }).asUInt.orR
   }
 
@@ -254,7 +280,8 @@ object DataMemExternalization {
     robEntries:    Int,
     robIdxWidth:   Int,
     flush:         Bool,
-    recover:       RobRecovery): Bool =
+    recover:       RobRecovery
+  ): Bool =
     !flush && !recover.valid && !hasOlderUnresolvedCfi(owner, unresolvedCfi, robHead, robEntries, robIdxWidth)
 }
 

@@ -17,6 +17,7 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
 
     /** Permission sampled while this accessor is waiting to launch AXI. */
     val issuePermit = Input(Bool())
+
     /** Drops a request that has not yet become externally visible. */
     val abort  = Input(Bool())
     val cancel = Output(Valid(UInt(DataMemTxn.width.W)))
@@ -68,9 +69,8 @@ class AxiDataAccess(cfg: MemConfig = MemConfig()) extends Module {
   // Once an address request has fired, the AXI transaction must drain. Before
   // that point, recovery can safely discard the request and release its load
   // transaction tag to the backend.
-  io.cancel.valid := io.abort && (state === sReadReq || state === sWriteReq) &&
-    DataMemTxn.isLoad(reqReg.txnId)
-  io.cancel.bits := reqReg.txnId
+  io.cancel.valid := io.abort && (state === sReadReq || state === sWriteReq)
+  io.cancel.bits  := reqReg.txnId
 
   io.axiReadReq.valid      := state === sReadReq && io.issuePermit && !io.abort
   io.axiReadReq.bits.addr  := reqReg.addr

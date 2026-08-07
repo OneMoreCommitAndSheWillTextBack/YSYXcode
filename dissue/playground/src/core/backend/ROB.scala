@@ -11,6 +11,7 @@ import top.config.BackendConfig
 private class RobEntry(cfg: BackendConfig) extends Bundle {
   val valid          = Bool()
   val done           = Bool()
+  val sqIdx          = UInt(cfg.sqIdxWidth.W)
   val fetch          = new FetchInstPayload(cfg.addrWidth)
   val rd             = UInt(5.W)
   val rfWen          = Bool()
@@ -53,22 +54,22 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
 
     val commit = Vec(cfg.commitWidth, Decoupled(new RobCommitPacket(cfg)))
 
-    val head  = Output(UInt(cfg.robIdxWidth.W))
-    val tail  = Output(UInt(cfg.robIdxWidth.W))
-    val full  = Output(Bool())
-    val empty = Output(Bool())
-    val flush = Input(Bool())
+    val head    = Output(UInt(cfg.robIdxWidth.W))
+    val tail    = Output(UInt(cfg.robIdxWidth.W))
+    val full    = Output(Bool())
+    val empty   = Output(Bool())
+    val flush   = Input(Bool())
     val recover = Input(new RobRecovery(cfg.robIdxWidth))
 
     val producerEntries = Output(Vec(cfg.robEntries, new RobProducerEntry(cfg)))
     // A memory request may leave the core only after every older CFI has
     // produced its execution result. The memory hierarchy compares this bitmap
     // with the request owner using ROB-ring age ordering.
-    val unresolvedCfi = Output(Vec(cfg.robEntries, Bool()))
+    val unresolvedCfi   = Output(Vec(cfg.robEntries, Bool()))
     // Younger LSU operations must not pass an older AMO. The AMO bypasses the
     // DCache, so a cacheable load could otherwise observe the line before the
     // AMO write has reached memory.
-    val unresolvedAmo = Output(Vec(cfg.robEntries, Bool()))
+    val unresolvedAmo   = Output(Vec(cfg.robEntries, Bool()))
   })
 
   private val entries = RegInit(VecInit(Seq.fill(cfg.robEntries)(0.U.asTypeOf(new RobEntry(cfg)))))
@@ -118,6 +119,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     commitFire(i)      := io.commit(i).fire
 
     io.commit(i).bits.robIdx         := commitIdx
+    io.commit(i).bits.sqIdx          := entry.sqIdx
     io.commit(i).bits.fetch          := entry.fetch
     io.commit(i).bits.rd             := entry.rd
     io.commit(i).bits.rfWen          := entry.rfWen
@@ -159,8 +161,8 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     io.producerEntries(index).robIdx := index.U(cfg.robIdxWidth.W)
     io.producerEntries(index).rd     := entries(index).rd
     io.producerEntries(index).rfWen  := entries(index).rfWen
-    io.unresolvedCfi(index) := entries(index).valid && entries(index).cfi =/= CfiType.none && !entries(index).done
-    io.unresolvedAmo(index) := entries(index).valid && entries(index).isAmo && !entries(index).done
+    io.unresolvedCfi(index)          := entries(index).valid && entries(index).cfi =/= CfiType.none && !entries(index).done
+    io.unresolvedAmo(index)          := entries(index).valid && entries(index).isAmo && !entries(index).done
   }
 
   private val allocCount  = PopCount(allocFire)
@@ -199,7 +201,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     tail  := 0.U
     count := 0.U
   }.elsewhen(io.recover.valid) {
-    for (wb <- io.writeback) {
+    for (wb    <- io.writeback) {
       applyWriteback(
         wb,
         !RobAge.isYounger(wb.bits.robIdx, io.recover.robIdx, head, cfg.robEntries, cfg.robIdxWidth)
@@ -211,7 +213,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
         entries(index).done  := false.B
       }
     }
-    tail  := wrapAdd(io.recover.robIdx, 1.U)
+    tail := wrapAdd(io.recover.robIdx, 1.U)
     count := recoveryCount
   }.otherwise {
     for (wb <- io.writeback) {
@@ -233,6 +235,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
 
         entries(allocIdx).valid          := true.B
         entries(allocIdx).done           := !decode.needsIssue
+        entries(allocIdx).sqIdx          := io.alloc(i).bits.sqIdx
         entries(allocIdx).fetch          := decode.fetch
         entries(allocIdx).rd             := decode.rd
         entries(allocIdx).rfWen          := decode.rfWen

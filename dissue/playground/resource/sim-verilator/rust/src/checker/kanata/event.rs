@@ -4,6 +4,9 @@ use crate::ffi::NpcPipelineEvent;
 pub(super) struct RobIndex(pub(super) u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) struct StoreIndex(pub(super) u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct InstructionKey {
     pub(super) epoch: u32,
     pub(super) sequence: u32,
@@ -35,6 +38,7 @@ pub(super) enum MemoryRequestKind {
     PageTableWalk,
     AtomicRead,
     AtomicWrite,
+    Store,
     Unknown,
 }
 
@@ -69,6 +73,19 @@ pub(super) enum PipelineEvent {
     },
     StoreReady {
         rob: RobIndex,
+    },
+    StoreCommit {
+        rob: RobIndex,
+        sq: StoreIndex,
+    },
+    StoreRequest {
+        rob: RobIndex,
+        sq: StoreIndex,
+    },
+    StoreResponse {
+        rob: RobIndex,
+        sq: StoreIndex,
+        fault: bool,
     },
     Writeback {
         rob: RobIndex,
@@ -120,6 +137,19 @@ impl PipelineEvent {
             kind::STORE_READY => Self::StoreReady {
                 rob: RobIndex(raw.rob_idx),
             },
+            kind::STORE_COMMIT => Self::StoreCommit {
+                rob: RobIndex(raw.rob_idx),
+                sq: StoreIndex(raw.producer0),
+            },
+            kind::STORE_REQUEST => Self::StoreRequest {
+                rob: RobIndex(raw.rob_idx),
+                sq: StoreIndex(raw.producer0),
+            },
+            kind::STORE_RESPONSE => Self::StoreResponse {
+                rob: RobIndex(raw.rob_idx),
+                sq: StoreIndex(raw.producer0),
+                fault: flag(raw.flags, flag::TRAP),
+            },
             kind::WRITEBACK => Self::Writeback {
                 rob: RobIndex(raw.rob_idx),
             },
@@ -143,6 +173,10 @@ impl PipelineEvent {
             Self::Issue { .. } => kind::ISSUE,
             Self::MemoryRequest { .. } => kind::MEMORY_REQUEST,
             Self::StoreReady { .. } => kind::STORE_READY,
+            // Store commit must update SQ state before the same-cycle architectural retire removes the ROB mapping.
+            Self::StoreCommit { .. } => kind::WRITEBACK,
+            Self::StoreRequest { .. } => kind::STORE_REQUEST,
+            Self::StoreResponse { .. } => kind::STORE_RESPONSE,
             Self::Writeback { .. } => kind::WRITEBACK,
             Self::Retire { .. } => kind::RETIRE,
             Self::Recover { .. } => kind::RECOVER,
@@ -174,6 +208,7 @@ impl MemoryRequestKind {
             resource::PAGE_TABLE_WALK => Self::PageTableWalk,
             resource::ATOMIC_READ => Self::AtomicRead,
             resource::ATOMIC_WRITE => Self::AtomicWrite,
+            resource::STORE => Self::Store,
             _ => Self::Unknown,
         }
     }
@@ -195,6 +230,9 @@ mod kind {
     pub(super) const RETIRE: u32 = 8;
     pub(super) const RECOVER: u32 = 9;
     pub(super) const FLUSH: u32 = 10;
+    pub(super) const STORE_COMMIT: u32 = 11;
+    pub(super) const STORE_REQUEST: u32 = 12;
+    pub(super) const STORE_RESPONSE: u32 = 13;
 }
 
 mod flag {
@@ -218,4 +256,5 @@ mod resource {
     pub(super) const PAGE_TABLE_WALK: u32 = 10;
     pub(super) const ATOMIC_READ: u32 = 11;
     pub(super) const ATOMIC_WRITE: u32 = 12;
+    pub(super) const STORE: u32 = 13;
 }

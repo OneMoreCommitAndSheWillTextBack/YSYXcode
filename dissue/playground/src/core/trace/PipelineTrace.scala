@@ -3,7 +3,16 @@ package top.core.trace
 import chisel3._
 import chisel3.util.{MuxLookup, Valid}
 import top.config.{BackendConfig, ICacheConfig}
-import top.core.backend.bundle.{DecodePacket, IssuePacket, RetireGroup, RobWritebackPacket, StoreQueueUpdate}
+import top.core.backend.bundle.{
+  DecodePacket,
+  IssuePacket,
+  RetireGroup,
+  RobWritebackPacket,
+  StoreQueueCommit,
+  StoreQueueEvent,
+  StoreQueueUpdate,
+  StoreResponseEvent
+}
 import top.core.backend.decoder.FuType
 import top.core.bundle.{DataMemKind, DataMemTxn, FrontendToBackend, RobAge, RobRecovery}
 import top.core.frontend.ifetch.FetchQueueEnqueue
@@ -24,6 +33,9 @@ object PipelineTraceKind {
   val retire            = 8.U(32.W)
   val recover           = 9.U(32.W)
   val flush             = 10.U(32.W)
+  val storeCommit       = 11.U(32.W)
+  val storeRequest      = 12.U(32.W)
+  val storeResponse     = 13.U(32.W)
 }
 
 /** Instruction properties whose meaning is independent of the current pipeline shape. */
@@ -55,6 +67,7 @@ object PipelineTraceResource {
   val ptw         = 10.U(32.W)
   val atomicRead  = 11.U(32.W)
   val atomicWrite = 12.U(32.W)
+  val store       = 13.U(32.W)
   val unknown     = 15.U(32.W)
 
   def fromFuType(fuType: UInt): UInt =
@@ -72,7 +85,7 @@ object PipelineTraceResource {
     )
 
   def fromMemory(kind: UInt, write: Bool): UInt =
-    MuxLookup(kind, load)(
+    MuxLookup(kind, Mux(write, store, load))(
       Seq(
         DataMemKind.ptw    -> ptw,
         DataMemKind.atomic -> Mux(write, atomicWrite, atomicRead)
@@ -161,18 +174,22 @@ object BackendPipelineTrace {
   private def writebackBase(cfg: BackendConfig): Int = issueBase(cfg) + cfg.intIssueWidth + 1
   private def retireBase(cfg:    BackendConfig): Int = writebackBase(cfg) + cfg.writebackWidth
 
-  def storeReadyIndex(cfg:    BackendConfig): Int = retireBase(cfg) + cfg.commitWidth
-  def memoryRequestIndex(cfg: BackendConfig): Int = storeReadyIndex(cfg) + 1
-  def recoverIndex(cfg:       BackendConfig): Int = memoryRequestIndex(cfg) + 1
-  def flushIndex(cfg:         BackendConfig): Int = recoverIndex(cfg) + 1
-  def eventCount(cfg:         BackendConfig): Int = flushIndex(cfg) + 1
+  def storeReadyIndex(cfg:         BackendConfig): Int = retireBase(cfg) + cfg.commitWidth
+  private def storeCommitBase(cfg: BackendConfig): Int = storeReadyIndex(cfg) + 1
+  def storeRequestIndex(cfg:       BackendConfig): Int = storeCommitBase(cfg) + cfg.commitWidth
+  def storeResponseIndex(cfg:      BackendConfig): Int = storeRequestIndex(cfg) + 1
+  def memoryRequestIndex(cfg:      BackendConfig): Int = storeResponseIndex(cfg) + 1
+  def recoverIndex(cfg:            BackendConfig): Int = memoryRequestIndex(cfg) + 1
+  def flushIndex(cfg:              BackendConfig): Int = recoverIndex(cfg) + 1
+  def eventCount(cfg:              BackendConfig): Int = flushIndex(cfg) + 1
 
-  def receiveIndex(lane:  Int): Int = lane
-  def dispatchIndex(cfg:  BackendConfig, lane: Int): Int = dispatchBase(cfg) + lane
-  def intIssueIndex(cfg:  BackendConfig, port: Int): Int = issueBase(cfg) + port
-  def memIssueIndex(cfg:  BackendConfig): Int = issueBase(cfg) + cfg.intIssueWidth
-  def writebackIndex(cfg: BackendConfig, port: Int): Int = writebackBase(cfg) + port
-  def retireIndex(cfg:    BackendConfig, lane: Int): Int = retireBase(cfg) + lane
+  def receiveIndex(lane:    Int): Int = lane
+  def dispatchIndex(cfg:    BackendConfig, lane: Int): Int = dispatchBase(cfg) + lane
+  def intIssueIndex(cfg:    BackendConfig, port: Int): Int = issueBase(cfg) + port
+  def memIssueIndex(cfg:    BackendConfig): Int = issueBase(cfg) + cfg.intIssueWidth
+  def writebackIndex(cfg:   BackendConfig, port: Int): Int = writebackBase(cfg) + port
+  def retireIndex(cfg:      BackendConfig, lane: Int): Int = retireBase(cfg) + lane
+  def storeCommitIndex(cfg: BackendConfig, lane: Int): Int = storeCommitBase(cfg) + lane
 }
 
 /** Collects backend handshakes without adding ready paths or changing pipeline ownership. */
@@ -190,9 +207,12 @@ class BackendPipelineTrace(cfg: BackendConfig) extends Module {
     val memIssueFire = Input(Bool())
     val memIssue     = Input(new IssuePacket(cfg))
 
-    val writeback  = Input(Vec(cfg.writebackWidth, Valid(new RobWritebackPacket(cfg))))
-    val retire     = Input(new RetireGroup(cfg))
-    val storeReady = Input(Valid(new StoreQueueUpdate(cfg)))
+    val writeback     = Input(Vec(cfg.writebackWidth, Valid(new RobWritebackPacket(cfg))))
+    val retire        = Input(new RetireGroup(cfg))
+    val storeReady    = Input(Valid(new StoreQueueUpdate(cfg)))
+    val storeCommit   = Input(Vec(cfg.commitWidth, new StoreQueueCommit(cfg)))
+    val storeRequest  = Input(Valid(new StoreQueueEvent(cfg)))
+    val storeResponse = Input(Valid(new StoreResponseEvent(cfg)))
 
     val memoryRequestFire   = Input(Bool())
     val memoryRequestRobIdx = Input(UInt(cfg.robIdxWidth.W))
@@ -294,6 +314,33 @@ class BackendPipelineTrace(cfg: BackendConfig) extends Module {
   private val storeReadyEvent = io.events(BackendPipelineTrace.storeReadyIndex(cfg))
   storeReadyEvent.valid := io.storeReady.valid
   storeReadyEvent.bits  := PipelineTraceEventBuilder.rob(PipelineTraceKind.storeReady, 0, io.storeReady.bits.robIdx)
+
+  for (lane <- 0 until cfg.commitWidth) {
+    val commit = io.storeCommit(lane)
+    val event  = io.events(BackendPipelineTrace.storeCommitIndex(cfg, lane))
+    event.valid          := commit.valid
+    event.bits           := PipelineTraceEventBuilder.rob(PipelineTraceKind.storeCommit, lane, commit.robIdx)
+    event.bits.producer0 := commit.sqIdx.pad(32)
+  }
+
+  private val storeRequestEvent = io.events(BackendPipelineTrace.storeRequestIndex(cfg))
+  storeRequestEvent.valid          := io.storeRequest.valid
+  storeRequestEvent.bits           := PipelineTraceEventBuilder.rob(
+    PipelineTraceKind.storeRequest,
+    0,
+    io.storeRequest.bits.robIdx
+  )
+  storeRequestEvent.bits.producer0 := io.storeRequest.bits.sqIdx.pad(32)
+
+  private val storeResponseEvent = io.events(BackendPipelineTrace.storeResponseIndex(cfg))
+  storeResponseEvent.valid          := io.storeResponse.valid
+  storeResponseEvent.bits           := PipelineTraceEventBuilder.rob(
+    PipelineTraceKind.storeResponse,
+    0,
+    io.storeResponse.bits.robIdx
+  )
+  storeResponseEvent.bits.producer0 := io.storeResponse.bits.sqIdx.pad(32)
+  storeResponseEvent.bits.flags     := PipelineTraceFlag.bit(PipelineTraceFlag.trap, io.storeResponse.bits.fault)
 
   private val memoryRequestEvent = io.events(BackendPipelineTrace.memoryRequestIndex(cfg))
   memoryRequestEvent.valid         := io.memoryRequestFire
