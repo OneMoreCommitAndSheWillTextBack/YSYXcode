@@ -267,6 +267,11 @@ impl KanataTrace {
         rob: RobIndex,
         kind: MemoryRequestKind,
     ) -> io::Result<()> {
+        // StoreRequest carries sqIdx and is the authoritative event after architectural retirement. The generic
+        // memory event is ROB keyed and could otherwise alias a younger instruction after ROB-slot reuse.
+        if kind == MemoryRequestKind::Store {
+            return Ok(());
+        }
         let Some(&id) = self.by_rob.get(&rob) else {
             return Ok(());
         };
@@ -278,9 +283,7 @@ impl KanataTrace {
             MemoryRequestKind::AtomicRead | MemoryRequestKind::AtomicWrite => {
                 self.start_tracking(id, Stage::ATOMIC_TRANSACTION_QUEUE, cycle)?;
             }
-            MemoryRequestKind::Store => {
-                self.start_tracking(id, Stage::STORE_QUEUE_ISSUED, cycle)?;
-            }
+            MemoryRequestKind::Store => {}
             MemoryRequestKind::PageTableWalk | MemoryRequestKind::Unknown => {}
         }
         Ok(())
@@ -673,6 +676,7 @@ mod tests {
 
     const FETCH: u32 = 1;
     const DISPATCH: u32 = 3;
+    const MEMORY_REQUEST: u32 = 5;
     const STORE_READY: u32 = 6;
     const RETIRE: u32 = 8;
     const STORE_COMMIT: u32 = 11;
@@ -680,6 +684,7 @@ mod tests {
     const STORE_RESPONSE: u32 = 13;
     const NEEDS_ISSUE: u32 = 1 << 0;
     const STORE: u32 = 1 << 4;
+    const MEMORY_STORE: u32 = 13;
 
     fn event(kind: u32) -> NpcPipelineEvent {
         NpcPipelineEvent {
@@ -756,7 +761,10 @@ mod tests {
             let mut request = event(STORE_REQUEST);
             request.rob_idx = 3;
             request.producer0 = 1;
-            write(&mut trace, 5, [request]);
+            let mut generic_request = event(MEMORY_REQUEST);
+            generic_request.rob_idx = 3;
+            generic_request.resource = MEMORY_STORE;
+            write(&mut trace, 5, [request, generic_request]);
 
             let mut response = event(STORE_RESPONSE);
             response.rob_idx = 3;
@@ -787,6 +795,10 @@ mod tests {
         assert!(
             !log.contains("S\t2\t2\tSQ-I"),
             "the reused ROB slot must not receive the older store request"
+        );
+        assert!(
+            !log.contains("S\t2\t3\tDMQ-ST"),
+            "the generic memory event must not attach the store request to a reused ROB slot"
         );
     }
 }

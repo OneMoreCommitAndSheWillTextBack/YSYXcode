@@ -113,6 +113,7 @@ class Core(resetVector: BigInt) extends Module {
   mem.io.dmemReq.valid     := backend.io.dmemReq.valid
   mem.io.dmemReq.bits      := backend.io.dmemReq.bits
   backend.io.dmemReq.ready := mem.io.dmemReq.ready
+  
   mem.io.flush             := backend.io.globalFlush
   mem.io.recover           := backend.io.recover
   mem.io.robHead           := backend.io.robHead

@@ -117,6 +117,7 @@ class Frontend(
   bpu.io.lateQuery := ifetch.io.lateQuery
   bpu.io.lateSpecUpdate := ifetch.io.lateSpecUpdate
   bpu.io.rasSpecUpdate  := ifetch.io.rasSpecUpdate
+  
   val localPredictorRecovery = Wire(Valid(new PredictorRecovery(cfg.addrWidth)))
   localPredictorRecovery                   := 0.U.asTypeOf(Valid(new PredictorRecovery(cfg.addrWidth)))
   localPredictorRecovery.valid             := ifetch.io.lateRecovery.valid

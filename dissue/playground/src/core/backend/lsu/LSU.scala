@@ -293,29 +293,38 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   private val translateStore     = isStoreOp(reqReg)
   private val translateSc        = isScOp(reqReg)
   private val translateException = translator.io.resp.bits.exception.valid
+  private val translateDeviceLoad = translateLoad && !translateException &&
+    MemAddress.isDevice(translator.io.resp.bits.paddr, cfg.addrWidth)
   private val scWillFail         = translateSc &&
     !(reservationValid && reservationAddr === translator.io.resp.bits.paddr)
-  private val loadNeedsDcache    = translateLoad && !storeQueue.io.query.fullForward
+  // Device reads can have side effects. They must neither consume SQ forwarding nor become visible below the LSU until
+  // they are the precise ROB-head operation and all older stores have completed.
+  private val deviceLoadOrderingReady = reqReg.robIdx === io.robHead && storesDrained && loadTxns.io.empty &&
+    !ptwBusy && !atomicBusy && !serializedPending
+  private val loadNeedsMemory = translateLoad && (translateDeviceLoad || !storeQueue.io.query.fullForward)
 
   loadTxns.io.alloc.valid            := currentRequestActive && state === sTranslate && translator.io.resp.valid &&
-    !translateException && translateLoad && !storeQueue.io.query.unresolved && loadNeedsDcache
+    !translateException && translateLoad && !storeQueue.io.query.unresolved && loadNeedsMemory &&
+    (!translateDeviceLoad || deviceLoadOrderingReady)
   loadTxns.io.alloc.bits.robIdx      := reqReg.robIdx
   loadTxns.io.alloc.bits.vaddr       := vaddrReg
   loadTxns.io.alloc.bits.paddr       := translator.io.resp.bits.paddr
   loadTxns.io.alloc.bits.size        := reqReg.memSize
   loadTxns.io.alloc.bits.unsigned    := reqReg.memUnsigned
-  loadTxns.io.alloc.bits.forwardMask := storeQueue.io.query.forwardMask
-  loadTxns.io.alloc.bits.forwardData := storeQueue.io.query.forwardData
+  loadTxns.io.alloc.bits.forwardMask := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardMask)
+  loadTxns.io.alloc.bits.forwardData := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardData)
 
   private val loadCanComplete      = !storeQueue.io.query.unresolved &&
-    (!loadNeedsDcache || loadTxns.io.alloc.ready)
+    (!loadNeedsMemory || (loadTxns.io.alloc.ready && (!translateDeviceLoad || deviceLoadOrderingReady)))
   private val translateCanComplete = translateException || translateStore || translateSc ||
     (!reqReg.isAmo && translateLoad && loadCanComplete) || (reqReg.isAmo && !translateSc)
   translator.io.resp.ready := state === sTranslate && translateCanComplete && currentRequestActive
 
   io.forwardFull                 := state === sTranslate && translator.io.resp.fire && translateLoad &&
+    !translateDeviceLoad &&
     storeQueue.io.query.fullForward
   io.forwardPartial              := state === sTranslate && translator.io.resp.fire && translateLoad &&
+    !translateDeviceLoad &&
     storeQueue.io.query.partialForward
   io.forwardUnresolvedStoreStall := state === sTranslate && translator.io.resp.valid && translateLoad &&
     storeQueue.io.query.unresolved && currentRequestActive
@@ -327,7 +336,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   normalLoadReq.request.size      := reqReg.memSize
   normalLoadReq.request.unsigned  := reqReg.memUnsigned
   normalLoadReq.request.txnId     := loadTxnIdReg
-  normalLoadReq.request.cacheable := true.B
+  normalLoadReq.request.cacheable := !MemAddress.isDevice(paddrReg, cfg.addrWidth)
   normalLoadReq.request.kind      := DataMemKind.normal
   normalLoadReq.owner.squashable  := true.B
   normalLoadReq.owner.robIdx      := reqReg.robIdx
@@ -479,7 +488,8 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
 
   storeDrain.io.response.valid      := io.dmemResp.valid && responseIsStore
   storeDrain.io.response.bits       := io.dmemResp.bits
-  // Serialized stores start only with an idle pipe and empty LTQ, so their precise fault always owns the LSU port.
+  // A serialized store may coexist only with a held younger device-load translation and an empty LTQ, so its precise
+  // fault still owns the LSU writeback port.
   storeDrain.io.allowFaultWriteback := true.B
 
   private val ptwResponseMatch = ptwBusy && io.dmemResp.bits.txnId === DataMemTxn.ptwTag
@@ -556,7 +566,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
       pipeWriteback.valid          := true.B
       pipeWriteback.bits.robIdx    := reqReg.robIdx
       pipeWriteback.bits.exception := translator.io.resp.bits.exception
-    }.elsewhen(translateLoad && storeQueue.io.query.fullForward) {
+    }.elsewhen(translateLoad && !translateDeviceLoad && storeQueue.io.query.fullForward) {
       val result = extendLoad(storeQueue.io.query.forwardData, reqReg.memSize, reqReg.memUnsigned)
       pipeWriteback.valid          := true.B
       pipeWriteback.bits.robIdx    := reqReg.robIdx
@@ -657,7 +667,10 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     }.elsewhen(state === sTranslate) {
       when(translator.io.resp.fire) {
         paddrReg := translator.io.resp.bits.paddr
-        when(translateException || translateStore || (translateLoad && storeQueue.io.query.fullForward) || scWillFail) {
+        when(
+          translateException || translateStore ||
+            (translateLoad && !translateDeviceLoad && storeQueue.io.query.fullForward) || scWillFail
+        ) {
           state := sIdle
         }.elsewhen(translateLoad) {
           loadTxnIdReg := loadTxns.io.allocTxnId
@@ -711,11 +724,14 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   storesDrained                    := !storeQueue.io.committedPending && !storeDrain.io.normalOutstanding
   io.storesDrainedBeforeCommit     := storesDrained
   io.storesDrained                 := storesDrained && !committedStore
-  storeDrain.io.serializedCanStart := io.serializedStore.valid && state === sIdle && loadTxns.io.empty &&
-    storesDrained && !ptwBusy && !atomicBusy
+  private val youngerDeviceLoadHoldingTranslation = currentRequestActive && state === sTranslate &&
+    translator.io.resp.valid && translateDeviceLoad && reqReg.robIdx =/= io.robHead
+  storeDrain.io.serializedCanStart := io.serializedStore.valid &&
+    (state === sIdle || youngerDeviceLoadHoldingTranslation) && loadTxns.io.empty && storesDrained && !ptwBusy &&
+    !atomicBusy
 
   io.memoryIdle       := state === sIdle && loadTxns.io.empty && storeDrain.io.idle && outbound.io.empty &&
-    !ptwBusy && !atomicBusy && !arbLocked
+    !ptwBusy && !atomicBusy && !arbLocked && !serializedPending
   io.busy             := state =/= sIdle || serializedPending
   io.loadTxnOccupancy := loadTxns.io.occupancy
   io.loadTxnFullStall := state === sIdle && !io.flush && !io.recover.valid && io.in.valid && inputIsLoad &&
@@ -724,6 +740,15 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   when(io.in.fire && inputIsAtomic) {
     assert(io.in.bits.robIdx === io.robHead, "atomic operations must start at the ROB head")
     assert(loadTxns.io.empty && storesDrained, "atomic operations require drained older memory state")
+  }
+  when(loadTxns.io.alloc.fire && translateDeviceLoad) {
+    assert(reqReg.robIdx === io.robHead, "device loads may allocate a transaction only at the ROB head")
+    assert(storesDrained && loadTxns.io.empty, "device loads require drained older stores and loads")
+    assert(loadTxns.io.alloc.bits.forwardMask === 0.U, "device loads must not consume store-queue forwarding")
+  }
+  when(rawLoadFire && MemAddress.isDevice(normalLoadReq.request.addr, cfg.addrWidth)) {
+    assert(reqReg.robIdx === io.robHead, "device loads may externalize only at the ROB head")
+    assert(storesDrained && !normalLoadReq.request.cacheable, "device loads must use the drained uncached path")
   }
   when(io.dmemResp.fire && responseIsPtw) {
     assert(ptwResponseMatch, "PTW response must match a live or killed transaction")
@@ -740,10 +765,15 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val stalledExternalRequest = RegNext(io.dmemReq.valid && !io.dmemReq.ready, false.B)
   private val stalledExternalBits    = RegEnable(io.dmemReq.bits.asUInt, io.dmemReq.valid && !io.dmemReq.ready)
+  private val stalledExternalTxnId =
+    RegEnable(io.dmemReq.bits.request.txnId, io.dmemReq.valid && !io.dmemReq.ready)
+  private val stalledExternalCanceled = outbound.io.cancel
+    .map(cancel => cancel.valid && cancel.bits === stalledExternalTxnId)
+    .reduce(_ || _)
   when(stalledExternalRequest) {
     assert(
-      io.dmemReq.valid && io.dmemReq.bits.asUInt === stalledExternalBits,
-      "outbound dmem request changed while stalled"
+      (io.dmemReq.valid && io.dmemReq.bits.asUInt === stalledExternalBits) || stalledExternalCanceled,
+      "outbound dmem request changed while stalled without cancellation"
     )
   }
   when(io.storesDrained) {

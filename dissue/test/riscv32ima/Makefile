@@ -16,6 +16,8 @@ NO_DIFF_TESTS := a-ext \
 	a-misaligned-trap \
 	device-clint-time \
 	device-plic-basic \
+	mmio-load-flush-cancel \
+	mmio-store-load-order \
 	sv32-basic \
 	sv32-icache-remap \
 	sv32-ad-bit-page-fault \

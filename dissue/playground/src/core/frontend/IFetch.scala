@@ -519,6 +519,7 @@ class IFetch(
   val hardFlush           = io.redirect.valid || io.flush
   val frontendRedirect    = hardFlush || localPredRedirect.valid || localException
   io.frontendRedirect := frontendRedirect
+
   val fetchQueueEpoch     = RegInit(0.U(cacheCfg.fetchEpochBits.W))
   ftq.io.redirect := frontendRedirect
   responseQueue.io.flush        := frontendRedirect
@@ -534,8 +535,10 @@ class IFetch(
     ftq.io.allocatePred(lane) := 0.U.asTypeOf(new FetchPred(cacheCfg))
     ftq.io.releaseMeta(lane) := 0.U.asTypeOf(new FetchControlMeta(cacheCfg))
   }
+
   val firstBlockAddr = Cat(io.pc(cacheCfg.addrWidth - 1, cacheCfg.offsetBits), 0.U(cacheCfg.offsetBits.W))
   val secondBlockPc  = firstBlockAddr +% cacheCfg.fetchBytes.U(cacheCfg.addrWidth.W)
+  
   ftq.io.allocatePc(0)   := io.pc
   ftq.io.allocatePc(1)   := secondBlockPc
   for (lane <- 0 until groupWidth) {
@@ -545,6 +548,8 @@ class IFetch(
 
   val req = Wire(new ICacheFetchGroupReq(cacheCfg))
   req := 0.U.asTypeOf(new ICacheFetchGroupReq(cacheCfg))
+  // FIXME: allocateMeta is generated combinationally inside FTQ from allocatePc/allocatePred; it is not a
+  // registered FTQ output. Move this metadata construction into IFetch so the pipeline boundary stays explicit.
   for (lane <- 0 until groupWidth) {
     req.blocks(lane).valid := true.B
     req.blocks(lane).bits  := ICacheReq.fromControl(ftq.io.allocateMeta(lane), cacheCfg)

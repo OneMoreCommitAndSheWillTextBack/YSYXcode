@@ -37,9 +37,11 @@ class RecoverableDmemQueue(
   private val squash     = io.flush || io.recover.valid
   private val headLocked = RegInit(false.B)
 
-  // Once the lower path has observed valid while stalled, Decoupled requires the head to remain irrevocable. Recovery
-  // may compact every request behind it, but the exposed head keeps its tag and eventually returns as a killed response.
-  io.deq.valid := count =/= 0.U && (!squash || headLocked)
+  private val revokeHead = squash && count =/= 0.U && discard(entries(0))
+
+  // A retained stalled head stays stable across recovery. A discarded speculative head is explicitly revoked instead;
+  // its transaction owner observes the matching cancel below, and no lower-memory state exists before deq.fire.
+  io.deq.valid := count =/= 0.U && (!squash || (headLocked && !revokeHead))
   io.deq.bits  := entries(0)
   io.empty     := count === 0.U
   // Do not let global flush influence ready: retirement may need to enqueue an older committed store in the same cycle
@@ -58,10 +60,9 @@ class RecoverableDmemQueue(
 
   private val keep = Wire(Vec(depth, Bool()))
   for (index <- 0 until depth) {
-    val lockedHead   = if (index == 0) headLocked else false.B
     val dequeuedHead = if (index == 0) io.deq.fire else false.B
-    keep(index)            := index.U < count && (!discard(entries(index)) || lockedHead) && !dequeuedHead
-    io.cancel(index).valid := squash && index.U < count && discard(entries(index)) && !lockedHead
+    keep(index)            := index.U < count && !discard(entries(index)) && !dequeuedHead
+    io.cancel(index).valid := squash && index.U < count && discard(entries(index))
     io.cancel(index).bits  := entries(index).request.txnId
   }
 
@@ -114,7 +115,7 @@ class RecoverableDmemQueue(
     }
   }
 
-  when(io.deq.fire) {
+  when(io.deq.fire || revokeHead) {
     headLocked := false.B
   }.elsewhen(io.deq.valid && !io.deq.ready) {
     headLocked := true.B
