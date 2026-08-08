@@ -17,9 +17,9 @@ import top.core.bundle.{
   RobAge,
   RobRecovery
 }
-import top.device.DeviceConst
 
 object Mem {
+
   /** DCache cancellation sources plus one pre-AXI bypass cancellation source. */
   def cancelPorts(dcache: DCacheConfig): Int = DCache.cancelPorts(dcache) + 1
 }
@@ -32,8 +32,8 @@ object Mem {
   */
 class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   private val readOwnerInst :: readOwnerDcache :: readOwnerBypass :: readOwnerPtw :: Nil = Enum(4)
-  private val robIdxWidth       = math.max(chisel3.util.log2Ceil(robEntries), 1)
-  private val dcacheCancelPorts = DCache.cancelPorts(cfg.dcache)
+  private val robIdxWidth                                                                = math.max(chisel3.util.log2Ceil(robEntries), 1)
+  private val dcacheCancelPorts                                                          = DCache.cancelPorts(cfg.dcache)
 
   val io = IO(new Bundle {
     val imemReq  = Flipped(Decoupled(new InstMemReq(cfg.addrWidth)))
@@ -45,11 +45,11 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     val dmemReq  = Flipped(Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.axiDataWidth, robIdxWidth)))
     val dmemResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
 
-    val flush   = Input(Bool())
-    val recover = Input(new RobRecovery(robIdxWidth))
-    val robHead = Input(UInt(robIdxWidth.W))
+    val flush         = Input(Bool())
+    val recover       = Input(new RobRecovery(robIdxWidth))
+    val robHead       = Input(UInt(robIdxWidth.W))
     val unresolvedCfi = Input(Vec(robEntries, Bool()))
-    val dmemCancel = Output(Vec(Mem.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
+    val dmemCancel    = Output(Vec(Mem.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
 
     val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
     val ptwResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
@@ -58,15 +58,6 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
 
     val axi = new AxiPort
   })
-
-  private def inRange(addr: UInt, base: BigInt, size: BigInt): Bool =
-    addr >= base.U(cfg.addrWidth.W) && addr < (base + size).U(cfg.addrWidth.W)
-
-  private def isDevice(addr: UInt): Bool =
-    inRange(addr, DeviceConst.clintBase, DeviceConst.clintSize) ||
-      inRange(addr, DeviceConst.rtcBase, DeviceConst.rtcSize) ||
-      inRange(addr, DeviceConst.serialBase, DeviceConst.serialSize) ||
-      inRange(addr, DeviceConst.plicBase, DeviceConst.plicSize)
 
   private def mayIssueAxi(owner: DataMemOwner): Bool =
     DataMemExternalization.mayIssueAxi(
@@ -94,29 +85,30 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   refill.io.req <> io.imemReq
   io.imemResp <> refill.io.resp
 
-  private val routeToDcache = io.dmemReq.bits.request.cacheable && io.dmemReq.bits.request.kind === DataMemKind.normal &&
-    !isDevice(io.dmemReq.bits.request.addr)
+  private val routeToDcache =
+    io.dmemReq.bits.request.cacheable && io.dmemReq.bits.request.kind === DataMemKind.normal &&
+      !MemAddress.isDevice(io.dmemReq.bits.request.addr, cfg.addrWidth)
 
-  dcache.io.req.valid       := io.dmemReq.valid && routeToDcache
-  dcache.io.req.bits        := io.dmemReq.bits
-  private val isArchitecturallyVisibleBypass = isDevice(io.dmemReq.bits.request.addr) ||
+  dcache.io.req.valid := io.dmemReq.valid && routeToDcache
+  dcache.io.req.bits  := io.dmemReq.bits
+  private val isArchitecturallyVisibleBypass = MemAddress.isDevice(io.dmemReq.bits.request.addr, cfg.addrWidth) ||
     io.dmemReq.bits.request.kind === DataMemKind.atomic
-  private val bypassAtRobHead = !io.dmemReq.bits.owner.squashable || io.dmemReq.bits.owner.robIdx === io.robHead
-  private val bypassMayIssue = mayIssueAxi(io.dmemReq.bits.owner) &&
+  private val bypassAtRobHead                = !io.dmemReq.bits.owner.squashable || io.dmemReq.bits.owner.robIdx === io.robHead
+  private val bypassMayIssue                 = mayIssueAxi(io.dmemReq.bits.owner) &&
     (!isArchitecturallyVisibleBypass || bypassAtRobHead)
-  private val bypassNeedsCacheMaintenance =
+  private val bypassNeedsCacheMaintenance    =
     io.dmemReq.bits.request.kind === DataMemKind.atomic || io.dmemReq.bits.request.kind === DataMemKind.ptw
-  private val ptwNeedsCacheMaintenance    = !isDevice(io.ptwReq.bits.addr)
+  private val ptwNeedsCacheMaintenance       = !MemAddress.isDevice(io.ptwReq.bits.addr, cfg.addrWidth)
 
   // A cacheable store may have modified a page table line that a PTW now needs
   // to read through the uncached path. Give the PTW maintenance priority and
   // make both bypass classes clean+invalidate before touching main memory.
-  private val ptwMaintenanceSelected = io.ptwReq.valid && ptwNeedsCacheMaintenance
+  private val ptwMaintenanceSelected    = io.ptwReq.valid && ptwNeedsCacheMaintenance
   private val bypassMaintenanceSelected = !ptwMaintenanceSelected && io.dmemReq.valid &&
     !routeToDcache && bypassMayIssue && bypassNeedsCacheMaintenance
-  private val bypassCanAccept = bypassMayIssue &&
+  private val bypassCanAccept           = bypassMayIssue &&
     (!bypassNeedsCacheMaintenance || (bypassMaintenanceSelected && dcache.io.cleanInvalidate.ready))
-  private val ptwCanAccept = !ptwNeedsCacheMaintenance ||
+  private val ptwCanAccept              = !ptwNeedsCacheMaintenance ||
     (ptwMaintenanceSelected && dcache.io.cleanInvalidate.ready)
 
   // MMIO and atomics can have side effects even for reads, so they wait for
@@ -129,20 +121,20 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     bypassAccess.io.req.ready && bypassCanAccept
   )
 
-  dcache.io.flush   := io.flush
-  dcache.io.recover := io.recover
-  dcache.io.robHead := io.robHead
-  dcache.io.unresolvedCfi := io.unresolvedCfi
+  dcache.io.flush                 := io.flush
+  dcache.io.recover               := io.recover
+  dcache.io.robHead               := io.robHead
+  dcache.io.unresolvedCfi         := io.unresolvedCfi
   dcache.io.cleanInvalidate.valid := ptwMaintenanceSelected || bypassMaintenanceSelected
-  dcache.io.cleanInvalidate.bits := Mux(
+  dcache.io.cleanInvalidate.bits  := Mux(
     ptwMaintenanceSelected,
     io.ptwReq.bits.addr,
     io.dmemReq.bits.request.addr
   )
-  dcache.io.cleanAll.valid := io.fenceIReq.valid
-  dcache.io.cleanAll.bits  := io.fenceIReq.bits
-  io.fenceIReq.ready       := dcache.io.cleanAll.ready
-  io.fenceIDone            := dcache.io.cleanAllDone
+  dcache.io.cleanAll.valid        := io.fenceIReq.valid
+  dcache.io.cleanAll.bits         := io.fenceIReq.bits
+  io.fenceIReq.ready              := dcache.io.cleanAll.ready
+  io.fenceIDone                   := dcache.io.cleanAllDone
 
   when(bypassAccess.io.req.fire) {
     bypassOwner := io.dmemReq.bits.owner
@@ -158,9 +150,9 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   }
   io.dmemCancel(dcacheCancelPorts) := bypassAccess.io.cancel
 
-  ptwAccess.io.req.valid := io.ptwReq.valid && ptwCanAccept
-  ptwAccess.io.req.bits  := io.ptwReq.bits
-  io.ptwReq.ready        := ptwAccess.io.req.ready && ptwCanAccept
+  ptwAccess.io.req.valid   := io.ptwReq.valid && ptwCanAccept
+  ptwAccess.io.req.bits    := io.ptwReq.bits
+  io.ptwReq.ready          := ptwAccess.io.req.ready && ptwCanAccept
   ptwAccess.io.issuePermit := true.B
   ptwAccess.io.abort       := false.B
   io.ptwResp <> ptwAccess.io.resp

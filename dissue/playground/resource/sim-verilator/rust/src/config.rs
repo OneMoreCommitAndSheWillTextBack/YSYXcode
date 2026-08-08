@@ -83,6 +83,7 @@ pub(crate) struct CheckerConfig {
     pub difftest_port: i32,
     pub itrace_path: Option<PathBuf>,
     pub detailed_trace_path: Option<PathBuf>,
+    pub kanata_path: Option<PathBuf>,
     pub max_no_commit_cycles: u32,
 }
 
@@ -93,6 +94,7 @@ impl Default for CheckerConfig {
             difftest_port: DEFAULT_DIFFTEST_PORT,
             itrace_path: None,
             detailed_trace_path: None,
+            kanata_path: None,
             max_no_commit_cycles: DEFAULT_NO_COMMIT_CYCLES,
         }
     }
@@ -223,6 +225,14 @@ impl SimulationConfig {
                         args.next_if(|value| !value.starts_with('-'))
                             .map(PathBuf::from)
                             .unwrap_or_else(default_detailed_trace_path),
+                    );
+                }
+                "--konata" => config.checker.kanata_path = Some(default_kanata_path()),
+                "--konata-path" => {
+                    config.checker.kanata_path = Some(
+                        args.next_if(|value| !value.starts_with('-'))
+                            .map(PathBuf::from)
+                            .unwrap_or_else(default_kanata_path),
                     );
                 }
                 "--diff" | "--difftest-ref" => {
@@ -357,10 +367,18 @@ fn looks_like_path(arg: &str) -> bool {
 }
 
 fn default_detailed_trace_path() -> PathBuf {
+    project_root().join("run/detailed-log.txt")
+}
+
+fn default_kanata_path() -> PathBuf {
+    project_root().join("run/konata.log")
+}
+
+fn project_root() -> PathBuf {
     let project_root = env::var_os("DISSUE_HOME")
         .map(PathBuf::from)
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../.."));
 
-    project_root.join("run/detailed-log.txt")
+    project_root
 }

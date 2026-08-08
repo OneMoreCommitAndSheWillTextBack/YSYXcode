@@ -18,7 +18,7 @@ class RecoverableDmemQueue(
     extends Module {
   require(depth > 0, "RecoverableDmemQueue depth must be positive")
 
-  private val countWidth = math.max(chisel3.util.log2Ceil(depth + 1), 1)
+  private val countWidth    = math.max(chisel3.util.log2Ceil(depth + 1), 1)
   private val entryIdxWidth = math.max(chisel3.util.log2Ceil(depth), 1)
 
   val io = IO(new Bundle {
@@ -29,28 +29,41 @@ class RecoverableDmemQueue(
     val recover = Input(new RobRecovery(robIdxWidth))
     val robHead = Input(UInt(robIdxWidth.W))
     val cancel  = Output(Vec(depth, Valid(UInt(DataMemTxn.width.W))))
+    val empty   = Output(Bool())
   })
 
-  private val entries = Reg(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
-  private val count   = RegInit(0.U(countWidth.W))
-  private val squash  = io.flush || io.recover.valid
+  private val entries    = Reg(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
+  private val count      = RegInit(0.U(countWidth.W))
+  private val squash     = io.flush || io.recover.valid
+  private val headLocked = RegInit(false.B)
 
-  io.deq.valid := count =/= 0.U && !squash
+  private val revokeHead = squash && count =/= 0.U && discard(entries(0))
+
+  // A retained stalled head stays stable across recovery. A discarded speculative head is explicitly revoked instead;
+  // its transaction owner observes the matching cancel below, and no lower-memory state exists before deq.fire.
+  io.deq.valid := count =/= 0.U && (!squash || (headLocked && !revokeHead))
   io.deq.bits  := entries(0)
+  io.empty     := count === 0.U
   // Do not let global flush influence ready: retirement may need to enqueue an older committed store in the same cycle
   // that produces the flush. Recovery itself already blocks all backend producers.
   io.enq.ready := count < depth.U && !io.recover.valid
 
   private def discard(entry: OwnedDataMemReq): Bool =
     entry.owner.squashable && (io.flush ||
-      (io.recover.valid && RobAge.isYounger(entry.owner.robIdx, io.recover.robIdx, io.robHead, robEntries, robIdxWidth)))
+      (io.recover.valid && RobAge.isYounger(
+        entry.owner.robIdx,
+        io.recover.robIdx,
+        io.robHead,
+        robEntries,
+        robIdxWidth
+      )))
 
   private val keep = Wire(Vec(depth, Bool()))
   for (index <- 0 until depth) {
-    keep(index) := index.U < count && !discard(entries(index))
-    io.cancel(index).valid := squash && index.U < count && discard(entries(index)) &&
-      DataMemTxn.isLoad(entries(index).request.txnId)
-    io.cancel(index).bits := entries(index).request.txnId
+    val dequeuedHead = if (index == 0) io.deq.fire else false.B
+    keep(index)            := index.U < count && !discard(entries(index)) && !dequeuedHead
+    io.cancel(index).valid := squash && index.U < count && discard(entries(index))
+    io.cancel(index).bits  := entries(index).request.txnId
   }
 
   private val compacted = Wire(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
@@ -59,7 +72,7 @@ class RecoverableDmemQueue(
     for (source <- 0 until depth) {
       sourceOH(source) := keep(source) && PopCount(keep.take(source)) === destination.U
     }
-      compacted(destination) := Mux1H(sourceOH, entries)
+    compacted(destination) := Mux1H(sourceOH, entries)
   }
 
   private val squashNext = Wire(Vec(depth, new OwnedDataMemReq(addrWidth, dataWidth, robIdxWidth)))
@@ -67,7 +80,7 @@ class RecoverableDmemQueue(
     squashNext(index) := compacted(index)
   }
   private val retainedCount = PopCount(keep)
-  private val squashEnqueue = io.enq.fire && !discard(io.enq.bits)
+  private val squashEnqueue      = io.enq.fire && !discard(io.enq.bits)
   private val squashEnqueueIndex = Wire(UInt(entryIdxWidth.W))
   squashEnqueueIndex := retainedCount(entryIdxWidth - 1, 0)
   when(squashEnqueue) {
@@ -100,5 +113,11 @@ class RecoverableDmemQueue(
     }.elsewhen(io.deq.fire && !io.enq.fire) {
       count := count - 1.U
     }
+  }
+
+  when(io.deq.fire || revokeHead) {
+    headLocked := false.B
+  }.elsewhen(io.deq.valid && !io.deq.ready) {
+    headLocked := true.B
   }
 }

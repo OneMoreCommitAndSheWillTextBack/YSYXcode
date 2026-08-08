@@ -1,23 +1,36 @@
 use crate::config::{SimulationConfig, TraceMode};
 use std::fmt;
+use std::panic::Location;
 
-const ANSI_RESET: &str = "\x1b[0m";
+pub(crate) const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_FG_BLUE: &str = "\x1b[34m";
-const ANSI_FG_GREEN: &str = "\x1b[32m";
-const ANSI_FG_RED: &str = "\x1b[31m";
+pub(crate) const ANSI_FG_GREEN: &str = "\x1b[32m";
+pub(crate) const ANSI_FG_RED: &str = "\x1b[31m";
 const ANSI_FG_ORANGE: &str = "\x1b[38;5;208m";
 
-pub fn log(file: &str, line: u32, func: &str, args: fmt::Arguments<'_>) {
+#[track_caller]
+pub fn log(args: fmt::Arguments<'_>) {
+    let caller = Location::caller();
     eprintln!(
-        "{}[{}:{} {}] {}{}",
-        ANSI_FG_BLUE, file, line, func, args, ANSI_RESET
+        "{}[{}:{}] {}{}",
+        ANSI_FG_BLUE,
+        caller.file(),
+        caller.line(),
+        args,
+        ANSI_RESET
     );
 }
 
-pub fn log_error(file: &str, line: u32, func: &str, args: fmt::Arguments<'_>) {
+#[track_caller]
+pub fn log_error(args: fmt::Arguments<'_>) {
+    let caller = Location::caller();
     eprintln!(
-        "{}[{}:{} {}] {}{}",
-        ANSI_FG_ORANGE, file, line, func, args, ANSI_RESET
+        "{}[{}:{}] {}{}",
+        ANSI_FG_ORANGE,
+        caller.file(),
+        caller.line(),
+        args,
+        ANSI_RESET
     );
 }
 
@@ -25,18 +38,7 @@ pub fn log_error(file: &str, line: u32, func: &str, args: fmt::Arguments<'_>) {
 #[macro_export]
 macro_rules! Log {
     ($($arg:tt)*) => {{
-        fn __npc_log_func_marker() {}
-        let full_name = std::any::type_name_of_val(&__npc_log_func_marker);
-        let func_name = full_name
-            .strip_suffix("::__npc_log_func_marker")
-            .unwrap_or(full_name);
-
-        $crate::sim_log::log(
-            file!(),
-            line!(),
-            func_name,
-            format_args!($($arg)*),
-        );
+        $crate::sim_log::log(format_args!($($arg)*));
     }};
 }
 
@@ -44,18 +46,7 @@ macro_rules! Log {
 #[macro_export]
 macro_rules! LogError {
     ($($arg:tt)*) => {{
-        fn __npc_log_error_func_marker() {}
-        let full_name = std::any::type_name_of_val(&__npc_log_error_func_marker);
-        let func_name = full_name
-            .strip_suffix("::__npc_log_error_func_marker")
-            .unwrap_or(full_name);
-
-        $crate::sim_log::log_error(
-            file!(),
-            line!(),
-            func_name,
-            format_args!($($arg)*),
-        );
+        $crate::sim_log::log_error(format_args!($($arg)*));
     }};
 }
 
@@ -86,9 +77,15 @@ pub fn show_trace(config: &SimulationConfig) {
         .as_ref()
         .map(|path| format!("{}{}{}", ANSI_FG_GREEN, path.display(), ANSI_RESET))
         .unwrap_or_else(|| state(false));
+    let kanata_state = config
+        .checker
+        .kanata_path
+        .as_ref()
+        .map(|path| format!("{}{}{}", ANSI_FG_GREEN, path.display(), ANSI_RESET))
+        .unwrap_or_else(|| state(false));
 
     eprintln!(
-        "{}trace: wave={}{} {}itrace={}{} {}detailed={}{} {}difftest={}{}",
+        "{}trace: wave={}{} {}itrace={}{} {}detailed={}{} {}kanata={}{} {}difftest={}{}",
         ANSI_FG_BLUE,
         ANSI_RESET,
         wave_state,
@@ -98,6 +95,9 @@ pub fn show_trace(config: &SimulationConfig) {
         ANSI_FG_BLUE,
         ANSI_RESET,
         detailed_state,
+        ANSI_FG_BLUE,
+        ANSI_RESET,
+        kanata_state,
         ANSI_FG_BLUE,
         ANSI_RESET,
         state(config.checker.difftest_enabled()),

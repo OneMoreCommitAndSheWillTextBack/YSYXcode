@@ -5,6 +5,7 @@ import chisel3.util._
 import top.config.{ICacheConfig, IFetchConfig}
 import top.core.bundle.CfiType
 import top.core.frontend.bundle.{CfiTarget, FetchControlMeta, FetchInst, FetchPred, ICacheFetchGroupReq, ICacheFetchGroupResp, ICacheReq, ICacheResp, LatePrediction, LatePredictQuery, PcRedirect, PredictionMeta, PredictorConstants, PredictorProvider, RasAction, RasCheckpoint}
+import top.core.trace.{FrontendPipelineTrace, PipelineTraceEvent}
 
 object FetchWidth {
   val backend                = 2
@@ -501,6 +502,7 @@ class IFetch(
     val fetchQueueFull         = Output(Bool())
     val frontendRedirect       = Output(Bool())
     val staleResponseDrop      = Output(Bool())
+    val pipelineTrace          = Output(Vec(FetchWidth.frontend, Valid(new PipelineTraceEvent)))
   })
 
   val splitter       = Module(new FetchGroupSplitter(cacheCfg))
@@ -509,6 +511,7 @@ class IFetch(
   val fetchQueue     = Module(new FetchQueue(cacheCfg, cfg.fetchQueueEntries, FetchWidth.frontend))
   val ftq            = Module(new FetchTargetQueue(cacheCfg, cfg.fetchTargetEntries))
   val responseQueue  = Module(new FetchResponseQueue(cacheCfg, cfg.fetchTargetEntries))
+  val traceObserver  = Module(new FrontendPipelineTrace(cacheCfg, FetchWidth.frontend))
 
   val enoughSpaceForBlock = halfwordBuffer.io.freeCount >= fetchHalfwords.U
   val localPredRedirect   = assembler.io.predRedirect
@@ -516,6 +519,7 @@ class IFetch(
   val hardFlush           = io.redirect.valid || io.flush
   val frontendRedirect    = hardFlush || localPredRedirect.valid || localException
   io.frontendRedirect := frontendRedirect
+
   val fetchQueueEpoch     = RegInit(0.U(cacheCfg.fetchEpochBits.W))
   ftq.io.redirect := frontendRedirect
   responseQueue.io.flush        := frontendRedirect
@@ -531,8 +535,10 @@ class IFetch(
     ftq.io.allocatePred(lane) := 0.U.asTypeOf(new FetchPred(cacheCfg))
     ftq.io.releaseMeta(lane) := 0.U.asTypeOf(new FetchControlMeta(cacheCfg))
   }
+
   val firstBlockAddr = Cat(io.pc(cacheCfg.addrWidth - 1, cacheCfg.offsetBits), 0.U(cacheCfg.offsetBits.W))
   val secondBlockPc  = firstBlockAddr +% cacheCfg.fetchBytes.U(cacheCfg.addrWidth.W)
+  
   ftq.io.allocatePc(0)   := io.pc
   ftq.io.allocatePc(1)   := secondBlockPc
   for (lane <- 0 until groupWidth) {
@@ -542,6 +548,8 @@ class IFetch(
 
   val req = Wire(new ICacheFetchGroupReq(cacheCfg))
   req := 0.U.asTypeOf(new ICacheFetchGroupReq(cacheCfg))
+  // FIXME: allocateMeta is generated combinationally inside FTQ from allocatePc/allocatePred; it is not a
+  // registered FTQ output. Move this metadata construction into IFetch so the pipeline boundary stays explicit.
   for (lane <- 0 until groupWidth) {
     req.blocks(lane).valid := true.B
     req.blocks(lane).bits  := ICacheReq.fromControl(ftq.io.allocateMeta(lane), cacheCfg)
@@ -616,6 +624,9 @@ class IFetch(
   }
   assembler.io.out.ready := fetchQueue.io.enq.ready
   io.fetch <> fetchQueue.io.out
+  traceObserver.io.enqueueFire := fetchQueue.io.enq.fire
+  traceObserver.io.enqueue     := fetchQueue.io.enq.bits
+  io.pipelineTrace             := traceObserver.io.events
   io.fetchQueueOccupancy    := fetchQueue.io.count
   io.fetchQueueEnqueueWidth := fetchQueue.io.enqueueWidth
   io.fetchQueueDequeueWidth := fetchQueue.io.dequeueWidth

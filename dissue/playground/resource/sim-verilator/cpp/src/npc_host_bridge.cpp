@@ -27,36 +27,13 @@ void *NpcHostBridge::active_opaque() { return current_opaque; }
 
 void *NpcHostBridge::configured_opaque() const { return callbacks_.opaque; }
 
-void NpcHostBridge::difftest_commit(
-    uint32_t valid_mask, uint32_t finish_mask, uint32_t mem_valid_mask,
-    uint32_t mem_write_mask, uint32_t pc0, uint32_t inst0, uint32_t raw_inst0,
-    uint32_t inst_len0, uint32_t next_pc0, uint32_t mem_addr0,
-    uint32_t mem_size0, uint32_t pc1, uint32_t inst1, uint32_t raw_inst1,
-    uint32_t inst_len1, uint32_t next_pc1, uint32_t mem_addr1,
-    uint32_t mem_size1, uint32_t async_intr_valid,
-    uint32_t async_intr_cause, uint32_t async_intr_epc) {
+void NpcHostBridge::difftest_commit(const NpcCommitGroupEvent &event) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.on_difftest_commit == nullptr) {
     return;
   }
 
-  NpcCommitGroupEvent event = {
-      valid_mask,
-      finish_mask,
-      mem_valid_mask,
-      mem_write_mask,
-      {pc0, pc1},
-      {inst0, inst1},
-      {raw_inst0, raw_inst1},
-      {inst_len0, inst_len1},
-      {next_pc0, next_pc1},
-      {mem_addr0, mem_addr1},
-      {mem_size0, mem_size1},
-      async_intr_valid,
-      async_intr_cause,
-      async_intr_epc,
-  };
   bridge->callbacks_.on_difftest_commit(active_opaque(), &event);
 }
 
@@ -159,4 +136,23 @@ void NpcHostBridge::mem_perf(uint32_t events, uint32_t mshr_occupancy,
   }
   bridge->callbacks_.mem_perf(active_opaque(), events, mshr_occupancy,
                               store_queue_occupancy, load_txn_occupancy);
+}
+
+void NpcHostBridge::pipeline_trace(
+    uint32_t kind, uint32_t flags, uint32_t slot, uint32_t rob_idx,
+    uint32_t producer0, uint32_t producer1, uint32_t pc, uint32_t inst,
+    uint32_t raw_inst, uint32_t sequence, uint32_t epoch, uint32_t resource,
+    uint32_t txn_id) {
+  NpcHostBridge *bridge = active_bridge();
+
+  if (bridge == nullptr || bridge->callbacks_.pipeline_trace == nullptr) {
+    return;
+  }
+
+  NpcPipelineEvent event = {
+      kind,       flags,    slot,     rob_idx, producer0,
+      producer1,  pc,       inst,     raw_inst, sequence,
+      epoch,      resource, txn_id,
+  };
+  bridge->callbacks_.pipeline_trace(active_opaque(), &event);
 }

@@ -14,6 +14,30 @@
 
 架构状态只允许在 commit 边界改变。这条规则是后续支持异常、trap、difftest、store 提交和 Linux boot 的基础。
 
+## 流水线可视化
+
+仿真器可以输出 Konata v4 流水线日志。该功能默认关闭：
+
+```bash
+./build/verilator-exec --batch --image <program.bin> --konata
+./build/verilator-exec --batch --image <program.bin> --konata-path <output.log>
+```
+
+`--konata` 默认写入 `run/konata.log`。指令在进入 FetchQueue 时使用 `(prediction.epoch, prediction.sequence, pc)` 建立身份，dispatch 时再绑定 `robIdx`；映射一直保留到 retire 或 flush，因此长时间停留在 ROB 以及 ROB 槽回绕都不会丢失指令。selective recovery 按全局指令序清除 boundary 之后的指令，而不是直接比较环形 ROB 编号。
+
+当前 lane 定义为：
+
+```text
+lane 0: FQ -> DC -> IQ -> X-* -> RT
+lane 1: ROB-N -> ROB-D
+lane 2: SQ-U -> SQ-R / LTQ / ATQ
+lane 3: XLAT -> DMQ-*
+```
+
+追踪实现保持三层边界：RTL 的 `PipelineTrace.scala` 只产生不反压的语义事件；C++ 只转发固定 `NpcPipelineEvent`；Rust 的 `checker/kanata.rs` 集中负责同拍排序、ID 映射、lane、stage 和 Kanata 文本。修改显示策略只需要改 Rust writer，移动流水阶段通常只需要改一个 RTL 观察器；只有现有事件字段无法表达新语义时才扩展 DPI ABI。
+
+lane 3 的 `DMQ-*` 表示请求已经进入 LSU 的 recoverable outbound queue，不代表 DCache 内部 MSHR/refill 的完整状态。普通 store 在架构 retire 时结束原指令行，同时建立以 `sqIdx` 为身份的 thread-1 drain 行；该行用 `SQ-C -> SQ-I` 和 `DMQ-ST` 持续到 response，因此 ROB 槽复用不会把后续 store 事件关联到错误指令。串行 MMIO store 在 response 前不 retire，继续使用原指令行。
+
 ## 未来实现
 
 当前双发射主干已经基本接通，但距离可 boot Linux 还需要补齐下面这些部分。
@@ -34,8 +58,9 @@
 
 内存系统：
 
-- 当前 store 在 commit 侧产生外部写内存副作用，这是正确但保守的第一版。
-- 后续需要 StoreQueue/LoadQueue、store-to-load forwarding、load violation replay。
+- LSU 统一拥有 StoreQueue、LoadTxnQueue、store drain engine、原子/PTW 仲裁和 recoverable outbound queue；retire 只提交 `sqIdx` 对应的 store 语义，不再构造写内存请求。
+- StoreQueue 支持双路分配/提交、多个已提交 store 在途、按字节 youngest-older forwarding，以及 recovery 后独立于 ROB 槽复用的事务跟踪。
+- 后续仍需要更激进的 speculative load、load violation detection/replay，以及支持 coherence 后的跨 hart LR/SC reservation 失效。
 - Linux boot 需要更完整的 AXI/memory map、CSR/trap/interrupt、CLINT/PLIC、timer、privilege 和可能的 MMU 支持。
 
 验证：

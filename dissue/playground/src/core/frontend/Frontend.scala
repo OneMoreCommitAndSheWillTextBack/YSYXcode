@@ -14,9 +14,10 @@ import top.core.frontend.bundle.{
   PredictorConstants,
   PredictorRecovery
 }
-import top.core.frontend.ifetch.{FetchPacket, IFetch}
+import top.core.frontend.ifetch.{FetchPacket, FetchWidth, IFetch}
 import top.core.frontend.pcgen.PCGen
 import top.core.frontend.icache._
+import top.core.trace.PipelineTraceEvent
 import top.sim.FrontendPerfBridge
 
 class Frontend(
@@ -46,6 +47,7 @@ class Frontend(
     val ptwResp          = Flipped(Decoupled(new DataMemResp(backendCfg.dataWidth)))
     val csrStatus        = Input(new CsrStatus(backendCfg))
     val icacheInvalidate = Input(Bool())
+    val pipelineTrace    = Output(Vec(FetchWidth.frontend, Valid(new PipelineTraceEvent)))
   })
 
   val pcGen     = Module(
@@ -115,6 +117,7 @@ class Frontend(
   bpu.io.lateQuery := ifetch.io.lateQuery
   bpu.io.lateSpecUpdate := ifetch.io.lateSpecUpdate
   bpu.io.rasSpecUpdate  := ifetch.io.rasSpecUpdate
+  
   val localPredictorRecovery = Wire(Valid(new PredictorRecovery(cfg.addrWidth)))
   localPredictorRecovery                   := 0.U.asTypeOf(Valid(new PredictorRecovery(cfg.addrWidth)))
   localPredictorRecovery.valid             := ifetch.io.lateRecovery.valid
@@ -174,6 +177,7 @@ class Frontend(
 
   io.pc := pcGen.io.pc
   io.fetch <> ifetch.io.fetch
+  io.pipelineTrace := ifetch.io.pipelineTrace
 
   private val fetchQueueSupplyStarved =
     ifetch.io.fetchQueueEmpty && io.fetch.ready && !pcRedirect.valid && !io.icacheInvalidate

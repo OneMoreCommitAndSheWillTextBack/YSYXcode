@@ -36,7 +36,7 @@ object MmuMemReq {
     req.unsigned  := true.B
     req.wdata     := 0.U
     req.wmask     := 0.U
-    req.txnId     := DataMemTxn.ptw
+    req.txnId     := DataMemTxn.ptwTag
     req.cacheable := false.B
     req.kind      := DataMemKind.ptw
     req

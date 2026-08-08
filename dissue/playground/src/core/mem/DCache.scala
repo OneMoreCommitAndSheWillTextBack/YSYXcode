@@ -17,8 +17,8 @@ import top.core.mem.bundle.{AxiMasterReadReq, AxiMasterReadResp, AxiMasterWriteR
 
 /** One request waiting on a cache-line refill.
   *
-  * Stores use the same queue as loads. This lets a store miss write-allocate
-  * after refill and preserves the order in which accesses reached the cache.
+  * Stores use the same queue as loads. This lets a store miss write-allocate after refill and preserves the order in
+  * which accesses reached the cache.
   */
 class DCacheWaiter(cfg: DCacheConfig, robIdxWidth: Int) extends Bundle {
   val valid      = Bool()
@@ -54,10 +54,9 @@ object DCache {
 
 /** Write-back, write-allocate data cache.
   *
-  * The cache accepts speculative cache hits and merges into an already
-  * authorized miss. A new miss is allocated only when its ROB owner may make
-  * an external request. Each MSHR then owns an irrevocable refill or dirty
-  * victim writeback and must drain any AXI transaction it has started.
+  * The cache accepts speculative cache hits and merges into an already authorized miss. A new miss is allocated only
+  * when its ROB owner may make an external request. Each MSHR then owns an irrevocable refill or dirty victim writeback
+  * and must drain any AXI transaction it has started.
   */
 class DCache(
   cfg:        DCacheConfig = DCacheConfig(),
@@ -67,20 +66,20 @@ class DCache(
   require(cfg.addrWidth == memCfg.addrWidth, "DCache and memory address widths must match")
   require(cfg.dataWidth == memCfg.axiDataWidth, "DCache and AXI data widths must match")
 
-  private val robIdxWidth       = math.max(chisel3.util.log2Ceil(robEntries), 1)
-  private val dataBytes         = cfg.dataWidth / 8
-  private val beats             = cfg.beatCount
-  private val beatIdxWidth      = math.max(chisel3.util.log2Ceil(beats), 1)
-  private val waiterIdxWidth    = math.max(chisel3.util.log2Ceil(cfg.waitersPerMshr), 1)
-  private val waiterCountWidth  = math.max(chisel3.util.log2Ceil(cfg.waitersPerMshr + 1), 1)
-  private val byteBeatShift     = chisel3.util.log2Ceil(dataBytes)
-  private val bitBeatShift      = chisel3.util.log2Ceil(cfg.dataWidth)
-  private val lastBeat          = (beats - 1).U(beatIdxWidth.W)
-  private val fullWriteMask     = ((BigInt(1) << dataBytes) - 1).U(dataBytes.W)
+  private val robIdxWidth      = math.max(chisel3.util.log2Ceil(robEntries), 1)
+  private val dataBytes        = cfg.dataWidth / 8
+  private val beats            = cfg.beatCount
+  private val beatIdxWidth     = math.max(chisel3.util.log2Ceil(beats), 1)
+  private val waiterIdxWidth   = math.max(chisel3.util.log2Ceil(cfg.waitersPerMshr), 1)
+  private val waiterCountWidth = math.max(chisel3.util.log2Ceil(cfg.waitersPerMshr + 1), 1)
+  private val byteBeatShift    = chisel3.util.log2Ceil(dataBytes)
+  private val bitBeatShift     = chisel3.util.log2Ceil(cfg.dataWidth)
+  private val lastBeat         = (beats - 1).U(beatIdxWidth.W)
+  private val fullWriteMask    = ((BigInt(1) << dataBytes) - 1).U(dataBytes.W)
 
   private val mshrQueued     = 0.U(2.W)
-  private val mshrEvicting  = 1.U(2.W)
-  private val mshrReceiving = 2.U(2.W)
+  private val mshrEvicting   = 1.U(2.W)
+  private val mshrReceiving  = 2.U(2.W)
   private val mshrResponding = 3.U(2.W)
 
   val io = IO(new Bundle {
@@ -95,6 +94,7 @@ class DCache(
 
     /** Clean and invalidate one line before an uncached coherent access. */
     val cleanInvalidate = Flipped(Decoupled(UInt(cfg.addrWidth.W)))
+
     /** Clean and invalidate every cache line for a fence.i operation. */
     val cleanAll     = Flipped(Decoupled(Bool()))
     val cleanAllDone = Output(Bool())
@@ -157,23 +157,23 @@ class DCache(
   private val dataArray  = Reg(Vec(cfg.sets, Vec(cfg.ways, UInt(cfg.blockBits.W))))
   private val rrWay      = RegInit(VecInit(Seq.fill(cfg.sets)(0.U(cfg.wayIdxBits.W))))
 
-  private val mshrValid          = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
-  private val mshrState          = Reg(Vec(cfg.mshrEntries, UInt(2.W)))
-  private val mshrBlockAddr      = Reg(Vec(cfg.mshrEntries, UInt(cfg.addrWidth.W)))
-  private val mshrSet            = Reg(Vec(cfg.mshrEntries, UInt(cfg.setIdxBits.W)))
-  private val mshrWay            = Reg(Vec(cfg.mshrEntries, UInt(cfg.wayIdxBits.W)))
-  private val mshrOwner          = Reg(Vec(cfg.mshrEntries, new DataMemOwner(robIdxWidth)))
-  private val mshrAxiAuthorized  = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
-  private val mshrBeatIndex      = Reg(Vec(cfg.mshrEntries, UInt(beatIdxWidth.W)))
-  private val mshrFault          = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
-  private val mshrBeats          = Reg(Vec(cfg.mshrEntries, Vec(beats, UInt(cfg.dataWidth.W))))
-  private val mshrWaiters        = Reg(Vec(cfg.mshrEntries, Vec(cfg.waitersPerMshr, new DCacheWaiter(cfg, robIdxWidth))))
-  private val mshrWaiterCount    = Reg(Vec(cfg.mshrEntries, UInt(waiterCountWidth.W)))
-  private val mshrResponseIdx    = Reg(Vec(cfg.mshrEntries, UInt(waiterIdxWidth.W)))
-  private val mshrEvictAddr      = Reg(Vec(cfg.mshrEntries, UInt(cfg.addrWidth.W)))
-  private val mshrEvictData      = Reg(Vec(cfg.mshrEntries, UInt(cfg.blockBits.W)))
-  private val mshrWriteBeat      = Reg(Vec(cfg.mshrEntries, UInt(beatIdxWidth.W)))
-  private val mshrWriteAwaitResp = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
+  private val mshrValid            = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
+  private val mshrState            = Reg(Vec(cfg.mshrEntries, UInt(2.W)))
+  private val mshrBlockAddr        = Reg(Vec(cfg.mshrEntries, UInt(cfg.addrWidth.W)))
+  private val mshrSet              = Reg(Vec(cfg.mshrEntries, UInt(cfg.setIdxBits.W)))
+  private val mshrWay              = Reg(Vec(cfg.mshrEntries, UInt(cfg.wayIdxBits.W)))
+  private val mshrOwner            = Reg(Vec(cfg.mshrEntries, new DataMemOwner(robIdxWidth)))
+  private val mshrAxiAuthorized    = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
+  private val mshrBeatIndex        = Reg(Vec(cfg.mshrEntries, UInt(beatIdxWidth.W)))
+  private val mshrFault            = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
+  private val mshrBeats            = Reg(Vec(cfg.mshrEntries, Vec(beats, UInt(cfg.dataWidth.W))))
+  private val mshrWaiters          = Reg(Vec(cfg.mshrEntries, Vec(cfg.waitersPerMshr, new DCacheWaiter(cfg, robIdxWidth))))
+  private val mshrWaiterCount      = Reg(Vec(cfg.mshrEntries, UInt(waiterCountWidth.W)))
+  private val mshrResponseIdx      = Reg(Vec(cfg.mshrEntries, UInt(waiterIdxWidth.W)))
+  private val mshrEvictAddr        = Reg(Vec(cfg.mshrEntries, UInt(cfg.addrWidth.W)))
+  private val mshrEvictData        = Reg(Vec(cfg.mshrEntries, UInt(cfg.blockBits.W)))
+  private val mshrWriteBeat        = Reg(Vec(cfg.mshrEntries, UInt(beatIdxWidth.W)))
+  private val mshrWriteAwaitResp   = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
   private val mshrWritebackStarted = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
 
   private val hitRespValid = RegInit(false.B)
@@ -196,7 +196,7 @@ class DCache(
     mshrValid(entry) && waiter.U < mshrWaiterCount(entry) && mshrWaiters(entry)(waiter).valid
 
   private val retainedWaiterCount = Wire(Vec(cfg.mshrEntries, UInt(waiterCountWidth.W)))
-  private val retainedWaiters = Wire(Vec(cfg.mshrEntries, Vec(cfg.waitersPerMshr, new DCacheWaiter(cfg, robIdxWidth))))
+  private val retainedWaiters     = Wire(Vec(cfg.mshrEntries, Vec(cfg.waitersPerMshr, new DCacheWaiter(cfg, robIdxWidth))))
 
   for (entry <- 0 until cfg.mshrEntries) {
     val keep = Wire(Vec(cfg.waitersPerMshr, Bool()))
@@ -205,9 +205,8 @@ class DCache(
       keep(waiter) := live && !ownerKilled(mshrWaiters(entry)(waiter).owner)
 
       val cancelPort = 1 + entry * cfg.waitersPerMshr + waiter
-      io.cancel(cancelPort).valid := live && ownerKilled(mshrWaiters(entry)(waiter).owner) &&
-        DataMemTxn.isLoad(mshrWaiters(entry)(waiter).txnId)
-      io.cancel(cancelPort).bits := mshrWaiters(entry)(waiter).txnId
+      io.cancel(cancelPort).valid := live && ownerKilled(mshrWaiters(entry)(waiter).owner)
+      io.cancel(cancelPort).bits  := mshrWaiters(entry)(waiter).txnId
     }
     retainedWaiterCount(entry) := PopCount(keep)
 
@@ -224,7 +223,7 @@ class DCache(
     }
   }
 
-  io.cancel(0).valid := hitRespValid && ownerKilled(hitRespOwner) && DataMemTxn.isLoad(hitResp.txnId)
+  io.cancel(0).valid := hitRespValid && ownerKilled(hitRespOwner)
   io.cancel(0).bits  := hitResp.txnId
 
   private val reqSet       = setIndex(io.req.bits.request.addr)
@@ -238,7 +237,7 @@ class DCache(
   private val hitWay       = OHToUInt(hitOH)
   private val hitLine      = Mux1H(wayHits, dataArray(reqSet))
 
-  private val mshrMatchOH = VecInit((0 until cfg.mshrEntries).map { entry =>
+  private val mshrMatchOH      = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrBlockAddr(entry) === reqBlockAddr && mshrState(entry) =/= mshrResponding
   }).asUInt
   private val mshrMatch        = mshrMatchOH.orR
@@ -252,7 +251,9 @@ class DCache(
     }).asUInt.orR
   }
 
-  private val invalidWayOH = VecInit((0 until cfg.ways).map(way => !reservedWay(way) && !validArray(reqSet)(way))).asUInt
+  private val invalidWayOH = VecInit(
+    (0 until cfg.ways).map(way => !reservedWay(way) && !validArray(reqSet)(way))
+  ).asUInt
   private val rrWayOH      = VecInit((0 until cfg.ways).map(way => !reservedWay(way) && rrWay(reqSet) === way.U)).asUInt
   private val anyWayOH     = VecInit((0 until cfg.ways).map(way => !reservedWay(way))).asUInt
   private val victimOH     = Mux(
@@ -260,15 +261,15 @@ class DCache(
     PriorityEncoderOH(invalidWayOH),
     Mux(rrWayOH.orR, rrWayOH, PriorityEncoderOH(anyWayOH))
   )
-  private val hasVictim = victimOH.orR
-  private val victimWay = OHToUInt(victimOH)
-  private val victimDirty = validArray(reqSet)(victimWay) && dirtyArray(reqSet)(victimWay)
+  private val hasVictim    = victimOH.orR
+  private val victimWay    = OHToUInt(victimOH)
+  private val victimDirty  = validArray(reqSet)(victimWay) && dirtyArray(reqSet)(victimWay)
 
   private val freeMshrOH  = VecInit(mshrValid.map(!_)).asUInt
   private val hasFreeMshr = freeMshrOH.orR
   private val freeMshrIdx = OHToUInt(freeMshrOH)
 
-  private val respondingOH = VecInit((0 until cfg.mshrEntries).map { entry =>
+  private val respondingOH     = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrResponding && mshrWaiterCount(entry) =/= 0.U
   }).asUInt
   private val hasResponding    = respondingOH.orR
@@ -280,14 +281,14 @@ class DCache(
     mshrValid(entry) && mshrState(entry) === mshrEvicting
   }).asUInt.orR
 
-  private val maintenanceSet = setIndex(io.cleanInvalidate.bits)
-  private val maintenanceTag = tag(io.cleanInvalidate.bits)
-  private val maintenanceWayHits = VecInit((0 until cfg.ways).map { way =>
+  private val maintenanceSet        = setIndex(io.cleanInvalidate.bits)
+  private val maintenanceTag        = tag(io.cleanInvalidate.bits)
+  private val maintenanceWayHits    = VecInit((0 until cfg.ways).map { way =>
     validArray(maintenanceSet)(way) && tagArray(maintenanceSet)(way) === maintenanceTag
   })
-  private val maintenanceHit    = maintenanceWayHits.asUInt.orR
-  private val maintenanceWay    = OHToUInt(maintenanceWayHits.asUInt)
-  private val maintenanceDirty  = maintenanceHit && dirtyArray(maintenanceSet)(maintenanceWay)
+  private val maintenanceHit        = maintenanceWayHits.asUInt.orR
+  private val maintenanceWay        = OHToUInt(maintenanceWayHits.asUInt)
+  private val maintenanceDirty      = maintenanceHit && dirtyArray(maintenanceSet)(maintenanceWay)
   private val maintenanceCanInspect = !maintenanceWriteActive && !mshrValid.asUInt.orR && !hitRespValid
 
   // A maintenance request stays valid while a dirty line is written back. It
@@ -316,11 +317,12 @@ class DCache(
     }
   }
 
-  private val hitResponseVisible = hitRespValid && !io.flush && !io.recover.valid && !ownerKilled(hitRespOwner)
-  private val mshrResponseVisible = hasResponding && !io.flush && !io.recover.valid && !ownerKilled(respondingWaiter.owner)
-  private val responseBusy = hitRespValid || hasResponding
-  private val requestCanAllocate = hasFreeMshr && hasVictim && mayIssueAxi(io.req.bits.owner)
-  private val requestReady = Mux(hit, true.B, Mux(mshrMatch, matchWaiterSpace, requestCanAllocate))
+  private val hitResponseVisible  = hitRespValid && !io.flush && !io.recover.valid && !ownerKilled(hitRespOwner)
+  private val mshrResponseVisible =
+    hasResponding && !io.flush && !io.recover.valid && !ownerKilled(respondingWaiter.owner)
+  private val responseBusy        = hitRespValid || hasResponding
+  private val requestCanAllocate  = hasFreeMshr && hasVictim && mayIssueAxi(io.req.bits.owner)
+  private val requestReady        = Mux(hit, true.B, Mux(mshrMatch, matchWaiterSpace, requestCanAllocate))
 
   // An eviction owns the single AXI writer until all of its beats are durable.
   // Blocking new requests here keeps the selected victim stable throughout the
@@ -359,13 +361,13 @@ class DCache(
     io.resp.bits.txnId := respondingWaiter.txnId
   }
 
-  private val queuedOH = VecInit((0 until cfg.mshrEntries).map { entry =>
+  private val queuedOH  = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrQueued && mshrAxiAuthorized(entry) && mayIssueAxi(mshrOwner(entry))
   }).asUInt
   private val hasQueued = queuedOH.orR
   private val queuedIdx = OHToUInt(queuedOH)
 
-  private val receivingOH = VecInit((0 until cfg.mshrEntries).map { entry =>
+  private val receivingOH  = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrReceiving
   }).asUInt
   private val hasReceiving = receivingOH.orR
@@ -379,12 +381,12 @@ class DCache(
   io.axiReadReq.bits.burst := AxiBurst.incr
   io.axiReadResp.ready     := hasReceiving
 
-  private val evictWriteOH = VecInit((0 until cfg.mshrEntries).map { entry =>
+  private val evictWriteOH  = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrEvicting
   }).asUInt
   private val hasEvictWrite = evictWriteOH.orR
   private val evictWriteIdx = OHToUInt(evictWriteOH)
-  private val evictAwaitOH = VecInit((0 until cfg.mshrEntries).map { entry =>
+  private val evictAwaitOH  = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrEvicting && mshrWriteAwaitResp(entry)
   }).asUInt
   private val hasEvictAwait = evictAwaitOH.orR
@@ -393,22 +395,22 @@ class DCache(
   private val writebackFromMaintenance = maintenanceWriteActive
   private val writebackFromEviction    = !maintenanceWriteActive && hasEvictWrite
   private val writebackActive          = writebackFromMaintenance || writebackFromEviction
-  private val writebackAwaitResp = Mux(
+  private val writebackAwaitResp       = Mux(
     writebackFromMaintenance,
     maintenanceWriteAwaitResp,
     Mux(hasEvictWrite, mshrWriteAwaitResp(evictWriteIdx), false.B)
   )
-  private val writebackAddr = Mux(
+  private val writebackAddr            = Mux(
     writebackFromMaintenance,
     maintenanceWriteAddr,
     mshrEvictAddr(evictWriteIdx)
   )
-  private val writebackLine = Mux(
+  private val writebackLine            = Mux(
     writebackFromMaintenance,
     maintenanceWriteData,
     mshrEvictData(evictWriteIdx)
   )
-  private val writebackBeat = Mux(
+  private val writebackBeat            = Mux(
     writebackFromMaintenance,
     maintenanceWriteBeat,
     mshrWriteBeat(evictWriteIdx)
@@ -463,27 +465,32 @@ class DCache(
     hitRespOwner  := io.req.bits.owner
 
     when(io.req.bits.request.write) {
-      dataArray(reqSet)(hitWay)  := mergeStore(hitLine, incomingWaiter.byteOffset, incomingWaiter.wdata, incomingWaiter.wmask)
+      dataArray(reqSet)(hitWay)  := mergeStore(
+        hitLine,
+        incomingWaiter.byteOffset,
+        incomingWaiter.wdata,
+        incomingWaiter.wmask
+      )
       dirtyArray(reqSet)(hitWay) := true.B
     }
   }
 
   when(requestAllocate) {
-    mshrValid(freeMshrIdx)         := true.B
-    mshrState(freeMshrIdx)         := Mux(victimDirty, mshrEvicting, mshrQueued)
-    mshrBlockAddr(freeMshrIdx)     := reqBlockAddr
-    mshrSet(freeMshrIdx)           := reqSet
-    mshrWay(freeMshrIdx)           := victimWay
-    mshrOwner(freeMshrIdx)         := io.req.bits.owner
-    mshrAxiAuthorized(freeMshrIdx) := mayIssueAxi(io.req.bits.owner)
-    mshrBeatIndex(freeMshrIdx)     := 0.U
-    mshrFault(freeMshrIdx)         := false.B
-    mshrWaiterCount(freeMshrIdx)   := 1.U
-    mshrResponseIdx(freeMshrIdx)   := 0.U
-    mshrEvictAddr(freeMshrIdx)     := lineAddr(tagArray(reqSet)(victimWay), reqSet)
-    mshrEvictData(freeMshrIdx)     := dataArray(reqSet)(victimWay)
-    mshrWriteBeat(freeMshrIdx)     := 0.U
-    mshrWriteAwaitResp(freeMshrIdx) := false.B
+    mshrValid(freeMshrIdx)            := true.B
+    mshrState(freeMshrIdx)            := Mux(victimDirty, mshrEvicting, mshrQueued)
+    mshrBlockAddr(freeMshrIdx)        := reqBlockAddr
+    mshrSet(freeMshrIdx)              := reqSet
+    mshrWay(freeMshrIdx)              := victimWay
+    mshrOwner(freeMshrIdx)            := io.req.bits.owner
+    mshrAxiAuthorized(freeMshrIdx)    := mayIssueAxi(io.req.bits.owner)
+    mshrBeatIndex(freeMshrIdx)        := 0.U
+    mshrFault(freeMshrIdx)            := false.B
+    mshrWaiterCount(freeMshrIdx)      := 1.U
+    mshrResponseIdx(freeMshrIdx)      := 0.U
+    mshrEvictAddr(freeMshrIdx)        := lineAddr(tagArray(reqSet)(victimWay), reqSet)
+    mshrEvictData(freeMshrIdx)        := dataArray(reqSet)(victimWay)
+    mshrWriteBeat(freeMshrIdx)        := 0.U
+    mshrWriteAwaitResp(freeMshrIdx)   := false.B
     mshrWritebackStarted(freeMshrIdx) := false.B
 
     for (waiter <- 0 until cfg.waitersPerMshr) {
@@ -497,8 +504,8 @@ class DCache(
 
   when(requestMerge) {
     val waiterIndex = mshrWaiterCount(mshrMatchIdx)(waiterIdxWidth - 1, 0)
-    mshrWaiterCount(mshrMatchIdx)           := mshrWaiterCount(mshrMatchIdx) + 1.U
-    mshrWaiters(mshrMatchIdx)(waiterIndex)  := incomingWaiter
+    mshrWaiterCount(mshrMatchIdx)          := mshrWaiterCount(mshrMatchIdx) + 1.U
+    mshrWaiters(mshrMatchIdx)(waiterIndex) := incomingWaiter
   }
 
   when(io.axiReadReq.fire) {
@@ -524,7 +531,7 @@ class DCache(
         dirtyArray(mshrSet(receivingIdx))(mshrWay(receivingIdx)) := false.B
         tagArray(mshrSet(receivingIdx))(mshrWay(receivingIdx))   := tag(mshrBlockAddr(receivingIdx))
         dataArray(mshrSet(receivingIdx))(mshrWay(receivingIdx))  := completedLine
-        rrWay(mshrSet(receivingIdx)) := Mux(
+        rrWay(mshrSet(receivingIdx))                             := Mux(
           mshrWay(receivingIdx) === (cfg.ways - 1).U,
           0.U,
           mshrWay(receivingIdx) + 1.U
@@ -566,7 +573,7 @@ class DCache(
     when(writebackFromMaintenance) {
       maintenanceWriteAwaitResp := true.B
     }.elsewhen(writebackFromEviction) {
-      mshrWriteAwaitResp(evictWriteIdx) := true.B
+      mshrWriteAwaitResp(evictWriteIdx)   := true.B
       mshrWritebackStarted(evictWriteIdx) := true.B
     }
   }
@@ -616,14 +623,14 @@ class DCache(
       }
     }.elsewhen(maintenanceCanInspect) {
       when(cleanAllLineDirty) {
-        maintenanceWriteActive    := true.B
-        maintenanceWriteAddr      := lineAddr(tagArray(cleanAllSet)(cleanAllWay), cleanAllSet)
-        maintenanceWriteData      := dataArray(cleanAllSet)(cleanAllWay)
-        maintenanceWriteBeat      := 0.U
-        maintenanceWriteAwaitResp := false.B
+        maintenanceWriteActive               := true.B
+        maintenanceWriteAddr                 := lineAddr(tagArray(cleanAllSet)(cleanAllWay), cleanAllSet)
+        maintenanceWriteData                 := dataArray(cleanAllSet)(cleanAllWay)
+        maintenanceWriteBeat                 := 0.U
+        maintenanceWriteAwaitResp            := false.B
         validArray(cleanAllSet)(cleanAllWay) := false.B
         dirtyArray(cleanAllSet)(cleanAllWay) := false.B
-        cleanAllWritePending := true.B
+        cleanAllWritePending                 := true.B
       }.otherwise {
         when(cleanAllLineValid) {
           validArray(cleanAllSet)(cleanAllWay) := false.B
@@ -634,12 +641,14 @@ class DCache(
     }
   }
 
-  when(!cleanAllActive && !io.cleanAll.valid && io.cleanInvalidate.valid && maintenanceCanInspect && maintenanceHit && maintenanceDirty) {
-    maintenanceWriteActive    := true.B
-    maintenanceWriteAddr      := lineAddr(tagArray(maintenanceSet)(maintenanceWay), maintenanceSet)
-    maintenanceWriteData      := dataArray(maintenanceSet)(maintenanceWay)
-    maintenanceWriteBeat      := 0.U
-    maintenanceWriteAwaitResp := false.B
+  when(
+    !cleanAllActive && !io.cleanAll.valid && io.cleanInvalidate.valid && maintenanceCanInspect && maintenanceHit && maintenanceDirty
+  ) {
+    maintenanceWriteActive                     := true.B
+    maintenanceWriteAddr                       := lineAddr(tagArray(maintenanceSet)(maintenanceWay), maintenanceSet)
+    maintenanceWriteData                       := dataArray(maintenanceSet)(maintenanceWay)
+    maintenanceWriteBeat                       := 0.U
+    maintenanceWriteAwaitResp                  := false.B
     validArray(maintenanceSet)(maintenanceWay) := false.B
     dirtyArray(maintenanceSet)(maintenanceWay) := false.B
   }.elsewhen(!cleanAllActive && !io.cleanAll.valid && io.cleanInvalidate.fire && maintenanceHit) {
@@ -659,7 +668,7 @@ class DCache(
       mshrWaiterCount(entry) := retainedWaiterCount(entry)
       mshrResponseIdx(entry) := 0.U
 
-      val noRetainedWaiters = retainedWaiterCount(entry) === 0.U
+      val noRetainedWaiters        = retainedWaiterCount(entry) === 0.U
       val restoreUnstartedEviction = mshrValid(entry) && noRetainedWaiters &&
         mshrState(entry) === mshrEvicting && !mshrWritebackStarted(entry)
 
@@ -671,14 +680,18 @@ class DCache(
         dirtyArray(mshrSet(entry))(mshrWay(entry)) := true.B
         tagArray(mshrSet(entry))(mshrWay(entry))   := tag(mshrEvictAddr(entry))
         dataArray(mshrSet(entry))(mshrWay(entry))  := mshrEvictData(entry)
+        mshrValid(entry)                           := false.B
+      }
+      when(
+        mshrValid(entry) && noRetainedWaiters &&
+          (mshrState(entry) === mshrQueued || mshrState(entry) === mshrResponding)
+      ) {
         mshrValid(entry) := false.B
       }
-      when(mshrValid(entry) && noRetainedWaiters &&
-        (mshrState(entry) === mshrQueued || mshrState(entry) === mshrResponding)) {
-        mshrValid(entry) := false.B
-      }
-      when(mshrValid(entry) && noRetainedWaiters && mshrState(entry) === mshrReceiving &&
-        io.axiReadResp.fire && receivingIdx === entry.U && refillLast) {
+      when(
+        mshrValid(entry) && noRetainedWaiters && mshrState(entry) === mshrReceiving &&
+          io.axiReadResp.fire && receivingIdx === entry.U && refillLast
+      ) {
         mshrValid(entry) := false.B
       }
     }

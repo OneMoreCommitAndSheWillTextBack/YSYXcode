@@ -4,6 +4,7 @@ mod detailed_trace;
 mod difftest;
 mod event;
 mod itrace;
+mod kanata;
 mod perf;
 mod report;
 mod statistics;
@@ -11,12 +12,14 @@ mod statistics;
 use crate::{
     common::CpuContext,
     config::CheckerConfig,
+    ffi::NpcPipelineEvent,
     machine::{Machine, MachineError},
 };
 use detailed_trace::{CycleSample, DetailedTrace};
 use difftest::{DiffTest, DifftestError};
 use event::AsyncInterrupt;
 use itrace::Itrace;
+use kanata::KanataTrace;
 use perf::{BpuCfiClass, Perf, PerfCounters};
 use statistics::Statistics;
 use std::{fmt, io, mem, path::PathBuf};
@@ -35,6 +38,10 @@ pub(crate) enum CheckerError {
         source: io::Error,
     },
     DetailedTraceIo {
+        path: PathBuf,
+        source: io::Error,
+    },
+    KanataIo {
         path: PathBuf,
         source: io::Error,
     },
@@ -64,6 +71,11 @@ impl fmt::Display for CheckerError {
                 "failed to write detailed trace `{}`: {source}",
                 path.display()
             ),
+            Self::KanataIo { path, source } => write!(
+                formatter,
+                "failed to write Kanata trace `{}`: {source}",
+                path.display()
+            ),
             Self::ContextUnavailable => write!(formatter, "DUT context is unavailable"),
             Self::MultipleAsyncInterrupts {
                 count,
@@ -90,7 +102,9 @@ impl std::error::Error for CheckerError {
         match self {
             Self::Machine(error) => Some(error),
             Self::Difftest(error) => Some(error),
-            Self::ItraceIo { source, .. } | Self::DetailedTraceIo { source, .. } => Some(source),
+            Self::ItraceIo { source, .. }
+            | Self::DetailedTraceIo { source, .. }
+            | Self::KanataIo { source, .. } => Some(source),
             Self::ContextUnavailable
             | Self::MultipleAsyncInterrupts { .. }
             | Self::NonTerminalAsyncInterrupt { .. } => None,
@@ -168,11 +182,13 @@ pub(crate) struct Checker {
     difftest: DiffTest,
     itrace: Option<Itrace>,
     detailed_trace: Option<DetailedTrace>,
+    kanata: Option<KanataTrace>,
     perf: Perf,
     statistics: Statistics,
     latest_context: Option<CpuContext>,
     pending_retire: PendingRetireBatch,
     cycle_sample: CycleSample,
+    pipeline_events: Vec<NpcPipelineEvent>,
 }
 
 impl Checker {
@@ -196,16 +212,29 @@ impl Checker {
             })?),
             None => None,
         };
+        let kanata = match config.kanata_path.as_ref() {
+            Some(path) => {
+                Some(
+                    KanataTrace::create(path).map_err(|source| CheckerError::KanataIo {
+                        path: path.clone(),
+                        source,
+                    })?,
+                )
+            }
+            None => None,
+        };
 
         Ok(Self {
             difftest,
             itrace,
             detailed_trace,
+            kanata,
             perf: Perf::new(),
             statistics: Statistics::new(),
             latest_context: None,
             pending_retire: PendingRetireBatch::default(),
             cycle_sample: CycleSample::default(),
+            pipeline_events: Vec::new(),
         })
     }
 
@@ -232,6 +261,7 @@ impl Checker {
         self.latest_context = None;
         self.pending_retire.clear();
         self.cycle_sample.clear();
+        self.pipeline_events.clear();
     }
 
     /// Attaches the reference after reset supplied the first valid DUT context.
@@ -346,6 +376,14 @@ impl Checker {
         }
     }
 
+    pub(crate) fn on_pipeline_event(&mut self, event: NpcPipelineEvent) {
+        // Only record pipeline events if Kanata tracing is enabled
+        // since the events are only used for Kanata trace generation.
+        if self.kanata.is_some() {
+            self.pipeline_events.push(event);
+        }
+    }
+
     /// Completes checking for callbacks emitted by the most recent driver step.
     pub(crate) fn finish_step(
         &mut self,
@@ -363,6 +401,13 @@ impl Checker {
                     &sample,
                 )
                 .map_err(|source| CheckerError::DetailedTraceIo { path, source })?;
+        }
+        if let Some(kanata) = self.kanata.as_mut() {
+            let path = kanata.path().to_path_buf();
+            let mut events = mem::take(&mut self.pipeline_events);
+            kanata
+                .write_cycle(self.statistics.cycle() + 1, &mut events)
+                .map_err(|source| CheckerError::KanataIo { path, source })?;
         }
 
         if pending.commit_count == 0 {
@@ -602,11 +647,13 @@ impl Checker {
             self.perf.mem_event(PerfCounters::REFILL_FAULT)
         );
         crate::Log!(
-            "StoreQueue: alloc: {}, full stall cycles: {}, drain: {}, avg occupancy: {:.3}",
+            "StoreQueue: allocation cycles: {}, full stall cycles: {}, commit cycles: {}, requests: {}, responses: {}, avg occupancy: {:.3}",
             self.perf.mem_event(PerfCounters::STORE_QUEUE_ALLOC),
             self.perf
                 .mem_event(PerfCounters::STORE_QUEUE_FULL_STALL_CYCLE),
+            self.perf.mem_event(PerfCounters::STORE_COMMIT),
             self.perf.mem_event(PerfCounters::STORE_DRAIN),
+            self.perf.mem_event(PerfCounters::STORE_RESPONSE),
             self.perf.average_store_queue_occupancy()
         );
         crate::Log!(

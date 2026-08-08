@@ -18,10 +18,6 @@ use std::sync::{
 };
 use std::{ffi::c_void, fmt};
 
-const ANSI_RESET: &str = "\x1b[0m";
-const ANSI_FG_GREEN: &str = "\x1b[32m";
-const ANSI_FG_RED: &str = "\x1b[31m";
-
 pub(crate) type SimulationResult<T> = Result<T, SimulationError>;
 
 /// Error returned after a complete session operation.
@@ -135,7 +131,11 @@ impl SimulationSession {
 
     pub(crate) fn reset(&mut self) -> SimulationResult<()> {
         if !matches!(self.state, SessionState::Running) {
-            eprintln!("{ANSI_FG_RED}PROGRAM IS OVER, PLEASE RESTART{ANSI_RESET}");
+            eprintln!(
+                "{}PROGRAM IS OVER, PLEASE RESTART{}",
+                sim_log::ANSI_FG_RED,
+                sim_log::ANSI_RESET
+            );
         }
 
         self.machine.reset_time();
@@ -166,11 +166,19 @@ impl SimulationSession {
             self.checker.on_cycle();
             match self.state {
                 SessionState::Abort => {
-                    eprintln!("{ANSI_FG_RED}HIT BAD TRAP{ANSI_RESET}");
+                    eprintln!(
+                        "{}HIT BAD TRAP{}",
+                        sim_log::ANSI_FG_RED,
+                        sim_log::ANSI_RESET
+                    );
                     return self.terminal(Err(SimulationError::SimulateAbort));
                 }
                 SessionState::End => {
-                    eprintln!("{ANSI_FG_GREEN}HIT GOOD TRAP{ANSI_RESET}");
+                    eprintln!(
+                        "{}HIT GOOD TRAP{}",
+                        sim_log::ANSI_FG_GREEN,
+                        sim_log::ANSI_RESET
+                    );
                     return self.terminal(Ok(()));
                 }
                 SessionState::Running => {
@@ -179,14 +187,20 @@ impl SimulationSession {
                         .exceeds_no_commit_limit(self.config.checker.max_no_commit_cycles)
                     {
                         eprintln!(
-                            "{ANSI_FG_RED}HIT BAD TRAP, REACH MAX NO COMMIT CYCLES{ANSI_RESET}"
+                            "{}HIT BAD TRAP, REACH MAX NO COMMIT CYCLES{}",
+                            sim_log::ANSI_FG_RED,
+                            sim_log::ANSI_RESET
                         );
                         self.state = SessionState::Abort;
                         return self.terminal(Err(SimulationError::ReachMaxNoCommitCycles));
                     }
                 }
                 SessionState::Interrupted => {
-                    eprintln!("\n{ANSI_FG_RED}GET INTERRUPT{ANSI_RESET}");
+                    eprintln!(
+                        "\n{}GET INTERRUPT{}",
+                        sim_log::ANSI_FG_RED,
+                        sim_log::ANSI_RESET
+                    );
                     return self.terminal(Ok(()));
                 }
             }
@@ -312,6 +326,7 @@ fn build_dpi_callbacks() -> ffi::NpcDpiCallbacks {
         div_perf: Some(div_perf),
         bpu_perf: Some(bpu_perf),
         mem_perf: Some(mem_perf),
+        pipeline_trace: Some(pipeline_trace),
     }
 }
 
@@ -365,22 +380,7 @@ extern "C" fn on_difftest_commit(opaque: *mut c_void, raw: *const ffi::NpcCommit
     let Some(raw) = (unsafe { raw.as_ref() }) else {
         return;
     };
-    let group = CommitGroup::new(
-        raw.valid_mask,
-        raw.finish_mask,
-        raw.mem_valid_mask,
-        raw.mem_write_mask,
-        raw.pc,
-        raw.inst,
-        raw.raw_inst,
-        raw.inst_len,
-        raw.next_pc,
-        raw.mem_addr,
-        raw.mem_size,
-        raw.async_intr_valid,
-        raw.async_intr_cause,
-        raw.async_intr_epc,
-    );
+    let group = CommitGroup::from(raw);
     host.checker.on_commit(host.machine, group);
 }
 
@@ -458,4 +458,14 @@ extern "C" fn mem_perf(
             load_txn_occupancy,
         );
     }
+}
+
+extern "C" fn pipeline_trace(opaque: *mut c_void, event: *const ffi::NpcPipelineEvent) {
+    let Some(host) = (unsafe { host_from_opaque(opaque) }) else {
+        return;
+    };
+    let Some(event) = (unsafe { event.as_ref() }) else {
+        return;
+    };
+    host.checker.on_pipeline_event(*event);
 }

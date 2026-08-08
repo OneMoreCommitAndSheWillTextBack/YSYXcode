@@ -18,38 +18,44 @@ class LoadTxnAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val forwardData = UInt(cfg.dataWidth.W)
 }
 
-/** Associates an outstanding data-cache request with backend state.
+/** Owns every normal-load tag from reservation through response or reliable cancellation.
   *
-  * DCache responses carry only txnId and raw data. This queue restores the ROB destination, applies any partial store
-  * forwarding, and owns load fault attribution.
+  * Recovery marks a transaction killed but does not release its tag. A killed response is still an exact live match and
+  * is consumed without writeback. Only a response, a lower-path cancellation guarantee, or an explicit abort before the
+  * request entered the outbound queue can make the slot reusable.
   */
 class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
-  private val entryCount = cfg.loadTxnEntries
-  private val idxWidth   = math.max(chisel3.util.log2Ceil(entryCount), 1)
-  private val dataBytes  = cfg.dataWidth / 8
-  private val tagCount   = top.core.bundle.DataMemTxn.loadTagCount
+  private val entryCount  = cfg.loadTxnEntries
+  private val idxWidth    = math.max(chisel3.util.log2Ceil(entryCount), 1)
+  private val dataBytes   = cfg.dataWidth / 8
+  private val cancelPorts = cfg.dmemQueueEntries + cfg.recoveryCancelPorts
 
-  require(entryCount <= tagCount, "load transaction entries exceed available data-memory tags")
+  require(entryCount <= DataMemTxn.slotCount, "load transaction entries exceed the load tag slot field")
 
   val io = IO(new Bundle {
-    val alloc         = Flipped(Decoupled(new LoadTxnAlloc(cfg)))
-    val allocTxnId    = Output(UInt(top.core.bundle.DataMemTxn.width.W))
+    val alloc      = Flipped(Decoupled(new LoadTxnAlloc(cfg)))
+    val allocTxnId = Output(UInt(DataMemTxn.width.W))
+    val markIssued = Input(Valid(UInt(DataMemTxn.width.W)))
+    val abort      = Input(Valid(UInt(DataMemTxn.width.W)))
+
     val complete      = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
     val allowComplete = Input(Bool())
+    val responseMatch = Output(Bool())
     val writeback     = Valid(new RobWritebackPacket(cfg))
     val wakeup        = Output(new IssueWakeup(cfg))
-    val flush         = Input(Bool())
-    val recover       = Input(new RobRecovery(cfg.robIdxWidth))
-    val robHead       = Input(UInt(cfg.robIdxWidth.W))
-    // A cancellation source may release a tag only after it has guaranteed that
-    // the corresponding request cannot produce a later response.
-    val cancel        = Input(Vec(cfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
-    val occupancy     = Output(UInt(math.max(chisel3.util.log2Ceil(entryCount + 1), 1).W))
-    val empty         = Output(Bool())
+
+    val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(cfg.robIdxWidth))
+    val robHead = Input(UInt(cfg.robIdxWidth.W))
+    val cancel  = Input(Vec(cancelPorts, Valid(UInt(DataMemTxn.width.W))))
+
+    val occupancy = Output(UInt(math.max(chisel3.util.log2Ceil(entryCount + 1), 1).W))
+    val empty     = Output(Bool())
   })
 
-  private val valid       = RegInit(VecInit(Seq.fill(entryCount)(false.B)))
-  private val txnId       = Reg(Vec(entryCount, UInt(top.core.bundle.DataMemTxn.width.W)))
+  private val active      = RegInit(VecInit(Seq.fill(entryCount)(false.B)))
+  private val killed      = RegInit(VecInit(Seq.fill(entryCount)(false.B)))
+  private val issued      = RegInit(VecInit(Seq.fill(entryCount)(false.B)))
   private val robIdx      = Reg(Vec(entryCount, UInt(cfg.robIdxWidth.W)))
   private val vaddr       = Reg(Vec(entryCount, UInt(cfg.addrWidth.W)))
   private val paddr       = Reg(Vec(entryCount, UInt(cfg.addrWidth.W)))
@@ -58,43 +64,49 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val forwardMask = Reg(Vec(entryCount, UInt(dataBytes.W)))
   private val forwardData = Reg(Vec(entryCount, UInt(cfg.dataWidth.W)))
 
-  private val freeEntryOH  = PriorityEncoderOH(VecInit(valid.map(!_)).asUInt)
-  private val freeEntryIdx = OHToUInt(freeEntryOH)
-  private val hasFreeEntry = freeEntryOH.orR
+  private def tag(entry: Int): UInt =
+    DataMemTxn.loadTag(entry.U(idxWidth.W))
 
-  // Recovering the ROB entry alone is insufficient to reuse its tag: a bypass
-  // transaction may still return. Only completion or an explicit cancellation
-  // source is allowed to release the tag.
-  private val tagInUse   = RegInit(VecInit(Seq.fill(tagCount)(false.B)))
-  private val freeTagOH  = PriorityEncoderOH(VecInit(tagInUse.map(!_)).asUInt)
-  private val hasFreeTag = freeTagOH.orR
-  private val allocTxnId = Wire(UInt(top.core.bundle.DataMemTxn.width.W))
-  allocTxnId := OHToUInt(freeTagOH)
-
-  io.alloc.ready := hasFreeEntry && hasFreeTag && !io.flush && !io.recover.valid
-  io.allocTxnId  := allocTxnId
-  io.occupancy   := PopCount(valid)
-  io.empty       := !valid.asUInt.orR
-
-  private val responseInRange = DataMemTxn.isLoad(io.complete.bits.txnId)
   private val responseMatchOH = VecInit((0 until entryCount).map { entry =>
-    valid(entry) && txnId(entry) === io.complete.bits.txnId
-  }).asUInt
-  private val responseValid   = responseMatchOH.orR
+    active(entry) && io.complete.bits.txnId === tag(entry)
+  })
+  private val responseValid   = responseMatchOH.asUInt.orR
   private val responseIdx     = OHToUInt(responseMatchOH)
 
-  private val killedByRecovery = Wire(Vec(entryCount, Bool()))
+  private val cancelHit = Wire(Vec(entryCount, Bool()))
   for (entry <- 0 until entryCount) {
-    killedByRecovery(entry) := valid(entry) && io.recover.valid &&
-      RobAge.isYounger(robIdx(entry), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+    cancelHit(entry) := active(entry) && io.cancel
+      .map(cancel => cancel.valid && cancel.bits === tag(entry))
+      .reduce(_ || _)
+  }
+  private val abortHit = VecInit((0 until entryCount).map { entry =>
+    active(entry) && !issued(entry) && io.abort.valid && io.abort.bits === tag(entry)
+  })
+
+  private val killedNow = Wire(Vec(entryCount, Bool()))
+  for (entry <- 0 until entryCount) {
+    killedNow(entry) := active(entry) && (io.flush || (io.recover.valid &&
+      RobAge.isYounger(robIdx(entry), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)))
+  }
+  private val selectedKilled = killed(responseIdx) || killedNow(responseIdx)
+
+  // Unknown tags are consumed and asserted below. Killed-but-live tags are recognized stale responses.
+  io.complete.ready := !responseValid || selectedKilled || io.allowComplete
+  private val responseFire = io.complete.fire && responseValid
+  private val release      = Wire(Vec(entryCount, Bool()))
+  for (entry <- 0 until entryCount) {
+    release(entry) := (responseFire && responseIdx === entry.U) || cancelHit(entry) || abortHit(entry)
   }
 
-  private val responseKilledByRecovery = responseValid && io.recover.valid &&
-    RobAge.isYounger(robIdx(responseIdx), io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+  private val freeEntryOH  = VecInit(active.map(!_)).asUInt
+  private val hasFreeEntry = freeEntryOH.orR
+  private val freeEntryIdx = OHToUInt(PriorityEncoderOH(freeEntryOH))
 
-  // Unknown tags and squashed owners are stale responses. Acknowledge them so the DCache can retire its waiter and
-  // the transaction tag can never alias a newer load.
-  io.complete.ready := io.flush || !responseValid || responseKilledByRecovery || io.allowComplete
+  io.alloc.ready   := hasFreeEntry && !io.flush && !io.recover.valid
+  io.allocTxnId    := DataMemTxn.loadTag(freeEntryIdx)
+  io.responseMatch := responseValid
+  io.occupancy     := PopCount(active)
+  io.empty         := !active.asUInt.orR
 
   private val selectedForwardMask = forwardMask(responseIdx)
   private val expandedForwardMask = Cat((0 until dataBytes).reverse.map { byte =>
@@ -122,10 +134,10 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     )
   }
 
-  val responseResult = extendLoad(mergedData, size(responseIdx), unsigned(responseIdx))
-  val responseFire   = io.complete.valid && io.complete.ready && responseValid && !io.flush && !responseKilledByRecovery
+  private val responseResult        = extendLoad(mergedData, size(responseIdx), unsigned(responseIdx))
+  private val architecturalResponse = responseFire && !selectedKilled
 
-  io.writeback.valid          := responseFire
+  io.writeback.valid          := architecturalResponse
   io.writeback.bits           := 0.U.asTypeOf(new RobWritebackPacket(cfg))
   io.writeback.bits.robIdx    := robIdx(responseIdx)
   io.writeback.bits.result    := responseResult
@@ -134,48 +146,58 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     io.writeback.bits.exception := ExceptionInfo.raise(ExceptionCause.loadAccessFault, vaddr(responseIdx), cfg)
   }
 
-  io.wakeup.valid  := responseFire && !io.complete.bits.fault
+  io.wakeup.valid  := architecturalResponse && !io.complete.bits.fault
   io.wakeup.robIdx := robIdx(responseIdx)
   io.wakeup.data   := responseResult
 
   for (entry <- 0 until entryCount) {
-    when(io.flush) {
-      valid(entry) := false.B
-    }.elsewhen(io.recover.valid) {
-      when(responseFire && responseIdx === entry.U) {
-        valid(entry) := false.B
-      }
-      when(killedByRecovery(entry)) {
-        valid(entry) := false.B
-      }
-    }.otherwise {
-      when(responseFire && responseIdx === entry.U) {
-        valid(entry) := false.B
-      }
-      when(io.alloc.fire && freeEntryIdx === entry.U) {
-        valid(entry)       := true.B
-        txnId(entry)       := allocTxnId
-        robIdx(entry)      := io.alloc.bits.robIdx
-        vaddr(entry)       := io.alloc.bits.vaddr
-        paddr(entry)       := io.alloc.bits.paddr
-        size(entry)        := io.alloc.bits.size
-        unsigned(entry)    := io.alloc.bits.unsigned
-        forwardMask(entry) := io.alloc.bits.forwardMask
-        forwardData(entry) := io.alloc.bits.forwardData
-      }
+    when(killedNow(entry)) {
+      killed(entry) := true.B
+    }
+    when(io.markIssued.valid && io.markIssued.bits === tag(entry) && active(entry)) {
+      issued(entry) := true.B
+    }
+    when(release(entry)) {
+      active(entry) := false.B
+      killed(entry) := false.B
+      issued(entry) := false.B
+    }
+    when(io.alloc.fire && freeEntryIdx === entry.U) {
+      active(entry)      := true.B
+      killed(entry)      := false.B
+      issued(entry)      := false.B
+      robIdx(entry)      := io.alloc.bits.robIdx
+      vaddr(entry)       := io.alloc.bits.vaddr
+      paddr(entry)       := io.alloc.bits.paddr
+      size(entry)        := io.alloc.bits.size
+      unsigned(entry)    := io.alloc.bits.unsigned
+      forwardMask(entry) := io.alloc.bits.forwardMask
+      forwardData(entry) := io.alloc.bits.forwardData
     }
   }
 
-  for (tag <- 0 until tagCount) {
-    when(io.alloc.fire && allocTxnId === tag.U) {
-      tagInUse(tag) := true.B
+  when(io.markIssued.valid) {
+    val hits = VecInit((0 until entryCount).map(entry => active(entry) && io.markIssued.bits === tag(entry)))
+    assert(PopCount(hits) === 1.U, "issued load request must reference one reserved transaction tag")
+  }
+  when(io.abort.valid) {
+    assert(PopCount(abortHit) === 1.U, "unissued load abort must reference one reserved transaction tag")
+  }
+  when(io.complete.fire) {
+    assert(responseValid, "load response must match one live or killed transaction")
+    assert(PopCount(responseMatchOH) === 1.U, "load response matched multiple transaction slots")
+  }
+  for (port <- 0 until cancelPorts) {
+    when(io.cancel(port).valid && DataMemTxn.isLoad(io.cancel(port).bits)) {
+      val hits = VecInit((0 until entryCount).map(entry => active(entry) && io.cancel(port).bits === tag(entry)))
+      assert(PopCount(hits) === 1.U, "load cancellation must reference one live transaction")
     }
-    when(io.complete.fire && responseInRange && io.complete.bits.txnId === tag.U) {
-      tagInUse(tag) := false.B
-    }
-    val canceled = io.cancel.map(cancel => cancel.valid && cancel.bits === tag.U).reduce(_ || _)
-    when(canceled) {
-      tagInUse(tag) := false.B
+  }
+  for (left <- 0 until entryCount) {
+    for (right <- left + 1 until entryCount) {
+      when(active(left) && active(right)) {
+        assert(tag(left) =/= tag(right), "live load transaction tags must be unique")
+      }
     }
   }
 }

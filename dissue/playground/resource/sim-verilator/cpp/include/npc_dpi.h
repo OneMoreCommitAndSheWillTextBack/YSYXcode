@@ -30,4 +30,8 @@ extern "C" void npc_bpu_perf(int cfi_class, char pred_hit, char pred_taken,
 extern "C" void npc_mem_perf(int events, int mshr_occupancy,
                               int store_queue_occupancy,
                               int load_txn_occupancy);
+extern "C" void npc_pipeline_trace(int kind, int flags, int slot, int rob_idx,
+                                    int producer0, int producer1, int pc,
+                                    int inst, int raw_inst, int sequence,
+                                    int epoch, int resource, int txn_id);
 #endif

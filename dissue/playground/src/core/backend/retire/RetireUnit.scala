@@ -2,10 +2,17 @@ package top.core.backend.retire
 
 import chisel3._
 import chisel3.util.{Decoupled, Enum, Mux1H, MuxLookup, PopCount, PriorityEncoderOH, Valid}
-import top.core.backend.bundle.{CommitRegWrite, RetireGroup, RobCommitPacket, ScoreboardCommit, StoreQueueCommit}
+import top.core.backend.bundle.{
+  CommitRegWrite,
+  RetireGroup,
+  RobCommitPacket,
+  ScoreboardCommit,
+  StoreQueueCommit,
+  StoreQueueEvent
+}
 import top.core.backend.csr.{
-  CsrArch,
   CsrAddr,
+  CsrArch,
   CsrCommit,
   CsrContextUpdate,
   CsrInterrupt,
@@ -18,8 +25,9 @@ import top.core.backend.csr.{
   PrivMode
 }
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo, TrapLane, TrapUnit}
-import top.core.bundle.{BackendToFrontend, BpuCfiClass, CfiType, DataMemKind, DataMemReq, DataMemTxn}
+import top.core.bundle.{BackendToFrontend, BpuCfiClass, CfiType}
 import top.core.frontend.bundle.RasAction
+import top.core.mem.MemAddress
 import top.config.BackendConfig
 import top.sim.BpuPerfBridge
 
@@ -27,26 +35,25 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
     val rob = Vec(cfg.commitWidth, Flipped(Decoupled(new RobCommitPacket(cfg))))
 
-    val regWrite         = Output(Vec(cfg.commitWidth, new CommitRegWrite(cfg)))
-    val scoreboardCommit = Output(Vec(cfg.commitWidth, new ScoreboardCommit(cfg)))
-    val storeCommit      = Output(Vec(cfg.commitWidth, new StoreQueueCommit(cfg)))
-    val csrCommit        = Output(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
-    val csrTrackerCommit = Output(Vec(cfg.commitWidth, new CsrTrackerCommit(cfg)))
-    val csrTrap          = Output(new CsrTrapCommit(cfg))
-    val csrMret          = Output(new CsrMretCommit(cfg))
-    val csrSret          = Output(new CsrSretCommit(cfg))
-    val csrStatus        = Input(new CsrStatus(cfg))
-    val hold             = Input(Bool())
-    val storesDrained    = Input(Bool())
-    val retire           = Output(new RetireGroup(cfg))
-    val redirect         = Output(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
+    val regWrite               = Output(Vec(cfg.commitWidth, new CommitRegWrite(cfg)))
+    val scoreboardCommit       = Output(Vec(cfg.commitWidth, new ScoreboardCommit(cfg)))
+    val storeCommit            = Output(Vec(cfg.commitWidth, new StoreQueueCommit(cfg)))
+    val csrCommit              = Output(Vec(cfg.commitWidth, Valid(new CsrCommit(cfg))))
+    val csrTrackerCommit       = Output(Vec(cfg.commitWidth, new CsrTrackerCommit(cfg)))
+    val csrTrap                = Output(new CsrTrapCommit(cfg))
+    val csrMret                = Output(new CsrMretCommit(cfg))
+    val csrSret                = Output(new CsrSretCommit(cfg))
+    val csrStatus              = Input(new CsrStatus(cfg))
+    val hold                   = Input(Bool())
+    val storesDrained          = Input(Bool())
+    val serializedStoreSuccess = Input(Bool())
+    val serializedStore        = Output(Valid(new StoreQueueEvent(cfg)))
+    val retire                 = Output(new RetireGroup(cfg))
+    val redirect               = Output(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
 
     val fenceIReq    = Decoupled(Bool())
     val fenceIDone   = Input(Bool())
     val fenceIActive = Output(Bool())
-
-    val dmemReq        = Decoupled(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
-    val storeReqRobIdx = Output(UInt(cfg.robIdxWidth.W))
 
     val context = Output(new CsrContextUpdate(cfg))
   })
@@ -73,17 +80,17 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   private val trapCandidate     = Wire(Vec(cfg.commitWidth, Bool()))
   private val laneBoundary      = Wire(Vec(cfg.commitWidth, Bool()))
   private val preRetire         = Wire(Vec(cfg.commitWidth, Bool()))
-  private val storeCandidate    = Wire(Vec(cfg.commitWidth, Bool()))
+  private val mmioStore         = Wire(Vec(cfg.commitWidth, Bool()))
   private val canRetire         = Wire(Vec(cfg.commitWidth, Bool()))
   private val nextPc            = Wire(Vec(cfg.commitWidth, UInt(cfg.addrWidth.W)))
 
   private val fenceIIdle :: fenceIWait :: fenceIComplete :: Nil = Enum(3)
-  private val fenceIState = RegInit(fenceIIdle)
-  private val fenceIHead  = io.rob(0).valid && io.rob(0).bits.isFenceI
+  private val fenceIState                                       = RegInit(fenceIIdle)
+  private val fenceIHead                                        = io.rob(0).valid && io.rob(0).bits.isFenceI
 
   io.fenceIReq.valid := fenceIHead && !io.hold && fenceIState === fenceIIdle && io.storesDrained
   io.fenceIReq.bits  := true.B
-  io.fenceIActive    := fenceIHead && fenceIState =/= fenceIIdle
+  io.fenceIActive    := fenceIHead
 
   when(!fenceIHead) {
     fenceIState := fenceIIdle
@@ -100,20 +107,19 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
         io.rob(i).bits.fetch.predNpc =/= io.rob(i).bits.redirectTarget
 
     trapCandidate(i) := io.rob(i).valid && io.rob(i).bits.hasTrapAtRetire
+    mmioStore(i)     := io.rob(i).valid && io.rob(i).bits.isStore &&
+      MemAddress.isDevice(io.rob(i).bits.storeAddr, cfg.addrWidth)
 
     // Serializing instructions still form a retirement boundary. Branch recovery is handled by the execution-stage
     // RecoveryUnit, so a resolved CFI no longer waits here before frontend redirect.
     laneBoundary(i) :=
       trapCandidate(i) || io.rob(i).bits.isMret || io.rob(i).bits.isSret ||
-        io.rob(i).bits.isFence || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
+        io.rob(i).bits.isFence || mmioStore(i) || (io.rob(i).bits.isCsr && io.rob(i).bits.csrWen)
 
     // can retire: rob.valid && preinst could retire
     preRetire(i) :=
       !io.hold && io.rob(i).valid &&
         (if (i == 0) true.B else preRetire(i - 1) && !laneBoundary(i - 1))
-
-    val olderStore = orReduce((0 until i).map(j => preRetire(j) && io.rob(j).bits.isStore && !trapCandidate(j)))
-    storeCandidate(i) := preRetire(i) && io.rob(i).bits.isStore && !trapCandidate(i) && !olderStore
 
     nextPc(i) := Mux(
       io.rob(i).bits.redirectValid,
@@ -122,30 +128,18 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     )
   }
 
-  private val storeReq = Wire(Vec(cfg.commitWidth, new DataMemReq(cfg.addrWidth, cfg.dataWidth)))
-  for (i <- 0 until cfg.commitWidth) {
-    storeReq(i)           := 0.U.asTypeOf(new DataMemReq(cfg.addrWidth, cfg.dataWidth))
-    storeReq(i).addr      := io.rob(i).bits.storeAddr
-    storeReq(i).write     := true.B
-    storeReq(i).size      := io.rob(i).bits.memSize
-    storeReq(i).unsigned  := false.B
-    storeReq(i).wdata     := io.rob(i).bits.storeData
-    storeReq(i).wmask     := io.rob(i).bits.storeMask
-    storeReq(i).txnId     := DataMemTxn.store
-    storeReq(i).cacheable := true.B
-    storeReq(i).kind      := DataMemKind.normal
-  }
-
-  private val storeGrantOH = PriorityEncoderOH(storeCandidate.asUInt).asBools
-  io.dmemReq.valid  := storeCandidate.asUInt.orR
-  io.dmemReq.bits   := Mux1H(storeGrantOH, storeReq)
-  io.storeReqRobIdx := Mux1H(storeGrantOH, io.rob.map(_.bits.robIdx))
+  io.serializedStore.valid       := preRetire(0) && mmioStore(0) && !trapCandidate(0)
+  io.serializedStore.bits.sqIdx  := io.rob(0).bits.sqIdx
+  io.serializedStore.bits.robIdx := io.rob(0).bits.robIdx
 
   for (i <- 0 until cfg.commitWidth) {
-    val olderRetired = andReduce((0 until i).map(j => canRetire(j)))
-    val storeReady   = !io.rob(i).bits.isStore || trapCandidate(i) || (storeCandidate(i) && io.dmemReq.ready)
-
-    val fenceReady = !io.rob(i).bits.isFenceI || (if (i == 0) fenceIState === fenceIComplete else false.B)
+    val olderRetired       = andReduce((0 until i).map(j => canRetire(j)))
+    val olderStoreRetiring = orReduce((0 until i).map(j => canRetire(j) && io.rob(j).bits.isStore && !trapCandidate(j)))
+    val storeReady         = !mmioStore(i) || trapCandidate(i) ||
+      (if (i == 0) io.serializedStoreSuccess else false.B)
+    val fenceReady         = !io.rob(i).bits.isFence ||
+      (io.storesDrained && !olderStoreRetiring && (!io.rob(i).bits.isFenceI ||
+        (if (i == 0) fenceIState === fenceIComplete else false.B)))
     canRetire(i)    := preRetire(i) && olderRetired && storeReady && fenceReady
     io.rob(i).ready := canRetire(i)
   }
@@ -288,15 +282,15 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     frontendRedirectTarget
   )
 
-  private val fenceICommit = VecInit((0 until cfg.commitWidth).map { i =>
+  private val fenceICommit        = VecInit((0 until cfg.commitWidth).map { i =>
     normalCommit(i) && io.rob(i).bits.isFenceI
   }).asUInt.orR
-  private val sfenceCommit = VecInit((0 until cfg.commitWidth).map { i =>
+  private val sfenceCommit        = VecInit((0 until cfg.commitWidth).map { i =>
     normalCommit(i) && io.rob(i).bits.isSfence
   }).asUInt.orR
-  private val satpWriteCommit = VecInit((0 until cfg.commitWidth).map { i =>
+  private val satpWriteCommit     = VecInit((0 until cfg.commitWidth).map { i =>
     normalCommit(i) && io.rob(i).bits.isCsr && io.rob(i).bits.csrWen &&
-      io.rob(i).bits.csrAddr === CsrAddr("satp")
+    io.rob(i).bits.csrAddr === CsrAddr("satp")
   }).asUInt.orR
   private val privilegeTransition = io.redirect.trapRedirect.valid || io.csrMret.valid || io.csrSret.valid
 
@@ -314,7 +308,8 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.scoreboardCommit(i).rfWen  := io.rob(i).bits.rfWen
     io.scoreboardCommit(i).robIdx := io.rob(i).bits.robIdx
 
-    io.storeCommit(i).valid  := normalCommit(i) && io.rob(i).bits.isStore
+    io.storeCommit(i).valid  := normalCommit(i) && io.rob(i).bits.isStore && !mmioStore(i)
+    io.storeCommit(i).sqIdx  := io.rob(i).bits.sqIdx
     io.storeCommit(i).robIdx := io.rob(i).bits.robIdx
 
     io.csrCommit(i).valid      := normalCommit(i) && io.rob(i).bits.isCsr && io.rob(i).bits.csrWen
@@ -326,6 +321,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
 
     io.retire.lanes(i).valid       := canRetire(i)
     io.retire.lanes(i).robIdx      := io.rob(i).bits.robIdx
+    io.retire.lanes(i).sqIdx       := io.rob(i).bits.sqIdx
     io.retire.lanes(i).fetch       := io.rob(i).bits.fetch
     io.retire.lanes(i).nextPc      := nextPc(i)
     io.retire.lanes(i).rf          := io.regWrite(i)
@@ -387,7 +383,6 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   if (cfg.commitWidth > 1) {
     assert(!canRetire.asUInt(cfg.commitWidth - 1, 1).orR || canRetire(0))
   }
-  assert(PopCount((0 until cfg.commitWidth).map(i => canRetire(i) && io.rob(i).bits.isStore)) <= 1.U)
   for (i <- 1 until cfg.commitWidth) {
     assert(!(canRetire(i) && orReduce((0 until i).map(j => canRetire(j) && laneBoundary(j)))))
   }

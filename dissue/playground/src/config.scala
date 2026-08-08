@@ -58,36 +58,36 @@ final case class ICacheConfig(
   require(fetchEpochBits > 0, "fetchEpochBits must be positive")
   require(fetchTargetIndexBits > 0, "fetchTargetIndexBits must be positive")
 
-  val offsetBits: Int = log2Ceil(fetchBytes)
-  val indexBits:  Int = log2Ceil(sets)
-  val bankBits:   Int = log2Ceil(bankCount)
-  val bankSets:   Int = sets / bankCount
+  val offsetBits:    Int = log2Ceil(fetchBytes)
+  val indexBits:     Int = log2Ceil(sets)
+  val bankBits:      Int = log2Ceil(bankCount)
+  val bankSets:      Int = sets / bankCount
   val bankIndexBits: Int = log2Ceil(bankSets)
-  val tagBits:    Int = addrWidth - offsetBits - indexBits
-  val blockBits:  Int = fetchBytes * 8
+  val tagBits:       Int = addrWidth - offsetBits - indexBits
+  val blockBits:     Int = fetchBytes * 8
 
   require(tagBits > 0, "addrWidth must cover tag, index, and block offset")
 
-  val setIdxBits: Int = math.max(indexBits, 1)
+  val setIdxBits:  Int = math.max(indexBits, 1)
   val bankIdxBits: Int = math.max(bankIndexBits, 1)
-  val wayIdxBits: Int = math.max(log2Ceil(ways), 1)
+  val wayIdxBits:  Int = math.max(log2Ceil(ways), 1)
 }
 
 final case class BpuConfig(
-  addrWidth:  Int = 32,
-  fetchBytes: Int = 8,
-  btbEntries: Int = 64,
-  bhtEntries: Int = 128,
-  btbWays: Int = 1,
+  addrWidth:            Int = 32,
+  fetchBytes:           Int = 8,
+  btbEntries:           Int = 64,
+  bhtEntries:           Int = 128,
+  btbWays:              Int = 1,
   predictorHistoryBits: Int = 16,
-  tageEntries: Int = 64,
-  tageTagBits: Int = 8,
-  tageHistoryLengths: Seq[Int] = Seq(2, 4, 8, 16),
-  ittageEntries: Int = 64,
-  ittageTagBits: Int = 8,
+  tageEntries:          Int = 64,
+  tageTagBits:          Int = 8,
+  tageHistoryLengths:   Seq[Int] = Seq(2, 4, 8, 16),
+  ittageEntries:        Int = 64,
+  ittageTagBits:        Int = 8,
   ittageHistoryLengths: Seq[Int] = Seq(2, 4, 8, 16),
-  enableTage: Boolean = true,
-  enableIttage: Boolean = true,
+  enableTage:           Boolean = true,
+  enableIttage:         Boolean = true,
   enableLateOverride: Boolean = true) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
@@ -111,27 +111,30 @@ final case class BpuConfig(
   require(ittageEntries > 1, "ittageEntries must have an index bit")
   require(ittageTagBits > 0, "ittageTagBits must be positive")
   require(log2Ceil(ittageEntries) + ittageTagBits + 2 <= addrWidth, "ITTAGE index and tag must fit the PC")
-  require(ittageHistoryLengths.length >= 4 && ittageHistoryLengths.length <= 6, "ITTAGE needs four to six tagged tables")
+  require(
+    ittageHistoryLengths.length >= 4 && ittageHistoryLengths.length <= 6,
+    "ITTAGE needs four to six tagged tables"
+  )
   require(ittageHistoryLengths.forall(_ > 0), "ITTAGE history lengths must be positive")
   require(ittageHistoryLengths == ittageHistoryLengths.sorted.distinct, "ITTAGE history lengths must increase uniquely")
   require(ittageHistoryLengths.last <= predictorHistoryBits, "ITTAGE history must fit predictorHistoryBits")
 
-  val offsetBits:    Int = log2Ceil(fetchBytes)
-  val cfiOffsetBits: Int = log2Ceil(fetchBytes / 2)
-  val btbIndexBits:  Int = log2Ceil(btbEntries)
-  val bhtIndexBits:  Int = log2Ceil(bhtEntries)
-  val btbTagBits:    Int = addrWidth - offsetBits - btbIndexBits
-  val tageIndexBits: Int = log2Ceil(tageEntries)
+  val offsetBits:      Int = log2Ceil(fetchBytes)
+  val cfiOffsetBits:   Int = log2Ceil(fetchBytes / 2)
+  val btbIndexBits:    Int = log2Ceil(btbEntries)
+  val bhtIndexBits:    Int = log2Ceil(bhtEntries)
+  val btbTagBits:      Int = addrWidth - offsetBits - btbIndexBits
+  val tageIndexBits:   Int = log2Ceil(tageEntries)
   val ittageIndexBits: Int = log2Ceil(ittageEntries)
 
   require(btbTagBits > 0, "addrWidth must cover BTB tag, index, and block offset")
 }
 
 final case class IFetchConfig(
-  halfwordEntries:     Int = 16,
-  instBufferEntries:   Int = 8,
-  fetchTargetEntries:  Int = 8,
-  fetchQueueEntries:   Int = 32) {
+  halfwordEntries:    Int = 16,
+  instBufferEntries:  Int = 8,
+  fetchTargetEntries: Int = 8,
+  fetchQueueEntries: Int = 32) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
 
@@ -146,21 +149,21 @@ final case class IFetchConfig(
 }
 
 final case class FrontendConfig(
-  addrWidth:           Int = 32,
-  fetchBytes:          Int = 8,
-  icacheSets:          Int = 64,
-  icacheWays:          Int = 1,
-  icacheBanks:         Int = 2,
-  btbEntries:          Int = 64,
-  bhtEntries:          Int = 128,
-  btbWays:             Int = 1,
-  halfwordEntries:     Int = 16,
-  instBufferEntries:   Int = 8,
-  fetchTargetEntries:  Int = 8,
-  fetchQueueEntries:   Int = 32,
-  fetchSequenceBits:   Int = 16,
-  fetchEpochBits:      Int = 8,
-  bpuConfig:           BpuConfig = BpuConfig()) {
+  addrWidth:          Int = 32,
+  fetchBytes:         Int = 8,
+  icacheSets:         Int = 64,
+  icacheWays:         Int = 1,
+  icacheBanks:        Int = 2,
+  btbEntries:         Int = 64,
+  bhtEntries:         Int = 128,
+  btbWays:            Int = 1,
+  halfwordEntries:    Int = 16,
+  instBufferEntries:  Int = 8,
+  fetchTargetEntries: Int = 8,
+  fetchQueueEntries:  Int = 32,
+  fetchSequenceBits:  Int = 16,
+  fetchEpochBits:     Int = 8,
+  bpuConfig: BpuConfig = BpuConfig()) {
   val icache: ICacheConfig = ICacheConfig(
     addrWidth = addrWidth,
     fetchBytes = fetchBytes,
@@ -198,6 +201,9 @@ final case class BackendConfig(
   writebackWidth:    Int = 3,
   issueQueueEntries: Int = 8,
   loadTxnEntries:    Int = 2,
+  storeQueueEntries: Int = 16,
+  storeTxnEntries:   Int = 4,
+  dmemQueueEntries:  Int = 4,
   recoveryCancelPorts: Int = 16) {
   require(issueWidth > 0, "issueWidth must be positive")
   require(commitWidth > 0, "commitWidth must be positive")
@@ -209,6 +215,9 @@ final case class BackendConfig(
   require(writebackWidth >= intIssueWidth + 1, "writebackWidth must cover all integer execute ports and LSU")
   require(issueQueueEntries > 0, "issueQueueEntries must be positive")
   require(loadTxnEntries > 0, "loadTxnEntries must be positive")
+  require(storeQueueEntries > 0, "storeQueueEntries must be positive")
+  require(storeTxnEntries > 0, "storeTxnEntries must be positive")
+  require(dmemQueueEntries > 0, "dmemQueueEntries must be positive")
   require(recoveryCancelPorts > 0, "recoveryCancelPorts must be positive")
 
   val dispatchWidth:      Int = issueWidth
@@ -217,6 +226,7 @@ final case class BackendConfig(
   val regfileReadPorts:   Int = scoreboardQueries
   val regfileWritePorts:  Int = commitWidth
   val robIdxWidth:        Int = math.max(log2Ceil(robEntries), 1)
+  val sqIdxWidth:         Int = math.max(log2Ceil(storeQueueEntries), 1)
   val issueQueueIdxWidth: Int = math.max(log2Ceil(issueQueueEntries), 1)
 }
 

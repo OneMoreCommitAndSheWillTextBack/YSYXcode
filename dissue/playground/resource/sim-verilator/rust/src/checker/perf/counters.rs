@@ -135,7 +135,9 @@ impl PerfCounters {
     pub const FORWARD_PARTIAL: usize = 16;
     pub const FORWARD_UNRESOLVED_STALL_CYCLE: usize = 17;
     pub const STORE_DRAIN: usize = 18;
-    pub const MEM_EVENT_COUNT: usize = 19;
+    pub const STORE_COMMIT: usize = 19;
+    pub const STORE_RESPONSE: usize = 20;
+    pub const MEM_EVENT_COUNT: usize = 21;
 
     pub const ICACHE_REQUEST: usize = 0;
     pub const ICACHE_HIT: usize = 1;
