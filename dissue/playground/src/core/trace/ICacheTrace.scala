@@ -5,6 +5,7 @@ import chisel3.util.{Cat, Valid}
 import top.config.FrontendConfig
 import top.core.bundle.FrontendPerfEvent
 import top.core.frontend.bundle.{
+  FetchToken,
   FrontendRecovery,
   ICacheFetchReq,
   ICacheFetchResp,
@@ -39,6 +40,7 @@ class ICacheTrace(cfg: FrontendConfig) extends Module {
   val missActive        = RegInit(false.B)
   val refillOutstanding = RegInit(false.B)
   val stalePending      = RegInit(false.B)
+  val missToken         = Reg(new FetchToken(cfg))
   val missBlockAddr     = Reg(Vec(cfg.fetchGroupBlocks, UInt(cfg.addrWidth.W)))
   val missBlockValid    = RegInit(VecInit(Seq.fill(cfg.fetchGroupBlocks)(false.B)))
 
@@ -52,19 +54,19 @@ class ICacheTrace(cfg: FrontendConfig) extends Module {
   when(lookupMiss) {
     missActive     := true.B
     stalePending   := false.B
+    missToken      := io.lookup.bits.token
     missBlockAddr  := io.lookup.bits.blockAddr
     missBlockValid := io.lookup.bits.blockValid
   }
-  when(io.refillReq.fire) {
-    refillOutstanding := true.B
+  when(io.refillReq.fire || io.refillResp.fire) {
+    refillOutstanding := (refillOutstanding && !io.refillResp.fire) || io.refillReq.fire
   }
-  when(io.refillResp.fire) {
-    refillOutstanding := false.B
-    when(stalePending) {
-      missActive := false.B
-    }
+  when(io.refillResp.fire && stalePending && !lookupMiss) {
+    missActive   := false.B
+    stalePending := false.B
   }
-  when(io.resp.fire && missActive && !lookupMiss) {
+  val responseMatchesMiss = FetchToken.matches(io.resp.bits.token, missToken)
+  when(io.resp.fire && missActive && responseMatchesMiss && !lookupMiss) {
     missActive := false.B
   }
   when(cancellation && missActive) {
