@@ -44,13 +44,13 @@ class Btb(cfg: BpuConfig) extends Module {
   private def index(pc: UInt) =
     pc(idxWidth + offsetWidth - 1, offsetWidth)
 
-  val validArray  = RegInit(VecInit(Seq.fill(cfg.btbEntries)(false.B)))
-  val tagArray    = Reg(Vec(cfg.btbEntries, UInt(tagWidth.W)))
-  val targetArray = Reg(Vec(cfg.btbEntries, UInt(cfg.addrWidth.W)))
-  val cfitpArray  = Reg(Vec(cfg.btbEntries, UInt(CfiType.width.W)))
-  val cfioffArray = Reg(Vec(cfg.btbEntries, UInt(cfg.cfiOffsetBits.W)))
+  val validArray   = RegInit(VecInit(Seq.fill(cfg.btbEntries)(false.B)))
+  val tagArray     = Reg(Vec(cfg.btbEntries, UInt(tagWidth.W)))
+  val targetArray  = Reg(Vec(cfg.btbEntries, UInt(cfg.addrWidth.W)))
+  val cfitpArray   = Reg(Vec(cfg.btbEntries, UInt(CfiType.width.W)))
+  val cfioffArray  = Reg(Vec(cfg.btbEntries, UInt(cfg.cfiOffsetBits.W)))
   val instLenArray = Reg(Vec(cfg.btbEntries, UInt(3.W)))
-  val rasArray    = Reg(Vec(cfg.btbEntries, UInt(RasAction.width.W)))
+  val rasArray     = Reg(Vec(cfg.btbEntries, UInt(RasAction.width.W)))
 
   private val firstUpdateSet   = index(io.update(0).bits.pc)
   private val firstUpdateTag   = tag(io.update(0).bits.pc)
@@ -60,23 +60,23 @@ class Btb(cfg: BpuConfig) extends Module {
     firstUpdateSet === secondUpdateSet && firstUpdateTag === secondUpdateTag
 
   when(io.update(0).valid) {
-    validArray(firstUpdateSet)  := true.B
-    tagArray(firstUpdateSet)    := firstUpdateTag
-    targetArray(firstUpdateSet) := io.update(0).bits.target
-    cfitpArray(firstUpdateSet)  := io.update(0).bits.cfiType
-    cfioffArray(firstUpdateSet) := io.update(0).bits.cfiOffset
+    validArray(firstUpdateSet)   := true.B
+    tagArray(firstUpdateSet)     := firstUpdateTag
+    targetArray(firstUpdateSet)  := io.update(0).bits.target
+    cfitpArray(firstUpdateSet)   := io.update(0).bits.cfiType
+    cfioffArray(firstUpdateSet)  := io.update(0).bits.cfiOffset
     instLenArray(firstUpdateSet) := io.update(0).bits.instLen
-    rasArray(firstUpdateSet)    := io.update(0).bits.rasAction
+    rasArray(firstUpdateSet)     := io.update(0).bits.rasAction
   }
 
   when(io.update(1).valid && !sameBlockUpdates) {
-    validArray(secondUpdateSet)  := true.B
-    tagArray(secondUpdateSet)    := secondUpdateTag
-    targetArray(secondUpdateSet) := io.update(1).bits.target
-    cfitpArray(secondUpdateSet)  := io.update(1).bits.cfiType
-    cfioffArray(secondUpdateSet) := io.update(1).bits.cfiOffset
+    validArray(secondUpdateSet)   := true.B
+    tagArray(secondUpdateSet)     := secondUpdateTag
+    targetArray(secondUpdateSet)  := io.update(1).bits.target
+    cfitpArray(secondUpdateSet)   := io.update(1).bits.cfiType
+    cfioffArray(secondUpdateSet)  := io.update(1).bits.cfiOffset
     instLenArray(secondUpdateSet) := io.update(1).bits.instLen
-    rasArray(secondUpdateSet)    := io.update(1).bits.rasAction
+    rasArray(secondUpdateSet)     := io.update(1).bits.rasAction
   }
 
   when(sameBlockUpdates) {
@@ -366,27 +366,27 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
   val fastTaken             = Wire(Vec(blocks, Bool()))
   val fastNeedsContinuation = Wire(Vec(blocks, Bool()))
   for (block <- 0 until blocks) {
-    val response          = btb.io.resp(block)
-    val lookupOffset      = if (block == 0) s1Request.startPc(cfg.offsetBits - 1, 1) else 0.U
-    val crossesBlock      = response.instLen === 4.U &&
+    val response         = btb.io.resp(block)
+    val lookupOffset     = if (block == 0) s1Request.startPc(cfg.offsetBits - 1, 1) else 0.U
+    val crossesBlock     = response.instLen === 4.U &&
       response.cfiOffset === (frontendCfg.fetchBytes / 2 - 1).U
-    val continuationFits  = if (block + 1 < blocks) true.B else !crossesBlock
-    val inWindow          = s1Valid && response.hit && response.cfiType =/= CfiType.none &&
+    val continuationFits = if (block + 1 < blocks) true.B else !crossesBlock
+    val inWindow         = s1Valid && response.hit && response.cfiType =/= CfiType.none &&
       response.cfiOffset >= lookupOffset && continuationFits
-    val canonicalReturn = isCanonicalReturn(response.cfiType, response.rasAction)
-    val rasTarget       = Mux(
+    val canonicalReturn  = isCanonicalReturn(response.cfiType, response.rasAction)
+    val rasTarget        = Mux(
       s1Ras.count =/= 0.U,
       s1Ras.entries((s1Ras.count - 1.U)(PredictorConstants.rasIndexBits - 1, 0)),
       response.target
     )
 
-    fastMeta(block)           := 0.U.asTypeOf(new BtbCfiMeta(frontendCfg))
-    fastMeta(block).valid     := inWindow
-    fastMeta(block).cfiOffset := Mux(inWindow, response.cfiOffset, 0.U)
-    fastMeta(block).cfiType   := Mux(inWindow, response.cfiType, CfiType.none)
-    fastMeta(block).target    := Mux(canonicalReturn, rasTarget, response.target)
-    fastMeta(block).rasAction := Mux(inWindow, response.rasAction, RasAction.none)
-    fastTaken(block)          := inWindow && Mux(response.cfiType === CfiType.branch, bht.io.taken(block), true.B)
+    fastMeta(block)              := 0.U.asTypeOf(new BtbCfiMeta(frontendCfg))
+    fastMeta(block).valid        := inWindow
+    fastMeta(block).cfiOffset    := Mux(inWindow, response.cfiOffset, 0.U)
+    fastMeta(block).cfiType      := Mux(inWindow, response.cfiType, CfiType.none)
+    fastMeta(block).target       := Mux(canonicalReturn, rasTarget, response.target)
+    fastMeta(block).rasAction    := Mux(inWindow, response.rasAction, RasAction.none)
+    fastTaken(block)             := inWindow && Mux(response.cfiType === CfiType.branch, bht.io.taken(block), true.B)
     fastNeedsContinuation(block) := inWindow && crossesBlock
   }
 

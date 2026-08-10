@@ -85,10 +85,10 @@ class InstructionAligner(cfg: FrontendConfig, depth: Int) extends Module {
   starts(0) := 0.U
 
   for (lane <- 0 until cfg.frontendWidth) {
-    val low       = peek(starts(lane)(log2Ceil(peekWidth) - 1, 0))
-    val high      = peek((starts(lane) + 1.U)(log2Ceil(peekWidth) - 1, 0))
-    val isRvc     = low.bits(1, 0) =/= 3.U
-    val laneNeeds = Mux(isRvc, 1.U(needWidth.W), 2.U(needWidth.W))
+    val low        = peek(starts(lane)(log2Ceil(peekWidth) - 1, 0))
+    val high       = peek((starts(lane) + 1.U)(log2Ceil(peekWidth) - 1, 0))
+    val isRvc      = low.bits(1, 0) =/= 3.U
+    val laneNeeds  = Mux(isRvc, 1.U(needWidth.W), 2.U(needWidth.W))
     val contiguous = isRvc || (count > starts(lane) + 1.U && high.pc === low.pc + 2.U)
     needs(lane) := laneNeeds
     ready(lane) := (if (lane == 0) true.B else ready(lane - 1)) &&
