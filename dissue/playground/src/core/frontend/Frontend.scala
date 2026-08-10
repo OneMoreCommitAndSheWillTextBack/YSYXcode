@@ -178,6 +178,9 @@ class Frontend(
     fetchQueueEpoch := fetchQueueEpoch +% 1.U
   }
   fetchQueue.io.flush := dataFlush
+  fetchQueue.io.pruneFrom.valid := selectedRecovery.valid &&
+    selectedRecovery.bits.kind === FrontendRecoveryKind.bpuOverride && ftq.io.recoverySequence.valid
+  fetchQueue.io.pruneFrom.bits := ftq.io.recoverySequence.bits
   fetchQueue.io.currentEpoch := fetchQueueEpoch
   // Recovery owns the FTQ state transition for this cycle. Hold a completed IFU packet until the following cycle so
   // its emission accounting cannot be lost behind that transition; BPU overrides still retain all buffered data.

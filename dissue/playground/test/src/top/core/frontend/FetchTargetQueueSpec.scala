@@ -284,12 +284,12 @@ object FetchTargetQueueSpec {
         dut.io.reserve.valid.poke(false)
       }
 
-      def fast(token: Token, pc: BigInt): Unit = {
+      def fast(token: Token, pc: BigInt, blockCount: Int = cfg.fetchGroupBlocks): Unit = {
         dut.io.writeFast.valid.poke(true)
         pokeToken(dut.io.writeFast.bits.token, token)
         dut.io.writeFast.bits.startPc.poke(pc)
         dut.io.writeFast.bits.predictedNextPc.poke(pc + cfg.fetchGroupBytes)
-        dut.io.writeFast.bits.blockCount.poke(2)
+        dut.io.writeFast.bits.blockCount.poke(blockCount)
         dut.io.writeFast.bits.historyCheckpoint.poke(0xaa)
         dut.io.writeFast.bits.pathCheckpoint.poke(0x55)
         dut.io.writeFast.bits.rasCheckpoint.count.poke(0)
@@ -414,8 +414,14 @@ object FetchTargetQueueSpec {
       dut.clock.step()
       dut.io.writeFinal.valid.poke(false)
 
-      // S3 finalization and BPU override recovery are atomic: the anchor survives with a refreshed data epoch.
+      // Fast prediction may launch the anchor's cache request before S3. A later override must preserve that request
+      // and its token while pruning only younger entries; the completed anchor must not be fetched a second time.
       fast(reused, 0x3000)
+      dut.io.fetchTarget.valid.expect(true)
+      dut.io.fetchTarget.bits.token.streamEpoch.expect(reused.epoch)
+      dut.io.fetchTarget.ready.poke(true)
+      dut.clock.step()
+      dut.io.fetchTarget.ready.poke(false)
       finalBits(reused, 0x3000, multiCfi = false)
       dut.io.writeFinal.bits.finalNextPc.poke(0x3800)
       dut.io.writeFinal.bits.overrideFastPath.poke(true)
@@ -428,29 +434,22 @@ object FetchTargetQueueSpec {
       dut.clock.step()
       dut.io.writeFinal.valid.poke(false)
       dut.io.recovery.valid.poke(false)
-      dut.io.fetchTarget.valid.expect(true)
-      dut.io.fetchTarget.bits.token.tag.index.expect(reused.index)
-      dut.io.fetchTarget.bits.token.tag.generation.expect(reused.generation)
-      dut.io.fetchTarget.bits.token.streamEpoch.expect(2)
-      dut.io.fetchTarget.bits.finalNextPc.expect(0x3800)
-
-      // A trap can terminate an entry without a normal retire and cannot leak the slot.
-      val refreshed = Token(reused.index, reused.generation, 2)
-      dut.io.fetchTarget.ready.poke(true)
-      dut.clock.step()
-      dut.io.fetchTarget.ready.poke(false)
+      dut.io.fetchTarget.valid.expect(false)
       dut.io.fetchComplete.valid.poke(true)
-      pokeToken(dut.io.fetchComplete.bits.token, refreshed)
+      pokeToken(dut.io.fetchComplete.bits.token, reused)
+      dut.io.staleCompleteDrop.expect(false)
       dut.clock.step()
       dut.io.fetchComplete.valid.poke(false)
+
+      // A trap can terminate an entry without a normal retire and cannot leak the slot.
       dut.io.ifuEmission(0).valid.poke(true)
-      pokeToken(dut.io.ifuEmission(0).bits.token, refreshed)
+      pokeToken(dut.io.ifuEmission(0).bits.token, reused)
       dut.io.ifuEmission(0).bits.instOrdinal.poke(0)
       dut.io.ifuEmission(0).bits.terminatesEntry.poke(true)
       dut.clock.step()
       dut.io.ifuEmission(0).valid.poke(false)
       dut.io.retire(0).valid.poke(true)
-      pokeTag(dut.io.retire(0).bits.tag, refreshed)
+      pokeTag(dut.io.retire(0).bits.tag, reused)
       dut.io.retire(0).bits.instOrdinal.poke(0)
       dut.io.retire(0).bits.retired.poke(false)
       dut.io.retire(0).bits.trap.poke(true)
@@ -686,6 +685,93 @@ object FetchTargetQueueSpec {
       }
       dut.clock.step()
       dut.io.count.expect(0)
+
+      // If late prediction expands the anchor beyond the blocks already requested, the old response cannot be reused.
+      // Refresh the token and issue the anchor again with the final block count.
+      dut.io.recovery.valid.poke(true)
+      dut.io.recovery.bits.kind.poke(FrontendRecoveryKind.reset)
+      dut.io.recovery.bits.tokenValid.poke(false)
+      dut.io.recovery.bits.targetPc.poke(0xc000)
+      dut.clock.step()
+      clearInputs()
+
+      val expandingAnchor = Token(0, 6, 9)
+      reserve(expandingAnchor, 0xc000)
+      fast(expandingAnchor, 0xc000, blockCount = 1)
+      dut.io.fetchTarget.valid.expect(true)
+      dut.io.fetchTarget.bits.blockCount.expect(1)
+      dut.io.fetchTarget.ready.poke(true)
+      dut.clock.step()
+      dut.io.fetchTarget.ready.poke(false)
+
+      finalBits(expandingAnchor, 0xc000, multiCfi = false)
+      dut.io.writeFinal.bits.blockCount.poke(2)
+      dut.io.writeFinal.bits.finalNextPc.poke(0xc100)
+      dut.io.writeFinal.bits.overrideFastPath.poke(true)
+      dut.io.recovery.valid.poke(true)
+      dut.io.recovery.bits.kind.poke(FrontendRecoveryKind.bpuOverride)
+      dut.io.recovery.bits.tokenValid.poke(true)
+      pokeToken(dut.io.recovery.bits.token, expandingAnchor)
+      dut.io.recovery.bits.targetPc.poke(0xc100)
+      dut.io.recovery.bits.dropTargetEntry.poke(false)
+      dut.clock.step()
+      clearInputs()
+
+      dut.io.currentStreamEpoch.expect(10)
+      dut.io.fetchTarget.valid.expect(true)
+      dut.io.fetchTarget.bits.token.streamEpoch.expect(10)
+      dut.io.fetchTarget.bits.blockCount.expect(2)
+      dut.io.fetchComplete.valid.poke(true)
+      pokeToken(dut.io.fetchComplete.bits.token, expandingAnchor)
+      dut.io.staleCompleteDrop.expect(true)
+
+      // If the cache blocks an older finalized entry, a late override on a still-unissued younger anchor must not
+      // move fetchPtr past the older entry. Both requests remain ordered even though the anchor refreshes its epoch.
+      clearInputs()
+      dut.io.recovery.valid.poke(true)
+      dut.io.recovery.bits.kind.poke(FrontendRecoveryKind.reset)
+      dut.io.recovery.bits.tokenValid.poke(false)
+      dut.io.recovery.bits.targetPc.poke(0xd000)
+      dut.clock.step()
+      clearInputs()
+
+      val pendingOlder  = Token(0, 7, 11)
+      val pendingAnchor = Token(1, 5, 11)
+      reserve(pendingOlder, 0xd000)
+      fast(pendingOlder, 0xd000)
+      finalBits(pendingOlder, 0xd000, multiCfi = false)
+      dut.clock.step()
+      dut.io.writeFinal.valid.poke(false)
+
+      reserve(pendingAnchor, 0xe000)
+      fast(pendingAnchor, 0xe000)
+      finalBits(pendingAnchor, 0xe000, multiCfi = false)
+      dut.io.writeFinal.bits.overrideFastPath.poke(true)
+      dut.io.writeFinal.bits.finalNextPc.poke(0xe800)
+      dut.io.recovery.valid.poke(true)
+      dut.io.recovery.bits.kind.poke(FrontendRecoveryKind.bpuOverride)
+      dut.io.recovery.bits.tokenValid.poke(true)
+      pokeToken(dut.io.recovery.bits.token, pendingAnchor)
+      dut.io.recovery.bits.targetPc.poke(0xe800)
+      dut.io.recovery.bits.dropTargetEntry.poke(false)
+      dut.clock.step()
+      clearInputs()
+
+      dut.io.currentStreamEpoch.expect(12)
+      dut.io.fetchTarget.valid.expect(true)
+      dut.io.fetchTarget.bits.token.tag.index.expect(pendingOlder.index)
+      dut.io.fetchTarget.bits.token.tag.generation.expect(pendingOlder.generation)
+      dut.io.fetchTarget.bits.token.streamEpoch.expect(pendingOlder.epoch)
+      dut.io.fetchTarget.bits.startPc.expect(0xd000)
+      dut.io.fetchTarget.ready.poke(true)
+      dut.clock.step()
+      dut.io.fetchTarget.ready.poke(false)
+
+      dut.io.fetchTarget.valid.expect(true)
+      dut.io.fetchTarget.bits.token.tag.index.expect(pendingAnchor.index)
+      dut.io.fetchTarget.bits.token.tag.generation.expect(pendingAnchor.generation)
+      dut.io.fetchTarget.bits.token.streamEpoch.expect(12)
+      dut.io.fetchTarget.bits.startPc.expect(0xe000)
     }
 
     println("FetchTargetQueueSpec: PASS")

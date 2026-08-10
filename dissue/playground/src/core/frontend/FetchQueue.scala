@@ -33,6 +33,7 @@ class FetchQueue(
 
   val io = IO(new Bundle {
     val flush        = Input(Bool())
+    val pruneFrom    = Flipped(Valid(UInt(cfg.fetchSequenceBits.W)))
     val currentEpoch = Input(UInt(cfg.fetchEpochBits.W))
     val enq          = Flipped(Decoupled(new FetchQueueEnqueue(cfg, enqWidth)))
     val out          = Decoupled(new FetchPacket(cfg.payload))
@@ -70,7 +71,7 @@ class FetchQueue(
   private val headLive    = !empty && headEntry.epoch === io.currentEpoch
   private val secondLive  = headLive && count >= deqWidth.U && secondEntry.epoch === io.currentEpoch
 
-  io.out.valid               := !io.flush && headLive
+  io.out.valid               := !io.flush && !io.pruneFrom.valid && headLive
   io.out.bits                := 0.U.asTypeOf(new FetchPacket(cfg.payload))
   io.out.bits.insts(0).valid := !io.flush && headLive
   io.out.bits.insts(0).bits  := headEntry.inst
@@ -91,7 +92,7 @@ class FetchQueue(
   enqueueCountWide := enqueueCount
   private val freeAfterDequeue = depth.U(countWidth.W) - count + dequeueCount
 
-  io.enq.ready := !io.flush && freeAfterDequeue >= enqueueCountWide
+  io.enq.ready := !io.flush && !io.pruneFrom.valid && freeAfterDequeue >= enqueueCountWide
 
   private val enqueueFire          = io.enq.fire
   private val dequeueFire          = io.out.fire
@@ -108,6 +109,12 @@ class FetchQueue(
   io.dequeueWidth := dequeueCount
 
   val tailEntry = entries(ptrAdd(readPtr, count - 1.U))
+  val keepOnPrune = VecInit((0 until depth).map { offset =>
+    val slot = entries(ptrAdd(readPtr, offset.U(ptrWidth.W)))
+    offset.U(countWidth.W) < count && !sequenceAfter(slot.sequence, io.pruneFrom.bits) &&
+    slot.sequence =/= io.pruneFrom.bits
+  })
+  val keepCount = PopCount(keepOnPrune)
 
   when(enqueueFire) {
     assert(enqueueCount =/= 0.U)
@@ -142,6 +149,9 @@ class FetchQueue(
     readPtr  := 0.U
     writePtr := 0.U
     count    := 0.U
+  }.elsewhen(io.pruneFrom.valid) {
+    writePtr := ptrAdd(readPtr, keepCount)
+    count    := keepCount
   }.otherwise {
     when(enqueueFire) {
       for (lane <- 0 until enqWidth) {
@@ -161,6 +171,10 @@ class FetchQueue(
 
   assert(count <= depth.U)
   assert(dequeueCount <= deqWidth.U)
+  when(io.pruneFrom.valid) {
+    assert(!io.out.fire)
+    assert(!io.enq.fire)
+  }
   when(enqueueFire) {
     assert(enqueueCountWide <= freeAfterDequeue)
   }

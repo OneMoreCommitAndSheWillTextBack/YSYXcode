@@ -131,6 +131,13 @@ object BpuPipelineSpec {
       dut.io.fastResult.bits.blockTaken(0).expect(false)
       dut.io.fastResult.bits.blockTaken(1).expect(false)
       expectFinal(dut, tokenIndex = 3, fastNpc = 0x4010, finalNpc = 0x4010, finalBlockCount = 2, overridePath = false)
+
+      // A retired not-taken branch still supplies CFI metadata so subsequent fetches can query TAGE.
+      train(dut, pc = 0x5000, cfiType = CfiType.branch.litValue, taken = false, target = 0x5800)
+      request(dut, token = 4, pc = 0x5000)
+      dut.io.fastResult.bits.blockPred(0).valid.expect(true)
+      dut.io.fastResult.bits.blockTaken(0).expect(false)
+      expectFinal(dut, tokenIndex = 4, fastNpc = 0x5010, finalNpc = 0x5010, finalBlockCount = 2, overridePath = false)
     }
 
     simulate(new Bpu(cfg)) { dut =>
@@ -150,13 +157,20 @@ object BpuPipelineSpec {
       request(dut, token = 1, pc = 0x3000)
       dut.io.fastResult.bits.blockPred(1).valid.expect(false)
       dut.io.fastResult.bits.blockTaken(1).expect(false)
-      expectFinal(dut, tokenIndex = 1, fastNpc = 0x3010, finalNpc = 0x3010, finalBlockCount = 2, overridePath = false)
+      dut.io.fastResult.bits.blockCount.expect(1)
+      expectFinal(dut, tokenIndex = 1, fastNpc = 0x3008, finalNpc = 0x3008, finalBlockCount = 1, overridePath = false)
+
+      request(dut, token = 2, pc = 0x3008)
+      dut.io.fastResult.bits.blockPred(0).valid.expect(true)
+      dut.io.fastResult.bits.blockTaken(0).expect(true)
+      dut.io.fastResult.bits.blockCount.expect(2)
+      expectFinal(dut, tokenIndex = 2, fastNpc = 0x3800, finalNpc = 0x3800, finalBlockCount = 2, overridePath = false)
 
       train(dut, pc = 0x400e, cfiType = CfiType.jal.litValue, taken = true, target = 0x4800, instLen = 2)
-      request(dut, token = 2, pc = 0x4000)
+      request(dut, token = 3, pc = 0x4000)
       dut.io.fastResult.bits.blockPred(1).valid.expect(true)
       dut.io.fastResult.bits.blockTaken(1).expect(true)
-      expectFinal(dut, tokenIndex = 2, fastNpc = 0x4800, finalNpc = 0x4800, finalBlockCount = 2, overridePath = false)
+      expectFinal(dut, tokenIndex = 3, fastNpc = 0x4800, finalNpc = 0x4800, finalBlockCount = 2, overridePath = false)
     }
 
     simulate(new Bpu(cfg)) { dut =>

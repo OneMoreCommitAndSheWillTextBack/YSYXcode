@@ -296,7 +296,7 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
   private val speculativePath      = RegInit(0.U(frontendCfg.historyBits.W))
 
   for (lane <- 0 until commitWidth) {
-    btb.io.update(lane).valid          := io.train(lane).valid && io.train(lane).bits.taken
+    btb.io.update(lane).valid          := io.train(lane).valid
     btb.io.update(lane).bits.pc        := io.train(lane).bits.pc
     btb.io.update(lane).bits.target    := io.train(lane).bits.target
     btb.io.update(lane).bits.cfiOffset := io.train(lane).bits.pc(cfg.offsetBits - 1, 1)
@@ -365,14 +365,16 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
   val fastMeta              = Wire(Vec(blocks, new BtbCfiMeta(frontendCfg)))
   val fastTaken             = Wire(Vec(blocks, Bool()))
   val fastNeedsContinuation = Wire(Vec(blocks, Bool()))
+  val fastNeedsSplit        = Wire(Vec(blocks, Bool()))
   for (block <- 0 until blocks) {
     val response         = btb.io.resp(block)
     val lookupOffset     = if (block == 0) s1Request.startPc(cfg.offsetBits - 1, 1) else 0.U
     val crossesBlock     = response.instLen === 4.U &&
       response.cfiOffset === (frontendCfg.fetchBytes / 2 - 1).U
     val continuationFits = if (block + 1 < blocks) true.B else !crossesBlock
-    val inWindow         = s1Valid && response.hit && response.cfiType =/= CfiType.none &&
-      response.cfiOffset >= lookupOffset && continuationFits
+    val candidateInWindow = s1Valid && response.hit && response.cfiType =/= CfiType.none &&
+      response.cfiOffset >= lookupOffset
+    val inWindow = candidateInWindow && continuationFits
     val canonicalReturn  = isCanonicalReturn(response.cfiType, response.rasAction)
     val rasTarget        = Mux(
       s1Ras.count =/= 0.U,
@@ -388,13 +390,24 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     fastMeta(block).rasAction    := Mux(inWindow, response.rasAction, RasAction.none)
     fastTaken(block)             := inWindow && Mux(response.cfiType === CfiType.branch, bht.io.taken(block), true.B)
     fastNeedsContinuation(block) := inWindow && crossesBlock
+    fastNeedsSplit(block)        := candidateInWindow && crossesBlock && (block == blocks - 1).B
   }
 
-  val fastTakenMask  = fastTaken.asUInt
-  val fastTakenOH    = PriorityEncoderOH(fastTakenMask).asBools
-  val sequentialNext = blockBase(s1Request.startPc, 0) +% frontendCfg.fetchGroupBytes.U
-  val fastNextPc     = Mux(fastTakenMask.orR, Mux1H(fastTakenOH, fastMeta.map(_.target)), sequentialNext)
-  val fastBlockCount = Mux(fastTaken(0) && !fastNeedsContinuation(0), 1.U, blocks.U)
+  val fastTakenMask   = fastTaken.asUInt
+  val fastTakenOH     = PriorityEncoderOH(fastTakenMask).asBools
+  val sequentialNext  = blockBase(s1Request.startPc, 0) +% frontendCfg.fetchGroupBytes.U
+  val splitNext       = blockBase(s1Request.startPc, blocks - 1)
+  val fastSplitActive = fastNeedsSplit(blocks - 1) && !fastTakenMask.orR
+  val fastNextPc      = Mux(
+    fastTakenMask.orR,
+    Mux1H(fastTakenOH, fastMeta.map(_.target)),
+    Mux(fastSplitActive, splitNext, sequentialNext)
+  )
+  val fastBlockCount = Mux(
+    fastSplitActive || (fastTaken(0) && !fastNeedsContinuation(0)),
+    (blocks - 1).U,
+    blocks.U
+  )
 
   io.fastResult.valid                  := s1Valid && !io.recover.valid
   io.fastResult.bits                   := 0.U.asTypeOf(new BpuFastResult(frontendCfg))
@@ -470,6 +483,7 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
   val s2Valid             = RegInit(false.B)
   val s2Fast              = Reg(new BpuFastResult(frontendCfg))
   val s2NeedsContinuation = Reg(Vec(blocks, Bool()))
+  val s2NeedsSplit        = Reg(Vec(blocks, Bool()))
   val s2Tage              = tage.io.prediction
   val s2Ittage            = ittage.io.prediction
 
@@ -489,11 +503,21 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     finalMeta(block).target := finalTarget(block)
   }
 
-  val finalTakenMask  = finalTaken.asUInt
-  val finalTakenOH    = PriorityEncoderOH(finalTakenMask).asBools
-  val finalSequential = blockBase(s2Fast.startPc, 0) +% frontendCfg.fetchGroupBytes.U
-  val finalNextPc     = Mux(finalTakenMask.orR, Mux1H(finalTakenOH, finalTarget), finalSequential)
-  val finalBlockCount = Mux(finalTaken(0) && !s2NeedsContinuation(0), 1.U, blocks.U)
+  val finalTakenMask   = finalTaken.asUInt
+  val finalTakenOH     = PriorityEncoderOH(finalTakenMask).asBools
+  val finalSequential  = blockBase(s2Fast.startPc, 0) +% frontendCfg.fetchGroupBytes.U
+  val finalSplitNext   = blockBase(s2Fast.startPc, blocks - 1)
+  val finalSplitActive = s2NeedsSplit(blocks - 1) && !finalTakenMask.orR
+  val finalNextPc      = Mux(
+    finalTakenMask.orR,
+    Mux1H(finalTakenOH, finalTarget),
+    Mux(finalSplitActive, finalSplitNext, finalSequential)
+  )
+  val finalBlockCount = Mux(
+    finalSplitActive || (finalTaken(0) && !s2NeedsContinuation(0)),
+    (blocks - 1).U,
+    blocks.U
+  )
 
   val finalSummary = Wire(new PredictionSummary(frontendCfg))
   finalSummary                 := 0.U.asTypeOf(new PredictionSummary(frontendCfg))
@@ -665,6 +689,7 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     when(s1Valid) {
       s2Fast              := io.fastResult.bits
       s2NeedsContinuation := fastNeedsContinuation
+      s2NeedsSplit        := fastNeedsSplit
     }
     when(s2Valid) {
       s3Result                  := 0.U.asTypeOf(new BpuFinalResult(frontendCfg))

@@ -57,6 +57,7 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
 
     val recovery           = Flipped(Valid(new FrontendRecovery(cfg)))
     val bpuRecover         = Valid(new BpuRecover(cfg))
+    val recoverySequence   = Valid(UInt(cfg.ftqSequenceBits.W))
     val currentStreamEpoch = Output(UInt(cfg.fetchEpochBits.W))
 
     val bpuWritePtr = Output(UInt(ptrWidth.W))
@@ -143,15 +144,18 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
   val fastHit    = valid(fastIndex) && tokenMatches(io.writeFast.bits.token, entries(fastIndex)) &&
     entries(fastIndex).phase === FtqEntryPhase.reserved
   val finalIndex = io.writeFinal.bits.token.tag.index
+  val finalPhaseEligible = entries(finalIndex).phase === FtqEntryPhase.fastReady ||
+    entries(finalIndex).phase === FtqEntryPhase.fetchIssued ||
+    entries(finalIndex).phase === FtqEntryPhase.dataReady
   val finalHit   = valid(finalIndex) && tokenMatches(io.writeFinal.bits.token, entries(finalIndex)) &&
-    entries(finalIndex).phase === FtqEntryPhase.fastReady
+    finalPhaseEligible
 
   io.staleFastDrop  := io.writeFast.valid && !fastHit
   io.staleFinalDrop := io.writeFinal.valid && !finalHit
 
   val fetchEntry = entries(fetchPtr)
   io.fetchTarget.valid                  := !io.recovery.valid && valid(fetchPtr) &&
-    fetchEntry.phase === FtqEntryPhase.finalReady
+    (fetchEntry.phase === FtqEntryPhase.fastReady || fetchEntry.phase === FtqEntryPhase.finalReady)
   io.fetchTarget.bits.token             := fetchEntry.token
   io.fetchTarget.bits.sequence          := fetchEntry.sequence
   io.fetchTarget.bits.startPc           := fetchEntry.startPc
@@ -248,6 +252,8 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
   io.bpuRecover.bits.historyCheckpoint := entries(recoveryIndex).historyCheckpoint
   io.bpuRecover.bits.pathCheckpoint    := entries(recoveryIndex).pathCheckpoint
   io.bpuRecover.bits.rasCheckpoint     := entries(recoveryIndex).rasCheckpoint
+  io.recoverySequence.valid            := io.recovery.valid && recoveryHit
+  io.recoverySequence.bits             := entries(recoveryIndex).sequence
 
   val headReleasable = valid(commitPtr) && entries(commitPtr).emissionDone &&
     entries(commitPtr).retiredInsts === entries(commitPtr).expectedRetireInsts
@@ -294,12 +300,26 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
         writePtr := nextAnchor
         when(io.recovery.bits.kind === FrontendRecoveryKind.bpuOverride) {
           assert(io.writeFinal.valid && finalIndex === recoveryIndex && finalHit)
-          entries(recoveryIndex).token.streamEpoch := streamEpoch +% 1.U
+          val anchorWasUnissued = entries(recoveryIndex).phase === FtqEntryPhase.fastReady
+          val olderFetchPending = valid(fetchPtr) &&
+            sequenceYounger(anchorSequence, entries(fetchPtr).sequence)
+          val canReuseIssuedRequest = entries(recoveryIndex).phase =/= FtqEntryPhase.fastReady &&
+            io.writeFinal.bits.blockCount <= entries(recoveryIndex).blockCount
           entries(recoveryIndex).finalNextPc       := io.writeFinal.bits.finalNextPc
           entries(recoveryIndex).blockCount        := io.writeFinal.bits.blockCount
           entries(recoveryIndex).prediction        := io.writeFinal.bits.finalPrediction
           entries(recoveryIndex).trainMeta         := io.writeFinal.bits.trainMeta
-          entries(recoveryIndex).phase             := FtqEntryPhase.finalReady
+          when(!canReuseIssuedRequest) {
+            entries(recoveryIndex).token.streamEpoch := streamEpoch +% 1.U
+            entries(recoveryIndex).phase             := FtqEntryPhase.finalReady
+            // A blocked cache can leave an older entry unissued while the BPU reaches this anchor. Keep issuing in
+            // sequence order; the refreshed anchor will be reached after that older entry.
+            when(!anchorWasUnissued || !olderFetchPending) {
+              fetchPtr := recoveryIndex
+            }
+          }.elsewhen(io.fetchComplete.valid && completeHit && completeIndex === recoveryIndex) {
+            entries(recoveryIndex).phase := FtqEntryPhase.dataReady
+          }
         }.elsewhen(io.recovery.bits.kind === FrontendRecoveryKind.ifuCorrection) {
           // The correcting instruction group is held at IFU's registered boundary during recovery and is emitted
           // in the next cycle. Keep the anchor live and emission-open so that packet receives normal accounting.
@@ -363,7 +383,9 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
       entries(finalIndex).blockCount  := io.writeFinal.bits.blockCount
       entries(finalIndex).prediction  := io.writeFinal.bits.finalPrediction
       entries(finalIndex).trainMeta   := io.writeFinal.bits.trainMeta
-      entries(finalIndex).phase       := FtqEntryPhase.finalReady
+      when(entries(finalIndex).phase === FtqEntryPhase.fastReady) {
+        entries(finalIndex).phase := FtqEntryPhase.finalReady
+      }
     }
 
     when(io.fetchTarget.fire) {
@@ -427,7 +449,10 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
   }
   when(io.fetchTarget.fire) {
     assert(valid(fetchPtr))
-    assert(entries(fetchPtr).phase === FtqEntryPhase.finalReady)
+    assert(
+      entries(fetchPtr).phase === FtqEntryPhase.fastReady ||
+        entries(fetchPtr).phase === FtqEntryPhase.finalReady
+    )
   }
   when(io.recovery.valid && io.recovery.bits.tokenValid) {
     assert(recoveryHit)
