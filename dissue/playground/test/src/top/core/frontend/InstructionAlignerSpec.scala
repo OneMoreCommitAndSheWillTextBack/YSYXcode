@@ -201,6 +201,31 @@ object InstructionAlignerSpec {
       dut.io.laneToken(0).expect(1)
       dut.io.lanePc(0).expect(0x2012)
       dut.io.laneOrdinal(0).expect(0)
+
+      dut.io.flush.poke(true)
+      dut.clock.step()
+      dut.io.flush.poke(false)
+
+      // A predicted target is not a legal continuation for a dangling 32-bit low halfword. It must never be combined
+      // with the old stream even when it is the next buffered token.
+      send(
+        token = 2,
+        sequence = 30,
+        startPc = 0x3000,
+        first = pack(0x0001, 0x0001, 0x0001, 0x0001),
+        second = pack(0x0001, 0x0001, 0x0001, 0x00f3)
+      )
+      dut.clock.step(2)
+      dut.io.outValid.expect(false)
+
+      send(
+        token = 3,
+        sequence = 31,
+        startPc = 0x4000,
+        first = pack(0x07b7, 0x0001, 0x0001, 0x0001),
+        second = pack(0x0001, 0x0001, 0x0001, 0x0001)
+      )
+      dut.io.outValid.expect(false)
     }
 
     println("InstructionAlignerSpec: PASS")

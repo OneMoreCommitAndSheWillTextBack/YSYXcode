@@ -30,14 +30,15 @@ object BpuPipelineSpec {
     lateValid:   Boolean = false,
     lateTaken:   Boolean = false,
     lateTarget:  BigInt = 0,
-    provider:    BigInt = 0
+    provider:    BigInt = 0,
+    instLen:     Int = 4
   ): Unit = {
     dut.io.train(0).valid.poke(true)
     dut.io.train(0).bits.pc.poke(pc)
     dut.io.train(0).bits.cfiType.poke(cfiType)
     dut.io.train(0).bits.taken.poke(taken)
     dut.io.train(0).bits.target.poke(target)
-    dut.io.train(0).bits.instLen.poke(4)
+    dut.io.train(0).bits.instLen.poke(instLen)
     dut.io.train(0).bits.rasAction.poke(RasAction.none.litValue)
     dut.io.train(0).bits.canonicalReturn.poke(false)
     dut.io.train(0).bits.context.provider.poke(provider)
@@ -130,6 +131,32 @@ object BpuPipelineSpec {
       dut.io.fastResult.bits.blockTaken(0).expect(false)
       dut.io.fastResult.bits.blockTaken(1).expect(false)
       expectFinal(dut, tokenIndex = 3, fastNpc = 0x4010, finalNpc = 0x4010, finalBlockCount = 2, overridePath = false)
+    }
+
+    simulate(new Bpu(cfg)) { dut =>
+      initialize(dut)
+
+      // A 32-bit CFI in block 0's final halfword still redirects, but the current entry must fetch block 1 for its
+      // continuation. The same CFI in the final block cannot redirect until a sequential entry supplies its high
+      // halfword. A 16-bit CFI at that location needs no continuation and remains predictable.
+      train(dut, pc = 0x1006, cfiType = CfiType.jal.litValue, taken = true, target = 0x2000)
+      request(dut, token = 0, pc = 0x1000)
+      dut.io.fastResult.bits.blockPred(0).valid.expect(true)
+      dut.io.fastResult.bits.blockTaken(0).expect(true)
+      dut.io.fastResult.bits.blockCount.expect(2)
+      expectFinal(dut, tokenIndex = 0, fastNpc = 0x2000, finalNpc = 0x2000, finalBlockCount = 2, overridePath = false)
+
+      train(dut, pc = 0x300e, cfiType = CfiType.jal.litValue, taken = true, target = 0x3800)
+      request(dut, token = 1, pc = 0x3000)
+      dut.io.fastResult.bits.blockPred(1).valid.expect(false)
+      dut.io.fastResult.bits.blockTaken(1).expect(false)
+      expectFinal(dut, tokenIndex = 1, fastNpc = 0x3010, finalNpc = 0x3010, finalBlockCount = 2, overridePath = false)
+
+      train(dut, pc = 0x400e, cfiType = CfiType.jal.litValue, taken = true, target = 0x4800, instLen = 2)
+      request(dut, token = 2, pc = 0x4000)
+      dut.io.fastResult.bits.blockPred(1).valid.expect(true)
+      dut.io.fastResult.bits.blockTaken(1).expect(true)
+      expectFinal(dut, tokenIndex = 2, fastNpc = 0x4800, finalNpc = 0x4800, finalBlockCount = 2, overridePath = false)
     }
 
     simulate(new Bpu(cfg)) { dut =>

@@ -202,7 +202,11 @@ class Frontend(
     assert(bpu.io.req.bits.token === ftq.io.reserveToken)
   }
   when(bpu.io.fastResult.valid && !selectedRecovery.valid) {
-    assert(!bpu.io.fastResult.bits.blockTaken(0) || bpu.io.fastResult.bits.blockCount === 1.U)
+    assert(bpu.io.fastResult.bits.blockCount >= 1.U)
+    assert(bpu.io.fastResult.bits.blockCount <= cfg.fetchGroupBlocks.U)
+    when(bpu.io.fastResult.bits.blockTaken(1)) {
+      assert(bpu.io.fastResult.bits.blockCount === cfg.fetchGroupBlocks.U)
+    }
   }
   when(selectedRecovery.valid) {
     assert(!fetchQueue.io.enq.fire)
