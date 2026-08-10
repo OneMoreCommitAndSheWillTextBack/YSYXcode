@@ -367,16 +367,16 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
   val fastNeedsContinuation = Wire(Vec(blocks, Bool()))
   val fastNeedsSplit        = Wire(Vec(blocks, Bool()))
   for (block <- 0 until blocks) {
-    val response         = btb.io.resp(block)
-    val lookupOffset     = if (block == 0) s1Request.startPc(cfg.offsetBits - 1, 1) else 0.U
-    val crossesBlock     = response.instLen === 4.U &&
+    val response          = btb.io.resp(block)
+    val lookupOffset      = if (block == 0) s1Request.startPc(cfg.offsetBits - 1, 1) else 0.U
+    val crossesBlock      = response.instLen === 4.U &&
       response.cfiOffset === (frontendCfg.fetchBytes / 2 - 1).U
-    val continuationFits = if (block + 1 < blocks) true.B else !crossesBlock
+    val continuationFits  = if (block + 1 < blocks) true.B else !crossesBlock
     val candidateInWindow = s1Valid && response.hit && response.cfiType =/= CfiType.none &&
       response.cfiOffset >= lookupOffset
-    val inWindow = candidateInWindow && continuationFits
-    val canonicalReturn  = isCanonicalReturn(response.cfiType, response.rasAction)
-    val rasTarget        = Mux(
+    val inWindow          = candidateInWindow && continuationFits
+    val canonicalReturn   = isCanonicalReturn(response.cfiType, response.rasAction)
+    val rasTarget         = Mux(
       s1Ras.count =/= 0.U,
       s1Ras.entries((s1Ras.count - 1.U)(PredictorConstants.rasIndexBits - 1, 0)),
       response.target
@@ -403,7 +403,7 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     Mux1H(fastTakenOH, fastMeta.map(_.target)),
     Mux(fastSplitActive, splitNext, sequentialNext)
   )
-  val fastBlockCount = Mux(
+  val fastBlockCount  = Mux(
     fastSplitActive || (fastTaken(0) && !fastNeedsContinuation(0)),
     (blocks - 1).U,
     blocks.U
@@ -513,7 +513,7 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     Mux1H(finalTakenOH, finalTarget),
     Mux(finalSplitActive, finalSplitNext, finalSequential)
   )
-  val finalBlockCount = Mux(
+  val finalBlockCount  = Mux(
     finalSplitActive || (finalTaken(0) && !s2NeedsContinuation(0)),
     (blocks - 1).U,
     blocks.U

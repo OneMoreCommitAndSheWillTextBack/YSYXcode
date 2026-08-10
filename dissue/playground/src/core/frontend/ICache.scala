@@ -108,6 +108,10 @@ class ICache(cfg: FrontendConfig = FrontendConfig()) extends Module {
   val invalidateGeneration     = RegInit(0.U(cfg.fetchEpochBits.W))
   val missInvalidateGeneration = Reg(UInt(cfg.fetchEpochBits.W))
 
+  // These are resolved by the refill path below and feed completion-cycle request turnover.
+  val refillCompletesGroup = Wire(Bool())
+  val turnoverProbeMiss    = Wire(Bool())
+
   val r1Bank   = Wire(Vec(groupWidth, UInt(cacheCfg.bankBits.W)))
   val r1Set    = Wire(Vec(groupWidth, UInt(cacheCfg.bankIdxBits.W)))
   val r1Tag    = Wire(Vec(groupWidth, UInt(cacheCfg.tagBits.W)))
@@ -150,9 +154,10 @@ class ICache(cfg: FrontendConfig = FrontendConfig()) extends Module {
   val responseFire      = io.resp.fire
   val responseAvailable = !responseValid || responseFire
 
-  val r1CanAdvance = r1Valid && missState === ICacheMissState.idle && (r1HasMiss || responseAvailable)
-  val canAcceptR0  = missState === ICacheMissState.idle && !replayValid && (!r1Valid || r1CanAdvance)
-  io.req.ready := canAcceptR0 && !io.invalidate && !io.recovery.valid
+  val r1CanAdvance          = r1Valid && missState === ICacheMissState.idle && (r1HasMiss || responseAvailable)
+  val canAcceptR0           = missState === ICacheMissState.idle && !replayValid && (!r1Valid || r1CanAdvance)
+  val completionCanAcceptR0 = refillCompletesGroup && (!replayValid || turnoverProbeMiss)
+  io.req.ready := (canAcceptR0 || completionCanAcceptR0) && !io.invalidate && !io.recovery.valid
 
   io.lookup.valid            := r1CanAdvance && !io.invalidate && !io.recovery.valid
   io.lookup.bits.token       := r1Req.token
@@ -166,17 +171,22 @@ class ICache(cfg: FrontendConfig = FrontendConfig()) extends Module {
     missingMask(lane) && lineAddress(missReq.blockAddr(lane)) === refillAddress
   }).asUInt
 
-  io.refillReq.valid     := missState === ICacheMissState.refillRequest && !missKilled &&
-    !io.invalidate && !io.recovery.valid
-  io.refillReq.bits.addr := refillAddress
-
   val remainingMask            = missingMask & ~refillLineMask
+  val nextRefillSlot           = OHToUInt(PriorityEncoderOH(remainingMask))
+  val nextRefillAddress        = lineAddress(missReq.blockAddr(nextRefillSlot))
   val missGenerationLive       = missInvalidateGeneration === invalidateGeneration
   val functionalMissLive       = !missKilled && missGenerationLive && !io.invalidate && !io.recovery.valid
   val finalRefillNeedsResponse = !remainingMask.orR && functionalMissLive
 
   io.refillResp.ready := missState === ICacheMissState.refillResponse &&
     !io.invalidate && !io.recovery.valid && (!finalRefillNeedsResponse || responseAvailable)
+
+  val intermediateRefillTurnover = io.refillResp.fire && remainingMask.orR && functionalMissLive
+  io.refillReq.valid     := (missState === ICacheMissState.refillRequest || intermediateRefillTurnover) &&
+    !missKilled && !io.invalidate && !io.recovery.valid
+  io.refillReq.bits.addr := Mux(intermediateRefillTurnover, nextRefillAddress, refillAddress)
+
+  refillCompletesGroup := io.refillResp.fire && (!remainingMask.orR || !functionalMissLive)
 
   val completedResponse = Wire(new ICacheFetchResp(cfg))
   completedResponse       := 0.U.asTypeOf(new ICacheFetchResp(cfg))
@@ -213,6 +223,66 @@ class ICache(cfg: FrontendConfig = FrontendConfig()) extends Module {
       OHToUInt(refillWayHit),
       Mux(refillHasInvalid, OHToUInt(PriorityEncoderOH(refillInvalidWay.asUInt)), replacementWay(refillBank)(refillSet))
     )
+  }
+
+  val turnoverReq = Wire(new ICacheFetchReq(cfg))
+  turnoverReq := Mux(replayValid, replayReq, io.req.bits)
+
+  val turnoverBank   = Wire(Vec(groupWidth, UInt(cacheCfg.bankBits.W)))
+  val turnoverSet    = Wire(Vec(groupWidth, UInt(cacheCfg.bankIdxBits.W)))
+  val turnoverWayHit = Wire(Vec(groupWidth, Vec(cacheCfg.ways, Bool())))
+  val turnoverHitWay = Wire(Vec(groupWidth, UInt(cacheCfg.wayIdxBits.W)))
+  val turnoverHit    = Wire(Vec(groupWidth, Bool()))
+  val turnoverData   = Wire(Vec(groupWidth, UInt((cacheCfg.fetchBytes * 8).W)))
+  for (lane <- 0 until groupWidth) {
+    turnoverBank(lane) := bankIndex(turnoverReq.blockAddr(lane))
+    turnoverSet(lane)  := localSetIndex(turnoverReq.blockAddr(lane))
+    val requestTag = tag(turnoverReq.blockAddr(lane))
+    for (way <- 0 until cacheCfg.ways) {
+      turnoverWayHit(lane)(way) := turnoverReq.blockValid(lane) &&
+        validArray(turnoverBank(lane))(turnoverSet(lane))(way) &&
+        tagArray(turnoverBank(lane))(turnoverSet(lane))(way) === requestTag
+    }
+    val refillBypassHit = turnoverReq.blockValid(lane) && io.refillResp.fire && missGenerationLive &&
+      !io.refillResp.bits.exception.valid && lineAddress(turnoverReq.blockAddr(lane)) === refillAddress
+    val arrayHitData = Mux1H(turnoverWayHit(lane), dataArray(turnoverBank(lane))(turnoverSet(lane)))
+    turnoverHitWay(lane) := OHToUInt(turnoverWayHit(lane))
+    turnoverHit(lane)    := turnoverWayHit(lane).asUInt.orR || refillBypassHit
+    turnoverData(lane)   := Mux(
+      refillBypassHit,
+      fetchBlock(io.refillResp.bits.data, turnoverReq.blockAddr(lane)),
+      Mux(turnoverWayHit(lane).asUInt.orR, fetchBlock(arrayHitData, turnoverReq.blockAddr(lane)), 0.U)
+    )
+  }
+
+  val turnoverCandidateValid    = replayValid || io.req.valid
+  val turnoverCandidateAccepted = refillCompletesGroup && (replayValid || io.req.fire)
+  val turnoverHitMask           = turnoverHit.asUInt
+  val turnoverMissingMask       = VecInit(
+    (0 until groupWidth).map(lane => turnoverReq.blockValid(lane) && !turnoverHit(lane))
+  ).asUInt
+  turnoverProbeMiss := refillCompletesGroup && turnoverCandidateValid && turnoverMissingMask.orR
+  val turnoverMissAction = turnoverCandidateAccepted && turnoverMissingMask.orR
+
+  val turnoverResponse = Wire(new ICacheFetchResp(cfg))
+  turnoverResponse       := 0.U.asTypeOf(new ICacheFetchResp(cfg))
+  turnoverResponse.token := turnoverReq.token
+  for (lane <- 0 until groupWidth) {
+    turnoverResponse.blocks(lane).valid                := turnoverReq.blockValid(lane)
+    turnoverResponse.blocks(lane).bits.data            := turnoverData(lane)
+    turnoverResponse.blocks(lane).bits.hit             := turnoverHit(lane)
+    turnoverResponse.blocks(lane).bits.exception.valid := false.B
+    turnoverResponse.blocks(lane).bits.exception.cause := 0.U
+    turnoverResponse.blocks(lane).bits.exception.tval  := 0.U
+  }
+
+  when(turnoverMissAction) {
+    io.lookup.valid            := true.B
+    io.lookup.bits.token       := turnoverReq.token
+    io.lookup.bits.blockAddr   := turnoverReq.blockAddr
+    io.lookup.bits.blockValid  := turnoverReq.blockValid
+    io.lookup.bits.hitMask     := turnoverHitMask
+    io.lookup.bits.missingMask := turnoverMissingMask
   }
 
   when(io.invalidate) {
@@ -315,19 +385,47 @@ class ICache(cfg: FrontendConfig = FrontendConfig()) extends Module {
       missingMask := remainingMask
 
       when(remainingMask.orR && functionalMissLive) {
-        refillSlot := OHToUInt(PriorityEncoderOH(remainingMask))
-        missState  := ICacheMissState.refillRequest
+        refillSlot := nextRefillSlot
+        missState  := Mux(io.refillReq.fire, ICacheMissState.refillResponse, ICacheMissState.refillRequest)
       }.otherwise {
         missState  := ICacheMissState.idle
         missKilled := false.B
         when(functionalMissLive) {
           responseReg   := completedResponse
           responseValid := true.B
-          when(replayValid) {
-            r1Req       := replayReq
-            r1Valid     := true.B
+        }
+
+        when(turnoverMissAction) {
+          missReq                  := turnoverReq
+          missingMask              := turnoverMissingMask
+          refillSlot               := OHToUInt(PriorityEncoderOH(turnoverMissingMask))
+          missKilled               := false.B
+          missInvalidateGeneration := invalidateGeneration
+          missState                := ICacheMissState.refillRequest
+          r1Valid                  := false.B
+          for (lane <- 0 until groupWidth) {
+            missBlocks(lane) := turnoverResponse.blocks(lane).bits
+          }
+          when(replayValid && io.req.fire) {
+            replayReq   := io.req.bits
+            replayValid := true.B
+          }.otherwise {
             replayValid := false.B
           }
+          if (cacheCfg.ways == 2) {
+            for (lane <- 0 until groupWidth) {
+              when(turnoverWayHit(lane).asUInt.orR) {
+                replacementWay(turnoverBank(lane))(turnoverSet(lane)) := ~turnoverHitWay(lane)
+              }
+            }
+          }
+        }.elsewhen(turnoverCandidateAccepted) {
+          r1Req       := turnoverReq
+          r1Valid     := true.B
+          replayValid := false.B
+        }.otherwise {
+          r1Valid     := false.B
+          replayValid := false.B
         }
       }
     }

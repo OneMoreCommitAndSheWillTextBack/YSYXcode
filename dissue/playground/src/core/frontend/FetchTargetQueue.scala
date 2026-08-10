@@ -140,14 +140,14 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
   io.reserveToken.streamEpoch    := streamEpoch
   io.reserve.ready               := !io.recovery.valid && !valid(writePtr)
 
-  val fastIndex  = io.writeFast.bits.token.tag.index
-  val fastHit    = valid(fastIndex) && tokenMatches(io.writeFast.bits.token, entries(fastIndex)) &&
+  val fastIndex          = io.writeFast.bits.token.tag.index
+  val fastHit            = valid(fastIndex) && tokenMatches(io.writeFast.bits.token, entries(fastIndex)) &&
     entries(fastIndex).phase === FtqEntryPhase.reserved
-  val finalIndex = io.writeFinal.bits.token.tag.index
+  val finalIndex         = io.writeFinal.bits.token.tag.index
   val finalPhaseEligible = entries(finalIndex).phase === FtqEntryPhase.fastReady ||
     entries(finalIndex).phase === FtqEntryPhase.fetchIssued ||
     entries(finalIndex).phase === FtqEntryPhase.dataReady
-  val finalHit   = valid(finalIndex) && tokenMatches(io.writeFinal.bits.token, entries(finalIndex)) &&
+  val finalHit           = valid(finalIndex) && tokenMatches(io.writeFinal.bits.token, entries(finalIndex)) &&
     finalPhaseEligible
 
   io.staleFastDrop  := io.writeFast.valid && !fastHit
@@ -300,15 +300,15 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
         writePtr := nextAnchor
         when(io.recovery.bits.kind === FrontendRecoveryKind.bpuOverride) {
           assert(io.writeFinal.valid && finalIndex === recoveryIndex && finalHit)
-          val anchorWasUnissued = entries(recoveryIndex).phase === FtqEntryPhase.fastReady
-          val olderFetchPending = valid(fetchPtr) &&
+          val anchorWasUnissued     = entries(recoveryIndex).phase === FtqEntryPhase.fastReady
+          val olderFetchPending     = valid(fetchPtr) &&
             sequenceYounger(anchorSequence, entries(fetchPtr).sequence)
           val canReuseIssuedRequest = entries(recoveryIndex).phase =/= FtqEntryPhase.fastReady &&
             io.writeFinal.bits.blockCount <= entries(recoveryIndex).blockCount
-          entries(recoveryIndex).finalNextPc       := io.writeFinal.bits.finalNextPc
-          entries(recoveryIndex).blockCount        := io.writeFinal.bits.blockCount
-          entries(recoveryIndex).prediction        := io.writeFinal.bits.finalPrediction
-          entries(recoveryIndex).trainMeta         := io.writeFinal.bits.trainMeta
+          entries(recoveryIndex).finalNextPc := io.writeFinal.bits.finalNextPc
+          entries(recoveryIndex).blockCount  := io.writeFinal.bits.blockCount
+          entries(recoveryIndex).prediction  := io.writeFinal.bits.finalPrediction
+          entries(recoveryIndex).trainMeta   := io.writeFinal.bits.trainMeta
           when(!canReuseIssuedRequest) {
             entries(recoveryIndex).token.streamEpoch := streamEpoch +% 1.U
             entries(recoveryIndex).phase             := FtqEntryPhase.finalReady

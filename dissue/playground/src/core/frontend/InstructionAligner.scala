@@ -152,10 +152,10 @@ class InstructionAligner(cfg: FrontendConfig, depth: Int) extends Module {
   val deqCount     = Wire(UInt(countWidth.W))
   deqCount := Mux(discardOwner, ownerParcels, Mux(io.out.fire, consumed, 0.U))
 
-  val firstBlockData  = VecInit((0 until blockHalfwords).map { i =>
+  val firstBlockData     = VecInit((0 until blockHalfwords).map { i =>
     io.in.bits.blocks(0).bits.data(16 * (i + 1) - 1, 16 * i)
   })
-  val secondBlockData = VecInit((0 until blockHalfwords).map { i =>
+  val secondBlockData    = VecInit((0 until blockHalfwords).map { i =>
     io.in.bits.blocks(1).bits.data(16 * (i + 1) - 1, 16 * i)
   })
   // A fast-path request may cover more blocks than the final prediction owns. The FTQ context is authoritative;
@@ -180,7 +180,7 @@ class InstructionAligner(cfg: FrontendConfig, depth: Int) extends Module {
     io.context.bits.startPc(cfg.addrWidth - 1, cfg.icache.offsetBits),
     0.U(cfg.icache.offsetBits.W)
   )
-  val enqEntries = Wire(Vec(enqWidth, new AlignedHalfword(cfg)))
+  val enqEntries     = Wire(Vec(enqWidth, new AlignedHalfword(cfg)))
   for (parcel <- 0 until enqWidth) {
     val parcelIndex    = parcel.U(enqCountWidth.W)
     val firstIndex     = startHalfword + parcelIndex

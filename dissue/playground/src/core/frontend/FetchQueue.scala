@@ -108,13 +108,13 @@ class FetchQueue(
   io.enqueueWidth := Mux(enqueueFire, enqueueCount, 0.U)
   io.dequeueWidth := dequeueCount
 
-  val tailEntry = entries(ptrAdd(readPtr, count - 1.U))
+  val tailEntry   = entries(ptrAdd(readPtr, count - 1.U))
   val keepOnPrune = VecInit((0 until depth).map { offset =>
     val slot = entries(ptrAdd(readPtr, offset.U(ptrWidth.W)))
     offset.U(countWidth.W) < count && !sequenceAfter(slot.sequence, io.pruneFrom.bits) &&
     slot.sequence =/= io.pruneFrom.bits
   })
-  val keepCount = PopCount(keepOnPrune)
+  val keepCount   = PopCount(keepOnPrune)
 
   when(enqueueFire) {
     assert(enqueueCount =/= 0.U)
