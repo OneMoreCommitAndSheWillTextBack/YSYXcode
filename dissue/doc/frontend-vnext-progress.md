@@ -560,3 +560,22 @@ Synthesis and STA were not run, at the user's direction. Consequently this recor
 critical-path claim. The registered align/predecode boundary and synchronous predictor reads remove the original RTL
 combination of align, RVC expansion, predictor-table lookup, and recovery selection, but physical timing remains an
 explicitly unmeasured acceptance item.
+
+### Post-acceptance cross-block CFI fix
+
+The AM microbench exposed a boundary case that the original directed suite did not cover. A 32-bit `jalr` at
+`0x80003e46` occupied the final halfword of its fetch block. After BTB training, the next fetch token started at the
+predicted target `0x80003958`; the aligner combined the `jalr` low halfword `0x80e7` with the target instruction's low
+halfword `0x07b7`, retired the fabricated instruction `0x07b780e7`, and jumped to `0xa000007a` instead of `0x80003958`.
+
+The BTB now stores the CFI instruction length. A 32-bit CFI at the final halfword keeps the following sequential block
+in the same fetch group when possible; if it occurs in the group's final block, that prediction is suppressed until the
+sequential continuation has been fetched. A 16-bit CFI at the same position remains predictable. As a second line of
+defense, the instruction aligner emits a 32-bit instruction only when its high parcel is at `low.pc + 2`.
+
+`BpuPipelineSpec` covers first-block continuation, final-block suppression, and the unchanged 16-bit case.
+`InstructionAlignerSpec` covers a dangling low halfword followed by a non-contiguous predicted-target parcel.
+`PredecodePredictionCheckerSpec` and `FetchTargetQueueSpec` also pass. The rebuilt simulator passes the full suite again
+(`RV32I` 70/70, `RV32IM` 15/15, `RV32IMA` 40/40), with headline IPC unchanged at 0.942740 in
+`run/ipc-log/profile-202608101829.txt`. The user's original command also completes all ten workloads with
+`MicroBench PASS`, `HIT GOOD TRAP`, 371,109 commits, and 712,938 cycles.
