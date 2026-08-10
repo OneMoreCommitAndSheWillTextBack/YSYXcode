@@ -158,25 +158,29 @@ class InstructionAligner(cfg: FrontendConfig, depth: Int) extends Module {
   val secondBlockData = VecInit((0 until blockHalfwords).map { i =>
     io.in.bits.blocks(1).bits.data(16 * (i + 1) - 1, 16 * i)
   })
-  val startHalfword   = io.context.bits.startPc(cfg.icache.offsetBits - 1, 1)
-  val firstCount      = Mux(
-    io.in.bits.blocks(0).valid,
+  // A fast-path request may cover more blocks than the final prediction owns. The FTQ context is authoritative;
+  // extra cache data must not create duplicate parcels under this token.
+  val firstBlockInRange  = io.context.bits.blockCount > 0.U
+  val secondBlockInRange = io.context.bits.blockCount > 1.U
+  val startHalfword      = io.context.bits.startPc(cfg.icache.offsetBits - 1, 1)
+  val firstCount         = Mux(
+    io.in.bits.blocks(0).valid && firstBlockInRange,
     blockHalfwords.U(enqCountWidth.W) - startHalfword,
     0.U(enqCountWidth.W)
   )
-  val secondCount     = Mux(
-    io.in.bits.blocks(1).valid,
+  val secondCount        = Mux(
+    io.in.bits.blocks(1).valid && secondBlockInRange,
     blockHalfwords.U(enqCountWidth.W),
     0.U(enqCountWidth.W)
   )
-  val enqCount        = Wire(UInt(enqCountWidth.W))
+  val enqCount           = Wire(UInt(enqCountWidth.W))
   enqCount := firstCount +& secondCount
 
   val firstBlockBase = Cat(
     io.context.bits.startPc(cfg.addrWidth - 1, cfg.icache.offsetBits),
     0.U(cfg.icache.offsetBits.W)
   )
-  val enqEntries     = Wire(Vec(enqWidth, new AlignedHalfword(cfg)))
+  val enqEntries = Wire(Vec(enqWidth, new AlignedHalfword(cfg)))
   for (parcel <- 0 until enqWidth) {
     val parcelIndex    = parcel.U(enqCountWidth.W)
     val firstIndex     = startHalfword + parcelIndex

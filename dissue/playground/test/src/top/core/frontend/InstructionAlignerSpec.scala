@@ -2,7 +2,7 @@ package top.core.frontend
 
 import chisel3._
 import chisel3.simulator.EphemeralSimulator._
-import chisel3.util.PopCount
+import chisel3.util.log2Ceil
 import top.config.FrontendConfig
 import top.core.frontend.ifetch.{FetchWidth, InstructionAligner}
 
@@ -18,6 +18,7 @@ private class InstructionAlignerHarness extends Module {
     val tokenEpoch      = Input(UInt(cfg.fetchEpochBits.W))
     val sequence        = Input(UInt(cfg.ftqSequenceBits.W))
     val startPc         = Input(UInt(cfg.addrWidth.W))
+    val blockCount      = Input(UInt(log2Ceil(cfg.fetchGroupBlocks + 1).W))
     val blockValid      = Input(Vec(cfg.fetchGroupBlocks, Bool()))
     val blockData       = Input(Vec(cfg.fetchGroupBlocks, UInt((cfg.fetchBytes * 8).W)))
     val blockException  = Input(Vec(cfg.fetchGroupBlocks, Bool()))
@@ -58,7 +59,7 @@ private class InstructionAlignerHarness extends Module {
   aligner.io.context.bits.token      := aligner.io.in.bits.token
   aligner.io.context.bits.sequence   := io.sequence
   aligner.io.context.bits.startPc    := io.startPc
-  aligner.io.context.bits.blockCount := PopCount(io.blockValid)
+  aligner.io.context.bits.blockCount := io.blockCount
   aligner.io.headLive                := io.headLive
   aligner.io.kill.valid              := io.killValid
   aligner.io.kill.bits               := aligner.io.in.bits.token
@@ -96,6 +97,7 @@ object InstructionAlignerSpec {
         dut.io.killValid.poke(false)
         dut.io.killIndex.poke(0)
         dut.io.outReady.poke(false)
+        dut.io.blockCount.poke(0)
         for (block <- dut.io.blockValid.indices) {
           dut.io.blockValid(block).poke(false)
           dut.io.blockData(block).poke(0)
@@ -109,7 +111,8 @@ object InstructionAlignerSpec {
         startPc:     BigInt,
         first:       BigInt,
         second:      BigInt,
-        secondFault: Boolean = false
+        secondFault: Boolean = false,
+        blockCount:  Int = 2
       ): Unit = {
         dut.io.inValid.poke(true)
         dut.io.tokenIndex.poke(token)
@@ -117,6 +120,7 @@ object InstructionAlignerSpec {
         dut.io.tokenEpoch.poke(0)
         dut.io.sequence.poke(sequence)
         dut.io.startPc.poke(startPc)
+        dut.io.blockCount.poke(blockCount)
         dut.io.blockValid(0).poke(true)
         dut.io.blockValid(1).poke(true)
         dut.io.blockData(0).poke(first)
@@ -206,12 +210,47 @@ object InstructionAlignerSpec {
       dut.clock.step()
       dut.io.flush.poke(false)
 
-      // A predicted target is not a legal continuation for a dangling 32-bit low halfword. It must never be combined
-      // with the old stream even when it is the next buffered token.
+      // The cache may return a wider fast-path request after the FTQ final result shrinks ownership to one block.
+      // Ignore that speculative second block and take a dangling instruction's high halfword from the next token.
       send(
         token = 2,
         sequence = 30,
         startPc = 0x3000,
+        first = pack(0x0001, 0x0001, 0x0001, 0x00f3),
+        second = pack(0xdead, 0x0001, 0x0001, 0x0001),
+        blockCount = 1
+      )
+      for (lane <- 0 until 3) {
+        dut.io.laneValid(lane).expect(true)
+        dut.io.lanePc(lane).expect(0x3000 + lane * 2)
+      }
+      dut.io.laneValid(3).expect(false)
+      dut.clock.step()
+      dut.io.outValid.expect(false)
+
+      send(
+        token = 3,
+        sequence = 31,
+        startPc = 0x3008,
+        first = pack(0x1234, 0x0001, 0x0001, 0x0001),
+        second = pack(0x0001, 0x0001, 0x0001, 0x0001)
+      )
+      dut.io.outValid.expect(true)
+      dut.io.laneToken(0).expect(2)
+      dut.io.lanePc(0).expect(0x3006)
+      dut.io.laneRaw(0).expect(BigInt("123400f3", 16))
+      dut.io.laneLast(0).expect(true)
+
+      dut.io.flush.poke(true)
+      dut.clock.step()
+      dut.io.flush.poke(false)
+
+      // A predicted target is not a legal continuation for a dangling 32-bit low halfword. It must never be combined
+      // with the old stream even when it is the next buffered token.
+      send(
+        token = 0,
+        sequence = 40,
+        startPc = 0x4000,
         first = pack(0x0001, 0x0001, 0x0001, 0x0001),
         second = pack(0x0001, 0x0001, 0x0001, 0x00f3)
       )
@@ -219,9 +258,9 @@ object InstructionAlignerSpec {
       dut.io.outValid.expect(false)
 
       send(
-        token = 3,
-        sequence = 31,
-        startPc = 0x4000,
+        token = 1,
+        sequence = 41,
+        startPc = 0x5000,
         first = pack(0x07b7, 0x0001, 0x0001, 0x0001),
         second = pack(0x0001, 0x0001, 0x0001, 0x0001)
       )
