@@ -198,6 +198,31 @@ object BpuPipelineSpec {
     simulate(new Bpu(cfg)) { dut =>
       initialize(dut)
 
+      // If TAGE moves a same-target prediction from block 0 to block 1, the target PC is unchanged but the fetch
+      // range expands. S3 must still override the fast path so FTQ refetches the missing second block.
+      train(dut, pc = 0x7000, cfiType = CfiType.branch.litValue, taken = true, target = 0x8000)
+      train(
+        dut,
+        pc = 0x7000,
+        cfiType = CfiType.branch.litValue,
+        taken = false,
+        target = 0x7004,
+        lateQueried = true,
+        lateValid = true,
+        lateTaken = true,
+        provider = PredictorProvider.tageBase.litValue
+      )
+      train(dut, pc = 0x7000, cfiType = CfiType.branch.litValue, taken = true, target = 0x8000)
+      train(dut, pc = 0x7008, cfiType = CfiType.branch.litValue, taken = true, target = 0x8000)
+      request(dut, token = 0, pc = 0x7000)
+      dut.io.fastResult.bits.blockTaken(0).expect(true)
+      dut.io.fastResult.bits.blockCount.expect(1)
+      expectFinal(dut, tokenIndex = 0, fastNpc = 0x8000, finalNpc = 0x8000, finalBlockCount = 2, overridePath = true)
+    }
+
+    simulate(new Bpu(cfg)) { dut =>
+      initialize(dut)
+
       // Allocate an ITTAGE target B, then restore only the fast BTB target A. S3 must select B.
       train(
         dut,

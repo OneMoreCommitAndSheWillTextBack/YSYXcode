@@ -699,7 +699,8 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
       s3Result.finalNextPc      := finalNextPc
       s3Result.blockCount       := finalBlockCount
       s3Result.finalPrediction  := finalSummary
-      s3Result.overrideFastPath := finalNextPc =/= s2Fast.predictedNextPc
+      s3Result.overrideFastPath :=
+        finalNextPc =/= s2Fast.predictedNextPc || finalBlockCount > s2Fast.blockCount
       s3Result.trainMeta        := finalTrainMeta
       s3HistoryAfter            := finalHistoryAfter
       s3PathAfter               := finalPathAfter
