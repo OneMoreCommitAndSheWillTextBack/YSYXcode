@@ -29,11 +29,11 @@ object LSUDeviceLoadSpec {
     dut.io.in.bits.memSize.poke(MemSize.word)
     dut.io.in.bits.memUnsigned.poke(true)
 
-    for (lane <- dut.io.storeAlloc.indices) {
+    for (lane  <- dut.io.storeAlloc.indices) {
       dut.io.storeAlloc(lane).valid.poke(false)
       dut.io.storeAlloc(lane).robIdx.poke(0)
     }
-    for (lane <- dut.io.storeCommit.indices) {
+    for (lane  <- dut.io.storeCommit.indices) {
       dut.io.storeCommit(lane).valid.poke(false)
       dut.io.storeCommit(lane).sqIdx.poke(0)
       dut.io.storeCommit(lane).robIdx.poke(0)

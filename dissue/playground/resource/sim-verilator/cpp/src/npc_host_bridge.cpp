@@ -79,18 +79,27 @@ uint64_t NpcHostBridge::time_read() {
 }
 
 void NpcHostBridge::frontend_perf(uint32_t events,
+                                  uint32_t ifu_correction,
                                   uint32_t fetch_queue_occupancy,
                                   uint32_t fetch_queue_enqueue_width,
-                                  uint32_t fetch_queue_dequeue_width) {
+                                  uint32_t fetch_queue_dequeue_width,
+                                  uint32_t icache_lookup_valid,
+                                  uint32_t icache_block_valid_mask,
+                                  uint32_t icache_miss_mask,
+                                  uint32_t icache_block_addr0,
+                                  uint32_t icache_block_addr1) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.frontend_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.frontend_perf(active_opaque(), events,
+  bridge->callbacks_.frontend_perf(active_opaque(), events, ifu_correction,
                                    fetch_queue_occupancy,
                                    fetch_queue_enqueue_width,
-                                   fetch_queue_dequeue_width);
+                                   fetch_queue_dequeue_width,
+                                   icache_lookup_valid,
+                                   icache_block_valid_mask, icache_miss_mask,
+                                   icache_block_addr0, icache_block_addr1);
 }
 
 void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,

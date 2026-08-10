@@ -33,6 +33,7 @@ object playground extends ScalaModule with ScalafmtModule { m =>
   object test extends ScalaModule with ScalafmtModule {
     override def scalaVersion = m.scalaVersion()
     override def scalacOptions = m.scalacOptions()
+    override def scalacPluginMvnDeps = m.scalacPluginMvnDeps()
     override def moduleDeps   = Seq(m)
   }
 }

@@ -1,16 +1,16 @@
 package top.core.backend.bundle
 
 import chisel3._
+import chisel3.util.Valid
 import top.core.backend.csr.CsrAddr
 import top.core.backend.decoder.{FuOp, FuType, SrcType}
 import top.core.backend.exception.ExceptionInfo
-import top.core.bundle.{CfiType, FetchInstPayload}
-import top.config.{BackendConfig, ICacheConfig}
-import top.core.frontend.bundle.PredictionMeta
+import top.core.bundle.{BpuCfiClass, CfiType, DataMemKind, DataMemTxn, FetchInstPayload, FrontendToBackend, RobRecovery}
+import top.config.BackendConfig
 
 class DecodePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid       = Bool()
-  val fetch       = new FetchInstPayload(cfg.addrWidth)
+  val fetch       = new FetchInstPayload(cfg.frontendPayload)
   val legal       = Bool()
   val rs1         = UInt(5.W)
   val rs2         = UInt(5.W)
@@ -188,7 +188,7 @@ class RetireLane(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid     = Bool()
   val robIdx    = UInt(cfg.robIdxWidth.W)
   val sqIdx     = UInt(cfg.sqIdxWidth.W)
-  val fetch     = new FetchInstPayload(cfg.addrWidth)
+  val fetch     = new FetchInstPayload(cfg.frontendPayload)
   val nextPc    = UInt(cfg.addrWidth.W)
   val rf        = new CommitRegWrite(cfg)
   val store     = new RetireStore(cfg)
@@ -205,6 +205,16 @@ class RetireGroup(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val finalPc    = UInt(cfg.addrWidth.W)
 }
 
+/** Passive retirement-side BPU accuracy sample. */
+class BpuPerfSample extends Bundle {
+  val valid       = Bool()
+  val cfiClass    = UInt(BpuCfiClass.width.W)
+  val predHit     = Bool()
+  val predTaken   = Bool()
+  val actualTaken = Bool()
+  val correct     = Bool()
+}
+
 class IssueOperand(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val data  = UInt(cfg.dataWidth.W)
   val ready = Bool()
@@ -212,7 +222,7 @@ class IssueOperand(cfg: BackendConfig = BackendConfig()) extends Bundle {
 }
 
 class IssuePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val fetch       = new FetchInstPayload(cfg.addrWidth)
+  val fetch       = new FetchInstPayload(cfg.frontendPayload)
   val legal       = Bool()
   val robIdx      = UInt(cfg.robIdxWidth.W)
   val sqIdx       = UInt(cfg.sqIdxWidth.W)
@@ -285,15 +295,55 @@ class RobWritebackPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   * control-flow instruction, while retirement later consumes the same outcome retained in the ROB for BPU training.
   */
 class BranchResolve(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val robIdx       = UInt(cfg.robIdxWidth.W)
-  val pc           = UInt(cfg.addrWidth.W)
-  val cfiType      = UInt(CfiType.width.W)
-  val predNpc      = UInt(cfg.addrWidth.W)
-  val actualNpc    = UInt(cfg.addrWidth.W)
-  val taken        = Bool()
-  val branchTarget = UInt(cfg.addrWidth.W)
-  val instLen      = UInt(3.W)
-  val prediction   = new PredictionMeta(ICacheConfig(addrWidth = cfg.addrWidth))
+  val robIdx          = UInt(cfg.robIdxWidth.W)
+  val pc              = UInt(cfg.addrWidth.W)
+  val cfiType         = UInt(CfiType.width.W)
+  val predNpc         = UInt(cfg.addrWidth.W)
+  val actualNpc       = UInt(cfg.addrWidth.W)
+  val taken           = Bool()
+  val branchTarget    = UInt(cfg.addrWidth.W)
+  val instLen         = UInt(3.W)
+  val ftqTag          = new top.core.frontend.bundle.FetchTargetTag(cfg.frontendPayload)
+  val ftqInstOrdinal  = UInt(cfg.frontendPayload.ftqInstCountBits.W)
+  val rasAction       = UInt(top.core.frontend.bundle.RasAction.width.W)
+  val canonicalReturn = Bool()
+}
+
+/** Read-only semantic boundary used by composition-level observers.
+  *
+  * This port cannot influence backend ready, recovery, or state transitions. When monitoring is disabled at elaboration
+  * time the backend drives the whole bundle to zero so the associated observation cone is removed.
+  */
+class BackendMonitor(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val frontendFire = Bool()
+  val frontend     = new FrontendToBackend(cfg.issueWidth, cfg.frontendPayload)
+
+  val dispatchFire   = Vec(cfg.dispatchWidth, Bool())
+  val dispatchDecode = Vec(cfg.dispatchWidth, new DecodePacket(cfg))
+  val dispatchIssue  = Vec(cfg.dispatchWidth, new IssuePacket(cfg))
+
+  val intIssueFire = Vec(cfg.intIssueWidth, Bool())
+  val intIssue     = Vec(cfg.intIssueWidth, new IssuePacket(cfg))
+  val memIssueFire = Bool()
+  val memIssue     = new IssuePacket(cfg)
+
+  val writeback     = Vec(cfg.writebackWidth, Valid(new RobWritebackPacket(cfg)))
+  val retire        = new RetireGroup(cfg)
+  val bpuPerf       = Vec(cfg.commitWidth, new BpuPerfSample)
+  val storeReady    = Valid(new StoreQueueUpdate(cfg))
+  val storeCommit   = Vec(cfg.commitWidth, new StoreQueueCommit(cfg))
+  val storeRequest  = Valid(new StoreQueueEvent(cfg))
+  val storeResponse = Valid(new StoreResponseEvent(cfg))
+
+  val memoryRequestFire   = Bool()
+  val memoryRequestRobIdx = UInt(cfg.robIdxWidth.W)
+  val memoryRequestKind   = UInt(DataMemKind.width.W)
+  val memoryRequestWrite  = Bool()
+  val memoryRequestTxnId  = UInt(DataMemTxn.width.W)
+
+  val robHead     = UInt(cfg.robIdxWidth.W)
+  val recover     = new RobRecovery(cfg.robIdxWidth)
+  val globalFlush = Bool()
 }
 
 /** The portion of a ROB entry needed to reconstruct register dependencies after selective recovery. */
@@ -307,7 +357,7 @@ class RobProducerEntry(cfg: BackendConfig = BackendConfig()) extends Bundle {
 class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx         = UInt(cfg.robIdxWidth.W)
   val sqIdx          = UInt(cfg.sqIdxWidth.W)
-  val fetch          = new FetchInstPayload(cfg.addrWidth)
+  val fetch          = new FetchInstPayload(cfg.frontendPayload)
   val rd             = UInt(5.W)
   val rfWen          = Bool()
   val isLoad         = Bool()

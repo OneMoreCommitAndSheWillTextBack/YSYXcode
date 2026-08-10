@@ -289,19 +289,19 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   storeQueue.io.query.addr   := translator.io.resp.bits.paddr
   storeQueue.io.query.mask   := reqStoreMask
 
-  private val translateLoad      = isLoadOp(reqReg)
-  private val translateStore     = isStoreOp(reqReg)
-  private val translateSc        = isScOp(reqReg)
-  private val translateException = translator.io.resp.bits.exception.valid
-  private val translateDeviceLoad = translateLoad && !translateException &&
+  private val translateLoad           = isLoadOp(reqReg)
+  private val translateStore          = isStoreOp(reqReg)
+  private val translateSc             = isScOp(reqReg)
+  private val translateException      = translator.io.resp.bits.exception.valid
+  private val translateDeviceLoad     = translateLoad && !translateException &&
     MemAddress.isDevice(translator.io.resp.bits.paddr, cfg.addrWidth)
-  private val scWillFail         = translateSc &&
+  private val scWillFail              = translateSc &&
     !(reservationValid && reservationAddr === translator.io.resp.bits.paddr)
   // Device reads can have side effects. They must neither consume SQ forwarding nor become visible below the LSU until
   // they are the precise ROB-head operation and all older stores have completed.
   private val deviceLoadOrderingReady = reqReg.robIdx === io.robHead && storesDrained && loadTxns.io.empty &&
     !ptwBusy && !atomicBusy && !serializedPending
-  private val loadNeedsMemory = translateLoad && (translateDeviceLoad || !storeQueue.io.query.fullForward)
+  private val loadNeedsMemory         = translateLoad && (translateDeviceLoad || !storeQueue.io.query.fullForward)
 
   loadTxns.io.alloc.valid            := currentRequestActive && state === sTranslate && translator.io.resp.valid &&
     !translateException && translateLoad && !storeQueue.io.query.unresolved && loadNeedsMemory &&
@@ -721,9 +721,9 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     reservationValid := false.B
   }
 
-  storesDrained                    := !storeQueue.io.committedPending && !storeDrain.io.normalOutstanding
-  io.storesDrainedBeforeCommit     := storesDrained
-  io.storesDrained                 := storesDrained && !committedStore
+  storesDrained                := !storeQueue.io.committedPending && !storeDrain.io.normalOutstanding
+  io.storesDrainedBeforeCommit := storesDrained
+  io.storesDrained             := storesDrained && !committedStore
   private val youngerDeviceLoadHoldingTranslation = currentRequestActive && state === sTranslate &&
     translator.io.resp.valid && translateDeviceLoad && reqReg.robIdx =/= io.robHead
   storeDrain.io.serializedCanStart := io.serializedStore.valid &&
@@ -763,9 +763,9 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     assert(serializedSuccessMatch, "serialized store completion must match the waiting ROB-head store")
   }
 
-  private val stalledExternalRequest = RegNext(io.dmemReq.valid && !io.dmemReq.ready, false.B)
-  private val stalledExternalBits    = RegEnable(io.dmemReq.bits.asUInt, io.dmemReq.valid && !io.dmemReq.ready)
-  private val stalledExternalTxnId =
+  private val stalledExternalRequest  = RegNext(io.dmemReq.valid && !io.dmemReq.ready, false.B)
+  private val stalledExternalBits     = RegEnable(io.dmemReq.bits.asUInt, io.dmemReq.valid && !io.dmemReq.ready)
+  private val stalledExternalTxnId    =
     RegEnable(io.dmemReq.bits.request.txnId, io.dmemReq.valid && !io.dmemReq.ready)
   private val stalledExternalCanceled = outbound.io.cancel
     .map(cancel => cancel.valid && cancel.bits === stalledExternalTxnId)

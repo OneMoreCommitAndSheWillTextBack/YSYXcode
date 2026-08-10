@@ -12,7 +12,7 @@ private class RobEntry(cfg: BackendConfig) extends Bundle {
   val valid          = Bool()
   val done           = Bool()
   val sqIdx          = UInt(cfg.sqIdxWidth.W)
-  val fetch          = new FetchInstPayload(cfg.addrWidth)
+  val fetch          = new FetchInstPayload(cfg.frontendPayload)
   val rd             = UInt(5.W)
   val rfWen          = Bool()
   val isLoad         = Bool()

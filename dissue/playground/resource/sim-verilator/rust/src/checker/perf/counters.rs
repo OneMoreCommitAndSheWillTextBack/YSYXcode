@@ -90,6 +90,7 @@ impl BpuCfiCounters {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PerfCounters {
     frontend_events: [u64; Self::FRONTEND_EVENT_COUNT],
+    ifu_corrections: u64,
     fetch_queue_sample_cycles: u64,
     fetch_queue_occupancy_sum: u64,
     fetch_queue_enqueue_width_total: u64,
@@ -176,11 +177,13 @@ impl PerfCounters {
     pub fn frontend_perf(
         &mut self,
         events: u32,
+        ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
         fetch_queue_dequeue_width: u32,
     ) {
         self.fetch_queue_sample_cycles += 1;
+        self.ifu_corrections += u64::from(ifu_correction);
         self.fetch_queue_occupancy_sum += u64::from(fetch_queue_occupancy);
         self.fetch_queue_enqueue_width_total += u64::from(fetch_queue_enqueue_width);
         self.fetch_queue_dequeue_width_total += u64::from(fetch_queue_dequeue_width);
@@ -375,6 +378,10 @@ impl PerfCounters {
 
     pub fn frontend_event(&self, index: usize) -> u64 {
         self.frontend_events[index]
+    }
+
+    pub fn ifu_corrections(&self) -> u64 {
+        self.ifu_corrections
     }
 
     pub fn fetch_queue_sample_cycles(&self) -> u64 {

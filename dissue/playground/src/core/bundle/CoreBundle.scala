@@ -2,8 +2,8 @@ package top.core.bundle
 
 import chisel3._
 import chisel3.util.{Cat, Valid}
-import top.config.ICacheConfig
-import top.core.frontend.bundle.{PredictionMeta, PredictorRecovery, RasAction}
+import top.config.FrontendPayloadConfig
+import top.core.frontend.bundle.{FetchTargetTag, RasAction}
 
 /** Identifies the youngest instruction that survives a selective backend recovery.
   *
@@ -178,8 +178,8 @@ class Redirect(addrWidth: Int = 32) extends Bundle {
   val target = UInt(addrWidth.W)
 }
 
-class FetchInstPayload(addrWidth: Int = 32) extends Bundle {
-  val pc      = UInt(addrWidth.W)
+class FetchInstPayload(cfg: FrontendPayloadConfig = FrontendPayloadConfig()) extends Bundle {
+  val pc      = UInt(cfg.addrWidth.W)
   val inst    = UInt(32.W)
   val rawInst = UInt(32.W)
   val isRVC   = Bool()
@@ -188,12 +188,13 @@ class FetchInstPayload(addrWidth: Int = 32) extends Bundle {
   /** A BTB prediction matched this instruction's PC within its fetch block. */
   val predHit    = Bool()
   val predTaken  = Bool()
-  val predNpc    = UInt(addrWidth.W)
-  val predTarget = UInt(addrWidth.W)
+  val predNpc    = UInt(cfg.addrWidth.W)
+  val predTarget = UInt(cfg.addrWidth.W)
 
-  val prediction = new PredictionMeta(ICacheConfig(addrWidth = addrWidth))
+  val ftqTag         = new FetchTargetTag(cfg)
+  val ftqInstOrdinal = UInt(cfg.ftqInstCountBits.W)
 
-  val exception = new FetchException(addrWidth)
+  val exception = new FetchException(cfg.addrWidth)
 }
 
 class FetchException(addrWidth: Int = 32) extends Bundle {
@@ -202,27 +203,29 @@ class FetchException(addrWidth: Int = 32) extends Bundle {
   val tval  = UInt(addrWidth.W)
 }
 
-class FrontendToBackend(issueWidth: Int = 2, addrWidth: Int = 32) extends Bundle {
-  val insts = Vec(issueWidth, Valid(new FetchInstPayload(addrWidth)))
+class FrontendToBackend(issueWidth: Int = 2, cfg: FrontendPayloadConfig = FrontendPayloadConfig()) extends Bundle {
+  val insts = Vec(issueWidth, Valid(new FetchInstPayload(cfg)))
 }
 
-class BpuUpdatePayload(addrWidth: Int = 32) extends Bundle {
-  val pc         = UInt(addrWidth.W)
-  val cfiType    = UInt(CfiType.width.W)
-  val taken      = Bool()
-  val target     = UInt(addrWidth.W)
-  val instLen    = UInt(3.W)
-  val rasAction  = UInt(RasAction.width.W)
-  val prediction = new PredictionMeta(ICacheConfig(addrWidth = addrWidth))
+class CfiRecoveryPayload(cfg: FrontendPayloadConfig = FrontendPayloadConfig()) extends Bundle {
+  val ftqTag          = new FetchTargetTag(cfg)
+  val ftqInstOrdinal  = UInt(cfg.ftqInstCountBits.W)
+  val pc              = UInt(cfg.addrWidth.W)
+  val cfiType         = UInt(CfiType.width.W)
+  val actualTaken     = Bool()
+  val actualTarget    = UInt(cfg.addrWidth.W)
+  val actualNpc       = UInt(cfg.addrWidth.W)
+  val instLen         = UInt(3.W)
+  val rasAction       = UInt(RasAction.width.W)
+  val canonicalReturn = Bool()
 }
 
-class BackendToFrontend(addrWidth: Int = 32, commitWidth: Int = 2) extends Bundle {
-  val trapRedirect      = new Redirect(addrWidth)
-  val branchRedirect    = new Redirect(addrWidth)
-  val predRedirect      = new Redirect(addrWidth)
-  val icacheInvalidate  = Bool()
-  val bpuUpdates        = Vec(commitWidth, Valid(new BpuUpdatePayload(addrWidth)))
-  val predictorRecovery = Valid(new PredictorRecovery(addrWidth))
+class BackendToFrontend(cfg: FrontendPayloadConfig = FrontendPayloadConfig()) extends Bundle {
+  val trapRedirect     = new Redirect(cfg.addrWidth)
+  val branchRedirect   = new Redirect(cfg.addrWidth)
+  val predRedirect     = new Redirect(cfg.addrWidth)
+  val icacheInvalidate = Bool()
+  val cfiRecovery      = Valid(new CfiRecoveryPayload(cfg))
 }
 
 class InstMemReq(addrWidth: Int = 32) extends Bundle {

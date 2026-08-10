@@ -77,9 +77,14 @@ pub(super) struct CycleSample {
 #[derive(Debug, Clone, Copy)]
 struct FrontendSample {
     events: u32,
+    ifu_correction: bool,
     fetch_queue_occupancy: u32,
     fetch_queue_enqueue_width: u32,
     fetch_queue_dequeue_width: u32,
+    icache_lookup_valid: bool,
+    icache_block_valid_mask: u32,
+    icache_miss_mask: u32,
+    icache_block_addr: [u32; 2],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -112,15 +117,25 @@ impl CycleSample {
     pub(super) fn record_frontend(
         &mut self,
         events: u32,
+        ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
         fetch_queue_dequeue_width: u32,
+        icache_lookup_valid: bool,
+        icache_block_valid_mask: u32,
+        icache_miss_mask: u32,
+        icache_block_addr: [u32; 2],
     ) {
         self.frontend = Some(FrontendSample {
             events,
+            ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
             fetch_queue_dequeue_width,
+            icache_lookup_valid,
+            icache_block_valid_mask,
+            icache_miss_mask,
+            icache_block_addr,
         });
     }
 
@@ -249,7 +264,8 @@ fn write_frontend<W: Write>(writer: &mut W, sample: Option<FrontendSample>) -> i
     write_event_list(writer, sample.events, &FRONTEND_EVENT_NAMES)?;
     write!(
         writer,
-        ",fetch_queue={{occupancy={},accepted_enqueue_width={},dequeue_width={},miss_start_occupancy=",
+        ",ifu_correction={},fetch_queue={{occupancy={},accepted_enqueue_width={},dequeue_width={},miss_start_occupancy=",
+        sample.ifu_correction,
         sample.fetch_queue_occupancy,
         sample.fetch_queue_enqueue_width,
         sample.fetch_queue_dequeue_width
@@ -260,7 +276,20 @@ fn write_frontend<W: Write>(writer: &mut W, sample: Option<FrontendSample>) -> i
         write!(writer, "-")?;
     }
 
-    write!(writer, "}}}}")
+    write!(writer, "}},icache_lookup=")?;
+    if sample.icache_lookup_valid {
+        write!(
+            writer,
+            "{{valid=0x{:x},miss=0x{:x},addr=[0x{:08x},0x{:08x}]}}",
+            sample.icache_block_valid_mask,
+            sample.icache_miss_mask,
+            sample.icache_block_addr[0],
+            sample.icache_block_addr[1]
+        )?;
+    } else {
+        write!(writer, "-")?;
+    }
+    write!(writer, "}}")
 }
 
 fn write_event_list<W: Write>(writer: &mut W, events: u32, names: &[&str]) -> io::Result<()> {

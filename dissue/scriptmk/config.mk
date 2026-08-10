@@ -8,6 +8,7 @@ BUILD_DIR ?= ./build
 PRJ ?= playground
 TARGET ?= npc
 TOP_MODULE ?= npc
+ELABORATE_ARGS ?=
 
 ifeq ($(TOP_MODULE),npc)
 else

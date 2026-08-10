@@ -78,14 +78,25 @@ extern "C" void npc_pmem_write(int addr, int len, int data) {
 
 extern "C" uint64_t npc_time_read() { return NpcHostBridge::time_read(); }
 
-extern "C" void npc_frontend_perf(int events, int fetch_queue_occupancy,
+extern "C" void npc_frontend_perf(int events, char ifu_correction,
+                                   int fetch_queue_occupancy,
                                    int fetch_queue_enqueue_width,
-                                   int fetch_queue_dequeue_width) {
+                                   int fetch_queue_dequeue_width,
+                                   char icache_lookup_valid,
+                                   int icache_block_valid_mask,
+                                   int icache_miss_mask, int icache_block_addr0,
+                                   int icache_block_addr1) {
   NpcHostBridge::frontend_perf(
       static_cast<uint32_t>(events),
+      static_cast<uint32_t>(ifu_correction != 0),
       static_cast<uint32_t>(fetch_queue_occupancy),
       static_cast<uint32_t>(fetch_queue_enqueue_width),
-      static_cast<uint32_t>(fetch_queue_dequeue_width));
+      static_cast<uint32_t>(fetch_queue_dequeue_width),
+      static_cast<uint32_t>(icache_lookup_valid != 0),
+      static_cast<uint32_t>(icache_block_valid_mask),
+      static_cast<uint32_t>(icache_miss_mask),
+      static_cast<uint32_t>(icache_block_addr0),
+      static_cast<uint32_t>(icache_block_addr1));
 }
 
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,

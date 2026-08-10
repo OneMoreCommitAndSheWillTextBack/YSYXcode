@@ -17,17 +17,17 @@ class ICacheRefillMmu(
     val csrStatus = Input(new CsrStatus(backendCfg))
 
     val refillReq  = Flipped(Decoupled(new ICacheRefillReq(cacheCfg.addrWidth)))
-    val refillResp = Decoupled(new ICacheRefillResp(cacheCfg.fetchBytes))
+    val refillResp = Decoupled(new ICacheRefillResp(cacheCfg.lineBytes))
 
     val physReq  = Decoupled(new ICacheRefillReq(cacheCfg.addrWidth))
-    val physResp = Flipped(Decoupled(new ICacheRefillResp(cacheCfg.fetchBytes)))
+    val physResp = Flipped(Decoupled(new ICacheRefillResp(cacheCfg.lineBytes)))
 
     val ptwReq  = Decoupled(new DataMemReq(backendCfg.addrWidth, backendCfg.dataWidth))
     val ptwResp = Flipped(Decoupled(new DataMemResp(backendCfg.dataWidth)))
   })
 
   private val sIdle :: sBareReq :: sBareResp :: sTranslate :: sRefillReq :: sRefillResp :: sFaultResp :: Nil = Enum(7)
-  private val state = RegInit(sIdle)
+  private val state                                                                                          = RegInit(sIdle)
 
   private val bareReqReg   = Reg(new ICacheRefillReq(cacheCfg.addrWidth))
   private val paddrReg     = Reg(UInt(cacheCfg.addrWidth.W))
@@ -38,7 +38,7 @@ class ICacheRefillMmu(
   private val bareMode = io.csrStatus.priv.mode === PrivMode.M || io.csrStatus.satp(31) === 0.U
   private val bareReq  = state === sIdle && io.refillReq.valid && bareMode
 
-  translator.io.flush           := false.B
+  translator.io.flush            := false.B
   translator.io.req.valid        := state === sIdle && io.refillReq.valid && !bareMode
   translator.io.req.bits         := 0.U.asTypeOf(new MmuTranslateReq(backendCfg))
   translator.io.req.bits.vaddr   := io.refillReq.bits.addr
@@ -50,14 +50,14 @@ class ICacheRefillMmu(
 
   io.refillReq.ready := state === sIdle && Mux(bareMode, true.B, translator.io.req.ready)
 
-  io.ptwReq.valid              := translator.io.memReq.valid
-  io.ptwReq.bits               := translator.io.memReq.bits
-  translator.io.memReq.ready   := io.ptwReq.ready
-  translator.io.memResp.valid  := io.ptwResp.valid
-  translator.io.memResp.bits   := io.ptwResp.bits
-  io.ptwResp.ready             := translator.io.memResp.ready
+  io.ptwReq.valid             := translator.io.memReq.valid
+  io.ptwReq.bits              := translator.io.memReq.bits
+  translator.io.memReq.ready  := io.ptwReq.ready
+  translator.io.memResp.valid := io.ptwResp.valid
+  translator.io.memResp.bits  := io.ptwResp.bits
+  io.ptwResp.ready            := translator.io.memResp.ready
 
-  io.physReq.valid := state === sBareReq || state === sRefillReq || bareReq
+  io.physReq.valid     := state === sBareReq || state === sRefillReq || bareReq
   io.physReq.bits.addr := Mux(
     bareReq,
     io.refillReq.bits.addr,
@@ -126,7 +126,7 @@ class ICacheRefillMmu(
     }
   }
 
-  private val refillOwned = RegInit(false.B)
+  private val refillOwned             = RegInit(false.B)
   private val bareAcceptedWithoutPhys = state === sIdle && io.refillReq.fire && bareMode && !io.physReq.fire
   private val bareBufferedAfterAccept = RegNext(bareAcceptedWithoutPhys, false.B)
 

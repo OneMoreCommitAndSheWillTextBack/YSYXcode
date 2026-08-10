@@ -1,10 +1,17 @@
 package top.core.frontend.Bpu
 
 import chisel3._
-import chisel3.util.{Mux1H, MuxLookup, Valid, log2Ceil}
+import chisel3.util.{log2Ceil, Mux1H, MuxLookup, PriorityEncoderOH, Valid}
 import top.config.{BpuConfig, ICacheConfig}
 import top.core.bundle.CfiType
-import top.core.frontend.bundle.{BpuUpdate, LatePredictQuery, LatePrediction, PredictorConstants, PredictorProvider, TaggedPredictorPerf}
+import top.core.frontend.bundle.{
+  BpuUpdate,
+  LatePredictQuery,
+  LatePrediction,
+  PredictorConstants,
+  PredictorProvider,
+  TaggedPredictorPerf
+}
 
 private object TaggedCounter {
   def increment(value: UInt): UInt =
@@ -17,8 +24,26 @@ private object TaggedCounter {
     Mux(taken, increment(value), decrement(value))
 }
 
-class Tage(cfg: BpuConfig) extends Module {
-  require(cfg.predictorHistoryBits == PredictorConstants.historyBits, "Prediction metadata and TAGE history widths must match")
+private class TageSramEntry(cfg: BpuConfig, epochBits: Int) extends Bundle {
+  val tag      = UInt(cfg.tageTagBits.W)
+  val counter  = UInt(2.W)
+  val useful   = UInt(2.W)
+  val ageEpoch = UInt(epochBits.W)
+}
+
+/** TAGE tagged tables with one registered SRAM read stage.
+  *
+  * Each history table is an independent memory bank. Query metadata and valid bits advance beside the synchronous
+  * reads, so provider selection occurs entirely in BPU S2. Invalid bits remain resettable flops because generic SRAMs
+  * do not provide a portable reset value; no tag/counter data is selected through those flops.
+  */
+class Tage(cfg: BpuConfig, queryWidth: Int) extends Module {
+  require(
+    cfg.predictorHistoryBits == PredictorConstants.historyBits,
+    "Prediction metadata and TAGE history widths must match"
+  )
+  require(queryWidth > 0, "TAGE query width must be positive")
+  require(cfg.tageHistoryLengths.length <= PredictorConstants.maxTaggedTables, "TAGE table metadata width is too small")
 
   private val cacheCfg       = ICacheConfig(addrWidth = cfg.addrWidth, fetchBytes = cfg.fetchBytes)
   private val tableCount     = cfg.tageHistoryLengths.length
@@ -26,8 +51,8 @@ class Tage(cfg: BpuConfig) extends Module {
   private val ageCounterBits = 5
 
   val io = IO(new Bundle {
-    val query      = Input(Vec(PredictorConstants.latePredictionWidth, new LatePredictQuery(cacheCfg)))
-    val prediction = Output(Vec(PredictorConstants.latePredictionWidth, new LatePrediction(cacheCfg)))
+    val query      = Input(Vec(queryWidth, new LatePredictQuery(cacheCfg)))
+    val prediction = Output(Vec(queryWidth, new LatePrediction(cacheCfg)))
     val update     = Input(Vec(PredictorConstants.commitUpdateWidth, Valid(new BpuUpdate(cfg))))
     val perf       = Output(new TaggedPredictorPerf)
   })
@@ -39,12 +64,8 @@ class Tage(cfg: BpuConfig) extends Module {
       extended := history(end, start)
       extended
     }
-
     pieces.reduce(_ ^ _)
   }
-
-  private def baseIndex(pc: UInt): UInt =
-    pc(cfg.bhtIndexBits + 1, 2)
 
   private def tableIndex(pc: UInt, history: UInt, table: Int): UInt =
     pc(cfg.tageIndexBits + 1, 2) ^ foldHistory(history, cfg.tageIndexBits, cfg.tageHistoryLengths(table))
@@ -61,27 +82,44 @@ class Tage(cfg: BpuConfig) extends Module {
       }
     )
 
-  private val baseCounters = RegInit(VecInit(Seq.fill(cfg.bhtEntries)(1.U(2.W))))
-  private val validTables  = Seq.fill(tableCount)(RegInit(VecInit(Seq.fill(cfg.tageEntries)(false.B))))
-  private val tagTables    = Seq.fill(tableCount)(Reg(Vec(cfg.tageEntries, UInt(cfg.tageTagBits.W))))
-  private val ctrTables    = Seq.fill(tableCount)(RegInit(VecInit(Seq.fill(cfg.tageEntries)(1.U(2.W)))))
-  private val usefulTables = Seq.fill(tableCount)(RegInit(VecInit(Seq.fill(cfg.tageEntries)(0.U(2.W)))))
-  private val ageCounter   = RegInit(0.U(ageCounterBits.W))
+  private val tables      = Seq.fill(tableCount)(SyncReadMem(cfg.tageEntries, new TageSramEntry(cfg, ageCounterBits)))
+  private val validTables = Seq.fill(tableCount)(RegInit(VecInit(Seq.fill(cfg.tageEntries)(false.B))))
+  private val ageCounter  = RegInit(0.U(ageCounterBits.W))
+  private val ageEpoch    = RegInit(0.U(ageCounterBits.W))
 
-  private val taggedProvider  = Wire(Vec(PredictorConstants.latePredictionWidth, Bool()))
-  private val alternateDiffers = Wire(Vec(PredictorConstants.latePredictionWidth, Bool()))
+  private val queryReg    = Reg(Vec(queryWidth, new LatePredictQuery(cacheCfg)))
+  private val queryEnable = RegInit(VecInit(Seq.fill(queryWidth)(false.B)))
+  private val readValid   = RegInit(
+    VecInit(Seq.fill(queryWidth)(VecInit(Seq.fill(tableCount)(false.B))))
+  )
+  private val readEntry   = Wire(Vec(queryWidth, Vec(tableCount, new TageSramEntry(cfg, ageCounterBits))))
 
-  for (lane <- 0 until PredictorConstants.latePredictionWidth) {
-    val query      = io.query(lane)
-    val baseCounter = baseCounters(baseIndex(query.pc))
-    val indices    = Wire(Vec(tableCount, UInt(cfg.tageIndexBits.W)))
-    val tags       = Wire(Vec(tableCount, UInt(cfg.tageTagBits.W)))
-    val hits       = Wire(Vec(tableCount, Bool()))
-
+  queryReg := io.query
+  for (lane <- 0 until queryWidth) {
+    queryEnable(lane) := io.query(lane).valid
     for (table <- 0 until tableCount) {
-      indices(table) := tableIndex(query.pc, query.history, table)
-      tags(table)    := tableTag(query.pc, query.history, table)
-      hits(table)    := validTables(table)(indices(table)) && tagTables(table)(indices(table)) === tags(table)
+      val index = tableIndex(io.query(lane).pc, io.query(lane).history, table)
+      readEntry(lane)(table) := tables(table).read(index, io.query(lane).valid)
+      readValid(lane)(table) := io.query(lane).valid && validTables(table)(index)
+    }
+  }
+
+  private val taggedProvider   = Wire(Vec(queryWidth, Bool()))
+  private val alternateDiffers = Wire(Vec(queryWidth, Bool()))
+
+  for (lane <- 0 until queryWidth) {
+    val query           = queryReg(lane)
+    val tags            = Wire(Vec(tableCount, UInt(cfg.tageTagBits.W)))
+    val hits            = Wire(Vec(tableCount, Bool()))
+    val effectiveUseful = Wire(Vec(tableCount, UInt(2.W)))
+    for (table <- 0 until tableCount) {
+      tags(table)            := tableTag(query.pc, query.history, table)
+      hits(table)            := readValid(lane)(table) && readEntry(lane)(table).tag === tags(table)
+      effectiveUseful(table) := Mux(
+        readValid(lane)(table) && readEntry(lane)(table).ageEpoch === ageEpoch,
+        readEntry(lane)(table).useful,
+        0.U
+      )
     }
 
     val providerOH = Wire(Vec(tableCount, Bool()))
@@ -96,21 +134,24 @@ class Tage(cfg: BpuConfig) extends Module {
     for (table <- 0 until tableCount) {
       val higherBelowProvider =
         if (table + 1 == tableCount) false.B
-        else VecInit(((table + 1) until tableCount).map { higher =>
-          hits(higher) && !providerOH(higher)
-        }).asUInt.orR
+        else
+          VecInit(((table + 1) until tableCount).map { higher =>
+            hits(higher) && !providerOH(higher)
+          }).asUInt.orR
       alternateOH(table) := hits(table) && !providerOH(table) && !higherBelowProvider
     }
     val hasAlternate = alternateOH.asUInt.orR
 
-    val providerCounter = Mux1H(providerOH, (0 until tableCount).map(table => ctrTables(table)(indices(table))))
+    val baseCounter      = Mux(query.fastTaken, 2.U(2.W), 1.U(2.W))
+    val providerCounter  = Mux(hasProvider, Mux1H(providerOH, readEntry(lane).map(_.counter)), baseCounter)
     val alternateCounter = Mux(
       hasAlternate,
-      Mux1H(alternateOH, (0 until tableCount).map(table => ctrTables(table)(indices(table)))),
+      Mux1H(alternateOH, readEntry(lane).map(_.counter)),
       baseCounter
     )
-    val providerId = Wire(UInt(PredictorConstants.providerBits.W))
-    val alternateId = Wire(UInt(PredictorConstants.providerBits.W))
+    val providerUseful   = Mux(hasProvider, Mux1H(providerOH, effectiveUseful), 0.U)
+    val providerId       = Wire(UInt(PredictorConstants.providerBits.W))
+    val alternateId      = Wire(UInt(PredictorConstants.providerBits.W))
     providerId  := PredictorProvider.tageBase
     alternateId := PredictorProvider.tageBase
     for (table <- 0 until tableCount) {
@@ -122,55 +163,47 @@ class Tage(cfg: BpuConfig) extends Module {
       }
     }
 
-    val providerTaken  = Mux(hasProvider, providerCounter(1), baseCounter(1))
-    val alternateTaken = alternateCounter(1)
-    val active         = query.valid && query.cfiType === CfiType.branch
+    val allocationMask = Wire(Vec(PredictorConstants.maxTaggedTables, Bool()))
+    allocationMask := VecInit(Seq.fill(PredictorConstants.maxTaggedTables)(false.B))
+    for (table <- 0 until tableCount) {
+      allocationMask(table) := !readValid(lane)(table) || effectiveUseful(table) === 0.U
+    }
 
-    io.prediction(lane) := 0.U.asTypeOf(new LatePrediction(cacheCfg))
+    val providerTaken  = providerCounter(1)
+    val alternateTaken = alternateCounter(1)
+    val active         = queryEnable(lane) && query.cfiType === CfiType.branch
+
+    io.prediction(lane)                   := 0.U.asTypeOf(new LatePrediction(cacheCfg))
     io.prediction(lane).queried           := active
     io.prediction(lane).valid             := active
     io.prediction(lane).taken             := providerTaken
     io.prediction(lane).provider          := providerId
     io.prediction(lane).alternate         := alternateId
-    io.prediction(lane).confidence        := Mux(hasProvider, providerCounter, baseCounter)
+    io.prediction(lane).confidence        := providerCounter
+    io.prediction(lane).providerUseful    := providerUseful
+    io.prediction(lane).allocationMask    := allocationMask.asUInt
     io.prediction(lane).alternateTaken    := alternateTaken
     io.prediction(lane).alternateTarget   := 0.U
     io.prediction(lane).historyCheckpoint := query.history
     io.prediction(lane).pathCheckpoint    := query.pathHistory
 
-    taggedProvider(lane)  := active && hasProvider
+    taggedProvider(lane)   := active && hasProvider
     alternateDiffers(lane) := active && providerTaken =/= alternateTaken
   }
 
-  private val update0Active = io.update(0).valid && io.update(0).bits.cfiType === CfiType.branch
-  private val update0BaseIndex = baseIndex(io.update(0).bits.pc)
-  private val update0BaseNext = TaggedCounter.direction(baseCounters(update0BaseIndex), io.update(0).bits.taken)
-  when(update0Active) {
-    baseCounters(update0BaseIndex) := update0BaseNext
-  }
-
-  private val update1Active = io.update(1).valid && io.update(1).bits.cfiType === CfiType.branch
-  private val update1BaseIndex = baseIndex(io.update(1).bits.pc)
-  private val update1Matches0 = update0Active && update0BaseIndex === update1BaseIndex
-  private val update1BasePrior = Mux(update1Matches0, update0BaseNext, baseCounters(update1BaseIndex))
-  when(update1Active) {
-    baseCounters(update1BaseIndex) := TaggedCounter.direction(update1BasePrior, io.update(1).bits.taken)
-  }
-
-  private val allocationValid = Wire(Vec(PredictorConstants.commitUpdateWidth, Bool()))
-  private val allocationTable = Wire(Vec(PredictorConstants.commitUpdateWidth, UInt(tableIndexBits.W)))
+  private val allocationValid    = Wire(Vec(PredictorConstants.commitUpdateWidth, Bool()))
+  private val allocationTable    = Wire(Vec(PredictorConstants.commitUpdateWidth, UInt(tableIndexBits.W)))
   private val allocationPressure = Wire(Vec(PredictorConstants.commitUpdateWidth, Bool()))
 
   for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
-    val update = io.update(lane)
-    val active = update.valid && update.bits.cfiType === CfiType.branch
-    val provider = providerTable(update.bits.prediction.provider)
-    val mispredict = active && update.bits.prediction.lateQueried &&
-      update.bits.prediction.lateTaken =/= update.bits.taken
-    val eligible = Wire(Vec(tableCount, Bool()))
+    val update     = io.update(lane)
+    val active     = update.valid && update.bits.cfiType === CfiType.branch
+    val provider   = providerTable(update.bits.context.provider)
+    val mispredict = active && update.bits.context.lateQueried &&
+      update.bits.context.lateTaken =/= update.bits.taken
+    val eligible   = Wire(Vec(tableCount, Bool()))
     for (table <- 0 until tableCount) {
-      val index = tableIndex(update.bits.pc, update.bits.prediction.historyCheckpoint, table)
-      eligible(table) := (table + 1).U > provider && usefulTables(table)(index) === 0.U
+      eligible(table) := update.bits.context.allocationMask(table) && (table + 1).U > provider
     }
     val allocationOH = Wire(Vec(tableCount, Bool()))
     for (table <- 0 until tableCount) {
@@ -178,72 +211,68 @@ class Tage(cfg: BpuConfig) extends Module {
       allocationOH(table) := eligible(table) && !lowerEligible
     }
 
-    allocationValid(lane) := mispredict && eligible.asUInt.orR
-    allocationTable(lane) := Mux1H(allocationOH, (0 until tableCount).map(_.U(tableIndexBits.W)))
+    allocationValid(lane)    := mispredict && eligible.asUInt.orR
+    allocationTable(lane)    := Mux1H(allocationOH, (0 until tableCount).map(_.U(tableIndexBits.W)))
     allocationPressure(lane) := mispredict && !eligible.asUInt.orR
   }
 
   for (table <- 0 until tableCount) {
-    val update0Index = tableIndex(io.update(0).bits.pc, io.update(0).bits.prediction.historyCheckpoint, table)
-    val update0Provider = update0Active && io.update(0).bits.prediction.provider === PredictorProvider.tageTable(table) &&
-      validTables(table)(update0Index) &&
-      tagTables(table)(update0Index) === tableTag(io.update(0).bits.pc, io.update(0).bits.prediction.historyCheckpoint, table)
-    val update0Ctr = TaggedCounter.direction(ctrTables(table)(update0Index), io.update(0).bits.taken)
-    val update0Useful = {
-      val correct = io.update(0).bits.prediction.lateTaken === io.update(0).bits.taken
-      val differs = io.update(0).bits.prediction.lateTaken =/= io.update(0).bits.prediction.alternateTaken
-      Mux(
-        differs,
-        Mux(correct, TaggedCounter.increment(usefulTables(table)(update0Index)), TaggedCounter.decrement(usefulTables(table)(update0Index))),
-        usefulTables(table)(update0Index)
-      )
-    }
-    when(update0Provider) {
-      ctrTables(table)(update0Index)    := update0Ctr
-      usefulTables(table)(update0Index) := update0Useful
-    }
-
-    val update1Index = tableIndex(io.update(1).bits.pc, io.update(1).bits.prediction.historyCheckpoint, table)
-    val update1Provider = update1Active && io.update(1).bits.prediction.provider === PredictorProvider.tageTable(table) &&
-      validTables(table)(update1Index) &&
-      tagTables(table)(update1Index) === tableTag(io.update(1).bits.pc, io.update(1).bits.prediction.historyCheckpoint, table)
-    val update1Matches0 = update0Provider && update0Index === update1Index
-    val update1CtrPrior = Mux(update1Matches0, update0Ctr, ctrTables(table)(update1Index))
-    val update1UsefulPrior = Mux(update1Matches0, update0Useful, usefulTables(table)(update1Index))
-    val update1Useful = {
-      val correct = io.update(1).bits.prediction.lateTaken === io.update(1).bits.taken
-      val differs = io.update(1).bits.prediction.lateTaken =/= io.update(1).bits.prediction.alternateTaken
-      Mux(
-        differs,
-        Mux(correct, TaggedCounter.increment(update1UsefulPrior), TaggedCounter.decrement(update1UsefulPrior)),
-        update1UsefulPrior
-      )
-    }
-    when(update1Provider) {
-      ctrTables(table)(update1Index)    := TaggedCounter.direction(update1CtrPrior, io.update(1).bits.taken)
-      usefulTables(table)(update1Index) := update1Useful
-    }
+    val writeValid = Wire(Vec(PredictorConstants.commitUpdateWidth * 2, Bool()))
+    val writeIndex = Wire(Vec(PredictorConstants.commitUpdateWidth * 2, UInt(cfg.tageIndexBits.W)))
+    val writeEntry = Wire(
+      Vec(PredictorConstants.commitUpdateWidth * 2, new TageSramEntry(cfg, ageCounterBits))
+    )
+    writeValid := VecInit(Seq.fill(PredictorConstants.commitUpdateWidth * 2)(false.B))
+    writeIndex := 0.U.asTypeOf(writeIndex)
+    writeEntry := 0.U.asTypeOf(writeEntry)
 
     for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
-      when(allocationValid(lane) && allocationTable(lane) === table.U) {
-        val update = io.update(lane)
-        val index  = tableIndex(update.bits.pc, update.bits.prediction.historyCheckpoint, table)
-        validTables(table)(index)  := true.B
-        tagTables(table)(index)    := tableTag(update.bits.pc, update.bits.prediction.historyCheckpoint, table)
-        ctrTables(table)(index)    := Mux(update.bits.taken, 2.U, 1.U)
-        usefulTables(table)(index) := 0.U
-      }
+      val update        = io.update(lane)
+      val active        = update.valid && update.bits.cfiType === CfiType.branch
+      val providerWrite = active && update.bits.context.provider === PredictorProvider.tageTable(table)
+      val index         = tableIndex(update.bits.pc, update.bits.context.historyCheckpoint, table)
+      val providerEntry = Wire(new TageSramEntry(cfg, ageCounterBits))
+      val correct       = update.bits.context.lateTaken === update.bits.taken
+      val differs       = update.bits.context.lateTaken =/= update.bits.context.alternateTaken
+      providerEntry.tag      := tableTag(update.bits.pc, update.bits.context.historyCheckpoint, table)
+      providerEntry.counter  := TaggedCounter.direction(update.bits.context.confidence, update.bits.taken)
+      providerEntry.useful   := Mux(
+        differs,
+        Mux(
+          correct,
+          TaggedCounter.increment(update.bits.context.providerUseful),
+          TaggedCounter.decrement(update.bits.context.providerUseful)
+        ),
+        update.bits.context.providerUseful
+      )
+      providerEntry.ageEpoch := ageEpoch
+      writeValid(lane * 2)   := providerWrite
+      writeIndex(lane * 2)   := index
+      writeEntry(lane * 2)   := providerEntry
+
+      val allocationWrite = allocationValid(lane) && allocationTable(lane) === table.U
+      val allocationEntry = Wire(new TageSramEntry(cfg, ageCounterBits))
+      allocationEntry.tag      := tableTag(update.bits.pc, update.bits.context.historyCheckpoint, table)
+      allocationEntry.counter  := Mux(update.bits.taken, 2.U, 1.U)
+      allocationEntry.useful   := 0.U
+      allocationEntry.ageEpoch := ageEpoch
+      writeValid(lane * 2 + 1) := allocationWrite
+      writeIndex(lane * 2 + 1) := index
+      writeEntry(lane * 2 + 1) := allocationEntry
+    }
+
+    val selectedWrite = PriorityEncoderOH(writeValid.asUInt)
+    when(writeValid.asUInt.orR) {
+      val selectedIndex = Mux1H(selectedWrite, writeIndex)
+      tables(table).write(selectedIndex, Mux1H(selectedWrite, writeEntry))
+      validTables(table)(selectedIndex) := true.B
     }
   }
 
   private val ageNow = allocationPressure.asUInt.orR && ageCounter.andR
   when(ageNow) {
     ageCounter := 0.U
-    for (table <- 0 until tableCount) {
-      for (entry <- 0 until cfg.tageEntries) {
-        usefulTables(table)(entry) := TaggedCounter.decrement(usefulTables(table)(entry))
-      }
-    }
+    ageEpoch   := ageEpoch +% 1.U
   }.elsewhen(allocationPressure.asUInt.orR) {
     ageCounter := ageCounter + 1.U
   }

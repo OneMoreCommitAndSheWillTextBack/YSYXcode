@@ -3,12 +3,17 @@ package top
 import chisel3._
 import top.bus.AxiXbar
 import top.bus.axi.AxiPort
-import top.config.MemConfig
+import top.config.{FrontendConfig, MemConfig}
 import top.core.Core
 
-class Top(target: Target = Target.Npc) extends Module {
+class Top(
+  target:      Target = Target.Npc,
+  enableTrace: Boolean = true,
+  frontendCfg: FrontendConfig = FrontendConfig())
+    extends Module {
   override def desiredName: String = "ysyx_24100007"
-  private val resetVector = target.resetVector
+  private val resetVector     = target.resetVector
+  private val simulationBuild = target == Target.Npc
 
   val io = IO(new Bundle {
     val interrupt = Input(Bool())
@@ -18,7 +23,7 @@ class Top(target: Target = Target.Npc) extends Module {
 
   private val memCfg = MemConfig()
 
-  val core = Module(new Core(resetVector))
+  val core = Module(new Core(resetVector, enableTrace && simulationBuild, frontendCfg, simulationBuild))
   val xbar = Module(new AxiXbar(memCfg))
 
   xbar.io.externalInterrupt := io.interrupt

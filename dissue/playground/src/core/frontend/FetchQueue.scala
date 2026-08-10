@@ -1,24 +1,24 @@
 package top.core.frontend.ifetch
 
 import chisel3._
-import chisel3.util.{Decoupled, PopCount, Valid, log2Ceil}
-import top.config.ICacheConfig
-import top.core.frontend.bundle.FetchInst
+import chisel3.util.{log2Ceil, Decoupled, PopCount, Valid}
+import top.config.FrontendConfig
+import top.core.bundle.FetchInstPayload
 
-class FetchQueueEntry(cacheCfg: ICacheConfig) extends Bundle {
-  val inst     = new FetchInst
-  val sequence = UInt(cacheCfg.fetchSequenceBits.W)
-  val epoch    = UInt(cacheCfg.fetchEpochBits.W)
+class FetchQueueEntry(cfg: FrontendConfig) extends Bundle {
+  val inst     = new FetchInstPayload(cfg.payload)
+  val sequence = UInt(cfg.fetchSequenceBits.W)
+  val epoch    = UInt(cfg.fetchEpochBits.W)
 }
 
-class FetchQueueEnqueue(cacheCfg: ICacheConfig, enqWidth: Int = 4) extends Bundle {
+class FetchQueueEnqueue(cfg: FrontendConfig, enqWidth: Int = 4) extends Bundle {
   require(enqWidth > 0, "FetchQueue enqueue width must be positive")
 
-  val insts = Vec(enqWidth, Valid(new FetchQueueEntry(cacheCfg)))
+  val insts = Vec(enqWidth, Valid(new FetchQueueEntry(cfg)))
 }
 
 class FetchQueue(
-  cacheCfg: ICacheConfig = ICacheConfig(),
+  cfg:      FrontendConfig = FrontendConfig(),
   depth:    Int = 32,
   enqWidth: Int = 4)
     extends Module {
@@ -33,14 +33,14 @@ class FetchQueue(
 
   val io = IO(new Bundle {
     val flush        = Input(Bool())
-    val currentEpoch = Input(UInt(cacheCfg.fetchEpochBits.W))
-    val enq          = Flipped(Decoupled(new FetchQueueEnqueue(cacheCfg, enqWidth)))
-    val out          = Decoupled(new FetchPacket)
+    val currentEpoch = Input(UInt(cfg.fetchEpochBits.W))
+    val enq          = Flipped(Decoupled(new FetchQueueEnqueue(cfg, enqWidth)))
+    val out          = Decoupled(new FetchPacket(cfg.payload))
 
-    val count     = Output(UInt(countWidth.W))
-    val freeCount = Output(UInt(countWidth.W))
-    val empty     = Output(Bool())
-    val full      = Output(Bool())
+    val count        = Output(UInt(countWidth.W))
+    val freeCount    = Output(UInt(countWidth.W))
+    val empty        = Output(Bool())
+    val full         = Output(Bool())
     val enqueueWidth = Output(UInt(enqCountWidth.W))
     val dequeueWidth = Output(UInt(countWidth.W))
   })
@@ -49,15 +49,15 @@ class FetchQueue(
     (ptr + increment)(ptrWidth - 1, 0)
 
   private def sequenceAfter(next: UInt, previous: UInt): Bool = {
-    val distance = (next - previous)(cacheCfg.fetchSequenceBits - 1, 0)
-    next =/= previous && !distance(cacheCfg.fetchSequenceBits - 1)
+    val distance = (next - previous)(cfg.fetchSequenceBits - 1, 0)
+    next =/= previous && !distance(cfg.fetchSequenceBits - 1)
   }
 
   private def entryAfter(next: FetchQueueEntry, previous: FetchQueueEntry): Bool =
     sequenceAfter(next.sequence, previous.sequence) ||
       (next.sequence === previous.sequence && next.inst.pc > previous.inst.pc)
 
-  private val entries  = Reg(Vec(depth, new FetchQueueEntry(cacheCfg)))
+  private val entries  = Reg(Vec(depth, new FetchQueueEntry(cfg)))
   private val readPtr  = RegInit(0.U(ptrWidth.W))
   private val writePtr = RegInit(0.U(ptrWidth.W))
   private val count    = RegInit(0.U(countWidth.W))
@@ -70,8 +70,8 @@ class FetchQueue(
   private val headLive    = !empty && headEntry.epoch === io.currentEpoch
   private val secondLive  = headLive && count >= deqWidth.U && secondEntry.epoch === io.currentEpoch
 
-  io.out.valid := !io.flush && headLive
-  io.out.bits  := 0.U.asTypeOf(new FetchPacket)
+  io.out.valid               := !io.flush && headLive
+  io.out.bits                := 0.U.asTypeOf(new FetchPacket(cfg.payload))
   io.out.bits.insts(0).valid := !io.flush && headLive
   io.out.bits.insts(0).bits  := headEntry.inst
   io.out.bits.insts(1).valid := !io.flush && secondLive
@@ -93,17 +93,17 @@ class FetchQueue(
 
   io.enq.ready := !io.flush && freeAfterDequeue >= enqueueCountWide
 
-  private val enqueueFire = io.enq.fire
-  private val dequeueFire = io.out.fire
+  private val enqueueFire          = io.enq.fire
+  private val dequeueFire          = io.out.fire
   private val acceptedEnqueueCount = Wire(UInt(enqCountWidth.W))
   acceptedEnqueueCount := Mux(enqueueFire, enqueueCount, 0.U(enqCountWidth.W))
   private val acceptedEnqueueCountWide = Wire(UInt(countWidth.W))
   acceptedEnqueueCountWide := acceptedEnqueueCount
 
-  io.count     := count
-  io.freeCount := depth.U(countWidth.W) - count
-  io.empty     := empty
-  io.full      := full
+  io.count        := count
+  io.freeCount    := depth.U(countWidth.W) - count
+  io.empty        := empty
+  io.full         := full
   io.enqueueWidth := Mux(enqueueFire, enqueueCount, 0.U)
   io.dequeueWidth := dequeueCount
 

@@ -6,6 +6,7 @@ $(CHISEL_INPUT_SIG): FORCE
 	{ \
 		printf 'project=%s\n' '$(PRJ)'; \
 		printf 'target=%s\n' '$(TARGET)'; \
+		printf 'elaborate_args=%s\n' '$(ELABORATE_ARGS)'; \
 		printf 'mill=%s\n' '$(MILL)'; \
 		printf 'build_dir=%s\n' '$(BUILD_DIR)'; \
 		printf 'rtl_filelist=%s\n' '$(RTL_FILELIST)'; \
@@ -18,7 +19,7 @@ $(CHISEL_INPUT_SIG): FORCE
 $(CHISEL_DONE_STAMP): $(CHISEL_INPUT_SIG)
 	$(call git_commit, "generate verilog")
 	@mkdir -p "$(BUILD_DIR)" "$(dir $@)"
-	$(MILL) -i $(PRJ).runMain Elaborate --ysyx-target $(TARGET) --target-dir $(BUILD_DIR)
+	$(MILL) -i $(PRJ).runMain Elaborate --ysyx-target $(TARGET) --target-dir $(BUILD_DIR) $(ELABORATE_ARGS)
 	@test -f "$(RTL_FILELIST)"
 	@touch "$@"
 

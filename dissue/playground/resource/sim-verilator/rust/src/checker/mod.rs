@@ -292,12 +292,18 @@ impl Checker {
     pub(crate) fn on_frontend_perf(
         &mut self,
         events: u32,
+        ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
         fetch_queue_dequeue_width: u32,
+        icache_lookup_valid: bool,
+        icache_block_valid_mask: u32,
+        icache_miss_mask: u32,
+        icache_block_addr: [u32; 2],
     ) {
         self.perf.frontend_perf(
             events,
+            ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
             fetch_queue_dequeue_width,
@@ -305,9 +311,14 @@ impl Checker {
         if self.detailed_trace.is_some() {
             self.cycle_sample.record_frontend(
                 events,
+                ifu_correction,
                 fetch_queue_occupancy,
                 fetch_queue_enqueue_width,
                 fetch_queue_dequeue_width,
+                icache_lookup_valid,
+                icache_block_valid_mask,
+                icache_miss_mask,
+                icache_block_addr,
             );
         }
     }
@@ -531,8 +542,9 @@ impl Checker {
             self.perf.frontend_event(PerfCounters::STALE_RESPONSE_DROP)
         );
         crate::Log!(
-            "Frontend: redirects: {}, invalidates: {}, empty while backend ready: {}, AXI request wait cycles: {}",
+            "Frontend: redirects: {}, IFU corrections: {}, invalidates: {}, empty while backend ready: {}, AXI request wait cycles: {}",
             self.perf.frontend_event(PerfCounters::BACKEND_REDIRECT),
+            self.perf.ifu_corrections(),
             self.perf.frontend_event(PerfCounters::ICACHE_INVALIDATE),
             self.perf.frontend_event(PerfCounters::FRONTEND_EMPTY),
             self.perf.frontend_event(PerfCounters::AXI_REQUEST_WAIT)

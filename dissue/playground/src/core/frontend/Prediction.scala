@@ -1,32 +1,34 @@
 package top.core.frontend.bundle
 
 import chisel3._
-import chisel3.util.{Cat, Fill, MuxLookup, log2Ceil}
+import chisel3.util.{log2Ceil, Cat, Fill, MuxLookup}
 import top.config.ICacheConfig
 import top.core.bundle.CfiType
 
 object PredictorConstants {
-  val commitUpdateWidth = 2
+  val commitUpdateWidth   = 2
   val latePredictionWidth = 4
-  val providerBits      = 5
-  val confidenceBits    = 2
-  val historyBits       = 16
-  val sequenceBits      = 16
-  val epochBits         = 8
-  val ftqIndexBits      = 8
-  val rasEntries        = 8
-  val rasIndexBits      = log2Ceil(rasEntries)
-  val rasCountBits      = log2Ceil(rasEntries + 1)
+  val maxTaggedTables     = 6
+  val providerBits        = 5
+  val confidenceBits      = 2
+  val historyBits         = 16
+  val sequenceBits        = 16
+  val epochBits           = 8
+  val ftqIndexBits        = 8
+  val ftqGenerationBits   = 8
+  val rasEntries          = 8
+  val rasIndexBits        = log2Ceil(rasEntries)
+  val rasCountBits        = log2Ceil(rasEntries + 1)
 }
 
 object PredictorProvider {
-  val none      = 0.U(PredictorConstants.providerBits.W)
-  val fastBtb   = 1.U(PredictorConstants.providerBits.W)
-  val ras       = 2.U(PredictorConstants.providerBits.W)
-  val tageBase  = 3.U(PredictorConstants.providerBits.W)
+  val none       = 0.U(PredictorConstants.providerBits.W)
+  val fastBtb    = 1.U(PredictorConstants.providerBits.W)
+  val ras        = 2.U(PredictorConstants.providerBits.W)
+  val tageBase   = 3.U(PredictorConstants.providerBits.W)
   val ittageBase = 4.U(PredictorConstants.providerBits.W)
 
-  def tageTable(index: Int): UInt = (5 + index).U(PredictorConstants.providerBits.W)
+  def tageTable(index:   Int): UInt = (5 + index).U(PredictorConstants.providerBits.W)
   def ittageTable(index: Int): UInt = (11 + index).U(PredictorConstants.providerBits.W)
 }
 
@@ -96,48 +98,24 @@ class RasCheckpoint(addrWidth: Int = 32) extends Bundle {
   val count   = UInt(PredictorConstants.rasCountBits.W)
 }
 
-/** Immutable prediction and recovery data carried with a fetched instruction. */
-class PredictionMeta(cfg: ICacheConfig = ICacheConfig()) extends Bundle {
-  require(cfg.fetchSequenceBits <= PredictorConstants.sequenceBits, "Prediction sequence field is too narrow")
-  require(cfg.fetchEpochBits <= PredictorConstants.epochBits, "Prediction epoch field is too narrow")
-  require(cfg.fetchTargetIndexBits <= PredictorConstants.ftqIndexBits, "Prediction FTQ index field is too narrow")
-
-  val sequence       = UInt(PredictorConstants.sequenceBits.W)
-  val epoch          = UInt(PredictorConstants.epochBits.W)
-  val ftqIndex       = UInt(PredictorConstants.ftqIndexBits.W)
-  val fastPrediction = new FetchPred(cfg)
-
-  val provider       = UInt(PredictorConstants.providerBits.W)
-  val alternate      = UInt(PredictorConstants.providerBits.W)
-  val confidence     = UInt(PredictorConstants.confidenceBits.W)
+/** Predictor-only context retained in the FTQ until the corresponding CFI commits. */
+class PredictorTrainingContext(cfg: top.config.BpuConfig) extends Bundle {
+  val provider        = UInt(PredictorConstants.providerBits.W)
+  val alternate       = UInt(PredictorConstants.providerBits.W)
+  val confidence      = UInt(PredictorConstants.confidenceBits.W)
+  val providerUseful  = UInt(2.W)
+  val allocationMask  = UInt(PredictorConstants.maxTaggedTables.W)
   val predictedTarget = UInt(cfg.addrWidth.W)
-  val predictedNpc    = UInt(cfg.addrWidth.W)
-  val cfiPc           = UInt(cfg.addrWidth.W)
-  val cfiType         = UInt(CfiType.width.W)
-  val instLen         = UInt(3.W)
-  val rasAction       = UInt(RasAction.width.W)
   val rasUsed         = Bool()
-  val canonicalReturn = Bool()
   val lateQueried     = Bool()
   val lateValid       = Bool()
   val lateTaken       = Bool()
-  val specTaken       = Bool()
   val alternateTaken  = Bool()
   val lateTarget      = UInt(cfg.addrWidth.W)
   val alternateTarget = UInt(cfg.addrWidth.W)
-  val lateOverride    = Bool()
 
   val historyCheckpoint = UInt(PredictorConstants.historyBits.W)
   val pathCheckpoint    = UInt(PredictorConstants.historyBits.W)
-  val checkpointValid   = Bool()
-  val rasCheckpoint     = new RasCheckpoint(cfg.addrWidth)
-}
-
-class PredictorRecovery(addrWidth: Int = 32) extends Bundle {
-  val prediction = new PredictionMeta(ICacheConfig(addrWidth = addrWidth))
-  val cfiType    = UInt(CfiType.width.W)
-  val actualTaken = Bool()
-  val actualTarget = UInt(addrWidth.W)
 }
 
 class LatePredictQuery(cfg: ICacheConfig) extends Bundle {
@@ -160,6 +138,8 @@ class LatePrediction(cfg: ICacheConfig) extends Bundle {
   val provider          = UInt(PredictorConstants.providerBits.W)
   val alternate         = UInt(PredictorConstants.providerBits.W)
   val confidence        = UInt(PredictorConstants.confidenceBits.W)
+  val providerUseful    = UInt(2.W)
+  val allocationMask    = UInt(PredictorConstants.maxTaggedTables.W)
   val alternateTaken    = Bool()
   val alternateTarget   = UInt(cfg.addrWidth.W)
   val historyCheckpoint = UInt(PredictorConstants.historyBits.W)
@@ -186,19 +166,19 @@ object CfiTarget {
 }
 
 class RasPerf extends Bundle {
-  val push             = Bool()
-  val pop              = Bool()
-  val popThenPush      = Bool()
-  val use              = Bool()
-  val hit              = Bool()
-  val miss             = Bool()
-  val underflow        = Bool()
-  val overflow         = Bool()
+  val push              = Bool()
+  val pop               = Bool()
+  val popThenPush       = Bool()
+  val use               = Bool()
+  val hit               = Bool()
+  val miss              = Bool()
+  val underflow         = Bool()
+  val overflow          = Bool()
   val checkpointRestore = Bool()
-  val recoveryDiscard  = Bool()
-  val taggedProvider   = Bool()
+  val recoveryDiscard   = Bool()
+  val taggedProvider    = Bool()
   val alternateDisagree = Bool()
-  val allocation       = Bool()
-  val usefulnessAging  = Bool()
-  val lateOverride     = Bool()
+  val allocation        = Bool()
+  val usefulnessAging   = Bool()
+  val lateOverride      = Bool()
 }

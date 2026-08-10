@@ -54,9 +54,15 @@ pub struct NpcDpiCallbacks {
         extern "C" fn(
             *mut c_void,
             events: u32,
+            ifu_correction: u32,
             fetch_queue_occupancy: u32,
             fetch_queue_enqueue_width: u32,
             fetch_queue_dequeue_width: u32,
+            icache_lookup_valid: u32,
+            icache_block_valid_mask: u32,
+            icache_miss_mask: u32,
+            icache_block_addr0: u32,
+            icache_block_addr1: u32,
         ),
     >,
     pub issue_queue_perf: Option<

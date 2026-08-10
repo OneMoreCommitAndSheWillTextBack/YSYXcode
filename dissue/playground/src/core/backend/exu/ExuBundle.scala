@@ -8,7 +8,7 @@ import top.core.bundle.{CfiType, FetchInstPayload}
 import top.config.BackendConfig
 
 class ExuRequest(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val fetch  = new FetchInstPayload(cfg.addrWidth)
+  val fetch  = new FetchInstPayload(cfg.frontendPayload)
   val robIdx = UInt(cfg.robIdxWidth.W)
   val rd     = UInt(5.W)
 

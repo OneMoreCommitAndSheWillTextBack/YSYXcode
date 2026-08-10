@@ -7,6 +7,7 @@ import top.config.BackendConfig
 
 import top.core.backend.bundle.{
   BackendMemPerf,
+  BackendMonitor,
   DecodePacket,
   IssuePortStatus,
   IssueWakeup,
@@ -23,19 +24,20 @@ import top.core.backend.lsu.LSU
 import top.core.backend.regfile._
 import top.core.backend.retire.RetireUnit
 import top.core.backend.rob.ROB
-import top.core.trace.{BackendPipelineTrace, PipelineTraceEvent}
 import top.sim.DifftestMonitor
 
 class Backend(
-  resetVector: BigInt = BigInt("80000000", 16),
-  cfg:         BackendConfig = BackendConfig())
+  resetVector:    BigInt = BigInt("80000000", 16),
+  cfg:            BackendConfig = BackendConfig(),
+  enableMonitor:  Boolean = true,
+  enableDifftest: Boolean = true)
     extends Module {
   require(cfg.issueWidth > 0, "Backend requires at least one frontend slot")
   require(cfg.writebackWidth >= cfg.intIssueWidth + 1, "Backend reserves writeback ports for integer EXUs and LSU")
 
   val io = IO(new Bundle {
-    val frontend = Flipped(Decoupled(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
-    val redirect = Output(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
+    val frontend = Flipped(Decoupled(new FrontendToBackend(cfg.issueWidth, cfg.frontendPayload)))
+    val redirect = Output(new BackendToFrontend(cfg.frontendPayload))
 
     val dmemReq    = Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
     val dmemResp   = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
@@ -51,31 +53,29 @@ class Backend(
     val storesDrained = Output(Bool())
     val memoryIdle    = Output(Bool())
 
-    val retire        = Output(new RetireGroup(cfg))
-    val csrStatus     = Output(new CsrStatus(cfg))
-    val memPerf       = Output(new BackendMemPerf(cfg))
-    val interrupt     = Input(new CsrInterruptPending)
-    val mtime         = Input(UInt(64.W))
-    val pipelineTrace = Output(Vec(BackendPipelineTrace.eventCount(cfg), Valid(new PipelineTraceEvent)))
+    val retire    = Output(new RetireGroup(cfg))
+    val csrStatus = Output(new CsrStatus(cfg))
+    val memPerf   = Output(new BackendMemPerf(cfg))
+    val interrupt = Input(new CsrInterruptPending)
+    val mtime     = Input(UInt(64.W))
+    val monitor   = Output(new BackendMonitor(cfg))
   })
 
   private val slotIdxWidth   = math.max(log2Ceil(cfg.issueWidth), 1)
   private val slotCountWidth = math.max(log2Ceil(cfg.issueWidth + 1), 1)
 
-  val gpr           = Module(new RegFile(cfg))
-  val decoder       = Seq.fill(cfg.dispatchWidth)(Module(new Decoder(cfg)))
-  val dispatch      = Module(new Dispatch(cfg))
-  val scoreboard    = Module(new Scoreboard(cfg))
-  val rob           = Module(new ROB(cfg))
-  val issueQueue    = Module(new IssueQueue(cfg))
-  val execute       = Module(new ExecuteBlock(cfg))
-  val lsu           = Module(new LSU(cfg))
-  val csrFile       = Module(new CsrFile(resetVector, cfg))
-  val csrTracker    = Module(new CsrTracker(cfg))
-  val retire        = Module(new RetireUnit(cfg))
-  val difftest      = Module(new DifftestMonitor(resetVector, cfg))
-  val recovery      = Module(new RecoveryUnit(cfg))
-  val traceObserver = Module(new BackendPipelineTrace(cfg))
+  val gpr        = Module(new RegFile(cfg))
+  val decoder    = Seq.fill(cfg.dispatchWidth)(Module(new Decoder(cfg)))
+  val dispatch   = Module(new Dispatch(cfg))
+  val scoreboard = Module(new Scoreboard(cfg))
+  val rob        = Module(new ROB(cfg))
+  val issueQueue = Module(new IssueQueue(cfg))
+  val execute    = Module(new ExecuteBlock(cfg))
+  val lsu        = Module(new LSU(cfg))
+  val csrFile    = Module(new CsrFile(resetVector, cfg))
+  val csrTracker = Module(new CsrTracker(cfg))
+  val retire     = Module(new RetireUnit(cfg))
+  val recovery   = Module(new RecoveryUnit(cfg))
 
   io.csrStatus := csrFile.io.status
 
@@ -104,13 +104,13 @@ class Backend(
     retire.io.redirect.branchRedirect.target,
     recovery.io.redirect.target
   )
-  io.redirect.predictorRecovery     := recovery.io.predictorRecovery
+  io.redirect.cfiRecovery           := recovery.io.cfiRecovery
 
-  private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth)))
+  private val fetchReg = RegInit(0.U.asTypeOf(new FrontendToBackend(cfg.issueWidth, cfg.frontendPayload)))
   private val pending  = RegInit(false.B)
   private val slotIdx  = RegInit(0.U(slotIdxWidth.W))
 
-  val dispatchFetch  = Wire(Vec(cfg.dispatchWidth, Valid(new FetchInstPayload(cfg.addrWidth))))
+  val dispatchFetch  = Wire(Vec(cfg.dispatchWidth, Valid(new FetchInstPayload(cfg.frontendPayload))))
   val dispatchDecode = Wire(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
   val laneInRange    = Wire(Vec(cfg.dispatchWidth, Bool()))
 
@@ -119,7 +119,7 @@ class Backend(
     laneSlot          := slotIdx + lane.U(slotCountWidth.W)
     laneInRange(lane) := laneSlot < cfg.issueWidth.U
 
-    dispatchFetch(lane) := 0.U.asTypeOf(Valid(new FetchInstPayload(cfg.addrWidth)))
+    dispatchFetch(lane) := 0.U.asTypeOf(Valid(new FetchInstPayload(cfg.frontendPayload)))
     for (slot <- 0 until cfg.issueWidth) {
       when(laneSlot === slot.U) {
         dispatchFetch(lane) := fetchReg.insts(slot)
@@ -271,14 +271,17 @@ class Backend(
   io.storesDrained                 := lsu.io.storesDrained
   io.memoryIdle                    := lsu.io.memoryIdle
 
-  difftest.io.retire    := retire.io.retire
-  difftest.io.regWrite  := retire.io.regWrite
-  difftest.io.csrCommit := retire.io.csrCommit
-  difftest.io.csrTrap   := retire.io.csrTrap
-  difftest.io.csrMret   := retire.io.csrMret
-  difftest.io.csrSret   := retire.io.csrSret
-  difftest.io.interrupt := io.interrupt
-  difftest.io.context   := retire.io.context
+  if (enableDifftest) {
+    val difftest = Module(new DifftestMonitor(resetVector, cfg))
+    difftest.io.retire    := retire.io.retire
+    difftest.io.regWrite  := retire.io.regWrite
+    difftest.io.csrCommit := retire.io.csrCommit
+    difftest.io.csrTrap   := retire.io.csrTrap
+    difftest.io.csrMret   := retire.io.csrMret
+    difftest.io.csrSret   := retire.io.csrSret
+    difftest.io.interrupt := io.interrupt
+    difftest.io.context   := retire.io.context
+  }
 
   issueQueue.io.robHead       := rob.io.head
   issueQueue.io.unresolvedAmo := rob.io.unresolvedAmo
@@ -357,32 +360,35 @@ class Backend(
   io.memPerf.sqOccupancy                 := lsu.io.sqPerf.occupancy
   io.memPerf.loadTxnOccupancy            := lsu.io.loadTxnOccupancy
 
-  traceObserver.io.frontendFire := io.frontend.fire
-  traceObserver.io.frontend     := io.frontend.bits
-  for (lane <- 0 until cfg.dispatchWidth) {
-    traceObserver.io.dispatchFire(lane)   := dispatch.io.out(lane).fire
-    traceObserver.io.dispatchDecode(lane) := dispatchDecode(lane)
-    traceObserver.io.dispatchIssue(lane)  := dispatch.io.out(lane).bits
+  io.monitor := 0.U.asTypeOf(new BackendMonitor(cfg))
+  if (enableMonitor) {
+    io.monitor.frontendFire := io.frontend.fire
+    io.monitor.frontend     := io.frontend.bits
+    for (lane <- 0 until cfg.dispatchWidth) {
+      io.monitor.dispatchFire(lane)   := dispatch.io.out(lane).fire
+      io.monitor.dispatchDecode(lane) := dispatchDecode(lane)
+      io.monitor.dispatchIssue(lane)  := dispatch.io.out(lane).bits
+    }
+    for (port <- 0 until cfg.intIssueWidth) {
+      io.monitor.intIssueFire(port) := issueQueue.io.intIssue(port).fire
+      io.monitor.intIssue(port)     := issueQueue.io.intIssue(port).bits
+    }
+    io.monitor.memIssueFire := issueQueue.io.memIssue.fire
+    io.monitor.memIssue            := issueQueue.io.memIssue.bits
+    io.monitor.writeback           := writeback
+    io.monitor.retire              := retire.io.retire
+    io.monitor.bpuPerf             := retire.io.bpuPerf
+    io.monitor.storeReady          := lsu.io.storeUpdate
+    io.monitor.storeCommit         := retire.io.storeCommit
+    io.monitor.storeRequest        := lsu.io.storeRequest
+    io.monitor.storeResponse       := lsu.io.storeResponse
+    io.monitor.memoryRequestFire   := io.dmemReq.fire
+    io.monitor.memoryRequestRobIdx := io.dmemReq.bits.owner.robIdx
+    io.monitor.memoryRequestKind   := io.dmemReq.bits.request.kind
+    io.monitor.memoryRequestWrite  := io.dmemReq.bits.request.write
+    io.monitor.memoryRequestTxnId  := io.dmemReq.bits.request.txnId
+    io.monitor.robHead             := rob.io.head
+    io.monitor.recover             := selectiveRecovery
+    io.monitor.globalFlush         := globalFlush
   }
-  for (port <- 0 until cfg.intIssueWidth) {
-    traceObserver.io.intIssueFire(port) := issueQueue.io.intIssue(port).fire
-    traceObserver.io.intIssue(port)     := issueQueue.io.intIssue(port).bits
-  }
-  traceObserver.io.memIssueFire := issueQueue.io.memIssue.fire
-  traceObserver.io.memIssue            := issueQueue.io.memIssue.bits
-  traceObserver.io.writeback           := writeback
-  traceObserver.io.retire              := retire.io.retire
-  traceObserver.io.storeReady          := lsu.io.storeUpdate
-  traceObserver.io.storeCommit         := retire.io.storeCommit
-  traceObserver.io.storeRequest        := lsu.io.storeRequest
-  traceObserver.io.storeResponse       := lsu.io.storeResponse
-  traceObserver.io.memoryRequestFire   := io.dmemReq.fire
-  traceObserver.io.memoryRequestRobIdx := io.dmemReq.bits.owner.robIdx
-  traceObserver.io.memoryRequestKind   := io.dmemReq.bits.request.kind
-  traceObserver.io.memoryRequestWrite  := io.dmemReq.bits.request.write
-  traceObserver.io.memoryRequestTxnId  := io.dmemReq.bits.request.txnId
-  traceObserver.io.robHead             := rob.io.head
-  traceObserver.io.recover             := selectiveRecovery
-  traceObserver.io.globalFlush         := globalFlush
-  io.pipelineTrace                     := traceObserver.io.events
 }
