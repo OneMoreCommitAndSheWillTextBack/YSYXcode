@@ -10,7 +10,10 @@ object AxiMasterState extends ChiselEnum {
   val SIdle, STransfer, SResp = Value
 }
 
-class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
+class AxiMaster(
+  cfg:              MemConfig = MemConfig(),
+  allowDirectWrite: Boolean = false)
+    extends Module {
   val io = IO(new Bundle {
     val readReq  = Flipped(Decoupled(new AxiMasterReadReq(cfg.addrWidth, cfg.axiIdWidth)))
     val readResp = Decoupled(new AxiMasterReadResp(cfg.axiDataWidth, cfg.axiIdWidth))
@@ -71,10 +74,39 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
     laneIdx >= lowerByteLane && laneIdx <= upperByteLane
   }).asUInt
 
-  val readReqSizeBytes    = (1.U(cfg.addrWidth.W) << io.readReq.bits.size)(cfg.addrWidth - 1, 0)
-  val readReqAlignedAddr  = io.readReq.bits.addr & ~(readReqSizeBytes - 1.U)
-  val writeReqSizeBytes   = (1.U(cfg.addrWidth.W) << io.writeReq.bits.size)(cfg.addrWidth - 1, 0)
-  val writeReqAlignedAddr = io.writeReq.bits.addr & ~(writeReqSizeBytes - 1.U)
+  val readReqSizeBytes              = (1.U(cfg.addrWidth.W) << io.readReq.bits.size)(cfg.addrWidth - 1, 0)
+  val readReqAlignedAddr            = io.readReq.bits.addr & ~(readReqSizeBytes - 1.U)
+  val writeReqSizeBytes             = (1.U(cfg.addrWidth.W) << io.writeReq.bits.size)(cfg.addrWidth - 1, 0)
+  val writeReqAlignedAddr           = io.writeReq.bits.addr & ~(writeReqSizeBytes - 1.U)
+  val directWriteIsAlign            = io.writeReq.bits.addr === writeReqAlignedAddr
+  val directWriteDataBase           = io.writeReq.bits.addr & ~(dataBytes - 1.U)
+  val directWriteLowerLane          = io.writeReq.bits.addr - directWriteDataBase
+  val directWriteAlignedUpperLane   = directWriteLowerLane + writeReqSizeBytes - 1.U
+  val directWriteUnalignedUpperLane = writeReqAlignedAddr + writeReqSizeBytes - 1.U - directWriteDataBase
+  val directWriteUpperLane          = Mux(directWriteIsAlign, directWriteAlignedUpperLane, directWriteUnalignedUpperLane)
+  val directWriteLaneMask           = VecInit(Seq.tabulate(cfg.axiDataWidth / 8) { lane =>
+    val laneIdx = lane.U(cfg.addrWidth.W)
+    laneIdx >= directWriteLowerLane && laneIdx <= directWriteUpperLane
+  }).asUInt
+  val directWriteBurstLength        = io.writeReq.bits.len +& 1.U
+  val directWriteContainerSize      = (directWriteBurstLength << io.writeReq.bits.size).pad(cfg.addrWidth)
+  val directWriteLowerWrapBoundary  = io.writeReq.bits.addr & ~(directWriteContainerSize - 1.U)
+  val directWriteUpperWrapBoundary  = directWriteLowerWrapBoundary + directWriteContainerSize
+  val directWriteNextIncrAddr       = Mux(
+    directWriteIsAlign,
+    io.writeReq.bits.addr + writeReqSizeBytes,
+    writeReqAlignedAddr + writeReqSizeBytes
+  )
+  val directWriteNextWrapAddr       = Mux(
+    directWriteNextIncrAddr >= directWriteUpperWrapBoundary,
+    directWriteLowerWrapBoundary,
+    directWriteNextIncrAddr
+  )
+  val directWriteNextAddr           = Mux(
+    io.writeReq.bits.burst === AxiBurst.fixed,
+    io.writeReq.bits.addr,
+    Mux(io.writeReq.bits.burst === AxiBurst.wrap, directWriteNextWrapAddr, directWriteNextIncrAddr)
+  )
 
   val transferActive        = state === AxiMasterState.STransfer
   val readResponseComplete  = state === AxiMasterState.SResp && !isWrite && io.axi.rvalid &&
@@ -82,19 +114,33 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
   val writeResponseComplete = state === AxiMasterState.SResp && isWrite && io.axi.bvalid && io.writeResp.ready
   val responseComplete      = readResponseComplete || writeResponseComplete
   val requestWindow         = (state === AxiMasterState.SIdle || responseComplete) && transferState === transferIdle
+  val directRequestWindow   = state === AxiMasterState.SIdle && transferState === transferIdle
   val acceptReadReq         = requestWindow
   val acceptWriteReq        = requestWindow && !io.readReq.valid
 
-  val directArValid     = requestWindow && io.readReq.valid
+  val directArValid     = directRequestWindow && io.readReq.valid
+  // A write address may ultimately be derived from the current read response
+  // (for example through LSU control). Keep production AW/W registered to
+  // avoid a response -> request -> crossbar response combinational cycle.
+  val directWriteValid  = if (allowDirectWrite) {
+    directRequestWindow && !io.readReq.valid && io.writeReq.valid
+  } else {
+    false.B
+  }
   val registeredArValid = transferActive && transferState === transferReadAddr
   val axiArValid        = directArValid || registeredArValid
-  val axiAwValid        = transferActive && transferState === transferWrite && !awDone
-  val axiWValid         =
+  val registeredAwValid = transferActive && transferState === transferWrite && !awDone
+  val registeredWValid  =
     transferActive && transferState === transferWrite && !wDone && (writeBeatValid || io.writeReq.valid)
+  val axiAwValid        = directWriteValid || registeredAwValid
+  val axiWValid         = directWriteValid || registeredWValid
   val axiArFire         = axiArValid && io.axi.arready
   val directArFire      = directArValid && io.axi.arready
   val axiAwFire         = axiAwValid && io.axi.awready
   val axiWFire          = axiWValid && io.axi.wready
+  val directAwFire      = directWriteValid && io.axi.awready
+  val directWFire       = directWriteValid && io.axi.wready
+  val directWriteLast   = io.writeReq.bits.len === 0.U
   val lastBeat          = beatCount === length
   val awDoneNext        = awDone || axiAwFire
   val wDoneNext         = wDone || (axiWFire && lastBeat)
@@ -131,16 +177,23 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
     size           := io.writeReq.bits.size
     burstType      := io.writeReq.bits.burst
     reqId          := io.writeReq.bits.id
-    transferState  := transferWrite
-    addrReg        := io.writeReq.bits.addr
+    transferState  := Mux(directAwFire && directWFire && directWriteLast, transferIdle, transferWrite)
+    addrReg        := Mux(directWFire && !directWriteLast, directWriteNextAddr, io.writeReq.bits.addr)
     alignedReg     := io.writeReq.bits.addr === writeReqAlignedAddr
-    beatCount      := 0.U
+    beatCount      := Mux(directWFire && !directWriteLast, 1.U, 0.U)
     writeDataReg   := io.writeReq.bits.data
     writeStrbReg   := io.writeReq.bits.strb
-    writeBeatValid := true.B
-    awDone         := false.B
-    wDone          := false.B
-    state          := AxiMasterState.STransfer
+    writeBeatValid := !directWFire
+    awDone         := directAwFire
+    wDone          := directWFire && directWriteLast
+    when(directAwFire && directWFire && directWriteLast) {
+      writeBeatValid := false.B
+      awDone         := false.B
+      wDone          := false.B
+      state          := AxiMasterState.SResp
+    }.otherwise {
+      state := AxiMasterState.STransfer
+    }
   }
 
   when(state === AxiMasterState.SIdle) {
@@ -217,16 +270,20 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
   io.writeResp.bits.resp := io.axi.bresp
 
   io.axi.awvalid := axiAwValid
-  io.axi.awaddr  := startAddr
-  io.axi.awid    := reqId
-  io.axi.awlen   := length
-  io.axi.awsize  := size
-  io.axi.awburst := burstType
+  io.axi.awaddr  := Mux(directWriteValid, io.writeReq.bits.addr, startAddr)
+  io.axi.awid    := Mux(directWriteValid, io.writeReq.bits.id, reqId)
+  io.axi.awlen   := Mux(directWriteValid, io.writeReq.bits.len, length)
+  io.axi.awsize  := Mux(directWriteValid, io.writeReq.bits.size, size)
+  io.axi.awburst := Mux(directWriteValid, io.writeReq.bits.burst, burstType)
 
   io.axi.wvalid := axiWValid
-  io.axi.wdata  := currentWriteData
-  io.axi.wstrb  := currentWriteStrb & writeLaneMask
-  io.axi.wlast  := lastBeat
+  io.axi.wdata  := Mux(directWriteValid, io.writeReq.bits.data, currentWriteData)
+  io.axi.wstrb  := Mux(
+    directWriteValid,
+    io.writeReq.bits.strb & directWriteLaneMask,
+    currentWriteStrb & writeLaneMask
+  )
+  io.axi.wlast  := Mux(directWriteValid, directWriteLast, lastBeat)
 
   io.axi.bready := state === AxiMasterState.SResp && isWrite && io.writeResp.ready
   io.axi.rready := state === AxiMasterState.SResp && !isWrite && io.readResp.ready

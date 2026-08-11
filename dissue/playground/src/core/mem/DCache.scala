@@ -367,22 +367,6 @@ class DCache(
   private val hasQueued = queuedOH.orR
   private val queuedIdx = OHToUInt(queuedOH)
 
-  private val receivingOH    = VecInit((0 until cfg.mshrEntries).map { entry =>
-    mshrValid(entry) && mshrState(entry) === mshrReceiving
-  }).asUInt
-  private val hasReceiving   = receivingOH.orR
-  private val receivingIdx   = OHToUInt(receivingOH)
-  private val refillLast     = io.axiReadResp.bits.last || mshrBeatIndex(receivingIdx) === lastBeat
-  private val refillTurnover = hasReceiving && io.axiReadResp.valid && refillLast
-
-  io.axiReadReq.valid      := hasQueued && (!hasReceiving || refillTurnover)
-  io.axiReadReq.bits.addr  := mshrBlockAddr(queuedIdx)
-  io.axiReadReq.bits.id    := 2.U(memCfg.axiIdWidth.W)
-  io.axiReadReq.bits.len   := (beats - 1).U
-  io.axiReadReq.bits.size  := byteBeatShift.U
-  io.axiReadReq.bits.burst := AxiBurst.incr
-  io.axiReadResp.ready     := hasReceiving
-
   private val evictWriteOH  = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrEvicting
   }).asUInt
@@ -393,6 +377,27 @@ class DCache(
   }).asUInt
   private val hasEvictAwait = evictAwaitOH.orR
   private val evictAwaitIdx = OHToUInt(evictAwaitOH)
+
+  private val receivingOH            = VecInit((0 until cfg.mshrEntries).map { entry =>
+    mshrValid(entry) && mshrState(entry) === mshrReceiving
+  }).asUInt
+  private val hasReceiving           = receivingOH.orR
+  private val receivingIdx           = OHToUInt(receivingOH)
+  private val refillLast             = io.axiReadResp.bits.last || mshrBeatIndex(receivingIdx) === lastBeat
+  private val refillTurnover         = hasReceiving && io.axiReadResp.valid && refillLast
+  private val evictionRefillTurnover = hasEvictAwait && io.axiWriteResp.fire &&
+    mshrWriteBeat(evictAwaitIdx) === lastBeat && mshrWaiterCount(evictAwaitIdx) =/= 0.U &&
+    mshrAxiAuthorized(evictAwaitIdx) && mayIssueAxi(mshrOwner(evictAwaitIdx)) && !io.flush && !io.recover.valid
+  private val refillRequestAvailable = hasQueued || evictionRefillTurnover
+  private val refillRequestIdx       = Mux(evictionRefillTurnover, evictAwaitIdx, queuedIdx)
+
+  io.axiReadReq.valid      := refillRequestAvailable && (!hasReceiving || refillTurnover)
+  io.axiReadReq.bits.addr  := mshrBlockAddr(refillRequestIdx)
+  io.axiReadReq.bits.id    := 2.U(memCfg.axiIdWidth.W)
+  io.axiReadReq.bits.len   := (beats - 1).U
+  io.axiReadReq.bits.size  := byteBeatShift.U
+  io.axiReadReq.bits.burst := AxiBurst.incr
+  io.axiReadResp.ready     := hasReceiving
 
   private val writebackFromMaintenance = maintenanceWriteActive
   private val writebackFromEviction    = !maintenanceWriteActive && hasEvictWrite
@@ -417,21 +422,30 @@ class DCache(
     maintenanceWriteBeat,
     mshrWriteBeat(evictWriteIdx)
   )
+  private val writeResponseReady       = maintenanceWriteAwaitResp || hasEvictAwait
+  private val responseWriteBeat        = Mux(
+    maintenanceWriteAwaitResp,
+    maintenanceWriteBeat,
+    mshrWriteBeat(evictAwaitIdx)
+  )
+  private val writebackTurnover        = io.axiWriteResp.valid && writeResponseReady && responseWriteBeat =/= lastBeat &&
+    !io.flush && !io.recover.valid
+  private val requestWriteBeat         = Mux(writebackTurnover, responseWriteBeat + 1.U, writebackBeat)
 
   // Write back one line beat per AXI transaction. This is valid AXI for every
   // target, and it keeps the cache independent of a target's burst-write
   // buffering policy. `writebackBeat` only advances after the corresponding B
   // response, so the selected line remains recoverable until it is durable.
-  io.axiWriteReq.valid      := writebackActive && !writebackAwaitResp && !io.flush && !io.recover.valid
-  io.axiWriteReq.bits.addr  := writebackAddr + (writebackBeat << byteBeatShift)
+  io.axiWriteReq.valid      := writebackActive && (!writebackAwaitResp || writebackTurnover) && !io.flush && !io.recover.valid
+  io.axiWriteReq.bits.addr  := writebackAddr + (requestWriteBeat << byteBeatShift)
   io.axiWriteReq.bits.id    := 2.U(memCfg.axiIdWidth.W)
   io.axiWriteReq.bits.len   := 0.U
   io.axiWriteReq.bits.size  := byteBeatShift.U
   io.axiWriteReq.bits.burst := AxiBurst.incr
-  io.axiWriteReq.bits.data  := lineBeatAt(writebackLine, writebackBeat)
+  io.axiWriteReq.bits.data  := lineBeatAt(writebackLine, requestWriteBeat)
   io.axiWriteReq.bits.strb  := fullWriteMask
   io.axiWriteReq.bits.last  := true.B
-  io.axiWriteResp.ready     := maintenanceWriteAwaitResp || hasEvictAwait
+  io.axiWriteResp.ready     := writeResponseReady
 
   private val refillFault    = mshrFault(receivingIdx) || io.axiReadResp.bits.resp =/= AxiResp.okay
   private val completedBeats = Wire(Vec(beats, UInt(cfg.dataWidth.W)))
@@ -510,8 +524,8 @@ class DCache(
   }
 
   when(io.axiReadReq.fire) {
-    mshrState(queuedIdx)     := mshrReceiving
-    mshrBeatIndex(queuedIdx) := 0.U
+    mshrState(refillRequestIdx)     := mshrReceiving
+    mshrBeatIndex(refillRequestIdx) := 0.U
   }
 
   when(io.axiReadResp.fire) {
@@ -581,7 +595,7 @@ class DCache(
 
   when(io.axiWriteResp.fire) {
     when(maintenanceWriteAwaitResp) {
-      maintenanceWriteAwaitResp := false.B
+      maintenanceWriteAwaitResp := io.axiWriteReq.fire && writebackTurnover
       when(maintenanceWriteBeat === lastBeat) {
         maintenanceWriteActive := false.B
         maintenanceWriteBeat   := 0.U
@@ -589,7 +603,7 @@ class DCache(
         maintenanceWriteBeat := maintenanceWriteBeat + 1.U
       }
     }.elsewhen(hasEvictAwait) {
-      mshrWriteAwaitResp(evictAwaitIdx) := false.B
+      mshrWriteAwaitResp(evictAwaitIdx) := io.axiWriteReq.fire && writebackTurnover
       when(io.axiWriteResp.bits.resp =/= AxiResp.okay) {
         mshrFault(evictAwaitIdx) := true.B
       }
@@ -599,7 +613,12 @@ class DCache(
         when(mshrWaiterCount(evictAwaitIdx) === 0.U || noWaitersAfterControl) {
           mshrValid(evictAwaitIdx) := false.B
         }.otherwise {
-          mshrState(evictAwaitIdx)     := mshrQueued
+          mshrState(evictAwaitIdx)     := Mux(
+            evictionRefillTurnover && io.axiReadReq.fire,
+            mshrReceiving,
+            mshrQueued
+          )
+          mshrBeatIndex(evictAwaitIdx) := 0.U
           mshrWriteBeat(evictAwaitIdx) := 0.U
         }
       }.otherwise {
@@ -699,7 +718,7 @@ class DCache(
   }
 
   when(io.axiReadReq.fire) {
-    assert(mshrAxiAuthorized(queuedIdx), "DCache refill must originate from an authorized request")
+    assert(mshrAxiAuthorized(refillRequestIdx), "DCache refill must originate from an authorized request")
     when(hasReceiving) {
       assert(refillTurnover, "DCache may replace a receiving MSHR only on its final refill beat")
     }

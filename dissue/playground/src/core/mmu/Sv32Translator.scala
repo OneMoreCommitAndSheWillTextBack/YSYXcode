@@ -116,30 +116,86 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
   private val translateDisabled =
     satpMode(io.req.bits.satp) === 0.U || io.req.bits.priv === PrivMode.M
 
-  io.req.ready  := state === sIdle
-  io.resp.valid := state === sDone
-  io.resp.bits  := respReg
+  private val pte1Addr         = pteAddr(satpPpn(reqReg.satp), vpn1(reqReg.vaddr))
+  private val pte0Addr         = pteAddr(ptePpn(pte1Reg), vpn0(reqReg.vaddr))
+  private val incomingPte1Addr = pteAddr(satpPpn(io.req.bits.satp), vpn1(io.req.bits.vaddr))
+  private val responsePte      = io.memResp.bits.data
+  private val level1Terminal   = io.memResp.bits.fault || invalidPte(responsePte) || isLeaf(responsePte) ||
+    invalidNonLeafPte(responsePte)
 
-  val pte1Addr = pteAddr(satpPpn(reqReg.satp), vpn1(reqReg.vaddr))
-  val pte0Addr = pteAddr(ptePpn(pte1Reg), vpn0(reqReg.vaddr))
+  private val terminalResponse = Wire(new MmuTranslateResp(cfg))
+  terminalResponse.paddr     := reqReg.vaddr
+  terminalResponse.exception := ExceptionInfo.none(cfg)
+  when(state === sPte1Resp) {
+    when(io.memResp.bits.fault) {
+      terminalResponse.exception := ExceptionInfo.raise(accessFaultCause(reqReg.access), reqReg.vaddr, cfg)
+    }.elsewhen(invalidPte(responsePte)) {
+      terminalResponse.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
+    }.elsewhen(isLeaf(responsePte)) {
+      when(ptePpn0(responsePte).orR || permissionFault(responsePte, reqReg.access, reqReg.priv, reqReg.mstatus)) {
+        terminalResponse.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
+      }.otherwise {
+        terminalResponse.paddr := pagePaddr(responsePte, true.B, reqReg.vaddr)
+      }
+    }.elsewhen(invalidNonLeafPte(responsePte)) {
+      terminalResponse.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
+    }
+  }.elsewhen(state === sPte0Resp) {
+    when(io.memResp.bits.fault) {
+      terminalResponse.exception := ExceptionInfo.raise(accessFaultCause(reqReg.access), reqReg.vaddr, cfg)
+    }.elsewhen(
+      invalidPte(responsePte) || !isLeaf(responsePte) ||
+        permissionFault(responsePte, reqReg.access, reqReg.priv, reqReg.mstatus)
+    ) {
+      terminalResponse.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
+    }.otherwise {
+      terminalResponse.paddr := pagePaddr(responsePte, false.B, reqReg.vaddr)
+    }
+  }
 
-  io.memReq.valid := state === sPte1Req || state === sPte0Req
-  io.memReq.bits  := Mux(state === sPte1Req, MmuMemReq.pteRead(pte1Addr, cfg), MmuMemReq.pteRead(pte0Addr, cfg))
+  private val terminalMemResponse = io.memResp.valid &&
+    ((state === sPte1Resp && level1Terminal) || state === sPte0Resp)
+
+  io.resp.valid := state === sDone || terminalMemResponse
+  io.resp.bits  := Mux(state === sDone, respReg, terminalResponse)
+
+  private val responseTurnover  = io.resp.fire
+  private val requestWindow     = state === sIdle || responseTurnover
+  private val incomingTranslate = requestWindow && io.req.valid && !translateDisabled
+  private val directPte0Request = state === sPte1Resp && io.memResp.valid && !level1Terminal
+  private val directPte0Addr    = pteAddr(ptePpn(responsePte), vpn0(reqReg.vaddr))
+
+  io.req.ready := requestWindow
+
+  io.memReq.valid := state === sPte1Req || state === sPte0Req || incomingTranslate || directPte0Request
+  io.memReq.bits  := Mux(
+    incomingTranslate,
+    MmuMemReq.pteRead(incomingPte1Addr, cfg),
+    Mux(
+      directPte0Request,
+      MmuMemReq.pteRead(directPte0Addr, cfg),
+      Mux(state === sPte1Req, MmuMemReq.pteRead(pte1Addr, cfg), MmuMemReq.pteRead(pte0Addr, cfg))
+    )
+  )
 
   io.memResp.ready := state === sPte1Resp || state === sPte0Resp
+
+  private def acceptTranslationRequest(): Unit = {
+    reqReg            := io.req.bits
+    respReg.paddr     := io.req.bits.vaddr
+    respReg.exception := ExceptionInfo.none(cfg)
+    when(translateDisabled) {
+      state := sDone
+    }.otherwise {
+      state := Mux(io.memReq.fire, sPte1Resp, sPte1Req)
+    }
+  }
 
   when(io.flush) {
     state := sIdle
   }.elsewhen(state === sIdle) {
     when(io.req.fire) {
-      reqReg            := io.req.bits
-      respReg.paddr     := io.req.bits.vaddr
-      respReg.exception := ExceptionInfo.none(cfg)
-      when(translateDisabled) {
-        state := sDone
-      }.otherwise {
-        state := sPte1Req
-      }
+      acceptTranslationRequest()
     }
   }.elsewhen(state === sPte1Req) {
     when(io.memReq.fire) {
@@ -150,24 +206,19 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
       val pte = io.memResp.bits.data
       pte1Reg := pte
 
-      when(io.memResp.bits.fault) {
-        respReg.exception := ExceptionInfo.raise(accessFaultCause(reqReg.access), reqReg.vaddr, cfg)
-        state             := sDone
-      }.elsewhen(invalidPte(pte)) {
-        respReg.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
-        state             := sDone
-      }.elsewhen(isLeaf(pte)) {
-        when(ptePpn0(pte).orR || permissionFault(pte, reqReg.access, reqReg.priv, reqReg.mstatus)) {
-          respReg.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
+      when(level1Terminal) {
+        when(io.resp.fire) {
+          when(io.req.fire) {
+            acceptTranslationRequest()
+          }.otherwise {
+            state := sIdle
+          }
         }.otherwise {
-          respReg.paddr := pagePaddr(pte, true.B, reqReg.vaddr)
+          respReg := terminalResponse
+          state   := sDone
         }
-        state := sDone
-      }.elsewhen(invalidNonLeafPte(pte)) {
-        respReg.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
-        state             := sDone
       }.otherwise {
-        state := sPte0Req
+        state := Mux(io.memReq.fire, sPte0Resp, sPte0Req)
       }
     }
   }.elsewhen(state === sPte0Req) {
@@ -176,20 +227,37 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
     }
   }.elsewhen(state === sPte0Resp) {
     when(io.memResp.fire) {
-      val pte = io.memResp.bits.data
-
-      when(io.memResp.bits.fault) {
-        respReg.exception := ExceptionInfo.raise(accessFaultCause(reqReg.access), reqReg.vaddr, cfg)
-      }.elsewhen(invalidPte(pte) || !isLeaf(pte) || permissionFault(pte, reqReg.access, reqReg.priv, reqReg.mstatus)) {
-        respReg.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
+      when(io.resp.fire) {
+        when(io.req.fire) {
+          acceptTranslationRequest()
+        }.otherwise {
+          state := sIdle
+        }
       }.otherwise {
-        respReg.paddr := pagePaddr(pte, false.B, reqReg.vaddr)
+        respReg := terminalResponse
+        state   := sDone
       }
-      state := sDone
     }
   }.otherwise {
     when(io.resp.fire) {
-      state := sIdle
+      when(io.req.fire) {
+        acceptTranslationRequest()
+      }.otherwise {
+        state := sIdle
+      }
     }
+  }
+
+  private val translationOwned = RegInit(false.B)
+  when(io.req.fire) {
+    assert(!translationOwned || io.resp.fire)
+  }
+  when(io.resp.fire) {
+    assert(translationOwned)
+  }
+  when(io.flush) {
+    translationOwned := false.B
+  }.otherwise {
+    translationOwned := (translationOwned && !io.resp.fire) || io.req.fire
   }
 }
