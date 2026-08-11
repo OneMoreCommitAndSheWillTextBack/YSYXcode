@@ -160,13 +160,19 @@ object AxiMasterSpec {
       dut.io.axi.awready.poke(true)
       dut.clock.step()
 
+      // A B response accepts the first beat of the next burst, but registered
+      // AW/W deliberately wait until the following cycle to avoid a crossbar
+      // response-to-request combinational loop.
       dut.io.axi.bvalid.poke(true)
+      driveWriteRequest(valid = true, addr = 0x6000, data = 0x01020304L, len = 1)
       dut.io.writeResp.valid.expect(true)
+      dut.io.writeReq.ready.expect(true)
+      dut.io.axi.awvalid.expect(false)
+      dut.io.axi.wvalid.expect(false)
       dut.clock.step()
       dut.io.axi.bvalid.poke(false)
+      driveWriteRequest(valid = false)
 
-      // A direct first beat of a burst advances the registered beat address and accepts beat 1 without a gap.
-      driveWriteRequest(valid = true, addr = 0x6000, data = 0x01020304L, len = 1)
       dut.io.axi.awvalid.expect(true)
       dut.io.axi.awlen.expect(1)
       dut.io.axi.wvalid.expect(true)
@@ -174,6 +180,8 @@ object AxiMasterSpec {
       dut.io.axi.wlast.expect(false)
       dut.clock.step()
 
+      // The registered first beat advances the burst address, so beat 1 is
+      // accepted without an extra write-data bubble.
       driveWriteRequest(valid = true, addr = 0x6004, data = 0x05060708L, len = 1)
       dut.io.writeReq.ready.expect(true)
       dut.io.axi.awvalid.expect(false)

@@ -92,7 +92,7 @@ class Frontend(
 
   val ifuRecovery = Wire(Valid(new FrontendRecovery(cfg)))
   ifuRecovery                            := 0.U.asTypeOf(ifuRecovery)
-  ifuRecovery.valid                      := ifetch.io.correction.valid && fetchQueue.io.empty
+  ifuRecovery.valid                      := ifetch.io.correction.valid
   ifuRecovery.bits.kind                  := FrontendRecoveryKind.ifuCorrection
   ifuRecovery.bits.tokenValid            := true.B
   ifuRecovery.bits.token                 := ifetch.io.correction.bits.token
@@ -122,7 +122,12 @@ class Frontend(
   val dataRecovery     = Wire(Valid(new FrontendRecovery(cfg)))
   dataRecovery       := selectedRecovery
   dataRecovery.valid := selectedRecovery.valid && selectedRecovery.bits.kind =/= FrontendRecoveryKind.bpuOverride
-  val dataFlush = dataRecovery.valid || io.icacheInvalidate
+  val dataFlush             = dataRecovery.valid || io.icacheInvalidate
+  val ifuCorrectionSelected = selectedRecovery.valid &&
+    selectedRecovery.bits.kind === FrontendRecoveryKind.ifuCorrection
+  // The correcting packet has not entered the FetchQueue, so every queued instruction is an older, valid prefix.
+  // Preserve that prefix while the cache-side pipeline redirects and refills behind it.
+  val fetchQueueFlush       = dataFlush && !ifuCorrectionSelected
 
   addressGen.io.fastResult := bpu.io.fastResult
   addressGen.io.recovery   := selectedRecovery
@@ -174,14 +179,17 @@ class Frontend(
   io.ptwResp.ready           := refillMmu.io.ptwResp.ready
 
   val fetchQueueEpoch = RegInit(0.U(cfg.fetchEpochBits.W))
-  when(dataFlush) {
+  when(fetchQueueFlush) {
     fetchQueueEpoch := fetchQueueEpoch +% 1.U
   }
-  fetchQueue.io.flush := dataFlush
-  fetchQueue.io.pruneFrom.valid := selectedRecovery.valid &&
+  fetchQueue.io.flush := fetchQueueFlush
+  fetchQueue.io.pruneFrom.valid                 := selectedRecovery.valid &&
     selectedRecovery.bits.kind === FrontendRecoveryKind.bpuOverride && ftq.io.recoverySequence.valid
-  fetchQueue.io.pruneFrom.bits  := ftq.io.recoverySequence.bits
-  fetchQueue.io.currentEpoch    := fetchQueueEpoch
+  fetchQueue.io.pruneFrom.bits                  := ftq.io.recoverySequence.bits
+  fetchQueue.io.preserveBefore.valid            := ifuCorrectionSelected && ftq.io.recoverySequence.valid
+  fetchQueue.io.preserveBefore.bits.sequence    := ftq.io.recoverySequence.bits
+  fetchQueue.io.preserveBefore.bits.instOrdinal := selectedRecovery.bits.cfiOrdinal
+  fetchQueue.io.currentEpoch                    := fetchQueueEpoch
   // Recovery owns the FTQ state transition for this cycle. Hold a completed IFU packet until the following cycle so
   // its emission accounting cannot be lost behind that transition; BPU overrides still retain all buffered data.
   val allowIfuEnqueue = !selectedRecovery.valid
@@ -213,6 +221,9 @@ class Frontend(
   }
   when(selectedRecovery.valid) {
     assert(!fetchQueue.io.enq.fire)
+  }
+  when(ifuCorrectionSelected) {
+    assert(ftq.io.recoverySequence.valid)
   }
   when(io.cfiRecovery.valid) {
     assert(ftq.io.backendLookup.valid)

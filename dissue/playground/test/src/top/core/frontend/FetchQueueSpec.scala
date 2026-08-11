@@ -12,6 +12,7 @@ object FetchQueueSpec {
       def idle(): Unit = {
         dut.io.flush.poke(false)
         dut.io.pruneFrom.valid.poke(false)
+        dut.io.preserveBefore.valid.poke(false)
         dut.io.currentEpoch.poke(0)
         dut.io.enq.valid.poke(false)
         dut.io.out.ready.poke(false)
@@ -28,6 +29,7 @@ object FetchQueueSpec {
           dut.io.enq.bits.insts(lane).bits.sequence.poke(sequence)
           dut.io.enq.bits.insts(lane).bits.epoch.poke(0)
           dut.io.enq.bits.insts(lane).bits.inst.pc.poke(basePc + lane * 2)
+          dut.io.enq.bits.insts(lane).bits.inst.ftqInstOrdinal.poke(lane)
         }
         dut.io.enq.ready.expect(true)
         dut.clock.step()
@@ -44,6 +46,17 @@ object FetchQueueSpec {
 
       enqueue(sequence = 10, basePc = 0x1000)
       enqueue(sequence = 11, basePc = 0x1010)
+
+      // An IFU correction may preserve an already-enqueued prefix from the same FTQ entry.
+      dut.io.preserveBefore.valid.poke(true)
+      dut.io.preserveBefore.bits.sequence.poke(11)
+      dut.io.preserveBefore.bits.instOrdinal.poke(2)
+      dut.io.count.expect(4)
+      dut.io.out.valid.expect(true)
+      dut.clock.step()
+      dut.io.preserveBefore.valid.poke(false)
+      dut.io.count.expect(4)
+
       enqueue(sequence = 12, basePc = 0x1020)
       dut.io.count.expect(6)
 

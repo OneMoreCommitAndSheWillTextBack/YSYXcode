@@ -87,9 +87,9 @@ class AxiDataAccess(
 
   val responseTurnover      = io.resp.fire
   val requestWindow         = state === sIdle || responseTurnover
-  // Direct input-to-AXI forwarding is only safe when the producer's bits are
-  // already registered. LSU and PTW requests may be derived from the current
-  // AXI response, so Mem deliberately leaves this disabled for those paths.
+  // Direct input-to-AXI forwarding is only safe when the producer's request is
+  // already registered. Mem disables it for LSU and PTW paths because firtool
+  // otherwise finds a response -> request loop through the AXI crossbar.
   val directIncomingRequest = if (allowDirectIncoming) state === sIdle && io.req.valid else false.B
   val incomingRead          = directIncomingRequest && !io.req.bits.write && io.incomingIssuePermit
   val incomingWrite         = directIncomingRequest && io.req.bits.write && io.incomingIssuePermit

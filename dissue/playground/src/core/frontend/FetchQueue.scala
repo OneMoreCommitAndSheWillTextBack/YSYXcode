@@ -17,6 +17,11 @@ class FetchQueueEnqueue(cfg: FrontendConfig, enqWidth: Int = 4) extends Bundle {
   val insts = Vec(enqWidth, Valid(new FetchQueueEntry(cfg)))
 }
 
+class FetchQueueOrderBoundary(cfg: FrontendConfig) extends Bundle {
+  val sequence    = UInt(cfg.fetchSequenceBits.W)
+  val instOrdinal = UInt(cfg.ftqInstCountBits.W)
+}
+
 class FetchQueue(
   cfg:      FrontendConfig = FrontendConfig(),
   depth:    Int = 32,
@@ -32,11 +37,12 @@ class FetchQueue(
   private val enqCountWidth = log2Ceil(enqWidth + 1)
 
   val io = IO(new Bundle {
-    val flush        = Input(Bool())
-    val pruneFrom    = Flipped(Valid(UInt(cfg.fetchSequenceBits.W)))
-    val currentEpoch = Input(UInt(cfg.fetchEpochBits.W))
-    val enq          = Flipped(Decoupled(new FetchQueueEnqueue(cfg, enqWidth)))
-    val out          = Decoupled(new FetchPacket(cfg.payload))
+    val flush          = Input(Bool())
+    val pruneFrom      = Flipped(Valid(UInt(cfg.fetchSequenceBits.W)))
+    val preserveBefore = Flipped(Valid(new FetchQueueOrderBoundary(cfg)))
+    val currentEpoch   = Input(UInt(cfg.fetchEpochBits.W))
+    val enq            = Flipped(Decoupled(new FetchQueueEnqueue(cfg, enqWidth)))
+    val out            = Decoupled(new FetchPacket(cfg.payload))
 
     val count        = Output(UInt(countWidth.W))
     val freeCount    = Output(UInt(countWidth.W))
@@ -57,6 +63,10 @@ class FetchQueue(
   private def entryAfter(next: FetchQueueEntry, previous: FetchQueueEntry): Bool =
     sequenceAfter(next.sequence, previous.sequence) ||
       (next.sequence === previous.sequence && next.inst.pc > previous.inst.pc)
+
+  private def entryBefore(entry: FetchQueueEntry, boundary: FetchQueueOrderBoundary): Bool =
+    sequenceAfter(boundary.sequence, entry.sequence) ||
+      (entry.sequence === boundary.sequence && entry.inst.ftqInstOrdinal < boundary.instOrdinal)
 
   private val entries  = Reg(Vec(depth, new FetchQueueEntry(cfg)))
   private val readPtr  = RegInit(0.U(ptrWidth.W))
@@ -115,6 +125,10 @@ class FetchQueue(
     slot.sequence =/= io.pruneFrom.bits
   })
   val keepCount   = PopCount(keepOnPrune)
+
+  when(io.preserveBefore.valid) {
+    assert(empty || entryBefore(tailEntry, io.preserveBefore.bits))
+  }
 
   when(enqueueFire) {
     assert(enqueueCount =/= 0.U)
