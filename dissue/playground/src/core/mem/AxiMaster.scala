@@ -23,7 +23,6 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
 
   val state   = RegInit(AxiMasterState.SIdle)
   val isWrite = Reg(Bool())
-  val finish  = Wire(Bool())
 
   val length    = Reg(UInt(8.W))
   val startAddr = Reg(UInt(cfg.addrWidth.W))
@@ -43,37 +42,6 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
   val writeBeatValid = RegInit(false.B)
   val awDone         = RegInit(false.B)
   val wDone          = RegInit(false.B)
-
-  when(state === AxiMasterState.SIdle) {
-    when(io.readReq.fire) {
-      isWrite   := false.B
-      length    := io.readReq.bits.len
-      startAddr := io.readReq.bits.addr
-      size      := io.readReq.bits.size
-      burstType := io.readReq.bits.burst
-      reqId     := io.readReq.bits.id
-      state     := AxiMasterState.STransfer
-    }.elsewhen(io.writeReq.fire) {
-      isWrite   := true.B
-      length    := io.writeReq.bits.len
-      startAddr := io.writeReq.bits.addr
-      size      := io.writeReq.bits.size
-      burstType := io.writeReq.bits.burst
-      reqId     := io.writeReq.bits.id
-      state     := AxiMasterState.STransfer
-    }
-  }.elsewhen(state === AxiMasterState.STransfer) {
-    when(finish) {
-      state := AxiMasterState.SResp
-    }
-  }.otherwise {
-    assert(state === AxiMasterState.SResp)
-    when(isWrite && io.writeResp.fire) {
-      state := AxiMasterState.SIdle
-    }.elsewhen(!isWrite && io.readResp.fire && io.readResp.bits.last) {
-      state := AxiMasterState.SIdle
-    }
-  }
 
   val dataBytes     = (cfg.axiDataWidth / 8).U(cfg.addrWidth.W)
   val sizeBytes     = (1.U(cfg.addrWidth.W) << size)(cfg.addrWidth - 1, 0)
@@ -108,53 +76,85 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
   val writeReqSizeBytes   = (1.U(cfg.addrWidth.W) << io.writeReq.bits.size)(cfg.addrWidth - 1, 0)
   val writeReqAlignedAddr = io.writeReq.bits.addr & ~(writeReqSizeBytes - 1.U)
 
-  val acceptReq      = state === AxiMasterState.SIdle && transferState === transferIdle
-  val acceptReadReq  = acceptReq
-  val acceptWriteReq = acceptReq && !io.readReq.valid
-  val transferActive = state === AxiMasterState.STransfer
+  val transferActive        = state === AxiMasterState.STransfer
+  val readResponseComplete  = state === AxiMasterState.SResp && !isWrite && io.axi.rvalid &&
+    io.axi.rlast && io.readResp.ready
+  val writeResponseComplete = state === AxiMasterState.SResp && isWrite && io.axi.bvalid && io.writeResp.ready
+  val responseComplete      = readResponseComplete || writeResponseComplete
+  val requestWindow         = (state === AxiMasterState.SIdle || responseComplete) && transferState === transferIdle
+  val acceptReadReq         = requestWindow
+  val acceptWriteReq        = requestWindow && !io.readReq.valid
 
-  val axiArValid = transferActive && transferState === transferReadAddr
-  val axiAwValid = transferActive && transferState === transferWrite && !awDone
-  val axiWValid  =
+  val directArValid     = requestWindow && io.readReq.valid
+  val registeredArValid = transferActive && transferState === transferReadAddr
+  val axiArValid        = directArValid || registeredArValid
+  val axiAwValid        = transferActive && transferState === transferWrite && !awDone
+  val axiWValid         =
     transferActive && transferState === transferWrite && !wDone && (writeBeatValid || io.writeReq.valid)
-  val axiArFire  = axiArValid && io.axi.arready
-  val axiAwFire  = axiAwValid && io.axi.awready
-  val axiWFire   = axiWValid && io.axi.wready
-  val lastBeat   = beatCount === length
-  val awDoneNext = awDone || axiAwFire
-  val wDoneNext  = wDone || (axiWFire && lastBeat)
+  val axiArFire         = axiArValid && io.axi.arready
+  val directArFire      = directArValid && io.axi.arready
+  val axiAwFire         = axiAwValid && io.axi.awready
+  val axiWFire          = axiWValid && io.axi.wready
+  val lastBeat          = beatCount === length
+  val awDoneNext        = awDone || axiAwFire
+  val wDoneNext         = wDone || (axiWFire && lastBeat)
 
   val currentWriteData = Mux(writeBeatValid, writeDataReg, io.writeReq.bits.data)
   val currentWriteStrb = Mux(writeBeatValid, writeStrbReg, io.writeReq.bits.strb)
 
-  finish := false.B
+  private def beginRead(): Unit = {
+    isWrite        := false.B
+    length         := io.readReq.bits.len
+    startAddr      := io.readReq.bits.addr
+    size           := io.readReq.bits.size
+    burstType      := io.readReq.bits.burst
+    reqId          := io.readReq.bits.id
+    addrReg        := io.readReq.bits.addr
+    alignedReg     := io.readReq.bits.addr === readReqAlignedAddr
+    beatCount      := 0.U
+    writeBeatValid := false.B
+    awDone         := false.B
+    wDone          := false.B
+    when(directArFire) {
+      transferState := transferIdle
+      state         := AxiMasterState.SResp
+    }.otherwise {
+      transferState := transferReadAddr
+      state         := AxiMasterState.STransfer
+    }
+  }
+
+  private def beginWrite(): Unit = {
+    isWrite        := true.B
+    length         := io.writeReq.bits.len
+    startAddr      := io.writeReq.bits.addr
+    size           := io.writeReq.bits.size
+    burstType      := io.writeReq.bits.burst
+    reqId          := io.writeReq.bits.id
+    transferState  := transferWrite
+    addrReg        := io.writeReq.bits.addr
+    alignedReg     := io.writeReq.bits.addr === writeReqAlignedAddr
+    beatCount      := 0.U
+    writeDataReg   := io.writeReq.bits.data
+    writeStrbReg   := io.writeReq.bits.strb
+    writeBeatValid := true.B
+    awDone         := false.B
+    wDone          := false.B
+    state          := AxiMasterState.STransfer
+  }
 
   when(state === AxiMasterState.SIdle) {
     when(io.readReq.fire) {
-      transferState  := transferReadAddr
-      addrReg        := io.readReq.bits.addr
-      alignedReg     := io.readReq.bits.addr === readReqAlignedAddr
-      beatCount      := 0.U
-      writeBeatValid := false.B
-      awDone         := false.B
-      wDone          := false.B
+      beginRead()
     }.elsewhen(io.writeReq.fire) {
-      transferState  := transferWrite
-      addrReg        := io.writeReq.bits.addr
-      alignedReg     := io.writeReq.bits.addr === writeReqAlignedAddr
-      beatCount      := 0.U
-      writeDataReg   := io.writeReq.bits.data
-      writeStrbReg   := io.writeReq.bits.strb
-      writeBeatValid := true.B
-      awDone         := false.B
-      wDone          := false.B
+      beginWrite()
     }
   }.elsewhen(transferActive) {
     switch(transferState) {
       is(transferReadAddr) {
         when(axiArFire) {
           transferState := transferIdle
-          finish        := true.B
+          state         := AxiMasterState.SResp
         }
       }
       is(transferWrite) {
@@ -178,8 +178,19 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
           writeBeatValid := false.B
           awDone         := false.B
           wDone          := false.B
-          finish         := true.B
+          state          := AxiMasterState.SResp
         }
+      }
+    }
+  }.otherwise {
+    assert(state === AxiMasterState.SResp)
+    when(responseComplete) {
+      when(io.readReq.fire) {
+        beginRead()
+      }.elsewhen(io.writeReq.fire) {
+        beginWrite()
+      }.otherwise {
+        state := AxiMasterState.SIdle
       }
     }
   }
@@ -187,11 +198,11 @@ class AxiMaster(cfg: MemConfig = MemConfig()) extends Module {
   io.readReq.ready := acceptReadReq
 
   io.axi.arvalid := axiArValid
-  io.axi.araddr  := startAddr
-  io.axi.arid    := reqId
-  io.axi.arlen   := length
-  io.axi.arsize  := size
-  io.axi.arburst := burstType
+  io.axi.araddr  := Mux(directArValid, io.readReq.bits.addr, startAddr)
+  io.axi.arid    := Mux(directArValid, io.readReq.bits.id, reqId)
+  io.axi.arlen   := Mux(directArValid, io.readReq.bits.len, length)
+  io.axi.arsize  := Mux(directArValid, io.readReq.bits.size, size)
+  io.axi.arburst := Mux(directArValid, io.readReq.bits.burst, burstType)
 
   io.readResp.valid     := state === AxiMasterState.SResp && !isWrite && io.axi.rvalid
   io.readResp.bits.data := io.axi.rdata

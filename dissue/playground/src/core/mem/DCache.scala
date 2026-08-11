@@ -367,13 +367,15 @@ class DCache(
   private val hasQueued = queuedOH.orR
   private val queuedIdx = OHToUInt(queuedOH)
 
-  private val receivingOH  = VecInit((0 until cfg.mshrEntries).map { entry =>
+  private val receivingOH    = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrReceiving
   }).asUInt
-  private val hasReceiving = receivingOH.orR
-  private val receivingIdx = OHToUInt(receivingOH)
+  private val hasReceiving   = receivingOH.orR
+  private val receivingIdx   = OHToUInt(receivingOH)
+  private val refillLast     = io.axiReadResp.bits.last || mshrBeatIndex(receivingIdx) === lastBeat
+  private val refillTurnover = hasReceiving && io.axiReadResp.valid && refillLast
 
-  io.axiReadReq.valid      := hasQueued && !hasReceiving
+  io.axiReadReq.valid      := hasQueued && (!hasReceiving || refillTurnover)
   io.axiReadReq.bits.addr  := mshrBlockAddr(queuedIdx)
   io.axiReadReq.bits.id    := 2.U(memCfg.axiIdWidth.W)
   io.axiReadReq.bits.len   := (beats - 1).U
@@ -432,7 +434,6 @@ class DCache(
   io.axiWriteResp.ready     := maintenanceWriteAwaitResp || hasEvictAwait
 
   private val refillFault    = mshrFault(receivingIdx) || io.axiReadResp.bits.resp =/= AxiResp.okay
-  private val refillLast     = io.axiReadResp.bits.last || mshrBeatIndex(receivingIdx) === lastBeat
   private val completedBeats = Wire(Vec(beats, UInt(cfg.dataWidth.W)))
   for (beat <- 0 until beats) {
     completedBeats(beat) := Mux(
@@ -699,9 +700,13 @@ class DCache(
 
   when(io.axiReadReq.fire) {
     assert(mshrAxiAuthorized(queuedIdx), "DCache refill must originate from an authorized request")
+    when(hasReceiving) {
+      assert(refillTurnover, "DCache may replace a receiving MSHR only on its final refill beat")
+    }
   }
   when(io.req.fire && io.req.bits.request.write) {
     assert(!io.req.bits.owner.squashable, "speculative stores must not update the DCache")
   }
   assert(PopCount(mshrWriteAwaitResp) <= 1.U, "only one DCache writeback may await a response")
+  assert(PopCount(receivingOH) <= 1.U, "only one DCache MSHR may receive a refill")
 }
