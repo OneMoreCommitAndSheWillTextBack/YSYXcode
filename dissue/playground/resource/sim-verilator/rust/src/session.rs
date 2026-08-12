@@ -387,6 +387,7 @@ extern "C" fn on_difftest_commit(opaque: *mut c_void, raw: *const ffi::NpcCommit
 extern "C" fn frontend_perf(
     opaque: *mut c_void,
     events: u32,
+    stall_events: u32,
     ifu_correction: u32,
     fetch_queue_occupancy: u32,
     fetch_queue_enqueue_width: u32,
@@ -400,6 +401,7 @@ extern "C" fn frontend_perf(
     if let Some(host) = unsafe { host_from_opaque(opaque) } {
         host.checker.on_frontend_perf(
             events,
+            stall_events,
             ifu_correction != 0,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,

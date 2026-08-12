@@ -241,27 +241,33 @@ class Frontend(
     ifuTrace.io.enqueue := TraceTap.observe(fetchQueue.io.enq)
     io.pipelineTrace    := ifuTrace.io.events
 
-    frontendTrace.io.backendRedirect        := redirect
-    frontendTrace.io.pcRedirect             := selectedPcRedirect
-    frontendTrace.io.invalidate             := io.icacheInvalidate
-    frontendTrace.io.recovery               := selectedRecovery
-    frontendTrace.io.fetchValid             := io.fetch.valid
-    frontendTrace.io.fetchReady             := io.fetch.ready
-    frontendTrace.io.refillPhysicalReqValid := refillMmu.io.physReq.valid
-    frontendTrace.io.refillPhysicalReqReady := io.cacheRefillReq.ready
-    frontendTrace.io.icacheReq              := TraceTap.observe(iCache.io.req)
-    frontendTrace.io.icacheResp             := TraceTap.observe(iCache.io.resp)
-    frontendTrace.io.icacheRefillReq        := TraceTap.observe(iCache.io.refillReq)
-    frontendTrace.io.icacheRefillResp       := TraceTap.observe(iCache.io.refillResp)
-    frontendTrace.io.icacheLookup           := iCache.io.lookup
-    frontendTrace.io.bpuMonitor             := bpu.io.perf
-    frontendTrace.io.ifuStaleDrop           := ifetch.io.staleResponseDrop || ftq.io.staleIfuDrop ||
+    frontendTrace.io.backendRedirect           := redirect
+    frontendTrace.io.pcRedirect                := selectedPcRedirect
+    frontendTrace.io.invalidate                := io.icacheInvalidate
+    frontendTrace.io.recovery                  := selectedRecovery
+    frontendTrace.io.fetchValid                := io.fetch.valid
+    frontendTrace.io.fetchReady                := io.fetch.ready
+    frontendTrace.io.fetchQueueEnqueueValid    := fetchQueue.io.enq.valid
+    frontendTrace.io.fetchQueueEnqueueReady    := fetchQueue.io.enq.ready
+    frontendTrace.io.alignerOutputBackpressure := ifetch.io.alignerOutputBackpressure
+    frontendTrace.io.blockBufferBackpressure   := ifetch.io.blockBufferBackpressure
+    frontendTrace.io.ftqReserveBackpressure    := addressGen.io.addressReq.valid &&
+      !ftq.io.reserve.ready && !selectedRecovery.valid
+    frontendTrace.io.refillPhysicalReqValid    := refillMmu.io.physReq.valid
+    frontendTrace.io.refillPhysicalReqReady    := io.cacheRefillReq.ready
+    frontendTrace.io.icacheReq                 := TraceTap.observe(iCache.io.req)
+    frontendTrace.io.icacheResp                := TraceTap.observe(iCache.io.resp)
+    frontendTrace.io.icacheRefillReq           := TraceTap.observe(iCache.io.refillReq)
+    frontendTrace.io.icacheRefillResp          := TraceTap.observe(iCache.io.refillResp)
+    frontendTrace.io.icacheLookup              := iCache.io.lookup
+    frontendTrace.io.bpuMonitor                := bpu.io.perf
+    frontendTrace.io.ifuStaleDrop              := ifetch.io.staleResponseDrop || ftq.io.staleIfuDrop ||
       ftq.io.staleFastDrop || ftq.io.staleFinalDrop || ftq.io.staleCompleteDrop || ftq.io.staleRetireDrop
-    frontendTrace.io.fetchQueueEmpty        := fetchQueue.io.empty
-    frontendTrace.io.fetchQueueFull         := fetchQueue.io.full
-    frontendTrace.io.fetchQueueOccupancy    := fetchQueue.io.count.pad(32)
-    frontendTrace.io.fetchQueueEnqueueWidth := fetchQueue.io.enqueueWidth.pad(32)
-    frontendTrace.io.fetchQueueDequeueWidth := fetchQueue.io.dequeueWidth.pad(32)
-    io.perfTrace                            := frontendTrace.io.sample
+    frontendTrace.io.fetchQueueEmpty           := fetchQueue.io.empty
+    frontendTrace.io.fetchQueueFull            := fetchQueue.io.full
+    frontendTrace.io.fetchQueueOccupancy       := fetchQueue.io.count.pad(32)
+    frontendTrace.io.fetchQueueEnqueueWidth    := fetchQueue.io.enqueueWidth.pad(32)
+    frontendTrace.io.fetchQueueDequeueWidth    := fetchQueue.io.dequeueWidth.pad(32)
+    io.perfTrace                               := frontendTrace.io.sample
   }
 }

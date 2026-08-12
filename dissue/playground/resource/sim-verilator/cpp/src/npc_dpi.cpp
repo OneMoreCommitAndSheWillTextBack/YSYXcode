@@ -78,7 +78,8 @@ extern "C" void npc_pmem_write(int addr, int len, int data) {
 
 extern "C" uint64_t npc_time_read() { return NpcHostBridge::time_read(); }
 
-extern "C" void npc_frontend_perf(int events, char ifu_correction,
+extern "C" void npc_frontend_perf(int events, int stall_events,
+                                   char ifu_correction,
                                    int fetch_queue_occupancy,
                                    int fetch_queue_enqueue_width,
                                    int fetch_queue_dequeue_width,
@@ -88,6 +89,7 @@ extern "C" void npc_frontend_perf(int events, char ifu_correction,
                                    int icache_block_addr1) {
   NpcHostBridge::frontend_perf(
       static_cast<uint32_t>(events),
+      static_cast<uint32_t>(stall_events),
       static_cast<uint32_t>(ifu_correction != 0),
       static_cast<uint32_t>(fetch_queue_occupancy),
       static_cast<uint32_t>(fetch_queue_enqueue_width),

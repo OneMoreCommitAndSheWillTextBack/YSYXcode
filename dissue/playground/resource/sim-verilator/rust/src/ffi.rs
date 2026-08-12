@@ -54,6 +54,7 @@ pub struct NpcDpiCallbacks {
         extern "C" fn(
             *mut c_void,
             events: u32,
+            stall_events: u32,
             ifu_correction: u32,
             fetch_queue_occupancy: u32,
             fetch_queue_enqueue_width: u32,

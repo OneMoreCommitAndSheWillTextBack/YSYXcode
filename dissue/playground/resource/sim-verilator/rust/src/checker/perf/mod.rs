@@ -15,6 +15,7 @@ impl Perf {
     pub fn frontend_perf(
         &mut self,
         events: u32,
+        stall_events: u32,
         ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
@@ -22,6 +23,7 @@ impl Perf {
     ) {
         self.counters.frontend_perf(
             events,
+            stall_events,
             ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
@@ -141,6 +143,10 @@ impl Perf {
 
     pub fn frontend_event(&self, index: usize) -> u64 {
         self.counters.frontend_event(index)
+    }
+
+    pub fn frontend_stall_event(&self, index: usize) -> u64 {
+        self.counters.frontend_stall_event(index)
     }
 
     pub fn ifu_corrections(&self) -> u64 {

@@ -79,6 +79,7 @@ uint64_t NpcHostBridge::time_read() {
 }
 
 void NpcHostBridge::frontend_perf(uint32_t events,
+                                  uint32_t stall_events,
                                   uint32_t ifu_correction,
                                   uint32_t fetch_queue_occupancy,
                                   uint32_t fetch_queue_enqueue_width,
@@ -93,8 +94,8 @@ void NpcHostBridge::frontend_perf(uint32_t events,
   if (bridge == nullptr || bridge->callbacks_.frontend_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.frontend_perf(active_opaque(), events, ifu_correction,
-                                   fetch_queue_occupancy,
+  bridge->callbacks_.frontend_perf(active_opaque(), events, stall_events,
+                                   ifu_correction, fetch_queue_occupancy,
                                    fetch_queue_enqueue_width,
                                    fetch_queue_dequeue_width,
                                    icache_lookup_valid,

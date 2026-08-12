@@ -152,6 +152,31 @@ object FrontendPerfEvent {
     Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))
 }
 
+/** Handshake-level frontend pressure events. Events are sampled independently and may overlap when pressure propagates
+  * through multiple buffered stages in the same cycle.
+  */
+object FrontendStallEvent {
+  val backendBackpressure                     = 0
+  val backendBackpressureFetchQueueFull       = 1
+  val fetchQueueEnqueueBackpressure           = 2
+  val fetchQueueFullBackpressure              = 3
+  val fetchQueuePartialBackpressure           = 4
+  val alignerOutputBackpressure               = 5
+  val blockBufferOutputBackpressure           = 6
+  val icacheResponseBackpressure              = 7
+  val icacheRequestBackpressure               = 8
+  val icacheRequestMissBackpressure           = 9
+  val icacheRequestNonMissBackpressure        = 10
+  val ftqReserveBackpressure                  = 11
+  val recoveryHold                            = 12
+  val fetchQueueStarvedWithIncomingEnqueue    = 13
+  val fetchQueueStarvedWithoutIncomingEnqueue = 14
+  val width                                   = 32
+
+  def bit(index: Int, enabled: Bool): UInt =
+    Mux(enabled, (1.U(width.W) << index)(width - 1, 0), 0.U(width.W))
+}
+
 object CfiType {
   val width = 3
 

@@ -32,7 +32,8 @@ public:
   static uint32_t pmem_read(uint32_t addr, uint32_t len);
   static void pmem_write(uint32_t addr, uint32_t len, uint32_t data);
   static uint64_t time_read();
-  static void frontend_perf(uint32_t events, uint32_t ifu_correction,
+  static void frontend_perf(uint32_t events, uint32_t stall_events,
+                            uint32_t ifu_correction,
                             uint32_t fetch_queue_occupancy,
                             uint32_t fetch_queue_enqueue_width,
                             uint32_t fetch_queue_dequeue_width,

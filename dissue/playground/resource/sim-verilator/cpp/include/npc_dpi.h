@@ -19,7 +19,8 @@ extern "C" void npc_difftest_context(int valid, int pc, int priv,
 extern "C" void npc_pmem_read(int addr, int len, int *data);
 extern "C" void npc_pmem_write(int addr, int len, int data);
 extern "C" uint64_t npc_time_read();
-extern "C" void npc_frontend_perf(int events, char ifu_correction,
+extern "C" void npc_frontend_perf(int events, int stall_events,
+                                  char ifu_correction,
                                   int fetch_queue_occupancy,
                                   int fetch_queue_enqueue_width,
                                   int fetch_queue_dequeue_width,

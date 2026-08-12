@@ -292,6 +292,7 @@ impl Checker {
     pub(crate) fn on_frontend_perf(
         &mut self,
         events: u32,
+        stall_events: u32,
         ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
@@ -303,6 +304,7 @@ impl Checker {
     ) {
         self.perf.frontend_perf(
             events,
+            stall_events,
             ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
@@ -311,6 +313,7 @@ impl Checker {
         if self.detailed_trace.is_some() {
             self.cycle_sample.record_frontend(
                 events,
+                stall_events,
                 ifu_correction,
                 fetch_queue_occupancy,
                 fetch_queue_enqueue_width,
@@ -581,6 +584,52 @@ impl Checker {
             self.perf.fetch_queue_enqueue_width_total(),
             self.perf.fetch_queue_dequeue_width_total(),
             self.perf.fetch_queue_average_miss_start_occupancy()
+        );
+        crate::Log!(
+            "Frontend pressure: backend blocked: {} (FetchQueue full: {}), IFU -> FetchQueue blocked: {} (full: {}, partial capacity: {})",
+            self.perf
+                .frontend_stall_event(PerfCounters::BACKEND_BACKPRESSURE),
+            self.perf.frontend_stall_event(
+                PerfCounters::BACKEND_BACKPRESSURE_FETCH_QUEUE_FULL
+            ),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_ENQUEUE_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_FULL_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_PARTIAL_BACKPRESSURE)
+        );
+        crate::Log!(
+            "Frontend pressure propagation: Aligner -> IFU: {}, BlockBuffer -> Aligner: {}, ICache response -> BlockBuffer: {}",
+            self.perf
+                .frontend_stall_event(PerfCounters::ALIGNER_OUTPUT_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::BLOCK_BUFFER_OUTPUT_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::ICACHE_RESPONSE_BACKPRESSURE)
+        );
+        crate::Log!(
+            "Frontend pressure upstream: FTQ -> ICache blocked: {} (miss busy: {}, other: {}), PC/BPU -> FTQ blocked: {}, recovery holds: {}",
+            self.perf
+                .frontend_stall_event(PerfCounters::ICACHE_REQUEST_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::ICACHE_REQUEST_MISS_BACKPRESSURE),
+            self.perf.frontend_stall_event(
+                PerfCounters::ICACHE_REQUEST_NON_MISS_BACKPRESSURE
+            ),
+            self.perf
+                .frontend_stall_event(PerfCounters::FTQ_RESERVE_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD)
+        );
+        crate::Log!(
+            "Frontend starvation split: incoming enqueue without bypass: {}, no incoming enqueue: {}",
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_WITH_INCOMING_ENQUEUE
+            ),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_WITHOUT_INCOMING_ENQUEUE
+            )
         );
         crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",

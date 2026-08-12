@@ -3,7 +3,7 @@ package top.core.trace
 import chisel3._
 import chisel3.util.Valid
 import top.config.FrontendConfig
-import top.core.bundle.FrontendPerfEvent
+import top.core.bundle.{FrontendPerfEvent, FrontendStallEvent}
 import top.core.frontend.bundle.{
   FrontendRecovery,
   ICacheFetchReq,
@@ -17,6 +17,7 @@ import top.core.frontend.bundle.{
 
 class FrontendTraceSample(cfg: FrontendConfig) extends Bundle {
   val events                 = UInt(FrontendPerfEvent.width.W)
+  val stallEvents            = UInt(FrontendStallEvent.width.W)
   val fetchQueueOccupancy    = UInt(32.W)
   val fetchQueueEnqueueWidth = UInt(32.W)
   val fetchQueueDequeueWidth = UInt(32.W)
@@ -37,6 +38,12 @@ class FrontendTrace(cfg: FrontendConfig) extends Module {
 
     val fetchValid = Input(Bool())
     val fetchReady = Input(Bool())
+
+    val fetchQueueEnqueueValid    = Input(Bool())
+    val fetchQueueEnqueueReady    = Input(Bool())
+    val alignerOutputBackpressure = Input(Bool())
+    val blockBufferBackpressure   = Input(Bool())
+    val ftqReserveBackpressure    = Input(Bool())
 
     val refillPhysicalReqValid = Input(Bool())
     val refillPhysicalReqReady = Input(Bool())
@@ -69,9 +76,13 @@ class FrontendTrace(cfg: FrontendConfig) extends Module {
   icacheTrace.io.invalidate := io.invalidate
   bpuTrace.io.monitor       := io.bpuMonitor
 
-  private val redirectDuringMshr      = io.backendRedirect.valid && icacheTrace.io.missActive && !io.invalidate
-  private val fetchQueueSupplyStarved =
+  private val redirectDuringMshr            = io.backendRedirect.valid && icacheTrace.io.missActive && !io.invalidate
+  private val fetchQueueSupplyStarved       =
     io.fetchQueueEmpty && io.fetchReady && !io.pcRedirect.valid && !io.invalidate
+  private val backendBackpressure           = io.fetchValid && !io.fetchReady
+  private val fetchQueueEnqueueBackpressure = io.fetchQueueEnqueueValid && !io.fetchQueueEnqueueReady
+  private val icacheRequestBackpressure     = io.icacheReq.valid && !io.icacheReq.ready
+  private val fetchQueueIncomingEnqueue     = io.fetchQueueEnqueueValid && io.fetchQueueEnqueueReady
 
   private val compositionEvents = Seq(
     FrontendPerfEvent.bit(FrontendPerfEvent.backendRedirect, io.backendRedirect.valid),
@@ -88,7 +99,50 @@ class FrontendTrace(cfg: FrontendConfig) extends Module {
     FrontendPerfEvent.bit(FrontendPerfEvent.staleResponseDrop, io.ifuStaleDrop)
   ).reduce(_ | _)
 
+  private val stallEvents = Seq(
+    FrontendStallEvent.bit(FrontendStallEvent.backendBackpressure, backendBackpressure),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.backendBackpressureFetchQueueFull,
+      backendBackpressure && io.fetchQueueFull
+    ),
+    FrontendStallEvent.bit(FrontendStallEvent.fetchQueueEnqueueBackpressure, fetchQueueEnqueueBackpressure),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.fetchQueueFullBackpressure,
+      fetchQueueEnqueueBackpressure && io.fetchQueueFull
+    ),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.fetchQueuePartialBackpressure,
+      fetchQueueEnqueueBackpressure && !io.fetchQueueFull
+    ),
+    FrontendStallEvent.bit(FrontendStallEvent.alignerOutputBackpressure, io.alignerOutputBackpressure),
+    FrontendStallEvent.bit(FrontendStallEvent.blockBufferOutputBackpressure, io.blockBufferBackpressure),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.icacheResponseBackpressure,
+      io.icacheResp.valid && !io.icacheResp.ready
+    ),
+    FrontendStallEvent.bit(FrontendStallEvent.icacheRequestBackpressure, icacheRequestBackpressure),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.icacheRequestMissBackpressure,
+      icacheRequestBackpressure && icacheTrace.io.missActive
+    ),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.icacheRequestNonMissBackpressure,
+      icacheRequestBackpressure && !icacheTrace.io.missActive
+    ),
+    FrontendStallEvent.bit(FrontendStallEvent.ftqReserveBackpressure, io.ftqReserveBackpressure),
+    FrontendStallEvent.bit(FrontendStallEvent.recoveryHold, io.recovery.valid),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.fetchQueueStarvedWithIncomingEnqueue,
+      fetchQueueSupplyStarved && fetchQueueIncomingEnqueue
+    ),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.fetchQueueStarvedWithoutIncomingEnqueue,
+      fetchQueueSupplyStarved && !fetchQueueIncomingEnqueue
+    )
+  ).reduce(_ | _)
+
   io.sample.events                 := icacheTrace.io.events | bpuTrace.io.events | compositionEvents
+  io.sample.stallEvents            := stallEvents
   io.sample.fetchQueueOccupancy    := io.fetchQueueOccupancy
   io.sample.fetchQueueEnqueueWidth := io.fetchQueueEnqueueWidth
   io.sample.fetchQueueDequeueWidth := io.fetchQueueDequeueWidth

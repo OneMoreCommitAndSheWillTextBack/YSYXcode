@@ -90,6 +90,7 @@ impl BpuCfiCounters {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PerfCounters {
     frontend_events: [u64; Self::FRONTEND_EVENT_COUNT],
+    frontend_stall_events: [u64; Self::FRONTEND_STALL_EVENT_COUNT],
     ifu_corrections: u64,
     fetch_queue_sample_cycles: u64,
     fetch_queue_occupancy_sum: u64,
@@ -174,9 +175,27 @@ impl PerfCounters {
     pub const LATE_OVERRIDE: usize = 31;
     pub const FRONTEND_EVENT_COUNT: usize = 32;
 
+    pub const BACKEND_BACKPRESSURE: usize = 0;
+    pub const BACKEND_BACKPRESSURE_FETCH_QUEUE_FULL: usize = 1;
+    pub const FETCH_QUEUE_ENQUEUE_BACKPRESSURE: usize = 2;
+    pub const FETCH_QUEUE_FULL_BACKPRESSURE: usize = 3;
+    pub const FETCH_QUEUE_PARTIAL_BACKPRESSURE: usize = 4;
+    pub const ALIGNER_OUTPUT_BACKPRESSURE: usize = 5;
+    pub const BLOCK_BUFFER_OUTPUT_BACKPRESSURE: usize = 6;
+    pub const ICACHE_RESPONSE_BACKPRESSURE: usize = 7;
+    pub const ICACHE_REQUEST_BACKPRESSURE: usize = 8;
+    pub const ICACHE_REQUEST_MISS_BACKPRESSURE: usize = 9;
+    pub const ICACHE_REQUEST_NON_MISS_BACKPRESSURE: usize = 10;
+    pub const FTQ_RESERVE_BACKPRESSURE: usize = 11;
+    pub const RECOVERY_HOLD: usize = 12;
+    pub const FETCH_QUEUE_STARVED_WITH_INCOMING_ENQUEUE: usize = 13;
+    pub const FETCH_QUEUE_STARVED_WITHOUT_INCOMING_ENQUEUE: usize = 14;
+    pub const FRONTEND_STALL_EVENT_COUNT: usize = 32;
+
     pub fn frontend_perf(
         &mut self,
         events: u32,
+        stall_events: u32,
         ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
@@ -196,6 +215,12 @@ impl PerfCounters {
         for index in 0..Self::FRONTEND_EVENT_COUNT {
             if (events & (1_u32 << index)) != 0 {
                 self.frontend_events[index] += 1;
+            }
+        }
+
+        for index in 0..Self::FRONTEND_STALL_EVENT_COUNT {
+            if (stall_events & (1_u32 << index)) != 0 {
+                self.frontend_stall_events[index] += 1;
             }
         }
     }
@@ -380,6 +405,10 @@ impl PerfCounters {
         self.frontend_events[index]
     }
 
+    pub fn frontend_stall_event(&self, index: usize) -> u64 {
+        self.frontend_stall_events[index]
+    }
+
     pub fn ifu_corrections(&self) -> u64 {
         self.ifu_corrections
     }
@@ -497,5 +526,32 @@ mod tests {
 
         assert_eq!(counters.bpu_predictions(), 6);
         assert_eq!(counters.bpu_correct_predictions(), 1);
+    }
+
+    #[test]
+    fn frontend_stall_mask_tracks_overlapping_boundaries() {
+        let mut counters = PerfCounters::default();
+        let stalls = (1_u32 << PerfCounters::BACKEND_BACKPRESSURE)
+            | (1_u32 << PerfCounters::FETCH_QUEUE_ENQUEUE_BACKPRESSURE)
+            | (1_u32 << PerfCounters::FETCH_QUEUE_FULL_BACKPRESSURE);
+
+        counters.frontend_perf(0, stalls, false, 32, 0, 0);
+
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::BACKEND_BACKPRESSURE),
+            1
+        );
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::FETCH_QUEUE_ENQUEUE_BACKPRESSURE),
+            1
+        );
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::FETCH_QUEUE_FULL_BACKPRESSURE),
+            1
+        );
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::ICACHE_REQUEST_BACKPRESSURE),
+            0
+        );
     }
 }

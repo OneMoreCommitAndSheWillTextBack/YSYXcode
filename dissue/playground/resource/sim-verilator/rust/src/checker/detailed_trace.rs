@@ -40,6 +40,24 @@ const FRONTEND_EVENT_NAMES: [&str; 32] = [
     "late_override",
 ];
 
+const FRONTEND_STALL_EVENT_NAMES: [&str; 15] = [
+    "backend_backpressure",
+    "backend_backpressure_fetch_queue_full",
+    "fetch_queue_enqueue_backpressure",
+    "fetch_queue_full_backpressure",
+    "fetch_queue_partial_backpressure",
+    "aligner_output_backpressure",
+    "block_buffer_output_backpressure",
+    "icache_response_backpressure",
+    "icache_request_backpressure",
+    "icache_request_miss_backpressure",
+    "icache_request_non_miss_backpressure",
+    "ftq_reserve_backpressure",
+    "recovery_hold",
+    "fetch_queue_starved_with_incoming_enqueue",
+    "fetch_queue_starved_without_incoming_enqueue",
+];
+
 const MEMORY_EVENT_NAMES: [&str; 21] = [
     "dcache_access",
     "dcache_hit",
@@ -77,6 +95,7 @@ pub(super) struct CycleSample {
 #[derive(Debug, Clone, Copy)]
 struct FrontendSample {
     events: u32,
+    stall_events: u32,
     ifu_correction: bool,
     fetch_queue_occupancy: u32,
     fetch_queue_enqueue_width: u32,
@@ -117,6 +136,7 @@ impl CycleSample {
     pub(super) fn record_frontend(
         &mut self,
         events: u32,
+        stall_events: u32,
         ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
@@ -128,6 +148,7 @@ impl CycleSample {
     ) {
         self.frontend = Some(FrontendSample {
             events,
+            stall_events,
             ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
@@ -262,6 +283,8 @@ fn write_frontend<W: Write>(writer: &mut W, sample: Option<FrontendSample>) -> i
 
     write!(writer, "{{events=")?;
     write_event_list(writer, sample.events, &FRONTEND_EVENT_NAMES)?;
+    write!(writer, ",stalls=")?;
+    write_event_list(writer, sample.stall_events, &FRONTEND_STALL_EVENT_NAMES)?;
     write!(
         writer,
         ",ifu_correction={},fetch_queue={{occupancy={},accepted_enqueue_width={},dequeue_width={},miss_start_occupancy=",

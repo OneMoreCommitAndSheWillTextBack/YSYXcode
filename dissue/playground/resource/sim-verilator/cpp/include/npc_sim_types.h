@@ -108,6 +108,7 @@ typedef struct NpcDpiCallbacks {
                      uint32_t data);
   uint64_t (*time_read)(void *opaque);
   void (*frontend_perf)(void *opaque, uint32_t events,
+                        uint32_t stall_events,
                         uint32_t ifu_correction,
                         uint32_t fetch_queue_occupancy,
                         uint32_t fetch_queue_enqueue_width,

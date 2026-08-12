@@ -36,7 +36,9 @@ class IFetch(cfg: FrontendConfig = FrontendConfig()) extends Module {
     val fetchEnqueue = Decoupled(new FetchQueueEnqueue(cfg, FetchWidth.frontend))
     val emission     = Output(Vec(cfg.frontendWidth, Valid(new FtqIfuEmission(cfg))))
 
-    val staleResponseDrop = Output(Bool())
+    val staleResponseDrop         = Output(Bool())
+    val alignerOutputBackpressure = Output(Bool())
+    val blockBufferBackpressure   = Output(Bool())
   })
 
   val blockBuffer = Module(new FetchBlockBuffer(cfg, cfg.ftqEntries))
@@ -139,7 +141,9 @@ class IFetch(cfg: FrontendConfig = FrontendConfig()) extends Module {
     }
   }
 
-  io.staleResponseDrop := blockBuffer.io.staleDrop || aligner.io.staleDrop || stageStale
+  io.staleResponseDrop         := blockBuffer.io.staleDrop || aligner.io.staleDrop || stageStale
+  io.alignerOutputBackpressure := aligner.io.out.valid && !aligner.io.out.ready
+  io.blockBufferBackpressure   := blockBuffer.io.out.valid && !blockBuffer.io.out.ready
 
   when(io.acceptCorrection) {
     assert(io.flush)

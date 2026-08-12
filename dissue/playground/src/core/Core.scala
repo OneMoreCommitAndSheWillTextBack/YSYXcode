@@ -83,6 +83,7 @@ class Core(
 
     val frontendPerf = Module(new FrontendPerfBridge)
     frontendPerf.io.events                 := frontend.io.perfTrace.events
+    frontendPerf.io.stallEvents            := frontend.io.perfTrace.stallEvents
     frontendPerf.io.fetchQueueOccupancy    := frontend.io.perfTrace.fetchQueueOccupancy
     frontendPerf.io.fetchQueueEnqueueWidth := frontend.io.perfTrace.fetchQueueEnqueueWidth
     frontendPerf.io.fetchQueueDequeueWidth := frontend.io.perfTrace.fetchQueueDequeueWidth
