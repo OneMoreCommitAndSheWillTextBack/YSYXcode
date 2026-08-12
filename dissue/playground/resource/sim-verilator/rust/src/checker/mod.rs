@@ -645,6 +645,24 @@ impl Checker {
             )
         );
         crate::Log!(
+            "Frontend recovery split: holds backend/IFU/BPU: {}/{}/{}, refill starvation backend/IFU/BPU: {}/{}/{}",
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD_BACKEND),
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD_IFU_CORRECTION),
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD_BPU_OVERRIDE),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_AFTER_BACKEND_RECOVERY
+            ),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_AFTER_IFU_CORRECTION
+            ),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_AFTER_BPU_OVERRIDE
+            )
+        );
+        crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",
             self.statistics.cycle(),
             self.statistics.total_commits(),

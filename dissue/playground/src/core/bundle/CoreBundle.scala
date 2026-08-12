@@ -175,6 +175,12 @@ object FrontendStallEvent {
   val fetchQueueStarvedByRecoveryRefill       = 16
   val fetchQueueStarvedByFtqReserve           = 17
   val fetchQueueStarvedByPipelineBubble       = 18
+  val recoveryHoldBackend                     = 19
+  val recoveryHoldIfuCorrection               = 20
+  val recoveryHoldBpuOverride                 = 21
+  val fetchQueueStarvedAfterBackendRecovery   = 22
+  val fetchQueueStarvedAfterIfuCorrection     = 23
+  val fetchQueueStarvedAfterBpuOverride       = 24
   val width                                   = 32
 
   def bit(index: Int, enabled: Bool): UInt =

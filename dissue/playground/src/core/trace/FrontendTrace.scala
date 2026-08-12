@@ -6,6 +6,7 @@ import top.config.FrontendConfig
 import top.core.bundle.{FrontendPerfEvent, FrontendStallEvent}
 import top.core.frontend.bundle.{
   FrontendRecovery,
+  FrontendRecoveryKind,
   ICacheFetchReq,
   ICacheFetchResp,
   ICacheLookupResult,
@@ -76,19 +77,28 @@ class FrontendTrace(cfg: FrontendConfig) extends Module {
   icacheTrace.io.invalidate := io.invalidate
   bpuTrace.io.monitor       := io.bpuMonitor
 
-  private val redirectDuringMshr             = io.backendRedirect.valid && icacheTrace.io.missActive && !io.invalidate
-  private val fetchQueueSupplyStarved        =
+  private val redirectDuringMshr            = io.backendRedirect.valid && icacheTrace.io.missActive && !io.invalidate
+  private val fetchQueueSupplyStarved       =
     io.fetchQueueEmpty && io.fetchReady && !io.pcRedirect.valid && !io.invalidate
-  private val backendBackpressure            = io.fetchValid && !io.fetchReady
-  private val fetchQueueEnqueueBackpressure  = io.fetchQueueEnqueueValid && !io.fetchQueueEnqueueReady
-  private val icacheRequestBackpressure      = io.icacheReq.valid && !io.icacheReq.ready
-  private val fetchQueueIncomingEnqueue      = io.fetchQueueEnqueueValid && io.fetchQueueEnqueueReady
-  private val recoveryRefillPending          = RegInit(false.B)
+  private val backendBackpressure           = io.fetchValid && !io.fetchReady
+  private val fetchQueueEnqueueBackpressure = io.fetchQueueEnqueueValid && !io.fetchQueueEnqueueReady
+  private val icacheRequestBackpressure     = io.icacheReq.valid && !io.icacheReq.ready
+  private val fetchQueueIncomingEnqueue     = io.fetchQueueEnqueueValid && io.fetchQueueEnqueueReady
+  private val recoveryRefillPending         = RegInit(false.B)
+  private val recoveryRefillKind            = Reg(FrontendRecoveryKind())
   when(io.recovery.valid) {
     recoveryRefillPending := true.B
+    recoveryRefillKind    := io.recovery.bits.kind
   }.elsewhen(fetchQueueIncomingEnqueue) {
     recoveryRefillPending := false.B
   }
+  private def backendLike(kind: FrontendRecoveryKind.Type): Bool =
+    kind === FrontendRecoveryKind.backend || kind === FrontendRecoveryKind.trap ||
+      kind === FrontendRecoveryKind.reset
+
+  private val backendRecoveryHold            = io.recovery.valid && backendLike(io.recovery.bits.kind)
+  private val ifuRecoveryHold                = io.recovery.valid && io.recovery.bits.kind === FrontendRecoveryKind.ifuCorrection
+  private val bpuRecoveryHold                = io.recovery.valid && io.recovery.bits.kind === FrontendRecoveryKind.bpuOverride
   private val fetchQueueNoIncomingStarvation = fetchQueueSupplyStarved && !fetchQueueIncomingEnqueue
   private val starvationByIcacheMiss         = fetchQueueNoIncomingStarvation && icacheTrace.io.missActive
   private val starvationByRecoveryRefill     = fetchQueueNoIncomingStarvation && !icacheTrace.io.missActive &&
@@ -97,12 +107,27 @@ class FrontendTrace(cfg: FrontendConfig) extends Module {
     !recoveryRefillPending && io.ftqReserveBackpressure
   private val starvationByPipelineBubble     = fetchQueueNoIncomingStarvation && !icacheTrace.io.missActive &&
     !recoveryRefillPending && !io.ftqReserveBackpressure
+  private val starvationAfterBackendRecovery = starvationByRecoveryRefill && backendLike(recoveryRefillKind)
+  private val starvationAfterIfuCorrection   = starvationByRecoveryRefill &&
+    recoveryRefillKind === FrontendRecoveryKind.ifuCorrection
+  private val starvationAfterBpuOverride     = starvationByRecoveryRefill &&
+    recoveryRefillKind === FrontendRecoveryKind.bpuOverride
   private val starvationCauses               = VecInit(
     Seq(starvationByIcacheMiss, starvationByRecoveryRefill, starvationByFtqReserve, starvationByPipelineBubble)
+  )
+  private val recoveryHoldCauses             = VecInit(Seq(backendRecoveryHold, ifuRecoveryHold, bpuRecoveryHold))
+  private val recoveryRefillCauses           = VecInit(
+    Seq(starvationAfterBackendRecovery, starvationAfterIfuCorrection, starvationAfterBpuOverride)
   )
 
   when(fetchQueueNoIncomingStarvation) {
     assert(PopCount(starvationCauses) === 1.U)
+  }
+  when(io.recovery.valid) {
+    assert(PopCount(recoveryHoldCauses) === 1.U)
+  }
+  when(starvationByRecoveryRefill) {
+    assert(PopCount(recoveryRefillCauses) === 1.U)
   }
 
   private val compositionEvents = Seq(
@@ -163,7 +188,22 @@ class FrontendTrace(cfg: FrontendConfig) extends Module {
     FrontendStallEvent.bit(FrontendStallEvent.fetchQueueStarvedByIcacheMiss, starvationByIcacheMiss),
     FrontendStallEvent.bit(FrontendStallEvent.fetchQueueStarvedByRecoveryRefill, starvationByRecoveryRefill),
     FrontendStallEvent.bit(FrontendStallEvent.fetchQueueStarvedByFtqReserve, starvationByFtqReserve),
-    FrontendStallEvent.bit(FrontendStallEvent.fetchQueueStarvedByPipelineBubble, starvationByPipelineBubble)
+    FrontendStallEvent.bit(FrontendStallEvent.fetchQueueStarvedByPipelineBubble, starvationByPipelineBubble),
+    FrontendStallEvent.bit(FrontendStallEvent.recoveryHoldBackend, backendRecoveryHold),
+    FrontendStallEvent.bit(FrontendStallEvent.recoveryHoldIfuCorrection, ifuRecoveryHold),
+    FrontendStallEvent.bit(FrontendStallEvent.recoveryHoldBpuOverride, bpuRecoveryHold),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.fetchQueueStarvedAfterBackendRecovery,
+      starvationAfterBackendRecovery
+    ),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.fetchQueueStarvedAfterIfuCorrection,
+      starvationAfterIfuCorrection
+    ),
+    FrontendStallEvent.bit(
+      FrontendStallEvent.fetchQueueStarvedAfterBpuOverride,
+      starvationAfterBpuOverride
+    )
   ).reduce(_ | _)
 
   io.sample.events                 := icacheTrace.io.events | bpuTrace.io.events | compositionEvents
