@@ -79,10 +79,14 @@ object DCacheWritebackTurnoverSpec {
       dut.io.resp.valid.expect(true)
       dut.clock.step()
 
-      // Cleaning the dirty line starts its first single-beat write transaction.
+      // A line clean wins over a simultaneous clean-all request. This prevents
+      // a PTW maintenance request from deadlocking with fence.i.
       dut.io.cleanInvalidate.valid.poke(true)
       dut.io.cleanInvalidate.bits.poke(0x1000)
+      dut.io.cleanAll.valid.poke(true)
+      dut.io.cleanAll.bits.poke(true)
       dut.io.cleanInvalidate.ready.expect(false)
+      dut.io.cleanAll.ready.expect(false)
       dut.clock.step()
 
       dut.io.axiWriteReq.valid.expect(true)
@@ -104,7 +108,23 @@ object DCacheWritebackTurnoverSpec {
       dut.io.axiWriteResp.valid.poke(false)
       dut.clock.step()
       dut.io.cleanInvalidate.ready.expect(true)
+      dut.io.cleanAll.ready.expect(false)
       dut.clock.step()
+      dut.io.cleanInvalidate.valid.poke(false)
+
+      // The held clean-all request starts immediately after the line request.
+      dut.io.cleanAll.ready.expect(true)
+      dut.clock.step()
+      dut.io.cleanAll.valid.poke(false)
+
+      var cleanAllCompleted = false
+      for (_ <- 0 until cacheCfg.sets * cacheCfg.ways + 2) {
+        if (dut.io.cleanAllDone.peek().litToBoolean) {
+          cleanAllCompleted = true
+        }
+        dut.clock.step()
+      }
+      assert(cleanAllCompleted, "clean-all did not complete after the higher-priority line maintenance")
     }
 
     println("DCacheWritebackTurnoverSpec: PASS")

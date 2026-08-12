@@ -291,9 +291,9 @@ class DCache(
   private val maintenanceDirty      = maintenanceHit && dirtyArray(maintenanceSet)(maintenanceWay)
   private val maintenanceCanInspect = !maintenanceWriteActive && !mshrValid.asUInt.orR && !hitRespValid
 
-  // A maintenance request stays valid while a dirty line is written back. It
-  // handshakes only after the line is clean and invalidated.
-  io.cleanInvalidate.ready := maintenanceCanInspect && !cleanAllActive && !io.cleanAll.valid &&
+  // A line request stays valid while a dirty line is written back. Give it
+  // priority over clean-all so a PTW cannot deadlock with a fence.i request.
+  io.cleanInvalidate.ready := maintenanceCanInspect && !cleanAllActive &&
     (!maintenanceHit || !maintenanceDirty)
   io.cleanAll.ready        := maintenanceCanInspect && !cleanAllActive && !io.cleanInvalidate.valid
   io.cleanAllDone          := cleanAllDone
@@ -661,9 +661,7 @@ class DCache(
     }
   }
 
-  when(
-    !cleanAllActive && !io.cleanAll.valid && io.cleanInvalidate.valid && maintenanceCanInspect && maintenanceHit && maintenanceDirty
-  ) {
+  when(!cleanAllActive && io.cleanInvalidate.valid && maintenanceCanInspect && maintenanceHit && maintenanceDirty) {
     maintenanceWriteActive                     := true.B
     maintenanceWriteAddr                       := lineAddr(tagArray(maintenanceSet)(maintenanceWay), maintenanceSet)
     maintenanceWriteData                       := dataArray(maintenanceSet)(maintenanceWay)
@@ -671,7 +669,7 @@ class DCache(
     maintenanceWriteAwaitResp                  := false.B
     validArray(maintenanceSet)(maintenanceWay) := false.B
     dirtyArray(maintenanceSet)(maintenanceWay) := false.B
-  }.elsewhen(!cleanAllActive && !io.cleanAll.valid && io.cleanInvalidate.fire && maintenanceHit) {
+  }.elsewhen(!cleanAllActive && io.cleanInvalidate.fire && maintenanceHit) {
     validArray(maintenanceSet)(maintenanceWay) := false.B
     dirtyArray(maintenanceSet)(maintenanceWay) := false.B
   }
