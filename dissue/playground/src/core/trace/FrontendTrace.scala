@@ -79,7 +79,7 @@ class FrontendTrace(cfg: FrontendConfig) extends Module {
 
   private val redirectDuringMshr            = io.backendRedirect.valid && icacheTrace.io.missActive && !io.invalidate
   private val fetchQueueSupplyStarved       =
-    io.fetchQueueEmpty && io.fetchReady && !io.pcRedirect.valid && !io.invalidate
+    !io.fetchValid && io.fetchReady && !io.pcRedirect.valid && !io.invalidate
   private val backendBackpressure           = io.fetchValid && !io.fetchReady
   private val fetchQueueEnqueueBackpressure = io.fetchQueueEnqueueValid && !io.fetchQueueEnqueueReady
   private val icacheRequestBackpressure     = io.icacheReq.valid && !io.icacheReq.ready

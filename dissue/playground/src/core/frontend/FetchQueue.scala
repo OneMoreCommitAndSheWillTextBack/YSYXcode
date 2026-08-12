@@ -76,22 +76,35 @@ class FetchQueue(
   private val empty = count === 0.U
   private val full  = count === depth.U
 
-  private val headEntry   = entries(readPtr)
-  private val secondEntry = entries(ptrAdd(readPtr, 1.U(ptrWidth.W)))
-  private val headLive    = !empty && headEntry.epoch === io.currentEpoch
-  private val secondLive  = headLive && count >= deqWidth.U && secondEntry.epoch === io.currentEpoch
+  private val headEntry        = entries(readPtr)
+  private val secondEntry      = entries(ptrAdd(readPtr, 1.U(ptrWidth.W)))
+  private val queuedHeadLive   = !empty && headEntry.epoch === io.currentEpoch
+  private val queuedSecondLive = queuedHeadLive && count >= deqWidth.U && secondEntry.epoch === io.currentEpoch
+  private val bypassHeadLive   = empty && io.enq.valid && io.enq.bits.insts(0).valid &&
+    io.enq.bits.insts(0).bits.epoch === io.currentEpoch
+  private val bypassSecondLive = if (enqWidth > 1) {
+    bypassHeadLive && io.enq.bits.insts(1).valid && io.enq.bits.insts(1).bits.epoch === io.currentEpoch
+  } else {
+    false.B
+  }
+  private val outputHeadLive   = queuedHeadLive || bypassHeadLive
+  private val outputSecondLive = queuedSecondLive || bypassSecondLive
 
-  io.out.valid               := !io.flush && !io.pruneFrom.valid && headLive
+  io.out.valid               := !io.flush && !io.pruneFrom.valid && outputHeadLive
   io.out.bits                := 0.U.asTypeOf(new FetchPacket(cfg.payload))
-  io.out.bits.insts(0).valid := !io.flush && headLive
-  io.out.bits.insts(0).bits  := headEntry.inst
-  io.out.bits.insts(1).valid := !io.flush && secondLive
-  io.out.bits.insts(1).bits  := secondEntry.inst
+  io.out.bits.insts(0).valid := !io.flush && !io.pruneFrom.valid && outputHeadLive
+  io.out.bits.insts(0).bits  := Mux(empty, io.enq.bits.insts(0).bits.inst, headEntry.inst)
+  io.out.bits.insts(1).valid := !io.flush && !io.pruneFrom.valid && outputSecondLive
+  if (enqWidth > 1) {
+    io.out.bits.insts(1).bits := Mux(empty, io.enq.bits.insts(1).bits.inst, secondEntry.inst)
+  } else {
+    io.out.bits.insts(1).bits := secondEntry.inst
+  }
 
   private val dequeueCount = Wire(UInt(countWidth.W))
   dequeueCount := Mux(
     io.out.fire,
-    Mux(secondLive, deqWidth.U(countWidth.W), 1.U(countWidth.W)),
+    Mux(outputSecondLive, deqWidth.U(countWidth.W), 1.U(countWidth.W)),
     0.U(countWidth.W)
   )
 
@@ -146,6 +159,11 @@ class FetchQueue(
     when(!empty) {
       assert(entryAfter(io.enq.bits.insts(0).bits, tailEntry))
     }
+  }
+
+  when(empty && io.out.fire) {
+    assert(io.enq.fire)
+    assert(dequeueCount <= acceptedEnqueueCountWide)
   }
 
   for (offset <- 0 until depth) {
