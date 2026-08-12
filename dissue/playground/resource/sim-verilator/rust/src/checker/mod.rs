@@ -632,6 +632,19 @@ impl Checker {
             )
         );
         crate::Log!(
+            "Frontend no-incoming starvation causes: ICache miss: {}, recovery refill: {}, FTQ reserve: {}, pipeline bubble: {}",
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_STARVED_BY_ICACHE_MISS),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_BY_RECOVERY_REFILL
+            ),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_STARVED_BY_FTQ_RESERVE),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_BY_PIPELINE_BUBBLE
+            )
+        );
+        crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",
             self.statistics.cycle(),
             self.statistics.total_commits(),

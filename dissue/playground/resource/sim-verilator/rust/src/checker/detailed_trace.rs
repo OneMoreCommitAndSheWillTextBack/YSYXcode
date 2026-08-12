@@ -40,7 +40,7 @@ const FRONTEND_EVENT_NAMES: [&str; 32] = [
     "late_override",
 ];
 
-const FRONTEND_STALL_EVENT_NAMES: [&str; 15] = [
+const FRONTEND_STALL_EVENT_NAMES: [&str; 19] = [
     "backend_backpressure",
     "backend_backpressure_fetch_queue_full",
     "fetch_queue_enqueue_backpressure",
@@ -56,6 +56,10 @@ const FRONTEND_STALL_EVENT_NAMES: [&str; 15] = [
     "recovery_hold",
     "fetch_queue_starved_with_incoming_enqueue",
     "fetch_queue_starved_without_incoming_enqueue",
+    "fetch_queue_starved_by_icache_miss",
+    "fetch_queue_starved_by_recovery_refill",
+    "fetch_queue_starved_by_ftq_reserve",
+    "fetch_queue_starved_by_pipeline_bubble",
 ];
 
 const MEMORY_EVENT_NAMES: [&str; 21] = [

@@ -190,6 +190,10 @@ impl PerfCounters {
     pub const RECOVERY_HOLD: usize = 12;
     pub const FETCH_QUEUE_STARVED_WITH_INCOMING_ENQUEUE: usize = 13;
     pub const FETCH_QUEUE_STARVED_WITHOUT_INCOMING_ENQUEUE: usize = 14;
+    pub const FETCH_QUEUE_STARVED_BY_ICACHE_MISS: usize = 15;
+    pub const FETCH_QUEUE_STARVED_BY_RECOVERY_REFILL: usize = 16;
+    pub const FETCH_QUEUE_STARVED_BY_FTQ_RESERVE: usize = 17;
+    pub const FETCH_QUEUE_STARVED_BY_PIPELINE_BUBBLE: usize = 18;
     pub const FRONTEND_STALL_EVENT_COUNT: usize = 32;
 
     pub fn frontend_perf(
