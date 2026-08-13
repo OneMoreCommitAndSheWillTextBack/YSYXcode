@@ -64,10 +64,14 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
     val selectedProducerDone                    = VecInit(io.producerEntries.map { entry =>
       entry.valid && entry.robIdx === selectedProducer && entry.done
     }).asUInt.orR
+    val selectedProducerCommits                 = VecInit(io.commit.map { commit =>
+      commit.valid && commit.rfWen && commit.robIdx === selectedProducer
+    }).asUInt.orR
 
     query.ready        := queryReady
     query.producer     := selectedProducer
-    query.producerDone := query.valid && !queryReady && !waitsForEarlierLane && selectedProducerDone
+    query.producerDone := query.valid && !queryReady && !waitsForEarlierLane && selectedProducerDone &&
+      !selectedProducerCommits
   }
 
   when(io.flush) {

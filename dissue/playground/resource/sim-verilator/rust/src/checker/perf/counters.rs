@@ -49,6 +49,7 @@ pub enum IssueQueueBlockReason {
 
 impl IssueQueueBlockReason {
     pub const COUNT: usize = 8;
+    #[cfg(test)]
     pub const ALL: [Self; Self::COUNT] = [
         Self::Downstream,
         Self::OlderStore,
