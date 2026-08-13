@@ -108,12 +108,20 @@ typedef struct NpcDpiCallbacks {
                      uint32_t data);
   uint64_t (*time_read)(void *opaque);
   void (*frontend_perf)(void *opaque, uint32_t events,
+                        uint32_t stall_events,
+                        uint32_t ifu_correction,
                         uint32_t fetch_queue_occupancy,
                         uint32_t fetch_queue_enqueue_width,
-                        uint32_t fetch_queue_dequeue_width);
+                        uint32_t fetch_queue_dequeue_width,
+                        uint32_t icache_lookup_valid,
+                        uint32_t icache_block_valid_mask,
+                        uint32_t icache_miss_mask,
+                        uint32_t icache_block_addr0,
+                        uint32_t icache_block_addr1);
   void (*issue_queue_perf)(void *opaque, uint8_t issue_count,
                            uint8_t occupancy, uint8_t block_ready,
-                           uint8_t block_operand);
+                           uint8_t block_operand, uint8_t block_reason,
+                           uint8_t rob_done_operand_count);
   void (*div_perf)(void *opaque, uint32_t cycles, uint8_t special);
   void (*bpu_perf)(void *opaque, uint8_t cfi_class, uint8_t pred_hit,
                    uint8_t pred_taken, uint8_t actual_taken, uint8_t correct);

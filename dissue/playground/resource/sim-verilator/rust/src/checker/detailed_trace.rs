@@ -1,4 +1,8 @@
-use super::{event::CommitGroup, itrace::write_instruction_summary, perf::PerfCounters};
+use super::{
+    event::CommitGroup,
+    itrace::write_instruction_summary,
+    perf::{IssueQueueBlockReason, PerfCounters},
+};
 use std::{
     fs::{self, File},
     io::{self, LineWriter, Write},
@@ -40,6 +44,34 @@ const FRONTEND_EVENT_NAMES: [&str; 32] = [
     "late_override",
 ];
 
+const FRONTEND_STALL_EVENT_NAMES: [&str; 25] = [
+    "backend_backpressure",
+    "backend_backpressure_fetch_queue_full",
+    "fetch_queue_enqueue_backpressure",
+    "fetch_queue_full_backpressure",
+    "fetch_queue_partial_backpressure",
+    "aligner_output_backpressure",
+    "block_buffer_output_backpressure",
+    "icache_response_backpressure",
+    "icache_request_backpressure",
+    "icache_request_miss_backpressure",
+    "icache_request_non_miss_backpressure",
+    "ftq_reserve_backpressure",
+    "recovery_hold",
+    "fetch_queue_starved_with_incoming_enqueue",
+    "fetch_queue_starved_without_incoming_enqueue",
+    "fetch_queue_starved_by_icache_miss",
+    "fetch_queue_starved_by_recovery_refill",
+    "fetch_queue_starved_by_ftq_reserve",
+    "fetch_queue_starved_by_pipeline_bubble",
+    "recovery_hold_backend",
+    "recovery_hold_ifu_correction",
+    "recovery_hold_bpu_override",
+    "fetch_queue_starved_after_backend_recovery",
+    "fetch_queue_starved_after_ifu_correction",
+    "fetch_queue_starved_after_bpu_override",
+];
+
 const MEMORY_EVENT_NAMES: [&str; 21] = [
     "dcache_access",
     "dcache_hit",
@@ -77,9 +109,15 @@ pub(super) struct CycleSample {
 #[derive(Debug, Clone, Copy)]
 struct FrontendSample {
     events: u32,
+    stall_events: u32,
+    ifu_correction: bool,
     fetch_queue_occupancy: u32,
     fetch_queue_enqueue_width: u32,
     fetch_queue_dequeue_width: u32,
+    icache_lookup_valid: bool,
+    icache_block_valid_mask: u32,
+    icache_miss_mask: u32,
+    icache_block_addr: [u32; 2],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -88,6 +126,8 @@ struct IssueQueueSample {
     occupancy: u8,
     block_ready: bool,
     block_operand: bool,
+    block_reason: u8,
+    rob_done_operand_count: u8,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -112,15 +152,27 @@ impl CycleSample {
     pub(super) fn record_frontend(
         &mut self,
         events: u32,
+        stall_events: u32,
+        ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
         fetch_queue_dequeue_width: u32,
+        icache_lookup_valid: bool,
+        icache_block_valid_mask: u32,
+        icache_miss_mask: u32,
+        icache_block_addr: [u32; 2],
     ) {
         self.frontend = Some(FrontendSample {
             events,
+            stall_events,
+            ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
             fetch_queue_dequeue_width,
+            icache_lookup_valid,
+            icache_block_valid_mask,
+            icache_miss_mask,
+            icache_block_addr,
         });
     }
 
@@ -130,12 +182,16 @@ impl CycleSample {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
         self.issue_queue = Some(IssueQueueSample {
             issue_count,
             occupancy,
             block_ready,
             block_operand,
+            block_reason,
+            rob_done_operand_count,
         });
     }
 
@@ -247,9 +303,12 @@ fn write_frontend<W: Write>(writer: &mut W, sample: Option<FrontendSample>) -> i
 
     write!(writer, "{{events=")?;
     write_event_list(writer, sample.events, &FRONTEND_EVENT_NAMES)?;
+    write!(writer, ",stalls=")?;
+    write_event_list(writer, sample.stall_events, &FRONTEND_STALL_EVENT_NAMES)?;
     write!(
         writer,
-        ",fetch_queue={{occupancy={},accepted_enqueue_width={},dequeue_width={},miss_start_occupancy=",
+        ",ifu_correction={},fetch_queue={{occupancy={},accepted_enqueue_width={},dequeue_width={},miss_start_occupancy=",
+        sample.ifu_correction,
         sample.fetch_queue_occupancy,
         sample.fetch_queue_enqueue_width,
         sample.fetch_queue_dequeue_width
@@ -260,7 +319,20 @@ fn write_frontend<W: Write>(writer: &mut W, sample: Option<FrontendSample>) -> i
         write!(writer, "-")?;
     }
 
-    write!(writer, "}}}}")
+    write!(writer, "}},icache_lookup=")?;
+    if sample.icache_lookup_valid {
+        write!(
+            writer,
+            "{{valid=0x{:x},miss=0x{:x},addr=[0x{:08x},0x{:08x}]}}",
+            sample.icache_block_valid_mask,
+            sample.icache_miss_mask,
+            sample.icache_block_addr[0],
+            sample.icache_block_addr[1]
+        )?;
+    } else {
+        write!(writer, "-")?;
+    }
+    write!(writer, "}}")
 }
 
 fn write_event_list<W: Write>(writer: &mut W, events: u32, names: &[&str]) -> io::Result<()> {
@@ -296,8 +368,17 @@ fn write_issue_queue<W: Write>(writer: &mut W, sample: Option<IssueQueueSample>)
     match sample {
         Some(sample) => write!(
             writer,
-            "{{issue={},occ={},block_ready={},block_operand={}}}",
-            sample.issue_count, sample.occupancy, sample.block_ready, sample.block_operand
+            "{{issue={},occ={},block_ready={},block_operand={},block_reason={},rob_done_operands={}}}",
+            sample.issue_count,
+            sample.occupancy,
+            sample.block_ready,
+            sample.block_operand,
+            if sample.block_ready {
+                IssueQueueBlockReason::from_dpi(sample.block_reason).label()
+            } else {
+                "none"
+            },
+            sample.rob_done_operand_count
         ),
         None => write!(writer, "-"),
     }

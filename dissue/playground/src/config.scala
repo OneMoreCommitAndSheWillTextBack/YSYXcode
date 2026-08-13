@@ -35,36 +35,46 @@ final case class DCacheConfig(
 }
 
 final case class ICacheConfig(
-  addrWidth:         Int = 32,
-  fetchBytes:        Int = 8,
-  sets:              Int = 64,
-  ways:              Int = 1,
-  bankCount:         Int = 2,
-  fetchGroupBlocks:  Int = 2,
-  fetchSequenceBits: Int = 16,
-  fetchEpochBits:    Int = 8,
-  fetchTargetIndexBits: Int = 3) {
+  addrWidth:            Int = 32,
+  fetchBytes:           Int = 8,
+  lineBytes:            Int = 8,
+  sets:                 Int = 64,
+  ways:                 Int = 1,
+  bankCount:            Int = 2,
+  fetchGroupBlocks:     Int = 2,
+  fetchSequenceBits:    Int = 16,
+  fetchEpochBits:       Int = 8,
+  fetchTargetIndexBits: Int = 3,
+  fetchTargetGenerationBits: Int = 4) {
   private def isPow2(value: Int): Boolean =
     value > 0 && (value & (value - 1)) == 0
 
   require(isPow2(fetchBytes), "fetchBytes must be a power of two")
+  require(isPow2(lineBytes), "lineBytes must be a power of two")
+  require(lineBytes >= fetchBytes, "lineBytes must cover one fetch block")
+  require(lineBytes                                  % fetchBytes == 0, "lineBytes must contain a whole number of fetch blocks")
   require(isPow2(sets), "sets must be a power of two")
-  require(ways > 0, "ways must be positive")
-  require(ways == 1, "not support the group Set-associative")
+  require(ways == 1 || ways == 2, "ICache supports direct-mapped or two-way organization")
   require(isPow2(bankCount), "bankCount must be a power of two")
   require(bankCount > 1 && sets >= bankCount && sets % bankCount == 0, "bankCount must divide the cache sets")
   require(fetchGroupBlocks == 2, "ICache currently supports two-block fetch groups")
   require(fetchSequenceBits > 0, "fetchSequenceBits must be positive")
   require(fetchEpochBits > 0, "fetchEpochBits must be positive")
   require(fetchTargetIndexBits > 0, "fetchTargetIndexBits must be positive")
+  require(fetchTargetGenerationBits > 0, "fetchTargetGenerationBits must be positive")
 
-  val offsetBits:    Int = log2Ceil(fetchBytes)
-  val indexBits:     Int = log2Ceil(sets)
-  val bankBits:      Int = log2Ceil(bankCount)
-  val bankSets:      Int = sets / bankCount
-  val bankIndexBits: Int = log2Ceil(bankSets)
-  val tagBits:       Int = addrWidth - offsetBits - indexBits
-  val blockBits:     Int = fetchBytes * 8
+  /** Fetch-block offset retained for frontend block framing. */
+  val offsetBits:      Int = log2Ceil(fetchBytes)
+  val lineOffsetBits:  Int = log2Ceil(lineBytes)
+  val indexBits:       Int = log2Ceil(sets)
+  val bankBits:        Int = log2Ceil(bankCount)
+  val bankSets:        Int = sets / bankCount
+  val bankIndexBits:   Int = log2Ceil(bankSets)
+  val tagBits:         Int = addrWidth - lineOffsetBits - indexBits
+  val lineBits:        Int = lineBytes * 8
+  val blocksPerLine:   Int = lineBytes / fetchBytes
+  val blockSelectBits: Int = math.max(log2Ceil(blocksPerLine), 1)
+  val capacityBytes:   Int = sets * ways * lineBytes
 
   require(tagBits > 0, "addrWidth must cover tag, index, and block offset")
 
@@ -148,31 +158,91 @@ final case class IFetchConfig(
   require(fetchQueueEntries >= 32, "fetchQueueEntries must provide at least 32 instruction slots")
 }
 
+/** Widths shared by the frontend and backend instruction contract. */
+final case class FrontendPayloadConfig(
+  addrWidth:         Int = 32,
+  ftqEntries:        Int = 8,
+  ftqGenerationBits: Int = 4,
+  maxInstsPerFtqEntry: Int = 8) {
+  require(addrWidth > 0, "addrWidth must be positive")
+  require(ftqEntries > 1 && (ftqEntries & (ftqEntries - 1)) == 0, "ftqEntries must be a power of two")
+  require(ftqGenerationBits > 0, "ftqGenerationBits must be positive")
+  require(maxInstsPerFtqEntry > 0, "maxInstsPerFtqEntry must be positive")
+
+  val ftqIndexBits:     Int = log2Ceil(ftqEntries)
+  val ftqInstCountBits: Int = log2Ceil(maxInstsPerFtqEntry + 1)
+}
+
 final case class FrontendConfig(
-  addrWidth:          Int = 32,
-  fetchBytes:         Int = 8,
-  icacheSets:         Int = 64,
-  icacheWays:         Int = 1,
-  icacheBanks:        Int = 2,
-  btbEntries:         Int = 64,
-  bhtEntries:         Int = 128,
-  btbWays:            Int = 1,
-  halfwordEntries:    Int = 16,
-  instBufferEntries:  Int = 8,
-  fetchTargetEntries: Int = 8,
-  fetchQueueEntries:  Int = 32,
-  fetchSequenceBits:  Int = 16,
-  fetchEpochBits:     Int = 8,
+  addrWidth:                        Int = 32,
+  fetchBytes:                       Int = 8,
+  icacheLineBytes:                  Int = 8,
+  icacheSets:                       Int = 64,
+  icacheWays:                       Int = 1,
+  icacheBanks:                      Int = 2,
+  btbEntries:                       Int = 64,
+  bhtEntries:                       Int = 128,
+  btbWays:                          Int = 1,
+  halfwordEntries:                  Int = 16,
+  instBufferEntries:                Int = 8,
+  fetchTargetEntries:               Int = 8,
+  fetchQueueEntries:                Int = 32,
+  fetchSequenceBits:                Int = 16,
+  fetchEpochBits:                   Int = 8,
+  fetchGroupBlocks:                 Int = 2,
+  frontendWidth:                    Int = 4,
+  backendWidth:                     Int = 2,
+  ftqGenerationBits:                Int = 4,
+  maxConditionalCandidatesPerGroup: Int = 2,
+  maxIndirectCandidatesPerGroup:    Int = 1,
   bpuConfig: BpuConfig = BpuConfig()) {
+  private def isPow2(value: Int): Boolean =
+    value > 0 && (value & (value - 1)) == 0
+
+  require(addrWidth > 0, "addrWidth must be positive")
+  require(isPow2(fetchBytes), "fetchBytes must be a power of two")
+  require(isPow2(icacheLineBytes), "icacheLineBytes must be a power of two")
+  require(icacheLineBytes >= fetchBytes, "icacheLineBytes must cover one fetch block")
+  require(icacheLineBytes % fetchBytes == 0, "icacheLineBytes must contain whole fetch blocks")
+  require(fetchGroupBlocks > 0, "fetchGroupBlocks must be positive")
+  require(frontendWidth > 0, "frontendWidth must be positive")
+  require(backendWidth > 0, "backendWidth must be positive")
+  require(isPow2(fetchTargetEntries), "fetchTargetEntries must be a power of two")
+  require(ftqGenerationBits > 0, "ftqGenerationBits must be positive")
+  require(maxConditionalCandidatesPerGroup > 0, "conditional prediction candidate count must be positive")
+  require(maxIndirectCandidatesPerGroup > 0, "indirect prediction candidate count must be positive")
+
+  val ftqEntries:          Int = fetchTargetEntries
+  val ftqSequenceBits:     Int = fetchSequenceBits
+  val latePredictorStages: Int = 3
+  val fetchGroupBytes:     Int = fetchBytes * fetchGroupBlocks
+  val maxInstsPerFtqEntry: Int = fetchGroupBytes / 2
+  val cfiOffsetBits:       Int = log2Ceil(fetchBytes / 2)
+  val ftqIndexBits:        Int = log2Ceil(ftqEntries)
+  val ftqInstCountBits:    Int = log2Ceil(maxInstsPerFtqEntry + 1)
+
+  val payload: FrontendPayloadConfig = FrontendPayloadConfig(
+    addrWidth = addrWidth,
+    ftqEntries = ftqEntries,
+    ftqGenerationBits = ftqGenerationBits,
+    maxInstsPerFtqEntry = maxInstsPerFtqEntry
+  )
+
+  require(fetchGroupBytes % 2 == 0, "a fetch group must contain a whole number of halfwords")
+  require(ftqInstCountBits > 0, "FTQ instruction count must have a non-zero width")
+
   val icache: ICacheConfig = ICacheConfig(
     addrWidth = addrWidth,
     fetchBytes = fetchBytes,
+    lineBytes = icacheLineBytes,
     sets = icacheSets,
     ways = icacheWays,
     bankCount = icacheBanks,
+    fetchGroupBlocks = fetchGroupBlocks,
     fetchSequenceBits = fetchSequenceBits,
     fetchEpochBits = fetchEpochBits,
-    fetchTargetIndexBits = log2Ceil(fetchTargetEntries)
+    fetchTargetIndexBits = ftqIndexBits,
+    fetchTargetGenerationBits = ftqGenerationBits
   )
 
   val bpu: BpuConfig = bpuConfig.copy(
@@ -183,6 +253,8 @@ final case class FrontendConfig(
     btbWays = btbWays
   )
 
+  val historyBits: Int = bpu.predictorHistoryBits
+
   val ifetch: IFetchConfig = IFetchConfig(
     halfwordEntries = halfwordEntries,
     instBufferEntries = instBufferEntries,
@@ -192,19 +264,20 @@ final case class FrontendConfig(
 }
 
 final case class BackendConfig(
-  issueWidth:        Int = 2,
-  commitWidth:       Int = 2,
-  addrWidth:         Int = 32,
-  dataWidth:         Int = 32,
-  robEntries:        Int = 16,
-  intIssueWidth:     Int = 2,
-  writebackWidth:    Int = 3,
-  issueQueueEntries: Int = 8,
-  loadTxnEntries:    Int = 2,
-  storeQueueEntries: Int = 16,
-  storeTxnEntries:   Int = 4,
-  dmemQueueEntries:  Int = 4,
-  recoveryCancelPorts: Int = 16) {
+  issueWidth:          Int = 2,
+  commitWidth:         Int = 2,
+  addrWidth:           Int = 32,
+  dataWidth:           Int = 32,
+  robEntries:          Int = 16,
+  intIssueWidth:       Int = 2,
+  writebackWidth:      Int = 3,
+  issueQueueEntries:   Int = 8,
+  loadTxnEntries:      Int = 2,
+  storeQueueEntries:   Int = 16,
+  storeTxnEntries:     Int = 4,
+  dmemQueueEntries:    Int = 4,
+  recoveryCancelPorts: Int = 16,
+  frontendPayload: FrontendPayloadConfig = FrontendPayloadConfig()) {
   require(issueWidth > 0, "issueWidth must be positive")
   require(commitWidth > 0, "commitWidth must be positive")
   require(addrWidth > 0, "addrWidth must be positive")
@@ -219,6 +292,7 @@ final case class BackendConfig(
   require(storeTxnEntries > 0, "storeTxnEntries must be positive")
   require(dmemQueueEntries > 0, "dmemQueueEntries must be positive")
   require(recoveryCancelPorts > 0, "recoveryCancelPorts must be positive")
+  require(frontendPayload.addrWidth == addrWidth, "frontend payload address width must match backend addrWidth")
 
   val dispatchWidth:      Int = issueWidth
   val operandsPerInst:    Int = 2

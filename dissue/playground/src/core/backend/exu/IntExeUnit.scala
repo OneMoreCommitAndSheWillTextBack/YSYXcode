@@ -232,17 +232,20 @@ class IntExeUnit(
   writebackResult.bits  := Mux(liveDivResult, divResult.bits, Mux(liveMulResult, mulResult.bits, exuResult.bits))
 
   private val resolveInput = Wire(Valid(new BranchResolve(cfg)))
-  resolveInput := 0.U.asTypeOf(Valid(new BranchResolve(cfg)))
-  resolveInput.valid              := liveExuResult && io.in.bits.cfi =/= CfiType.none
-  resolveInput.bits.robIdx        := io.in.bits.robIdx
-  resolveInput.bits.pc            := io.in.bits.fetch.pc
-  resolveInput.bits.cfiType       := io.in.bits.cfi
-  resolveInput.bits.predNpc       := io.in.bits.fetch.predNpc
-  resolveInput.bits.actualNpc     := exuResult.bits.redirectTarget
-  resolveInput.bits.taken         := exuResult.bits.branchTaken
-  resolveInput.bits.branchTarget  := exuResult.bits.branchTarget
-  resolveInput.bits.instLen       := io.in.bits.fetch.instLen
-  resolveInput.bits.prediction    := io.in.bits.fetch.prediction
+  resolveInput                      := 0.U.asTypeOf(Valid(new BranchResolve(cfg)))
+  resolveInput.valid                := liveExuResult && io.in.bits.cfi =/= CfiType.none
+  resolveInput.bits.robIdx          := io.in.bits.robIdx
+  resolveInput.bits.pc              := io.in.bits.fetch.pc
+  resolveInput.bits.cfiType         := io.in.bits.cfi
+  resolveInput.bits.predNpc         := io.in.bits.fetch.predNpc
+  resolveInput.bits.actualNpc       := exuResult.bits.redirectTarget
+  resolveInput.bits.taken           := exuResult.bits.branchTaken
+  resolveInput.bits.branchTarget    := exuResult.bits.branchTarget
+  resolveInput.bits.instLen         := io.in.bits.fetch.instLen
+  resolveInput.bits.ftqTag          := io.in.bits.fetch.ftqTag
+  resolveInput.bits.ftqInstOrdinal  := io.in.bits.fetch.ftqInstOrdinal
+  resolveInput.bits.rasAction       := top.core.frontend.bundle.RasAction.action(io.in.bits.fetch.inst)
+  resolveInput.bits.canonicalReturn := top.core.frontend.bundle.RasAction.isCanonicalReturn(io.in.bits.fetch.inst)
 
   private val resolveReg = RegInit(0.U.asTypeOf(Valid(new BranchResolve(cfg))))
   when(io.flush) {

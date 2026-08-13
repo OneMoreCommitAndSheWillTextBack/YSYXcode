@@ -3,6 +3,7 @@ package top.core.backend.retire
 import chisel3._
 import chisel3.util.{Decoupled, Enum, Mux1H, MuxLookup, PopCount, PriorityEncoderOH, Valid}
 import top.core.backend.bundle.{
+  BpuPerfSample,
   CommitRegWrite,
   RetireGroup,
   RobCommitPacket,
@@ -29,7 +30,6 @@ import top.core.bundle.{BackendToFrontend, BpuCfiClass, CfiType}
 import top.core.frontend.bundle.RasAction
 import top.core.mem.MemAddress
 import top.config.BackendConfig
-import top.sim.BpuPerfBridge
 
 class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
@@ -49,7 +49,8 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     val serializedStoreSuccess = Input(Bool())
     val serializedStore        = Output(Valid(new StoreQueueEvent(cfg)))
     val retire                 = Output(new RetireGroup(cfg))
-    val redirect               = Output(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
+    val bpuPerf                = Output(Vec(cfg.commitWidth, new BpuPerfSample))
+    val redirect               = Output(new BackendToFrontend(cfg.frontendPayload))
 
     val fenceIReq    = Decoupled(Bool())
     val fenceIDone   = Input(Bool())
@@ -144,7 +145,7 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.rob(i).ready := canRetire(i)
   }
 
-  io.redirect := 0.U.asTypeOf(new BackendToFrontend(cfg.addrWidth, cfg.commitWidth))
+  io.redirect := 0.U.asTypeOf(new BackendToFrontend(cfg.frontendPayload))
 
   private val trapUnit = Module(new TrapUnit(cfg))
   trapUnit.io.csrStatus := io.csrStatus
@@ -170,14 +171,13 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     normalCommit(i) := canRetire(i) && !trapRetire(i) && !mretRetire(i) && !sretRetire(i)
   }
 
-  private val bpuPerf = Seq.fill(cfg.commitWidth)(Module(new BpuPerfBridge))
   for (i <- 0 until cfg.commitWidth) {
-    bpuPerf(i).io.valid       := !reset.asBool && normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
-    bpuPerf(i).io.cfiClass    := bpuCfiClass(io.rob(i).bits.cfi, io.rob(i).bits.fetch.inst)
-    bpuPerf(i).io.predHit     := io.rob(i).bits.fetch.predHit
-    bpuPerf(i).io.predTaken   := io.rob(i).bits.fetch.predTaken
-    bpuPerf(i).io.actualTaken := Mux(io.rob(i).bits.cfi === CfiType.branch, io.rob(i).bits.branchTaken, true.B)
-    bpuPerf(i).io.correct     := io.rob(i).bits.fetch.predNpc === nextPc(i)
+    io.bpuPerf(i).valid       := !reset.asBool && normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
+    io.bpuPerf(i).cfiClass    := bpuCfiClass(io.rob(i).bits.cfi, io.rob(i).bits.fetch.inst)
+    io.bpuPerf(i).predHit     := io.rob(i).bits.fetch.predHit
+    io.bpuPerf(i).predTaken   := io.rob(i).bits.fetch.predTaken
+    io.bpuPerf(i).actualTaken := Mux(io.rob(i).bits.cfi === CfiType.branch, io.rob(i).bits.branchTaken, true.B)
+    io.bpuPerf(i).correct     := io.rob(i).bits.fetch.predNpc === nextPc(i)
   }
 
   private val barrierCommit = Wire(Vec(cfg.commitWidth, Bool()))
@@ -349,14 +349,6 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     io.retire.lanes(i).exception.blocksYounger := trapRetire(i)
     io.retire.lanes(i).finish                  := canRetire(i) && io.rob(i).bits.isEbreak
 
-    io.redirect.bpuUpdates(i).valid           := normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
-    io.redirect.bpuUpdates(i).bits.pc         := io.rob(i).bits.fetch.pc
-    io.redirect.bpuUpdates(i).bits.cfiType    := io.rob(i).bits.cfi
-    io.redirect.bpuUpdates(i).bits.taken      := io.rob(i).bits.branchTaken
-    io.redirect.bpuUpdates(i).bits.target     := io.rob(i).bits.branchTarget
-    io.redirect.bpuUpdates(i).bits.instLen    := io.rob(i).bits.fetch.instLen
-    io.redirect.bpuUpdates(i).bits.rasAction  := RasAction.action(io.rob(i).bits.fetch.inst)
-    io.redirect.bpuUpdates(i).bits.prediction := io.rob(i).bits.fetch.prediction
   }
 
   io.retire.validMask  := canRetire.asUInt

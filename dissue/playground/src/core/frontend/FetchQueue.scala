@@ -1,24 +1,29 @@
 package top.core.frontend.ifetch
 
 import chisel3._
-import chisel3.util.{Decoupled, PopCount, Valid, log2Ceil}
-import top.config.ICacheConfig
-import top.core.frontend.bundle.FetchInst
+import chisel3.util.{log2Ceil, Decoupled, PopCount, Valid}
+import top.config.FrontendConfig
+import top.core.bundle.FetchInstPayload
 
-class FetchQueueEntry(cacheCfg: ICacheConfig) extends Bundle {
-  val inst     = new FetchInst
-  val sequence = UInt(cacheCfg.fetchSequenceBits.W)
-  val epoch    = UInt(cacheCfg.fetchEpochBits.W)
+class FetchQueueEntry(cfg: FrontendConfig) extends Bundle {
+  val inst     = new FetchInstPayload(cfg.payload)
+  val sequence = UInt(cfg.fetchSequenceBits.W)
+  val epoch    = UInt(cfg.fetchEpochBits.W)
 }
 
-class FetchQueueEnqueue(cacheCfg: ICacheConfig, enqWidth: Int = 4) extends Bundle {
+class FetchQueueEnqueue(cfg: FrontendConfig, enqWidth: Int = 4) extends Bundle {
   require(enqWidth > 0, "FetchQueue enqueue width must be positive")
 
-  val insts = Vec(enqWidth, Valid(new FetchQueueEntry(cacheCfg)))
+  val insts = Vec(enqWidth, Valid(new FetchQueueEntry(cfg)))
+}
+
+class FetchQueueOrderBoundary(cfg: FrontendConfig) extends Bundle {
+  val sequence    = UInt(cfg.fetchSequenceBits.W)
+  val instOrdinal = UInt(cfg.ftqInstCountBits.W)
 }
 
 class FetchQueue(
-  cacheCfg: ICacheConfig = ICacheConfig(),
+  cfg:      FrontendConfig = FrontendConfig(),
   depth:    Int = 32,
   enqWidth: Int = 4)
     extends Module {
@@ -32,15 +37,17 @@ class FetchQueue(
   private val enqCountWidth = log2Ceil(enqWidth + 1)
 
   val io = IO(new Bundle {
-    val flush        = Input(Bool())
-    val currentEpoch = Input(UInt(cacheCfg.fetchEpochBits.W))
-    val enq          = Flipped(Decoupled(new FetchQueueEnqueue(cacheCfg, enqWidth)))
-    val out          = Decoupled(new FetchPacket)
+    val flush          = Input(Bool())
+    val pruneFrom      = Flipped(Valid(UInt(cfg.fetchSequenceBits.W)))
+    val preserveBefore = Flipped(Valid(new FetchQueueOrderBoundary(cfg)))
+    val currentEpoch   = Input(UInt(cfg.fetchEpochBits.W))
+    val enq            = Flipped(Decoupled(new FetchQueueEnqueue(cfg, enqWidth)))
+    val out            = Decoupled(new FetchPacket(cfg.payload))
 
-    val count     = Output(UInt(countWidth.W))
-    val freeCount = Output(UInt(countWidth.W))
-    val empty     = Output(Bool())
-    val full      = Output(Bool())
+    val count        = Output(UInt(countWidth.W))
+    val freeCount    = Output(UInt(countWidth.W))
+    val empty        = Output(Bool())
+    val full         = Output(Bool())
     val enqueueWidth = Output(UInt(enqCountWidth.W))
     val dequeueWidth = Output(UInt(countWidth.W))
   })
@@ -49,15 +56,19 @@ class FetchQueue(
     (ptr + increment)(ptrWidth - 1, 0)
 
   private def sequenceAfter(next: UInt, previous: UInt): Bool = {
-    val distance = (next - previous)(cacheCfg.fetchSequenceBits - 1, 0)
-    next =/= previous && !distance(cacheCfg.fetchSequenceBits - 1)
+    val distance = (next - previous)(cfg.fetchSequenceBits - 1, 0)
+    next =/= previous && !distance(cfg.fetchSequenceBits - 1)
   }
 
   private def entryAfter(next: FetchQueueEntry, previous: FetchQueueEntry): Bool =
     sequenceAfter(next.sequence, previous.sequence) ||
       (next.sequence === previous.sequence && next.inst.pc > previous.inst.pc)
 
-  private val entries  = Reg(Vec(depth, new FetchQueueEntry(cacheCfg)))
+  private def entryBefore(entry: FetchQueueEntry, boundary: FetchQueueOrderBoundary): Bool =
+    sequenceAfter(boundary.sequence, entry.sequence) ||
+      (entry.sequence === boundary.sequence && entry.inst.ftqInstOrdinal < boundary.instOrdinal)
+
+  private val entries  = Reg(Vec(depth, new FetchQueueEntry(cfg)))
   private val readPtr  = RegInit(0.U(ptrWidth.W))
   private val writePtr = RegInit(0.U(ptrWidth.W))
   private val count    = RegInit(0.U(countWidth.W))
@@ -65,22 +76,35 @@ class FetchQueue(
   private val empty = count === 0.U
   private val full  = count === depth.U
 
-  private val headEntry   = entries(readPtr)
-  private val secondEntry = entries(ptrAdd(readPtr, 1.U(ptrWidth.W)))
-  private val headLive    = !empty && headEntry.epoch === io.currentEpoch
-  private val secondLive  = headLive && count >= deqWidth.U && secondEntry.epoch === io.currentEpoch
+  private val headEntry        = entries(readPtr)
+  private val secondEntry      = entries(ptrAdd(readPtr, 1.U(ptrWidth.W)))
+  private val queuedHeadLive   = !empty && headEntry.epoch === io.currentEpoch
+  private val queuedSecondLive = queuedHeadLive && count >= deqWidth.U && secondEntry.epoch === io.currentEpoch
+  private val bypassHeadLive   = empty && io.enq.valid && io.enq.bits.insts(0).valid &&
+    io.enq.bits.insts(0).bits.epoch === io.currentEpoch
+  private val bypassSecondLive = if (enqWidth > 1) {
+    bypassHeadLive && io.enq.bits.insts(1).valid && io.enq.bits.insts(1).bits.epoch === io.currentEpoch
+  } else {
+    false.B
+  }
+  private val outputHeadLive   = queuedHeadLive || bypassHeadLive
+  private val outputSecondLive = queuedSecondLive || bypassSecondLive
 
-  io.out.valid := !io.flush && headLive
-  io.out.bits  := 0.U.asTypeOf(new FetchPacket)
-  io.out.bits.insts(0).valid := !io.flush && headLive
-  io.out.bits.insts(0).bits  := headEntry.inst
-  io.out.bits.insts(1).valid := !io.flush && secondLive
-  io.out.bits.insts(1).bits  := secondEntry.inst
+  io.out.valid               := !io.flush && !io.pruneFrom.valid && outputHeadLive
+  io.out.bits                := 0.U.asTypeOf(new FetchPacket(cfg.payload))
+  io.out.bits.insts(0).valid := !io.flush && !io.pruneFrom.valid && outputHeadLive
+  io.out.bits.insts(0).bits  := Mux(empty, io.enq.bits.insts(0).bits.inst, headEntry.inst)
+  io.out.bits.insts(1).valid := !io.flush && !io.pruneFrom.valid && outputSecondLive
+  if (enqWidth > 1) {
+    io.out.bits.insts(1).bits := Mux(empty, io.enq.bits.insts(1).bits.inst, secondEntry.inst)
+  } else {
+    io.out.bits.insts(1).bits := secondEntry.inst
+  }
 
   private val dequeueCount = Wire(UInt(countWidth.W))
   dequeueCount := Mux(
     io.out.fire,
-    Mux(secondLive, deqWidth.U(countWidth.W), 1.U(countWidth.W)),
+    Mux(outputSecondLive, deqWidth.U(countWidth.W), 1.U(countWidth.W)),
     0.U(countWidth.W)
   )
 
@@ -91,23 +115,33 @@ class FetchQueue(
   enqueueCountWide := enqueueCount
   private val freeAfterDequeue = depth.U(countWidth.W) - count + dequeueCount
 
-  io.enq.ready := !io.flush && freeAfterDequeue >= enqueueCountWide
+  io.enq.ready := !io.flush && !io.pruneFrom.valid && freeAfterDequeue >= enqueueCountWide
 
-  private val enqueueFire = io.enq.fire
-  private val dequeueFire = io.out.fire
+  private val enqueueFire          = io.enq.fire
+  private val dequeueFire          = io.out.fire
   private val acceptedEnqueueCount = Wire(UInt(enqCountWidth.W))
   acceptedEnqueueCount := Mux(enqueueFire, enqueueCount, 0.U(enqCountWidth.W))
   private val acceptedEnqueueCountWide = Wire(UInt(countWidth.W))
   acceptedEnqueueCountWide := acceptedEnqueueCount
 
-  io.count     := count
-  io.freeCount := depth.U(countWidth.W) - count
-  io.empty     := empty
-  io.full      := full
+  io.count        := count
+  io.freeCount    := depth.U(countWidth.W) - count
+  io.empty        := empty
+  io.full         := full
   io.enqueueWidth := Mux(enqueueFire, enqueueCount, 0.U)
   io.dequeueWidth := dequeueCount
 
-  val tailEntry = entries(ptrAdd(readPtr, count - 1.U))
+  val tailEntry   = entries(ptrAdd(readPtr, count - 1.U))
+  val keepOnPrune = VecInit((0 until depth).map { offset =>
+    val slot = entries(ptrAdd(readPtr, offset.U(ptrWidth.W)))
+    offset.U(countWidth.W) < count && !sequenceAfter(slot.sequence, io.pruneFrom.bits) &&
+    slot.sequence =/= io.pruneFrom.bits
+  })
+  val keepCount   = PopCount(keepOnPrune)
+
+  when(io.preserveBefore.valid) {
+    assert(empty || entryBefore(tailEntry, io.preserveBefore.bits))
+  }
 
   when(enqueueFire) {
     assert(enqueueCount =/= 0.U)
@@ -127,6 +161,11 @@ class FetchQueue(
     }
   }
 
+  when(empty && io.out.fire) {
+    assert(io.enq.fire)
+    assert(dequeueCount <= acceptedEnqueueCountWide)
+  }
+
   for (offset <- 0 until depth) {
     val slot = entries(ptrAdd(readPtr, offset.U(ptrWidth.W)))
     when(!io.flush && offset.U(countWidth.W) < count) {
@@ -142,6 +181,9 @@ class FetchQueue(
     readPtr  := 0.U
     writePtr := 0.U
     count    := 0.U
+  }.elsewhen(io.pruneFrom.valid) {
+    writePtr := ptrAdd(readPtr, keepCount)
+    count    := keepCount
   }.otherwise {
     when(enqueueFire) {
       for (lane <- 0 until enqWidth) {
@@ -161,6 +203,10 @@ class FetchQueue(
 
   assert(count <= depth.U)
   assert(dequeueCount <= deqWidth.U)
+  when(io.pruneFrom.valid) {
+    assert(!io.out.fire)
+    assert(!io.enq.fire)
+  }
   when(enqueueFire) {
     assert(enqueueCountWide <= freeAfterDequeue)
   }

@@ -17,17 +17,17 @@ class ICacheRefillMmu(
     val csrStatus = Input(new CsrStatus(backendCfg))
 
     val refillReq  = Flipped(Decoupled(new ICacheRefillReq(cacheCfg.addrWidth)))
-    val refillResp = Decoupled(new ICacheRefillResp(cacheCfg.fetchBytes))
+    val refillResp = Decoupled(new ICacheRefillResp(cacheCfg.lineBytes))
 
     val physReq  = Decoupled(new ICacheRefillReq(cacheCfg.addrWidth))
-    val physResp = Flipped(Decoupled(new ICacheRefillResp(cacheCfg.fetchBytes)))
+    val physResp = Flipped(Decoupled(new ICacheRefillResp(cacheCfg.lineBytes)))
 
     val ptwReq  = Decoupled(new DataMemReq(backendCfg.addrWidth, backendCfg.dataWidth))
     val ptwResp = Flipped(Decoupled(new DataMemResp(backendCfg.dataWidth)))
   })
 
   private val sIdle :: sBareReq :: sBareResp :: sTranslate :: sRefillReq :: sRefillResp :: sFaultResp :: Nil = Enum(7)
-  private val state = RegInit(sIdle)
+  private val state                                                                                          = RegInit(sIdle)
 
   private val bareReqReg   = Reg(new ICacheRefillReq(cacheCfg.addrWidth))
   private val paddrReg     = Reg(UInt(cacheCfg.addrWidth.W))
@@ -35,11 +35,13 @@ class ICacheRefillMmu(
 
   private val translator = Module(new Sv32Translator(backendCfg))
 
-  private val bareMode = io.csrStatus.priv.mode === PrivMode.M || io.csrStatus.satp(31) === 0.U
-  private val bareReq  = state === sIdle && io.refillReq.valid && bareMode
+  private val bareMode         = io.csrStatus.priv.mode === PrivMode.M || io.csrStatus.satp(31) === 0.U
+  private val responseTurnover = io.refillResp.fire
+  private val requestWindow    = state === sIdle || responseTurnover
+  private val bareReq          = requestWindow && io.refillReq.valid && bareMode
 
-  translator.io.flush           := false.B
-  translator.io.req.valid        := state === sIdle && io.refillReq.valid && !bareMode
+  translator.io.flush            := false.B
+  translator.io.req.valid        := requestWindow && io.refillReq.valid && !bareMode
   translator.io.req.bits         := 0.U.asTypeOf(new MmuTranslateReq(backendCfg))
   translator.io.req.bits.vaddr   := io.refillReq.bits.addr
   translator.io.req.bits.access  := MmuAccessType.fetch
@@ -48,16 +50,16 @@ class ICacheRefillMmu(
   translator.io.req.bits.satp    := io.csrStatus.satp
   translator.io.resp.ready       := state === sTranslate
 
-  io.refillReq.ready := state === sIdle && Mux(bareMode, true.B, translator.io.req.ready)
+  io.refillReq.ready := requestWindow && Mux(bareMode, true.B, translator.io.req.ready)
 
-  io.ptwReq.valid              := translator.io.memReq.valid
-  io.ptwReq.bits               := translator.io.memReq.bits
-  translator.io.memReq.ready   := io.ptwReq.ready
-  translator.io.memResp.valid  := io.ptwResp.valid
-  translator.io.memResp.bits   := io.ptwResp.bits
-  io.ptwResp.ready             := translator.io.memResp.ready
+  io.ptwReq.valid             := translator.io.memReq.valid
+  io.ptwReq.bits              := translator.io.memReq.bits
+  translator.io.memReq.ready  := io.ptwReq.ready
+  translator.io.memResp.valid := io.ptwResp.valid
+  translator.io.memResp.bits  := io.ptwResp.bits
+  io.ptwResp.ready            := translator.io.memResp.ready
 
-  io.physReq.valid := state === sBareReq || state === sRefillReq || bareReq
+  io.physReq.valid     := state === sBareReq || state === sRefillReq || bareReq
   io.physReq.bits.addr := Mux(
     bareReq,
     io.refillReq.bits.addr,
@@ -81,18 +83,22 @@ class ICacheRefillMmu(
     out
   }
 
+  private def acceptRefillRequest(): Unit = {
+    when(bareMode) {
+      when(io.physReq.fire) {
+        state := sBareResp
+      }.otherwise {
+        bareReqReg := io.refillReq.bits
+        state      := sBareReq
+      }
+    }.otherwise {
+      state := sTranslate
+    }
+  }
+
   when(state === sIdle) {
     when(io.refillReq.fire) {
-      when(bareMode) {
-        when(io.physReq.fire) {
-          state := sBareResp
-        }.otherwise {
-          bareReqReg := io.refillReq.bits
-          state      := sBareReq
-        }
-      }.otherwise {
-        state := sTranslate
-      }
+      acceptRefillRequest()
     }
   }.elsewhen(state === sBareReq) {
     when(io.physReq.fire) {
@@ -100,7 +106,11 @@ class ICacheRefillMmu(
     }
   }.elsewhen(state === sBareResp) {
     when(io.refillResp.fire) {
-      state := sIdle
+      when(io.refillReq.fire) {
+        acceptRefillRequest()
+      }.otherwise {
+        state := sIdle
+      }
     }
   }.elsewhen(state === sTranslate) {
     when(translator.io.resp.fire) {
@@ -118,25 +128,33 @@ class ICacheRefillMmu(
     }
   }.elsewhen(state === sRefillResp) {
     when(io.refillResp.fire) {
-      state := sIdle
+      when(io.refillReq.fire) {
+        acceptRefillRequest()
+      }.otherwise {
+        state := sIdle
+      }
     }
   }.otherwise {
     when(io.refillResp.fire) {
-      state := sIdle
+      when(io.refillReq.fire) {
+        acceptRefillRequest()
+      }.otherwise {
+        state := sIdle
+      }
     }
   }
 
-  private val refillOwned = RegInit(false.B)
-  private val bareAcceptedWithoutPhys = state === sIdle && io.refillReq.fire && bareMode && !io.physReq.fire
+  private val refillOwned             = RegInit(false.B)
+  private val bareAcceptedWithoutPhys = io.refillReq.fire && bareMode && !io.physReq.fire
   private val bareBufferedAfterAccept = RegNext(bareAcceptedWithoutPhys, false.B)
 
   when(io.refillReq.fire) {
-    assert(!refillOwned)
+    assert(!refillOwned || io.refillResp.fire)
   }
   when(io.refillResp.fire) {
     assert(refillOwned)
   }
-  refillOwned := (refillOwned || io.refillReq.fire) && !io.refillResp.fire
+  refillOwned := (refillOwned && !io.refillResp.fire) || io.refillReq.fire
 
   when(bareBufferedAfterAccept) {
     assert(state === sBareReq)
@@ -147,7 +165,7 @@ class ICacheRefillMmu(
   when(io.physResp.valid) {
     assert(state === sBareResp || state === sRefillResp)
   }
-  when(state === sIdle && io.refillReq.fire && bareMode) {
+  when(io.refillReq.fire && bareMode) {
     assert(io.physReq.valid)
   }
 }

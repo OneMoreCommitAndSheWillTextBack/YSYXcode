@@ -11,20 +11,21 @@ import top.dpi.NpcIssueQueuePerf
 
 class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val enq           = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
-    val wakeup        = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
-    val commitWakeup  = Input(Vec(cfg.commitWidth, new IssueWakeup(cfg)))
-    val intStatus     = Input(Vec(cfg.intIssueWidth, new IssuePortStatus))
-    val memStatus     = Input(new IssuePortStatus)
-    val robHead       = Input(UInt(cfg.robIdxWidth.W))
-    val unresolvedAmo = Input(Vec(cfg.robEntries, Bool()))
-    val storeQuery    = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
-    val csrQuery      = Vec(cfg.issueQueueEntries, Flipped(new CsrTrackerQuery(cfg)))
-    val intIssue      = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
-    val memIssue      = Decoupled(new IssuePacket(cfg))
-    val flush         = Input(Bool())
-    val recover       = Input(new RobRecovery(cfg.robIdxWidth))
-    val hold          = Input(Bool())
+    val enq                 = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
+    val wakeup              = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
+    val commitWakeup        = Input(Vec(cfg.commitWidth, new IssueWakeup(cfg)))
+    val intStatus           = Input(Vec(cfg.intIssueWidth, new IssuePortStatus))
+    val memStatus           = Input(new IssuePortStatus)
+    val robHead             = Input(UInt(cfg.robIdxWidth.W))
+    val unresolvedAmo       = Input(Vec(cfg.robEntries, Bool()))
+    val storeQuery          = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
+    val csrQuery            = Vec(cfg.issueQueueEntries, Flipped(new CsrTrackerQuery(cfg)))
+    val intIssue            = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
+    val memIssue            = Decoupled(new IssuePacket(cfg))
+    val flush               = Input(Bool())
+    val recover             = Input(new RobRecovery(cfg.robIdxWidth))
+    val hold                = Input(Bool())
+    val robDoneOperandCount = Input(UInt(32.W))
   })
 
   private val entries    = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
@@ -32,6 +33,14 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   private val intSelect  = Seq.fill(cfg.intIssueWidth)(Module(new IssueSelect(cfg)))
   private val memSelect  = Module(new IssueSelect(cfg))
   private val allWakeups = io.wakeup ++ io.commitWakeup
+
+  private val readyEntry             = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val olderStoreBlockedEntry = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val amoBlockedEntry        = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val csrBlockedEntry        = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val cfiBlockedEntry        = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val lsuUnavailableEntry    = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val fuUnavailableEntry     = Wire(Vec(cfg.issueQueueEntries, Bool()))
 
   intSelect.foreach(_.io.robHead := io.robHead)
   memSelect.io.robHead := io.robHead
@@ -80,6 +89,17 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       i
     ).needsExecution && ready && !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked &&
       !cfiBlocked && !io.flush && !io.recover.valid && !io.hold
+    val orderingClear         = !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked && !cfiBlocked
+    val anyIntFuAvailable     = VecInit(io.intStatus.map(status => fuAvailable(status, entries(i).fuType))).asUInt.orR
+
+    readyEntry(i)             := valid(i) && entries(i).needsExecution && ready
+    olderStoreBlockedEntry(i) := readyEntry(i) && loadBlocked
+    amoBlockedEntry(i)        := readyEntry(i) && !loadBlocked && (amoOrderBlocked || amoBlocked)
+    csrBlockedEntry(i)        := readyEntry(i) && !loadBlocked && !amoOrderBlocked && !amoBlocked && csrBlocked
+    cfiBlockedEntry(i)        := readyEntry(i) && !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked && cfiBlocked
+    lsuUnavailableEntry(i)    := readyEntry(i) && orderingClear && memPipe &&
+      (!fuAvailable(io.memStatus, entries(i).fuType) || !memOperationAvailable)
+    fuUnavailableEntry(i)     := readyEntry(i) && orderingClear && !memPipe && !anyIntFuAvailable
 
     io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad
     io.storeQuery(i).robIdx := entries(i).robIdx
@@ -125,26 +145,68 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     free(i)      := !valid(i) || issueFire(i)
   }
 
-  private val issueCountThisCycle = PopCount(io.intIssue.map(_.fire) :+ io.memIssue.fire)
-  private val occupancy           = PopCount(valid)
-  private val hasReadyEntry       = VecInit(
+  private val issueCountThisCycle       = PopCount(io.intIssue.map(_.fire) :+ io.memIssue.fire)
+  private val occupancy                 = PopCount(valid)
+  private val hasReadyEntry             = VecInit(
     (0 until cfg.issueQueueEntries).map(i =>
       valid(i) && entries(i).needsExecution && entries(i).src1.ready && entries(i).src2.ready
     )
   ).asUInt.orR
-  private val hasOperandBlocked   = VecInit(
+  private val hasOperandBlocked         = VecInit(
     (0 until cfg.issueQueueEntries).map(i =>
       valid(i) && entries(i).needsExecution && (!entries(i).src1.ready || !entries(i).src2.ready)
     )
   ).asUInt.orR
-  private val noIssue             = issueCountThisCycle === 0.U
+  private val noIssue                   = issueCountThisCycle === 0.U
+  private val blockReady                = noIssue && hasReadyEntry
+  private val blockOperand              = noIssue && !hasReadyEntry && hasOperandBlocked
+  private val selectedDownstreamBlocked =
+    io.intIssue.map(port => port.valid && !port.ready).reduce(_ || _) || (io.memIssue.valid && !io.memIssue.ready)
+
+  private val blockReasonNone           = 0.U(4.W)
+  private val blockReasonDownstream     = 1.U(4.W)
+  private val blockReasonOlderStore     = 2.U(4.W)
+  private val blockReasonAmoOrder       = 3.U(4.W)
+  private val blockReasonCsrOrder       = 4.U(4.W)
+  private val blockReasonCfiOrder       = 5.U(4.W)
+  private val blockReasonLsuUnavailable = 6.U(4.W)
+  private val blockReasonFuUnavailable  = 7.U(4.W)
+  private val blockReasonOther          = 8.U(4.W)
+  private val blockReason               = WireDefault(blockReasonNone)
+
+  when(blockReady) {
+    when(selectedDownstreamBlocked) {
+      blockReason := blockReasonDownstream
+    }.elsewhen(olderStoreBlockedEntry.asUInt.orR) {
+      blockReason := blockReasonOlderStore
+    }.elsewhen(amoBlockedEntry.asUInt.orR) {
+      blockReason := blockReasonAmoOrder
+    }.elsewhen(csrBlockedEntry.asUInt.orR) {
+      blockReason := blockReasonCsrOrder
+    }.elsewhen(cfiBlockedEntry.asUInt.orR) {
+      blockReason := blockReasonCfiOrder
+    }.elsewhen(lsuUnavailableEntry.asUInt.orR) {
+      blockReason := blockReasonLsuUnavailable
+    }.elsewhen(fuUnavailableEntry.asUInt.orR) {
+      blockReason := blockReasonFuUnavailable
+    }.otherwise {
+      blockReason := blockReasonOther
+    }
+  }
+
+  private val perfEnable = !reset.asBool && !io.flush && !io.recover.valid && !io.hold
+  when(perfEnable) {
+    assert(blockReady === (blockReason =/= blockReasonNone))
+  }
 
   NpcIssueQueuePerf.callWithEnable(
-    !reset.asBool && !io.flush && !io.recover.valid && !io.hold,
+    perfEnable,
     issueCountThisCycle.pad(32),
     occupancy.pad(32),
-    noIssue && hasReadyEntry,
-    noIssue && !hasReadyEntry && hasOperandBlocked
+    blockReady,
+    blockOperand,
+    blockReason.pad(32),
+    io.robDoneOperandCount
   )
 
   private val freeCount = PopCount(free)

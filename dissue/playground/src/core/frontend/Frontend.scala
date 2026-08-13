@@ -1,73 +1,65 @@
 package top.core.frontend
 
 import chisel3._
-import chisel3.util.{Cat, Decoupled, MuxCase, Valid}
-import top.core.backend.csr.CsrStatus
-import top.core.bundle.{DataMemReq, DataMemResp, FrontendPerfEvent}
+import chisel3.util.{Decoupled, MuxCase, Valid}
 import top.config.{BackendConfig, FrontendConfig}
+import top.core.backend.csr.CsrStatus
+import top.core.bundle.{CfiRecoveryPayload, CfiType, DataMemReq, DataMemResp}
 import top.core.frontend.Bpu.Bpu
-import top.core.frontend.bundle.{
-  BpuUpdate,
-  ICacheRefillReq,
-  ICacheRefillResp,
-  PcRedirect,
-  PredictorConstants,
-  PredictorRecovery
-}
-import top.core.frontend.ifetch.{FetchPacket, FetchWidth, IFetch}
-import top.core.frontend.pcgen.PCGen
+import top.core.frontend.bundle._
 import top.core.frontend.icache._
-import top.core.trace.PipelineTraceEvent
-import top.sim.FrontendPerfBridge
+import top.core.frontend.ifetch.{FetchPacket, FetchQueue, FetchTargetQueue, FetchWidth, IFetch}
+import top.core.frontend.pcgen.FetchAddressGenerator
+import top.core.trace.{FrontendTrace, FrontendTraceSample, IfuTrace, PipelineTraceEvent, TraceTap}
 
 class Frontend(
   resetVector: BigInt = BigInt("80000000", 16),
-  cfg:         FrontendConfig = FrontendConfig())
+  cfg:         FrontendConfig = FrontendConfig(),
+  backendCfg:  BackendConfig = BackendConfig(),
+  enableTrace: Boolean = true)
     extends Module {
-  private val backendCfg = BackendConfig(addrWidth = cfg.addrWidth)
+  require(backendCfg.addrWidth == cfg.addrWidth, "frontend and backend address widths must match")
+  require(backendCfg.frontendPayload == cfg.payload, "frontend and backend payload widths must match")
+  require(cfg.backendWidth == backendCfg.issueWidth, "frontend backendWidth must match backend issue width")
+  require(cfg.frontendWidth == FetchWidth.frontend, "frontendWidth must match the implemented enqueue width")
   require(
     backendCfg.commitWidth == PredictorConstants.commitUpdateWidth,
     "BPU update width must match backend commit width"
   )
 
   val io = IO(new Bundle {
-    val trapRedirect      = Input(new PcRedirect)
-    val branchRedirect    = Input(new PcRedirect)
-    val predRedirect      = Input(new PcRedirect)
-    val bpuUpdates        = Input(Vec(PredictorConstants.commitUpdateWidth, Valid(new BpuUpdate(cfg.bpu))))
-    val predictorRecovery = Input(Valid(new PredictorRecovery(cfg.addrWidth)))
+    val trapRedirect   = Input(new PcRedirect)
+    val branchRedirect = Input(new PcRedirect)
+    val predRedirect   = Input(new PcRedirect)
+    val cfiRecovery    = Input(Valid(new CfiRecoveryPayload(cfg.payload)))
+    val ftqRetire      = Input(Vec(cfg.backendWidth, Valid(new FtqRetire(cfg))))
 
     val pc    = Output(UInt(cfg.addrWidth.W))
-    val fetch = Decoupled(new FetchPacket)
+    val fetch = Decoupled(new FetchPacket(cfg.payload))
 
     val cacheRefillReq  = Decoupled(new ICacheRefillReq(cfg.addrWidth))
-    val cacheRefillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
+    val cacheRefillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.icacheLineBytes)))
 
     val ptwReq           = Decoupled(new DataMemReq(backendCfg.addrWidth, backendCfg.dataWidth))
     val ptwResp          = Flipped(Decoupled(new DataMemResp(backendCfg.dataWidth)))
     val csrStatus        = Input(new CsrStatus(backendCfg))
     val icacheInvalidate = Input(Bool())
     val pipelineTrace    = Output(Vec(FetchWidth.frontend, Valid(new PipelineTraceEvent)))
+    val perfTrace        = Output(new FrontendTraceSample(cfg))
   })
 
-  val pcGen     = Module(
-    new PCGen(
-      resetVector = resetVector,
-      addrWidth = cfg.addrWidth,
-      fetchBytes = cfg.fetchBytes,
-      maxAdvanceBlocks = cfg.icache.fetchGroupBlocks
-    )
-  )
-  val ifetch    = Module(new IFetch(cfg.icache, cfg.ifetch))
-  val iCache    = Module(new ICache(cfg.icache))
-  val refillMmu = Module(new ICacheRefillMmu(cfg.icache, backendCfg))
-  val bpu       = Module(new Bpu(cfg.bpu))
-  val perf      = Module(new FrontendPerfBridge)
+  val addressGen = Module(new FetchAddressGenerator(resetVector, cfg))
+  val bpu        = Module(new Bpu(cfg, backendCfg.commitWidth))
+  val ftq        = Module(new FetchTargetQueue(cfg))
+  val iCache     = Module(new ICache(cfg))
+  val ifetch     = Module(new IFetch(cfg))
+  val fetchQueue = Module(new FetchQueue(cfg, cfg.ifetch.fetchQueueEntries, FetchWidth.frontend))
+  val refillMmu  = Module(new ICacheRefillMmu(cfg.icache, backendCfg))
 
   val redirect = Wire(new PcRedirect)
   redirect.valid := io.trapRedirect.valid || io.branchRedirect.valid || io.predRedirect.valid
   redirect.value := MuxCase(
-    0.U(cfg.addrWidth.W),
+    addressGen.io.currentPc,
     Seq(
       io.trapRedirect.valid   -> io.trapRedirect.value,
       io.branchRedirect.valid -> io.branchRedirect.value,
@@ -75,93 +67,104 @@ class Frontend(
     )
   )
 
-  val pcRedirect = Wire(new PcRedirect)
-  pcRedirect.valid := redirect.valid || ifetch.io.predRedirect.valid
-  pcRedirect.value := Mux(redirect.valid, redirect.value, ifetch.io.predRedirect.value)
-
-  pcGen.io.redirect      := pcRedirect
-  pcGen.io.advanceBlocks := ifetch.io.pcAdvanceBlocks
-
-  ifetch.io.redirect                := redirect
-  ifetch.io.flush                   := io.icacheInvalidate
-  ifetch.io.pc                      := pcGen.io.pc
-  ifetch.io.pred(0).valid           := bpu.io.pred.valid
-  ifetch.io.pred(0).taken           := bpu.io.pred.taken
-  ifetch.io.pred(0).target          := bpu.io.pred.target
-  ifetch.io.pred(0).cfiOffset       := bpu.io.pred.cfiOffset
-  ifetch.io.pred(0).cfiType         := bpu.io.pred.cfiType
-  ifetch.io.pred(1).valid           := bpu.io.predSecondary.valid
-  ifetch.io.pred(1).taken           := bpu.io.predSecondary.taken
-  ifetch.io.pred(1).target          := bpu.io.predSecondary.target
-  ifetch.io.pred(1).cfiOffset       := bpu.io.predSecondary.cfiOffset
-  ifetch.io.pred(1).cfiType         := bpu.io.predSecondary.cfiType
-  ifetch.io.rasTop                  := bpu.io.rasTop
-  ifetch.io.rasValid                := bpu.io.rasValid
-  ifetch.io.rasCheckpoint           := bpu.io.rasCheckpoint
-  ifetch.io.latePrediction          := bpu.io.latePrediction
-  ifetch.io.lateOverrideEnable      := cfg.bpu.enableLateOverride.B
-  ifetch.io.predictorRecovery.valid := io.predictorRecovery.valid
-  ifetch.io.predictorRecovery.bits  := io.predictorRecovery.bits.prediction
-
-  val firstBlockAddr = Cat(
-    pcGen.io.pc(cfg.addrWidth - 1, cfg.icache.offsetBits),
-    0.U(cfg.icache.offsetBits.W)
-  )
-  bpu.io.lookup.valid            := true.B
-  bpu.io.lookup.bits.pc          := pcGen.io.pc
-  bpu.io.lookupSecondary.valid   := true.B
-  bpu.io.lookupSecondary.bits.pc := firstBlockAddr + cfg.fetchBytes.U
-  for (lane <- 0 until PredictorConstants.commitUpdateWidth) {
-    bpu.io.update(lane) := io.bpuUpdates(lane)
+  val backendRecovery = Wire(Valid(new FrontendRecovery(cfg)))
+  backendRecovery               := 0.U.asTypeOf(backendRecovery)
+  backendRecovery.valid         := redirect.valid || io.icacheInvalidate
+  backendRecovery.bits.kind     := Mux(io.trapRedirect.valid, FrontendRecoveryKind.trap, FrontendRecoveryKind.backend)
+  backendRecovery.bits.targetPc := redirect.value
+  ftq.io.backendLookupTag       := io.cfiRecovery.bits.ftqTag
+  when(io.cfiRecovery.valid) {
+    backendRecovery.bits.kind                  := FrontendRecoveryKind.backend
+    backendRecovery.bits.tokenValid            := ftq.io.backendLookup.valid
+    backendRecovery.bits.token                 := ftq.io.backendLookup.bits
+    backendRecovery.bits.targetPc              := io.cfiRecovery.bits.actualNpc
+    backendRecovery.bits.cfiOrdinal            := io.cfiRecovery.bits.ftqInstOrdinal
+    backendRecovery.bits.survivingInsts        := io.cfiRecovery.bits.ftqInstOrdinal + 1.U
+    backendRecovery.bits.actualCfiValid        := io.cfiRecovery.bits.cfiType =/= CfiType.none
+    backendRecovery.bits.actualCfiType         := io.cfiRecovery.bits.cfiType
+    backendRecovery.bits.actualCfiPc           := io.cfiRecovery.bits.pc
+    backendRecovery.bits.actualInstLen         := io.cfiRecovery.bits.instLen
+    backendRecovery.bits.actualRasAction       := io.cfiRecovery.bits.rasAction
+    backendRecovery.bits.actualCanonicalReturn := io.cfiRecovery.bits.canonicalReturn
+    backendRecovery.bits.actualTaken           := io.cfiRecovery.bits.actualTaken
+    backendRecovery.bits.actualTarget          := io.cfiRecovery.bits.actualTarget
   }
-  bpu.io.lateQuery := ifetch.io.lateQuery
-  bpu.io.lateSpecUpdate := ifetch.io.lateSpecUpdate
-  bpu.io.rasSpecUpdate  := ifetch.io.rasSpecUpdate
-  
-  val localPredictorRecovery = Wire(Valid(new PredictorRecovery(cfg.addrWidth)))
-  localPredictorRecovery                   := 0.U.asTypeOf(Valid(new PredictorRecovery(cfg.addrWidth)))
-  localPredictorRecovery.valid             := ifetch.io.lateRecovery.valid
-  localPredictorRecovery.bits.prediction   := ifetch.io.lateRecovery.bits
-  localPredictorRecovery.bits.cfiType      := ifetch.io.lateRecovery.bits.cfiType
-  localPredictorRecovery.bits.actualTaken  := ifetch.io.lateRecovery.bits.specTaken
-  localPredictorRecovery.bits.actualTarget := ifetch.io.lateRecovery.bits.predictedTarget
 
-  val bpuRecovery = Wire(Valid(new PredictorRecovery(cfg.addrWidth)))
-  bpuRecovery        := localPredictorRecovery
-  when(io.predictorRecovery.valid) {
-    bpuRecovery                 := io.predictorRecovery
-    bpuRecovery.bits.prediction := ifetch.io.recoveryPrediction
-  }
-  bpu.io.rasRecovery := bpuRecovery
-  bpu.io.rasFlush    := io.icacheInvalidate || io.trapRedirect.valid || io.predRedirect.valid ||
-    (io.branchRedirect.valid && !io.predictorRecovery.valid)
+  val ifuRecovery = Wire(Valid(new FrontendRecovery(cfg)))
+  ifuRecovery                            := 0.U.asTypeOf(ifuRecovery)
+  ifuRecovery.valid                      := ifetch.io.correction.valid
+  ifuRecovery.bits.kind                  := FrontendRecoveryKind.ifuCorrection
+  ifuRecovery.bits.tokenValid            := true.B
+  ifuRecovery.bits.token                 := ifetch.io.correction.bits.token
+  ifuRecovery.bits.targetPc              := ifetch.io.correction.bits.redirectTarget
+  ifuRecovery.bits.cfiOrdinal            := ifetch.io.correction.bits.cfiOrdinal
+  ifuRecovery.bits.survivingInsts        := ifetch.io.correction.bits.emittedInsts
+  ifuRecovery.bits.actualCfiValid        := ifetch.io.correction.bits.cfi.valid &&
+    ifetch.io.correction.bits.cfi.cfiType === CfiType.jal
+  ifuRecovery.bits.actualCfiType         := ifetch.io.correction.bits.cfi.cfiType
+  ifuRecovery.bits.actualCfiPc           := ifetch.io.correction.bits.cfiPc
+  ifuRecovery.bits.actualInstLen         := ifetch.io.correction.bits.cfiInstLen
+  ifuRecovery.bits.actualRasAction       := ifetch.io.correction.bits.cfi.rasAction
+  ifuRecovery.bits.actualCanonicalReturn := ifetch.io.correction.bits.cfi.canonicalReturn
+  ifuRecovery.bits.actualTaken           := ifuRecovery.bits.actualCfiValid
+  ifuRecovery.bits.actualTarget          := ifetch.io.correction.bits.cfi.directTarget
+  ifuRecovery.bits.dropTargetEntry       := false.B
 
-  ifetch.io.icacheReq <> iCache.io.req
+  val bpuRecovery = Wire(Valid(new FrontendRecovery(cfg)))
+  bpuRecovery                 := 0.U.asTypeOf(bpuRecovery)
+  bpuRecovery.valid           := bpu.io.finalResult.valid && bpu.io.finalResult.bits.overrideFastPath
+  bpuRecovery.bits.kind       := FrontendRecoveryKind.bpuOverride
+  bpuRecovery.bits.tokenValid := true.B
+  bpuRecovery.bits.token      := bpu.io.finalResult.bits.token
+  bpuRecovery.bits.targetPc   := bpu.io.finalResult.bits.finalNextPc
+
+  val selectedRecovery = FrontendRecoveryArbiter.select(backendRecovery, ifuRecovery, bpuRecovery, cfg)
+  val dataRecovery     = Wire(Valid(new FrontendRecovery(cfg)))
+  dataRecovery       := selectedRecovery
+  dataRecovery.valid := selectedRecovery.valid && selectedRecovery.bits.kind =/= FrontendRecoveryKind.bpuOverride
+  val dataFlush             = dataRecovery.valid || io.icacheInvalidate
+  val ifuCorrectionSelected = selectedRecovery.valid &&
+    selectedRecovery.bits.kind === FrontendRecoveryKind.ifuCorrection
+  // The correcting packet has not entered the FetchQueue, so every queued instruction is an older, valid prefix.
+  // Preserve that prefix while the cache-side pipeline redirects and refills behind it.
+  val fetchQueueFlush       = dataFlush && !ifuCorrectionSelected
+
+  addressGen.io.fastResult := bpu.io.fastResult
+  addressGen.io.recovery   := selectedRecovery
+  ftq.io.recovery          := selectedRecovery
+  bpu.io.recover           := ftq.io.bpuRecover
+  iCache.io.recovery       := dataRecovery
+  iCache.io.invalidate     := io.icacheInvalidate
+
+  val s0JoinReady = ftq.io.reserve.ready && bpu.io.req.ready && !selectedRecovery.valid
+  addressGen.io.addressReq.ready := s0JoinReady
+  ftq.io.reserve.valid           := addressGen.io.addressReq.valid && bpu.io.req.ready && !selectedRecovery.valid
+  ftq.io.reserve.bits.startPc    := addressGen.io.addressReq.bits.startPc
+  bpu.io.req.valid               := addressGen.io.addressReq.valid && ftq.io.reserve.ready && !selectedRecovery.valid
+  bpu.io.req.bits.token          := ftq.io.reserveToken
+  bpu.io.req.bits.startPc        := addressGen.io.addressReq.bits.startPc
+
+  ftq.io.writeFast  := bpu.io.fastResult
+  ftq.io.writeFinal := bpu.io.finalResult
+  bpu.io.train      := ftq.io.train
+
+  iCache.io.req.valid      := ftq.io.fetchTarget.valid
+  iCache.io.req.bits       := ICacheFetchReq.fromFtqTarget(ftq.io.fetchTarget.bits, cfg)
+  ftq.io.fetchTarget.ready := iCache.io.req.ready
+
+  ifetch.io.flush                 := dataFlush
+  ifetch.io.acceptCorrection      := selectedRecovery.valid &&
+    selectedRecovery.bits.kind === FrontendRecoveryKind.ifuCorrection
   ifetch.io.icacheResp <> iCache.io.resp
-  ifetch.io.icacheAcceptedBlocks := iCache.io.acceptedBlocks
-  iCache.io.invalidate           := io.icacheInvalidate
-  iCache.io.redirect             := ifetch.io.frontendRedirect
+  ftq.io.fetchComplete.valid      := iCache.io.resp.fire
+  ftq.io.fetchComplete.bits.token := iCache.io.resp.bits.token
 
-  private val redirectDuringMshr          = redirect.valid && iCache.io.perf.mshrActive && !io.icacheInvalidate
-  private val redirectMshrPending         = RegInit(false.B)
-  private val redirectMshrTarget          = Reg(UInt(cfg.addrWidth.W))
-  private val redirectTargetRequest       = iCache.io.req.fire &&
-    iCache.io.req.bits.blocks(0).bits.meta.control.pc === redirectMshrTarget
-  private val redirectDuringMshrTargetHit = redirectMshrPending && redirectTargetRequest &&
-    iCache.io.perf.hitUnderMiss
-
-  when(io.icacheInvalidate) {
-    redirectMshrPending := false.B
-  }.elsewhen(redirect.valid) {
-    redirectMshrPending := redirectDuringMshr
-    redirectMshrTarget  := redirect.value
-  }.elsewhen(redirectMshrPending && iCache.io.req.fire) {
-    redirectMshrPending := false.B
-  }
-
-  when(redirectMshrPending && iCache.io.req.fire) {
-    assert(redirectTargetRequest)
-  }
+  ftq.io.blockLookupToken   := ifetch.io.blockLookupToken
+  ifetch.io.blockLookup     := ftq.io.blockLookup
+  ftq.io.alignLookupToken   := ifetch.io.alignLookupToken
+  ifetch.io.alignLookup     := ftq.io.alignLookup
+  ftq.io.checkerLookupToken := ifetch.io.checkerLookupToken
+  ifetch.io.checkerLookup   := ftq.io.checkerLookup
 
   refillMmu.io.csrStatus     := io.csrStatus
   iCache.io.refillReq <> refillMmu.io.refillReq
@@ -175,56 +178,96 @@ class Frontend(
   refillMmu.io.ptwResp.bits  := io.ptwResp.bits
   io.ptwResp.ready           := refillMmu.io.ptwResp.ready
 
-  io.pc := pcGen.io.pc
-  io.fetch <> ifetch.io.fetch
-  io.pipelineTrace := ifetch.io.pipelineTrace
+  val fetchQueueEpoch = RegInit(0.U(cfg.fetchEpochBits.W))
+  when(fetchQueueFlush) {
+    fetchQueueEpoch := fetchQueueEpoch +% 1.U
+  }
+  fetchQueue.io.flush := fetchQueueFlush
+  fetchQueue.io.pruneFrom.valid                 := selectedRecovery.valid &&
+    selectedRecovery.bits.kind === FrontendRecoveryKind.bpuOverride && ftq.io.recoverySequence.valid
+  fetchQueue.io.pruneFrom.bits                  := ftq.io.recoverySequence.bits
+  fetchQueue.io.preserveBefore.valid            := ifuCorrectionSelected && ftq.io.recoverySequence.valid
+  fetchQueue.io.preserveBefore.bits.sequence    := ftq.io.recoverySequence.bits
+  fetchQueue.io.preserveBefore.bits.instOrdinal := selectedRecovery.bits.cfiOrdinal
+  fetchQueue.io.currentEpoch                    := fetchQueueEpoch
+  // Recovery owns the FTQ state transition for this cycle. Hold a completed IFU packet until the following cycle so
+  // its emission accounting cannot be lost behind that transition; BPU overrides still retain all buffered data.
+  val allowIfuEnqueue = !selectedRecovery.valid
+  fetchQueue.io.enq.valid := ifetch.io.fetchEnqueue.valid && allowIfuEnqueue
+  fetchQueue.io.enq.bits  := ifetch.io.fetchEnqueue.bits
+  for (lane <- 0 until FetchWidth.frontend) {
+    fetchQueue.io.enq.bits.insts(lane).bits.epoch := fetchQueueEpoch
+  }
+  ifetch.io.fetchEnqueue.ready := fetchQueue.io.enq.ready && allowIfuEnqueue
+  io.fetch <> fetchQueue.io.out
 
-  private val fetchQueueSupplyStarved =
-    ifetch.io.fetchQueueEmpty && io.fetch.ready && !pcRedirect.valid && !io.icacheInvalidate
+  ftq.io.ifuEmission := ifetch.io.emission
+  ftq.io.retire      := io.ftqRetire
 
-  private val perfEvents = Seq(
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheRequest, iCache.io.perf.request),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheHit, iCache.io.perf.hit),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheMiss, iCache.io.perf.miss),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheMissWaitCycle, iCache.io.perf.missWait),
-    FrontendPerfEvent.bit(FrontendPerfEvent.backendRedirect, redirect.valid),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheInvalidate, io.icacheInvalidate),
-    FrontendPerfEvent.bit(FrontendPerfEvent.frontendEmpty, io.fetch.ready && !io.fetch.valid),
-    FrontendPerfEvent.bit(FrontendPerfEvent.axiRequestWait, refillMmu.io.physReq.valid && !io.cacheRefillReq.ready),
-    FrontendPerfEvent.bit(
-      FrontendPerfEvent.fetchQueueEmptyWithBackendReady,
-      fetchQueueSupplyStarved
-    ),
-    FrontendPerfEvent.bit(FrontendPerfEvent.fetchQueueFull, ifetch.io.fetchQueueFull),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheMshrActiveCycle, iCache.io.perf.mshrActive),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheHitUnderMiss, iCache.io.perf.hitUnderMiss),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheSameLineWaitCycle, iCache.io.perf.sameLineWait),
-    FrontendPerfEvent.bit(FrontendPerfEvent.icacheQueuedMiss, iCache.io.perf.queuedMiss),
-    FrontendPerfEvent.bit(FrontendPerfEvent.redirectDuringMshr, redirectDuringMshr),
-    FrontendPerfEvent.bit(FrontendPerfEvent.redirectDuringMshrTargetHit, redirectDuringMshrTargetHit),
-    FrontendPerfEvent.bit(
-      FrontendPerfEvent.staleResponseDrop,
-      ifetch.io.staleResponseDrop || iCache.io.perf.staleResponseDrop
-    ),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasPush, bpu.io.perf.push),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasPop, bpu.io.perf.pop),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasPopThenPush, bpu.io.perf.popThenPush),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasUse, bpu.io.perf.use),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasHit, bpu.io.perf.hit),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasMiss, bpu.io.perf.miss),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasUnderflow, bpu.io.perf.underflow),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasOverflow, bpu.io.perf.overflow),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasCheckpointRestore, bpu.io.perf.checkpointRestore),
-    FrontendPerfEvent.bit(FrontendPerfEvent.rasRecoveryDiscard, bpu.io.perf.recoveryDiscard),
-    FrontendPerfEvent.bit(FrontendPerfEvent.tageTaggedProvider, bpu.io.perf.taggedProvider),
-    FrontendPerfEvent.bit(FrontendPerfEvent.tageAlternateDisagree, bpu.io.perf.alternateDisagree),
-    FrontendPerfEvent.bit(FrontendPerfEvent.tageAllocation, bpu.io.perf.allocation),
-    FrontendPerfEvent.bit(FrontendPerfEvent.tageUsefulnessAging, bpu.io.perf.usefulnessAging),
-    FrontendPerfEvent.bit(FrontendPerfEvent.lateOverride, bpu.io.perf.lateOverride)
-  ).reduce(_ | _)
+  io.pc := addressGen.io.currentPc
 
-  perf.io.events                 := perfEvents
-  perf.io.fetchQueueOccupancy    := ifetch.io.fetchQueueOccupancy.pad(32)
-  perf.io.fetchQueueEnqueueWidth := ifetch.io.fetchQueueEnqueueWidth.pad(32)
-  perf.io.fetchQueueDequeueWidth := ifetch.io.fetchQueueDequeueWidth.pad(32)
+  when(addressGen.io.addressReq.fire || ftq.io.reserve.fire || bpu.io.req.fire) {
+    assert(addressGen.io.addressReq.fire)
+    assert(ftq.io.reserve.fire)
+    assert(bpu.io.req.fire)
+    assert(bpu.io.req.bits.token === ftq.io.reserveToken)
+  }
+  when(bpu.io.fastResult.valid && !selectedRecovery.valid) {
+    assert(bpu.io.fastResult.bits.blockCount >= 1.U)
+    assert(bpu.io.fastResult.bits.blockCount <= cfg.fetchGroupBlocks.U)
+    when(bpu.io.fastResult.bits.blockTaken(1)) {
+      assert(bpu.io.fastResult.bits.blockCount === cfg.fetchGroupBlocks.U)
+    }
+  }
+  when(selectedRecovery.valid) {
+    assert(!fetchQueue.io.enq.fire)
+  }
+  when(ifuCorrectionSelected) {
+    assert(ftq.io.recoverySequence.valid)
+  }
+  when(io.cfiRecovery.valid) {
+    assert(ftq.io.backendLookup.valid)
+  }
+
+  io.pipelineTrace := 0.U.asTypeOf(io.pipelineTrace)
+  io.perfTrace     := 0.U.asTypeOf(new FrontendTraceSample(cfg))
+  if (enableTrace) {
+    val ifuTrace           = Module(new IfuTrace(cfg, FetchWidth.frontend))
+    val frontendTrace      = Module(new FrontendTrace(cfg))
+    val selectedPcRedirect = Wire(new PcRedirect)
+    selectedPcRedirect.valid := selectedRecovery.valid
+    selectedPcRedirect.value := selectedRecovery.bits.targetPc
+
+    ifuTrace.io.enqueue := TraceTap.observe(fetchQueue.io.enq)
+    io.pipelineTrace    := ifuTrace.io.events
+
+    frontendTrace.io.backendRedirect           := redirect
+    frontendTrace.io.pcRedirect                := selectedPcRedirect
+    frontendTrace.io.invalidate                := io.icacheInvalidate
+    frontendTrace.io.recovery                  := selectedRecovery
+    frontendTrace.io.fetchValid                := io.fetch.valid
+    frontendTrace.io.fetchReady                := io.fetch.ready
+    frontendTrace.io.fetchQueueEnqueueValid    := fetchQueue.io.enq.valid
+    frontendTrace.io.fetchQueueEnqueueReady    := fetchQueue.io.enq.ready
+    frontendTrace.io.alignerOutputBackpressure := ifetch.io.alignerOutputBackpressure
+    frontendTrace.io.blockBufferBackpressure   := ifetch.io.blockBufferBackpressure
+    frontendTrace.io.ftqReserveBackpressure    := addressGen.io.addressReq.valid &&
+      !ftq.io.reserve.ready && !selectedRecovery.valid
+    frontendTrace.io.refillPhysicalReqValid    := refillMmu.io.physReq.valid
+    frontendTrace.io.refillPhysicalReqReady    := io.cacheRefillReq.ready
+    frontendTrace.io.icacheReq                 := TraceTap.observe(iCache.io.req)
+    frontendTrace.io.icacheResp                := TraceTap.observe(iCache.io.resp)
+    frontendTrace.io.icacheRefillReq           := TraceTap.observe(iCache.io.refillReq)
+    frontendTrace.io.icacheRefillResp          := TraceTap.observe(iCache.io.refillResp)
+    frontendTrace.io.icacheLookup              := iCache.io.lookup
+    frontendTrace.io.bpuMonitor                := bpu.io.perf
+    frontendTrace.io.ifuStaleDrop              := ifetch.io.staleResponseDrop || ftq.io.staleIfuDrop ||
+      ftq.io.staleFastDrop || ftq.io.staleFinalDrop || ftq.io.staleCompleteDrop || ftq.io.staleRetireDrop
+    frontendTrace.io.fetchQueueEmpty           := fetchQueue.io.empty
+    frontendTrace.io.fetchQueueFull            := fetchQueue.io.full
+    frontendTrace.io.fetchQueueOccupancy       := fetchQueue.io.count.pad(32)
+    frontendTrace.io.fetchQueueEnqueueWidth    := fetchQueue.io.enqueueWidth.pad(32)
+    frontendTrace.io.fetchQueueDequeueWidth    := fetchQueue.io.dequeueWidth.pad(32)
+    io.perfTrace                               := frontendTrace.io.sample
+  }
 }

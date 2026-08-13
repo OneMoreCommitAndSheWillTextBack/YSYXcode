@@ -76,8 +76,8 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
 
   val refill       = Module(new AxiReadRefill(cfg))
   val dcache       = Module(new DCache(cfg.dcache, cfg, robEntries))
-  val bypassAccess = Module(new AxiDataAccess(cfg))
-  val ptwAccess    = Module(new AxiDataAccess(cfg))
+  val bypassAccess = Module(new AxiDataAccess(cfg, allowDirectIncoming = false))
+  val ptwAccess    = Module(new AxiDataAccess(cfg, allowDirectIncoming = false))
   val axiMaster    = Module(new AxiMaster(cfg))
 
   private val bypassOwner = RegInit(0.U.asTypeOf(new DataMemOwner(robIdxWidth)))
@@ -142,19 +142,21 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
 
   // A bypass request is still revocable until AxiDataAccess hands it to the
   // shared AXI master. Re-check its ROB owner there, not just on enqueue.
-  bypassAccess.io.issuePermit := !bypassOwner.squashable || mayIssueAxi(bypassOwner)
-  bypassAccess.io.abort       := ownerKilled(bypassOwner)
+  bypassAccess.io.incomingIssuePermit := bypassMayIssue
+  bypassAccess.io.issuePermit         := !bypassOwner.squashable || mayIssueAxi(bypassOwner)
+  bypassAccess.io.abort               := ownerKilled(bypassOwner)
 
   for (port <- 0 until dcacheCancelPorts) {
     io.dmemCancel(port) := dcache.io.cancel(port)
   }
   io.dmemCancel(dcacheCancelPorts) := bypassAccess.io.cancel
 
-  ptwAccess.io.req.valid   := io.ptwReq.valid && ptwCanAccept
-  ptwAccess.io.req.bits    := io.ptwReq.bits
-  io.ptwReq.ready          := ptwAccess.io.req.ready && ptwCanAccept
-  ptwAccess.io.issuePermit := true.B
-  ptwAccess.io.abort       := false.B
+  ptwAccess.io.req.valid           := io.ptwReq.valid && ptwCanAccept
+  ptwAccess.io.req.bits            := io.ptwReq.bits
+  io.ptwReq.ready                  := ptwAccess.io.req.ready && ptwCanAccept
+  ptwAccess.io.incomingIssuePermit := true.B
+  ptwAccess.io.issuePermit         := true.B
+  ptwAccess.io.abort               := false.B
   io.ptwResp <> ptwAccess.io.resp
 
   private val dcacheResponse = dcache.io.resp.valid

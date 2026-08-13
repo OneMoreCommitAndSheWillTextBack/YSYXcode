@@ -1,6 +1,6 @@
 mod counters;
 
-pub use counters::{BpuCfiClass, BpuCfiCounters, PerfCounters};
+pub use counters::{BpuCfiClass, BpuCfiCounters, IssueQueueBlockReason, PerfCounters};
 
 #[derive(Debug, Default)]
 pub struct Perf {
@@ -15,12 +15,16 @@ impl Perf {
     pub fn frontend_perf(
         &mut self,
         events: u32,
+        stall_events: u32,
+        ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
         fetch_queue_dequeue_width: u32,
     ) {
         self.counters.frontend_perf(
             events,
+            stall_events,
+            ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
             fetch_queue_dequeue_width,
@@ -33,9 +37,17 @@ impl Perf {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
-        self.counters
-            .issue_queue_perf(issue_count, occupancy, block_ready, block_operand);
+        self.counters.issue_queue_perf(
+            issue_count,
+            occupancy,
+            block_ready,
+            block_operand,
+            block_reason,
+            rob_done_operand_count,
+        );
     }
 
     pub fn div_perf(&mut self, cycles: u32, special: bool) {
@@ -97,6 +109,14 @@ impl Perf {
         self.counters.issue_queue_block_operand_cycles()
     }
 
+    pub fn issue_queue_block_reason_cycles(&self, reason: IssueQueueBlockReason) -> u64 {
+        self.counters.issue_queue_block_reason_cycles(reason)
+    }
+
+    pub fn issue_queue_rob_done_operand_count(&self) -> u64 {
+        self.counters.issue_queue_rob_done_operand_count()
+    }
+
     pub fn issue_queue_average_occupancy(&self) -> f64 {
         self.counters.issue_queue_average_occupancy()
     }
@@ -139,6 +159,14 @@ impl Perf {
 
     pub fn frontend_event(&self, index: usize) -> u64 {
         self.counters.frontend_event(index)
+    }
+
+    pub fn frontend_stall_event(&self, index: usize) -> u64 {
+        self.counters.frontend_stall_event(index)
+    }
+
+    pub fn ifu_corrections(&self) -> u64 {
+        self.counters.ifu_corrections()
     }
 
     pub fn fetch_queue_sample_cycles(&self) -> u64 {

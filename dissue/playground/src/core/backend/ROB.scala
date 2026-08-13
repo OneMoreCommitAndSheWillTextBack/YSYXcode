@@ -12,7 +12,7 @@ private class RobEntry(cfg: BackendConfig) extends Bundle {
   val valid          = Bool()
   val done           = Bool()
   val sqIdx          = UInt(cfg.sqIdxWidth.W)
-  val fetch          = new FetchInstPayload(cfg.addrWidth)
+  val fetch          = new FetchInstPayload(cfg.frontendPayload)
   val rd             = UInt(5.W)
   val rfWen          = Bool()
   val isLoad         = Bool()
@@ -158,6 +158,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
 
   for (index <- 0 until cfg.robEntries) {
     io.producerEntries(index).valid  := entries(index).valid
+    io.producerEntries(index).done   := entries(index).done
     io.producerEntries(index).robIdx := index.U(cfg.robIdxWidth.W)
     io.producerEntries(index).rd     := entries(index).rd
     io.producerEntries(index).rfWen  := entries(index).rfWen

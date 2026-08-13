@@ -1,7 +1,7 @@
 package top.core.backend.dispatch
 
 import chisel3._
-import chisel3.util.{Decoupled, MuxLookup}
+import chisel3.util.{Decoupled, MuxLookup, PopCount}
 import top.core.backend.bundle.{
   DecodePacket,
   IssueOperand,
@@ -16,13 +16,14 @@ import top.core.bundle.CfiType
 
 class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val in              = Input(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
-    val robIdx          = Input(Vec(cfg.dispatchWidth, UInt(cfg.robIdxWidth.W)))
-    val sqIdx           = Input(Vec(cfg.dispatchWidth, UInt(cfg.sqIdxWidth.W)))
-    val rfRead          = Vec(cfg.scoreboardQueries, Flipped(new RegFileReadPort(cfg.dataWidth)))
-    val scoreboardQuery = Vec(cfg.scoreboardQueries, Flipped(new ScoreboardQuery(cfg)))
-    val scoreboardAlloc = Output(Vec(cfg.dispatchWidth, new ScoreboardAlloc(cfg)))
-    val out             = Vec(cfg.dispatchWidth, Decoupled(new IssuePacket(cfg)))
+    val in                  = Input(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
+    val robIdx              = Input(Vec(cfg.dispatchWidth, UInt(cfg.robIdxWidth.W)))
+    val sqIdx               = Input(Vec(cfg.dispatchWidth, UInt(cfg.sqIdxWidth.W)))
+    val rfRead              = Vec(cfg.scoreboardQueries, Flipped(new RegFileReadPort(cfg.dataWidth)))
+    val scoreboardQuery     = Vec(cfg.scoreboardQueries, Flipped(new ScoreboardQuery(cfg)))
+    val scoreboardAlloc     = Output(Vec(cfg.dispatchWidth, new ScoreboardAlloc(cfg)))
+    val out                 = Vec(cfg.dispatchWidth, Decoupled(new IssuePacket(cfg)))
+    val robDoneOperandCount = Output(UInt(32.W))
   })
 
   private def operandPort(lane: Int, operand: Int): Int =
@@ -58,7 +59,10 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     operand
   }
 
-  val laneAllowed = Wire(Vec(cfg.dispatchWidth, Bool()))
+  val laneAllowed             = Wire(Vec(cfg.dispatchWidth, Bool()))
+  private val robDoneOperands = Wire(Vec(cfg.scoreboardQueries, Bool()))
+  robDoneOperands.foreach(_ := false.B)
+
   for (lane <- 0 until cfg.dispatchWidth) {
     laneAllowed(lane) := io.in(lane).valid
   }
@@ -132,5 +136,12 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     io.out(lane).bits.csrAddr     := decode.csrAddr
     io.out(lane).bits.csrWen      := decode.csrWen
     io.out(lane).bits.exception   := decode.exception
+
+    robDoneOperands(src1Port) := io.out(lane).fire && decode.needsIssue && src1IsReg &&
+      !io.scoreboardQuery(src1Port).ready && io.scoreboardQuery(src1Port).producerDone
+    robDoneOperands(src2Port) := io.out(lane).fire && decode.needsIssue && src2IsReg &&
+      !io.scoreboardQuery(src2Port).ready && io.scoreboardQuery(src2Port).producerDone
   }
+
+  io.robDoneOperandCount := PopCount(robDoneOperands).pad(32)
 }

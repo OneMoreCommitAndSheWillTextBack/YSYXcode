@@ -1,8 +1,8 @@
 package top.core.trace
 
 import chisel3._
-import chisel3.util.{MuxLookup, Valid}
-import top.config.{BackendConfig, ICacheConfig}
+import chisel3.util.{Cat, MuxLookup, Valid}
+import top.config.BackendConfig
 import top.core.backend.bundle.{
   DecodePacket,
   IssuePacket,
@@ -15,7 +15,6 @@ import top.core.backend.bundle.{
 }
 import top.core.backend.decoder.FuType
 import top.core.bundle.{DataMemKind, DataMemTxn, FrontendToBackend, RobAge, RobRecovery}
-import top.core.frontend.ifetch.FetchQueueEnqueue
 
 /** Stable semantic events exported by the RTL pipeline observer.
   *
@@ -110,7 +109,7 @@ class PipelineTraceEvent extends Bundle {
   val txnId     = UInt(32.W)
 }
 
-private object PipelineTraceEventBuilder {
+private[trace] object PipelineTraceEventBuilder {
   def blank(kind: UInt, slot: Int): PipelineTraceEvent = {
     val event = Wire(new PipelineTraceEvent)
     event      := 0.U.asTypeOf(new PipelineTraceEvent)
@@ -144,30 +143,6 @@ private object PipelineTraceEventBuilder {
   }
 }
 
-/** Observes the exact point where assembled instructions acquire FetchQueue lifetime. */
-class FrontendPipelineTrace(cacheCfg: ICacheConfig, enqueueWidth: Int) extends Module {
-  val io = IO(new Bundle {
-    val enqueueFire = Input(Bool())
-    val enqueue     = Input(new FetchQueueEnqueue(cacheCfg, enqueueWidth))
-    val events      = Output(Vec(enqueueWidth, Valid(new PipelineTraceEvent)))
-  })
-
-  for (lane <- 0 until enqueueWidth) {
-    val entry = io.enqueue.insts(lane)
-    io.events(lane)       := 0.U.asTypeOf(Valid(new PipelineTraceEvent))
-    io.events(lane).valid := io.enqueueFire && entry.valid
-    io.events(lane).bits  := PipelineTraceEventBuilder.instruction(
-      PipelineTraceKind.fetchQueueEnqueue,
-      lane,
-      entry.bits.inst.pc,
-      entry.bits.inst.inst,
-      entry.bits.inst.rawInst,
-      entry.bits.inst.prediction.sequence,
-      entry.bits.inst.prediction.epoch
-    )
-  }
-}
-
 object BackendPipelineTrace {
   private def dispatchBase(cfg:  BackendConfig): Int = cfg.issueWidth
   private def issueBase(cfg:     BackendConfig): Int = dispatchBase(cfg) + cfg.dispatchWidth
@@ -196,7 +171,7 @@ object BackendPipelineTrace {
 class BackendPipelineTrace(cfg: BackendConfig) extends Module {
   val io = IO(new Bundle {
     val frontendFire = Input(Bool())
-    val frontend     = Input(new FrontendToBackend(cfg.issueWidth, cfg.addrWidth))
+    val frontend     = Input(new FrontendToBackend(cfg.issueWidth, cfg.frontendPayload))
 
     val dispatchFire   = Input(Vec(cfg.dispatchWidth, Bool()))
     val dispatchDecode = Input(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
@@ -241,8 +216,8 @@ class BackendPipelineTrace(cfg: BackendConfig) extends Module {
       fetch.bits.pc,
       fetch.bits.inst,
       fetch.bits.rawInst,
-      fetch.bits.prediction.sequence,
-      fetch.bits.prediction.epoch
+      Cat(fetch.bits.ftqTag.generation, fetch.bits.ftqTag.index, fetch.bits.ftqInstOrdinal),
+      0.U
     )
   }
 
@@ -258,8 +233,8 @@ class BackendPipelineTrace(cfg: BackendConfig) extends Module {
       decode.fetch.pc,
       decode.fetch.inst,
       decode.fetch.rawInst,
-      decode.fetch.prediction.sequence,
-      decode.fetch.prediction.epoch
+      Cat(decode.fetch.ftqTag.generation, decode.fetch.ftqTag.index, decode.fetch.ftqInstOrdinal),
+      0.U
     )
     event.bits.robIdx    := issue.robIdx.pad(32)
     event.bits.producer0 := issue.src1.tag.pad(32)

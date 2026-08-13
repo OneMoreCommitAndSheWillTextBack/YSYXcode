@@ -387,16 +387,29 @@ extern "C" fn on_difftest_commit(opaque: *mut c_void, raw: *const ffi::NpcCommit
 extern "C" fn frontend_perf(
     opaque: *mut c_void,
     events: u32,
+    stall_events: u32,
+    ifu_correction: u32,
     fetch_queue_occupancy: u32,
     fetch_queue_enqueue_width: u32,
     fetch_queue_dequeue_width: u32,
+    icache_lookup_valid: u32,
+    icache_block_valid_mask: u32,
+    icache_miss_mask: u32,
+    icache_block_addr0: u32,
+    icache_block_addr1: u32,
 ) {
     if let Some(host) = unsafe { host_from_opaque(opaque) } {
         host.checker.on_frontend_perf(
             events,
+            stall_events,
+            ifu_correction != 0,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
             fetch_queue_dequeue_width,
+            icache_lookup_valid != 0,
+            icache_block_valid_mask,
+            icache_miss_mask,
+            [icache_block_addr0, icache_block_addr1],
         );
     }
 }
@@ -407,6 +420,8 @@ extern "C" fn issue_queue_perf(
     occupancy: u8,
     block_ready: u8,
     block_operand: u8,
+    block_reason: u8,
+    rob_done_operand_count: u8,
 ) {
     if let Some(host) = unsafe { host_from_opaque(opaque) } {
         host.checker.on_issue_queue_perf(
@@ -414,6 +429,8 @@ extern "C" fn issue_queue_perf(
             occupancy,
             block_ready != 0,
             block_operand != 0,
+            block_reason,
+            rob_done_operand_count,
         );
     }
 }

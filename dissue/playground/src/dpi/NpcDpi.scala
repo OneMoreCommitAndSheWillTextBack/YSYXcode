@@ -50,9 +50,16 @@ object NpcFrontendPerf extends DPIClockedVoidFunctionImport {
   override def inputNames:   Option[Seq[String]] = Some(
     Seq(
       "events",
+      "stallEvents",
+      "ifuCorrection",
       "fetchQueueOccupancy",
       "fetchQueueEnqueueWidth",
-      "fetchQueueDequeueWidth"
+      "fetchQueueDequeueWidth",
+      "icacheLookupValid",
+      "icacheBlockValidMask",
+      "icacheMissMask",
+      "icacheBlockAddr0",
+      "icacheBlockAddr1"
     )
   )
 }
@@ -64,7 +71,9 @@ object NpcIssueQueuePerf extends DPIClockedVoidFunctionImport {
       "issueCount",
       "occupancy",
       "blockReady",
-      "blockOperand"
+      "blockOperand",
+      "blockReason",
+      "robDoneOperandCount"
     )
   )
 }

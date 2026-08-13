@@ -1,454 +1,457 @@
 package top.core.frontend.icache
 
 import chisel3._
-import chisel3.util._
-import top.config.ICacheConfig
+import chisel3.util.{log2Ceil, Cat, Decoupled, Mux1H, OHToUInt, PriorityEncoderOH, Valid}
+import top.config.FrontendConfig
 import top.core.frontend.bundle.{
-  ICacheFetchGroupReq,
-  ICacheFetchGroupResp,
+  FrontendRecovery,
+  ICacheBlockData,
+  ICacheFetchReq,
+  ICacheFetchResp,
+  ICacheLookupResult,
   ICacheRefillReq,
-  ICacheRefillResp,
-  ICacheReq,
-  ICacheResp
+  ICacheRefillResp
 }
 
-class ICachePerf extends Bundle {
-  val request           = Bool()
-  val hit               = Bool()
-  val miss              = Bool()
-  val missWait          = Bool()
-  val mshrActive        = Bool()
-  val hitUnderMiss      = Bool()
-  val sameLineWait      = Bool()
-  val queuedMiss        = Bool()
-  val staleResponseDrop = Bool()
+class ICacheIO(cfg: FrontendConfig) extends Bundle {
+  val req        = Flipped(Decoupled(new ICacheFetchReq(cfg)))
+  val resp       = Decoupled(new ICacheFetchResp(cfg))
+  val refillReq  = Decoupled(new ICacheRefillReq(cfg.addrWidth))
+  val refillResp = Flipped(Decoupled(new ICacheRefillResp(cfg.icacheLineBytes)))
+  val invalidate = Input(Bool())
+  val recovery   = Flipped(Valid(new FrontendRecovery(cfg)))
+
+  val lookup = Output(Valid(new ICacheLookupResult(cfg)))
 }
 
-class ICacheIO(cfg: ICacheConfig) extends Bundle {
-  val req            = Flipped(Decoupled(new ICacheFetchGroupReq(cfg)))
-  val acceptedBlocks = Output(UInt(log2Ceil(cfg.fetchGroupBlocks + 1).W))
-  val resp           = Decoupled(new ICacheFetchGroupResp(cfg))
-  val refillReq      = Decoupled(new ICacheRefillReq(cfg.addrWidth))
-  val refillResp     = Flipped(Decoupled(new ICacheRefillResp(cfg.fetchBytes)))
-  val invalidate     = Input(Bool())
-  val redirect       = Input(Bool())
-  val perf           = Output(new ICachePerf)
+object ICacheMissState extends ChiselEnum {
+  val idle, refillRequest, refillResponse = Value
 }
 
-object ICacheMshrState extends ChiselEnum {
-  val SIdle, SRefillReq, SRefillResp = Value
-}
-
-class ICache(cfg: ICacheConfig = ICacheConfig()) extends Module {
-  private val groupWidth      = cfg.fetchGroupBlocks
-  private val groupCountWidth = log2Ceil(groupWidth + 1)
-  private val slotWidth       = math.max(log2Ceil(groupWidth), 1)
+/** Pipelined-on-hit instruction cache with one blocking miss group.
+  *
+  * Fetch blocks and cache lines are independent sizes. A miss group refills each distinct line once, then extracts all
+  * requested fetch blocks from the returned line before producing its single in-order response. The registered R0/R1
+  * lookup still accepts and returns one hit group per cycle for both direct-mapped and two-way configurations.
+  */
+class ICache(cfg: FrontendConfig = FrontendConfig()) extends Module {
+  private val cacheCfg   = cfg.icache
+  private val groupWidth = cfg.fetchGroupBlocks
+  private val slotWidth  = math.max(log2Ceil(groupWidth), 1)
 
   val io = IO(new ICacheIO(cfg))
 
+  private def lineAddress(addr: UInt): UInt =
+    Cat(addr(cacheCfg.addrWidth - 1, cacheCfg.lineOffsetBits), 0.U(cacheCfg.lineOffsetBits.W))
+
   private def globalSetIndex(addr: UInt): UInt = {
-    if (cfg.indexBits == 0) {
-      0.U(cfg.setIdxBits.W)
-    } else {
-      addr(cfg.offsetBits + cfg.indexBits - 1, cfg.offsetBits)
-    }
+    if (cacheCfg.indexBits == 0) 0.U(cacheCfg.setIdxBits.W)
+    else addr(cacheCfg.lineOffsetBits + cacheCfg.indexBits - 1, cacheCfg.lineOffsetBits)
   }
 
   private def bankIndex(addr: UInt): UInt =
-    globalSetIndex(addr)(cfg.bankBits - 1, 0)
+    globalSetIndex(addr)(cacheCfg.bankBits - 1, 0)
 
   private def localSetIndex(addr: UInt): UInt = {
-    if (cfg.bankIndexBits == 0) {
-      0.U(cfg.bankIdxBits.W)
-    } else {
-      globalSetIndex(addr)(cfg.indexBits - 1, cfg.bankBits)
-    }
+    if (cacheCfg.bankIndexBits == 0) 0.U(cacheCfg.bankIdxBits.W)
+    else globalSetIndex(addr)(cacheCfg.indexBits - 1, cacheCfg.bankBits)
   }
 
   private def tag(addr: UInt): UInt =
-    addr(cfg.addrWidth - 1, cfg.offsetBits + cfg.indexBits)
+    addr(cacheCfg.addrWidth - 1, cacheCfg.lineOffsetBits + cacheCfg.indexBits)
 
-  private def responseForRequest(
-    request: ICacheFetchGroupReq,
-    count:   UInt,
-    hit:     Vec[Bool],
-    data:    Vec[UInt]
-  ): ICacheFetchGroupResp = {
-    val response = Wire(new ICacheFetchGroupResp(cfg))
-    response := 0.U.asTypeOf(new ICacheFetchGroupResp(cfg))
-    for (lane <- 0 until groupWidth) {
-      response.blocks(lane).valid                := lane.U < count
-      response.blocks(lane).bits.meta            := request.blocks(lane).bits.meta
-      response.blocks(lane).bits.data            := data(lane)
-      response.blocks(lane).bits.hit             := hit(lane)
-      response.blocks(lane).bits.exception.valid := false.B
-      response.blocks(lane).bits.exception.cause := 0.U
-      response.blocks(lane).bits.exception.tval  := 0.U
-    }
-    response
+  private def blockSelect(addr: UInt): UInt = {
+    if (cacheCfg.blocksPerLine == 1) 0.U(cacheCfg.blockSelectBits.W)
+    else addr(cacheCfg.lineOffsetBits - 1, cacheCfg.offsetBits)
   }
 
-  private def refillResponse(request: ICacheReq, refill: ICacheRefillResp): ICacheResp = {
-    val response = Wire(new ICacheResp(cfg))
-    response.meta      := request.meta
-    response.data      := refill.data
-    response.hit       := false.B
-    response.exception := refill.exception
-    when(refill.exception.valid) {
-      response.exception.tval := request.meta.control.pc
+  private def fetchBlock(line: UInt, addr: UInt): UInt = {
+    if (cacheCfg.blocksPerLine == 1) line(cacheCfg.fetchBytes * 8 - 1, 0)
+    else {
+      val bitOffset = blockSelect(addr) << log2Ceil(cacheCfg.fetchBytes * 8)
+      (line >> bitOffset)(cacheCfg.fetchBytes * 8 - 1, 0)
     }
-    response
   }
 
-  val validArray = RegInit(
-    VecInit(Seq.fill(cfg.bankCount)(VecInit(Seq.fill(cfg.bankSets)(false.B))))
+  val validArray     = RegInit(
+    VecInit(
+      Seq.fill(cacheCfg.bankCount)(
+        VecInit(Seq.fill(cacheCfg.bankSets)(VecInit(Seq.fill(cacheCfg.ways)(false.B))))
+      )
+    )
   )
-  val tagArray   = Reg(Vec(cfg.bankCount, Vec(cfg.bankSets, UInt(cfg.tagBits.W))))
-  val dataArray  = Reg(Vec(cfg.bankCount, Vec(cfg.bankSets, UInt(cfg.blockBits.W))))
-
-  val mshrState   = RegInit(ICacheMshrState.SIdle)
-  val mshrKilled  = RegInit(false.B)
-  val mshrStale   = RegInit(false.B)
-  val mshrCount   = RegInit(0.U(groupCountWidth.W))
-  val mshrReq     = Reg(Vec(groupWidth, new ICacheReq(cfg)))
-  val mshrResp    = Reg(Vec(groupWidth, new ICacheResp(cfg)))
-  val mshrPending = RegInit(VecInit(Seq.fill(groupWidth)(false.B)))
-  val mshrSlot    = RegInit(0.U(slotWidth.W))
-  val mshrRefill  = Reg(new ICacheReq(cfg))
-
-  val queuedValid = RegInit(false.B)
-  val queuedCount = RegInit(0.U(groupCountWidth.W))
-  val queuedReq   = Reg(new ICacheFetchGroupReq(cfg))
+  val tagArray       = Reg(
+    Vec(cacheCfg.bankCount, Vec(cacheCfg.bankSets, Vec(cacheCfg.ways, UInt(cacheCfg.tagBits.W))))
+  )
+  val dataArray      = Reg(
+    Vec(cacheCfg.bankCount, Vec(cacheCfg.bankSets, Vec(cacheCfg.ways, UInt(cacheCfg.lineBits.W))))
+  )
+  val replacementWay = RegInit(
+    VecInit(Seq.fill(cacheCfg.bankCount)(VecInit(Seq.fill(cacheCfg.bankSets)(0.U(cacheCfg.wayIdxBits.W)))))
+  )
 
   val responseValid = RegInit(false.B)
-  val responseReg   = Reg(new ICacheFetchGroupResp(cfg))
+  val responseReg   = Reg(new ICacheFetchResp(cfg))
 
-  val requestBank = Wire(Vec(groupWidth, UInt(cfg.bankBits.W)))
-  val requestSet  = Wire(Vec(groupWidth, UInt(cfg.bankIdxBits.W)))
-  val requestTag  = Wire(Vec(groupWidth, UInt(cfg.tagBits.W)))
-  val requestHit  = Wire(Vec(groupWidth, Bool()))
-  val requestData = Wire(Vec(groupWidth, UInt(cfg.blockBits.W)))
+  val r1Valid = RegInit(false.B)
+  val r1Req   = Reg(new ICacheFetchReq(cfg))
 
+  val replayValid = RegInit(false.B)
+  val replayReq   = Reg(new ICacheFetchReq(cfg))
+
+  val missState                = RegInit(ICacheMissState.idle)
+  val missReq                  = Reg(new ICacheFetchReq(cfg))
+  val missBlocks               = Reg(Vec(groupWidth, new ICacheBlockData(cfg)))
+  val missingMask              = RegInit(0.U(groupWidth.W))
+  val refillSlot               = RegInit(0.U(slotWidth.W))
+  val missKilled               = RegInit(false.B)
+  val invalidateGeneration     = RegInit(0.U(cfg.fetchEpochBits.W))
+  val missInvalidateGeneration = Reg(UInt(cfg.fetchEpochBits.W))
+
+  // These are resolved by the refill path below and feed completion-cycle request turnover.
+  val refillCompletesGroup = Wire(Bool())
+  val turnoverProbeMiss    = Wire(Bool())
+
+  val r1Bank   = Wire(Vec(groupWidth, UInt(cacheCfg.bankBits.W)))
+  val r1Set    = Wire(Vec(groupWidth, UInt(cacheCfg.bankIdxBits.W)))
+  val r1Tag    = Wire(Vec(groupWidth, UInt(cacheCfg.tagBits.W)))
+  val r1WayHit = Wire(Vec(groupWidth, Vec(cacheCfg.ways, Bool())))
+  val r1HitWay = Wire(Vec(groupWidth, UInt(cacheCfg.wayIdxBits.W)))
+  val r1Hit    = Wire(Vec(groupWidth, Bool()))
+  val r1Data   = Wire(Vec(groupWidth, UInt((cacheCfg.fetchBytes * 8).W)))
   for (lane <- 0 until groupWidth) {
-    val blockAddr = io.req.bits.blocks(lane).bits.meta.blockAddr
-    requestBank(lane) := bankIndex(blockAddr)
-    requestSet(lane)  := localSetIndex(blockAddr)
-    requestTag(lane)  := tag(blockAddr)
-    requestHit(lane)  := validArray(requestBank(lane))(requestSet(lane)) &&
-      tagArray(requestBank(lane))(requestSet(lane)) === requestTag(lane)
-    requestData(lane) := dataArray(requestBank(lane))(requestSet(lane))
+    r1Bank(lane) := bankIndex(r1Req.blockAddr(lane))
+    r1Set(lane)  := localSetIndex(r1Req.blockAddr(lane))
+    r1Tag(lane)  := tag(r1Req.blockAddr(lane))
+    for (way <- 0 until cacheCfg.ways) {
+      r1WayHit(lane)(way) := r1Req.blockValid(lane) && validArray(r1Bank(lane))(r1Set(lane))(way) &&
+        tagArray(r1Bank(lane))(r1Set(lane))(way) === r1Tag(lane)
+    }
+    r1Hit(lane) := r1WayHit(lane).asUInt.orR
+    r1HitWay(lane) := OHToUInt(r1WayHit(lane))
+    val lineData = Mux1H(r1WayHit(lane), dataArray(r1Bank(lane))(r1Set(lane)))
+    r1Data(lane) := Mux(r1Hit(lane), fetchBlock(lineData, r1Req.blockAddr(lane)), 0.U)
   }
 
-  val secondRequested = io.req.bits.blocks(1).valid
-  val secondEligible  = secondRequested && requestBank(0) =/= requestBank(1)
-  val acceptedBlocks  = Mux(
-    io.req.bits.blocks(0).valid,
-    Mux(secondEligible, groupWidth.U(groupCountWidth.W), 1.U(groupCountWidth.W)),
-    0.U(groupCountWidth.W)
-  )
-  val requestActive   = Wire(Vec(groupWidth, Bool()))
-  val requestMiss     = Wire(Vec(groupWidth, Bool()))
+  val r1HitMask     = r1Hit.asUInt
+  val r1MissingMask = VecInit((0 until groupWidth).map(lane => r1Req.blockValid(lane) && !r1Hit(lane))).asUInt
+  val r1HasMiss     = r1MissingMask.orR
+
+  val r1Response = Wire(new ICacheFetchResp(cfg))
+  r1Response       := 0.U.asTypeOf(new ICacheFetchResp(cfg))
+  r1Response.token := r1Req.token
   for (lane <- 0 until groupWidth) {
-    requestActive(lane) := lane.U < acceptedBlocks
-    requestMiss(lane)   := requestActive(lane) && !requestHit(lane)
+    r1Response.blocks(lane).valid                := r1Req.blockValid(lane)
+    r1Response.blocks(lane).bits.data            := r1Data(lane)
+    r1Response.blocks(lane).bits.hit             := r1Hit(lane)
+    r1Response.blocks(lane).bits.exception.valid := false.B
+    r1Response.blocks(lane).bits.exception.cause := 0.U
+    r1Response.blocks(lane).bits.exception.tval  := 0.U
   }
-  val requestMissOH = requestMiss.asUInt
-  val requestHasMiss = requestMissOH.orR
-  val incomingResp   = responseForRequest(io.req.bits, acceptedBlocks, requestHit, requestData)
 
-  val queuedBank = Wire(Vec(groupWidth, UInt(cfg.bankBits.W)))
-  val queuedSet  = Wire(Vec(groupWidth, UInt(cfg.bankIdxBits.W)))
-  val queuedTag  = Wire(Vec(groupWidth, UInt(cfg.tagBits.W)))
-  val queuedHit  = Wire(Vec(groupWidth, Bool()))
-  val queuedData = Wire(Vec(groupWidth, UInt(cfg.blockBits.W)))
-  val queuedMiss = Wire(Vec(groupWidth, Bool()))
-  for (lane <- 0 until groupWidth) {
-    val blockAddr = queuedReq.blocks(lane).bits.meta.blockAddr
-    queuedBank(lane) := bankIndex(blockAddr)
-    queuedSet(lane)  := localSetIndex(blockAddr)
-    queuedTag(lane)  := tag(blockAddr)
-    queuedHit(lane)  := validArray(queuedBank(lane))(queuedSet(lane)) &&
-      tagArray(queuedBank(lane))(queuedSet(lane)) === queuedTag(lane)
-    queuedData(lane) := dataArray(queuedBank(lane))(queuedSet(lane))
-    queuedMiss(lane) := lane.U < queuedCount && !queuedHit(lane)
-  }
-  val queuedMissOH = queuedMiss.asUInt
-  val queuedHasMiss = queuedMissOH.orR
-  val queuedResp    = responseForRequest(queuedReq, queuedCount, queuedHit, queuedData)
-
-  // mshrActive 当前是否有未完成 miss
-  val mshrActive               = mshrState =/= ICacheMshrState.SIdle
-  val requestSharesMshr        = VecInit((0 until groupWidth).map { requestLane =>
-    requestActive(requestLane) && requestMiss(requestLane) &&
-    VecInit((0 until groupWidth).map { mshrLane =>
-      mshrPending(mshrLane) &&
-      io.req.bits.blocks(requestLane).bits.meta.blockAddr === mshrReq(mshrLane).meta.blockAddr
-    }).asUInt.orR
-  }).asUInt.orR
-  val requestSharesQueued      = queuedValid && VecInit((0 until groupWidth).map { requestLane =>
-    requestActive(requestLane) && requestMiss(requestLane) &&
-    VecInit((0 until groupWidth).map { queuedLane =>
-      queuedMiss(queuedLane) &&
-      io.req.bits.blocks(requestLane).bits.meta.blockAddr === queuedReq.blocks(queuedLane).bits.meta.blockAddr
-    }).asUInt.orR
-  }).asUInt.orR
-  val requestSharesOutstanding = requestSharesMshr || requestSharesQueued
-
+  io.resp.valid := responseValid && !io.invalidate && !io.recovery.valid
+  io.resp.bits  := responseReg
   val responseFire      = io.resp.fire
   val responseAvailable = !responseValid || responseFire
-  val queuedLaunch      = !mshrActive && queuedValid
 
-  io.resp.valid     := responseValid
-  io.resp.bits      := responseReg
-  io.acceptedBlocks := acceptedBlocks
+  val r1CanAdvance          = r1Valid && missState === ICacheMissState.idle && (r1HasMiss || responseAvailable)
+  val canAcceptR0           = missState === ICacheMissState.idle && !replayValid && (!r1Valid || r1CanAdvance)
+  val completionCanAcceptR0 = refillCompletesGroup && (!replayValid || turnoverProbeMiss)
+  io.req.ready := (canAcceptR0 || completionCanAcceptR0) && !io.invalidate && !io.recovery.valid
 
-  // 当前 MSHR 正在等回包，而且回包已经到 ICache 门口。本拍优先处理它，不再同时接收一个
-  // hit group，避免争同一个 responseReg 和状态更新路径。
-  val refillResponsePending = mshrState === ICacheMshrState.SRefillResp && io.refillResp.valid
+  io.lookup.valid            := r1CanAdvance && !io.invalidate && !io.recovery.valid
+  io.lookup.bits.token       := r1Req.token
+  io.lookup.bits.blockAddr   := r1Req.blockAddr
+  io.lookup.bits.blockValid  := r1Req.blockValid
+  io.lookup.bits.hitMask     := r1HitMask
+  io.lookup.bits.missingMask := r1MissingMask
 
-  //  当前有 miss 在飞，但新 group 全命中，可以直接返回。这就是 hit-under-miss。
-  val acceptHitUnderMiss = mshrActive && !requestHasMiss && !refillResponsePending && responseAvailable
-
-  //  当前有一个 MSHR正在工作，新 group 也 miss，但不是同一条正在等待的 cache block，
-  //  且 queued slot 为空，所以先把新 group 暂存进 queuedReq。
-  val acceptQueuedMiss = mshrActive && requestHasMiss && !requestSharesMshr && !queuedValid
-
-  //  当前没有未完成 miss，新 group miss，可以直接分配 MSHR。
-  val acceptFreshMiss = !mshrActive && !queuedValid && requestHasMiss
-
-  //  当前空闲，新 group 全命中，且 response 槽能放下，直接接收。
-  val acceptFreshHit = !mshrActive && !queuedValid && !requestHasMiss && responseAvailable
-
-  io.req.ready := !io.invalidate && !io.redirect && !queuedLaunch &&
-    (acceptHitUnderMiss || acceptQueuedMiss || acceptFreshMiss || acceptFreshHit)
-  val acceptGroup = io.req.fire
-
-  val nextMissOH  = VecInit((0 until groupWidth).map { lane =>
-    mshrPending(lane) && mshrSlot =/= lane.U(slotWidth.W)
+  val refillAddress  = lineAddress(missReq.blockAddr(refillSlot))
+  val refillLineMask = VecInit((0 until groupWidth).map { lane =>
+    missingMask(lane) && lineAddress(missReq.blockAddr(lane)) === refillAddress
   }).asUInt
-  val hasNextMiss = nextMissOH.orR
-  val nextMissIdx = OHToUInt(PriorityEncoderOH(nextMissOH))
 
-  val currentRefillResp = refillResponse(mshrRefill, io.refillResp.bits)
-  val completedMshrResp = Wire(new ICacheFetchGroupResp(cfg))
-  completedMshrResp := 0.U.asTypeOf(new ICacheFetchGroupResp(cfg))
+  val remainingMask            = missingMask & ~refillLineMask
+  val nextRefillSlot           = OHToUInt(PriorityEncoderOH(remainingMask))
+  val nextRefillAddress        = lineAddress(missReq.blockAddr(nextRefillSlot))
+  val missGenerationLive       = missInvalidateGeneration === invalidateGeneration
+  val functionalMissLive       = !missKilled && missGenerationLive && !io.invalidate && !io.recovery.valid
+  val finalRefillNeedsResponse = !remainingMask.orR && functionalMissLive
+
+  io.refillResp.ready := missState === ICacheMissState.refillResponse &&
+    !io.invalidate && !io.recovery.valid && (!finalRefillNeedsResponse || responseAvailable)
+
+  val intermediateRefillTurnover = io.refillResp.fire && remainingMask.orR && functionalMissLive
+  io.refillReq.valid     := (missState === ICacheMissState.refillRequest || intermediateRefillTurnover) &&
+    !missKilled && !io.invalidate && !io.recovery.valid
+  io.refillReq.bits.addr := Mux(intermediateRefillTurnover, nextRefillAddress, refillAddress)
+
+  refillCompletesGroup := io.refillResp.fire && (!remainingMask.orR || !functionalMissLive)
+
+  val completedResponse = Wire(new ICacheFetchResp(cfg))
+  completedResponse       := 0.U.asTypeOf(new ICacheFetchResp(cfg))
+  completedResponse.token := missReq.token
   for (lane <- 0 until groupWidth) {
-    val laneResp = Wire(new ICacheResp(cfg))
-    laneResp                             := mshrResp(lane)
-    when(mshrSlot === lane.U(slotWidth.W)) {
-      laneResp := currentRefillResp
+    completedResponse.blocks(lane).valid := missReq.blockValid(lane)
+    completedResponse.blocks(lane).bits  := missBlocks(lane)
+    when(refillLineMask(lane)) {
+      completedResponse.blocks(lane).bits.data      := fetchBlock(io.refillResp.bits.data, missReq.blockAddr(lane))
+      completedResponse.blocks(lane).bits.hit       := false.B
+      completedResponse.blocks(lane).bits.exception := io.refillResp.bits.exception
+      when(io.refillResp.bits.exception.valid) {
+        completedResponse.blocks(lane).bits.exception.tval := missReq.blockAddr(lane)
+      }
     }
-    completedMshrResp.blocks(lane).valid := lane.U < mshrCount
-    completedMshrResp.blocks(lane).bits  := laneResp
   }
 
-  val refillBlockAddr = mshrRefill.meta.blockAddr
-  val refillBank      = bankIndex(refillBlockAddr)
-  val refillSet       = localSetIndex(refillBlockAddr)
-  val refillTag       = tag(refillBlockAddr)
+  val refillBank       = bankIndex(refillAddress)
+  val refillSet        = localSetIndex(refillAddress)
+  val refillTag        = tag(refillAddress)
+  val refillWayHit     = Wire(Vec(cacheCfg.ways, Bool()))
+  val refillInvalidWay = Wire(Vec(cacheCfg.ways, Bool()))
+  for (way <- 0 until cacheCfg.ways) {
+    refillWayHit(way)     := validArray(refillBank)(refillSet)(way) && tagArray(refillBank)(refillSet)(way) === refillTag
+    refillInvalidWay(way) := !validArray(refillBank)(refillSet)(way)
+  }
+  val refillHasHit = refillWayHit.asUInt.orR
+  val refillHasInvalid = refillInvalidWay.asUInt.orR
+  val refillWay        = if (cacheCfg.ways == 1) {
+    0.U(cacheCfg.wayIdxBits.W)
+  } else {
+    Mux(
+      refillHasHit,
+      OHToUInt(refillWayHit),
+      Mux(refillHasInvalid, OHToUInt(PriorityEncoderOH(refillInvalidWay.asUInt)), replacementWay(refillBank)(refillSet))
+    )
+  }
 
-  val discardMshrResponse = mshrKilled || mshrStale || io.redirect
+  val turnoverReq = Wire(new ICacheFetchReq(cfg))
+  turnoverReq := Mux(replayValid, replayReq, io.req.bits)
 
-  io.refillReq.valid     := mshrState === ICacheMshrState.SRefillReq && !mshrKilled && !io.invalidate && !io.redirect
-  io.refillReq.bits.addr := refillBlockAddr
-  io.refillResp.ready    := mshrState === ICacheMshrState.SRefillResp && !io.invalidate &&
-    (discardMshrResponse || hasNextMiss || responseAvailable)
+  val turnoverBank   = Wire(Vec(groupWidth, UInt(cacheCfg.bankBits.W)))
+  val turnoverSet    = Wire(Vec(groupWidth, UInt(cacheCfg.bankIdxBits.W)))
+  val turnoverWayHit = Wire(Vec(groupWidth, Vec(cacheCfg.ways, Bool())))
+  val turnoverHitWay = Wire(Vec(groupWidth, UInt(cacheCfg.wayIdxBits.W)))
+  val turnoverHit    = Wire(Vec(groupWidth, Bool()))
+  val turnoverData   = Wire(Vec(groupWidth, UInt((cacheCfg.fetchBytes * 8).W)))
+  for (lane <- 0 until groupWidth) {
+    turnoverBank(lane) := bankIndex(turnoverReq.blockAddr(lane))
+    turnoverSet(lane)  := localSetIndex(turnoverReq.blockAddr(lane))
+    val requestTag = tag(turnoverReq.blockAddr(lane))
+    for (way <- 0 until cacheCfg.ways) {
+      turnoverWayHit(lane)(way) := turnoverReq.blockValid(lane) &&
+        validArray(turnoverBank(lane))(turnoverSet(lane))(way) &&
+        tagArray(turnoverBank(lane))(turnoverSet(lane))(way) === requestTag
+    }
+    val refillBypassHit = turnoverReq.blockValid(lane) && io.refillResp.fire && missGenerationLive &&
+      !io.refillResp.bits.exception.valid && lineAddress(turnoverReq.blockAddr(lane)) === refillAddress
+    val arrayHitData = Mux1H(turnoverWayHit(lane), dataArray(turnoverBank(lane))(turnoverSet(lane)))
+    turnoverHitWay(lane) := OHToUInt(turnoverWayHit(lane))
+    turnoverHit(lane)    := turnoverWayHit(lane).asUInt.orR || refillBypassHit
+    turnoverData(lane)   := Mux(
+      refillBypassHit,
+      fetchBlock(io.refillResp.bits.data, turnoverReq.blockAddr(lane)),
+      Mux(turnoverWayHit(lane).asUInt.orR, fetchBlock(arrayHitData, turnoverReq.blockAddr(lane)), 0.U)
+    )
+  }
 
-  io.perf.request           := acceptGroup
-  io.perf.hit               := acceptGroup && !requestHasMiss
-  io.perf.miss              := acceptGroup && requestHasMiss
-  // Keep miss-wait stall-oriented; raw MSHR occupancy is reported separately.
-  io.perf.missWait          := mshrActive && !acceptHitUnderMiss && !responseFire
-  io.perf.mshrActive        := mshrActive
-  io.perf.hitUnderMiss      := acceptGroup && mshrActive && !requestHasMiss
-  io.perf.sameLineWait      := io.req.valid && mshrActive && requestHasMiss && requestSharesOutstanding &&
-    !io.invalidate && !io.redirect
-  io.perf.queuedMiss        := acceptGroup && mshrActive && requestHasMiss
-  io.perf.staleResponseDrop := io.refillResp.fire && discardMshrResponse
+  val turnoverCandidateValid    = replayValid || io.req.valid
+  val turnoverCandidateAccepted = refillCompletesGroup && (replayValid || io.req.fire)
+  val turnoverHitMask           = turnoverHit.asUInt
+  val turnoverMissingMask       = VecInit(
+    (0 until groupWidth).map(lane => turnoverReq.blockValid(lane) && !turnoverHit(lane))
+  ).asUInt
+  turnoverProbeMiss := refillCompletesGroup && turnoverCandidateValid && turnoverMissingMask.orR
+  val turnoverMissAction = turnoverCandidateAccepted && turnoverMissingMask.orR
+
+  val turnoverResponse = Wire(new ICacheFetchResp(cfg))
+  turnoverResponse       := 0.U.asTypeOf(new ICacheFetchResp(cfg))
+  turnoverResponse.token := turnoverReq.token
+  for (lane <- 0 until groupWidth) {
+    turnoverResponse.blocks(lane).valid                := turnoverReq.blockValid(lane)
+    turnoverResponse.blocks(lane).bits.data            := turnoverData(lane)
+    turnoverResponse.blocks(lane).bits.hit             := turnoverHit(lane)
+    turnoverResponse.blocks(lane).bits.exception.valid := false.B
+    turnoverResponse.blocks(lane).bits.exception.cause := 0.U
+    turnoverResponse.blocks(lane).bits.exception.tval  := 0.U
+  }
+
+  when(turnoverMissAction) {
+    io.lookup.valid            := true.B
+    io.lookup.bits.token       := turnoverReq.token
+    io.lookup.bits.blockAddr   := turnoverReq.blockAddr
+    io.lookup.bits.blockValid  := turnoverReq.blockValid
+    io.lookup.bits.hitMask     := turnoverHitMask
+    io.lookup.bits.missingMask := turnoverMissingMask
+  }
 
   when(io.invalidate) {
-    validArray    := VecInit(Seq.fill(cfg.bankCount)(VecInit(Seq.fill(cfg.bankSets)(false.B))))
+    validArray           := VecInit(
+      Seq.fill(cacheCfg.bankCount)(
+        VecInit(Seq.fill(cacheCfg.bankSets)(VecInit(Seq.fill(cacheCfg.ways)(false.B))))
+      )
+    )
+    invalidateGeneration := invalidateGeneration +% 1.U
+    responseValid        := false.B
+    r1Valid              := false.B
+    replayValid          := false.B
+    when(missState === ICacheMissState.refillResponse) {
+      missKilled := true.B
+    }.otherwise {
+      missState  := ICacheMissState.idle
+      missKilled := false.B
+    }
+  }.elsewhen(io.recovery.valid) {
     responseValid := false.B
-    queuedValid   := false.B
-    mshrStale     := false.B
-    when(mshrState === ICacheMshrState.SRefillReq) {
-      mshrState   := ICacheMshrState.SIdle
-      mshrKilled  := false.B
-      mshrPending := VecInit(Seq.fill(groupWidth)(false.B))
-    }.elsewhen(mshrState === ICacheMshrState.SRefillResp) {
-      mshrKilled := true.B
+    r1Valid       := false.B
+    replayValid   := false.B
+    when(missState === ICacheMissState.refillResponse) {
+      missKilled := true.B
+    }.otherwise {
+      missState  := ICacheMissState.idle
+      missKilled := false.B
     }
   }.otherwise {
-    when(io.redirect) {
+    when(responseFire) {
       responseValid := false.B
-      queuedValid   := false.B
-      when(mshrState === ICacheMshrState.SRefillReq) {
-        mshrState   := ICacheMshrState.SIdle
-        mshrStale   := false.B
-        mshrPending := VecInit(Seq.fill(groupWidth)(false.B))
-      }.elsewhen(mshrState === ICacheMshrState.SRefillResp) {
-        mshrStale := true.B
-      }
-    }.otherwise {
-      when(responseFire) {
-        responseValid := false.B
-      }
+    }
 
-      when(queuedLaunch) {
-        when(queuedHasMiss) {
-          mshrCount := queuedCount
-          for (lane <- 0 until groupWidth) {
-            mshrReq(lane)     := queuedReq.blocks(lane).bits
-            mshrResp(lane)    := queuedResp.blocks(lane).bits
-            mshrPending(lane) := queuedMiss(lane)
+    if (cacheCfg.ways == 2) {
+      when(r1CanAdvance) {
+        for (lane <- 0 until groupWidth) {
+          when(r1Hit(lane)) {
+            replacementWay(r1Bank(lane))(r1Set(lane)) := ~r1HitWay(lane)
           }
-          mshrSlot := OHToUInt(PriorityEncoderOH(queuedMissOH))
-          mshrRefill  := Mux1H(PriorityEncoderOH(queuedMissOH).asBools, queuedReq.blocks.map(_.bits))
-          mshrKilled  := false.B
-          mshrStale   := false.B
-          mshrState   := ICacheMshrState.SRefillReq
-          queuedValid := false.B
-        }.elsewhen(responseAvailable) {
-          responseReg   := queuedResp
-          responseValid := true.B
-          queuedValid   := false.B
         }
       }
+    }
 
-      // A cache request can arrive in the cycle the scalar refill request or
-      // response handshakes. Keep those state transitions independent: otherwise
-      // a queued group can leave the MSHR waiting for a response it never enables.
-      when(acceptGroup) {
-        when(mshrActive && requestHasMiss) {
-          queuedReq   := io.req.bits
-          queuedCount := acceptedBlocks
-          queuedValid := true.B
-        }.elsewhen(requestHasMiss) {
-          mshrCount := acceptedBlocks
+    when(missState === ICacheMissState.idle) {
+      when(r1CanAdvance) {
+        when(r1HasMiss) {
+          missReq                  := r1Req
+          missingMask              := r1MissingMask
+          refillSlot               := OHToUInt(PriorityEncoderOH(r1MissingMask))
+          missKilled               := false.B
+          missInvalidateGeneration := invalidateGeneration
+          missState                := ICacheMissState.refillRequest
           for (lane <- 0 until groupWidth) {
-            mshrReq(lane)     := io.req.bits.blocks(lane).bits
-            mshrResp(lane)    := incomingResp.blocks(lane).bits
-            mshrPending(lane) := requestMiss(lane)
+            missBlocks(lane)                 := r1Response.blocks(lane).bits
+            missBlocks(lane).hit             := r1Hit(lane)
+            missBlocks(lane).exception.valid := false.B
+            missBlocks(lane).exception.cause := 0.U
+            missBlocks(lane).exception.tval  := 0.U
           }
-          mshrSlot := OHToUInt(PriorityEncoderOH(requestMissOH))
-          mshrRefill := Mux1H(PriorityEncoderOH(requestMissOH).asBools, io.req.bits.blocks.map(_.bits))
-          mshrKilled := false.B
-          mshrStale  := false.B
-          mshrState  := ICacheMshrState.SRefillReq
+          r1Valid := false.B
+          when(io.req.fire) {
+            replayReq   := io.req.bits
+            replayValid := true.B
+          }
         }.otherwise {
-          responseReg   := incomingResp
+          responseReg   := r1Response
+          responseValid := true.B
+          when(io.req.fire) {
+            r1Req   := io.req.bits
+            r1Valid := true.B
+          }.otherwise {
+            r1Valid := false.B
+          }
+        }
+      }.elsewhen(io.req.fire) {
+        r1Req   := io.req.bits
+        r1Valid := true.B
+      }
+    }
+
+    when(io.refillReq.fire) {
+      missState := ICacheMissState.refillResponse
+    }
+
+    when(io.refillResp.fire) {
+      when(missGenerationLive && !io.refillResp.bits.exception.valid) {
+        validArray(refillBank)(refillSet)(refillWay) := true.B
+        tagArray(refillBank)(refillSet)(refillWay)   := refillTag
+        dataArray(refillBank)(refillSet)(refillWay)  := io.refillResp.bits.data
+        if (cacheCfg.ways == 2) {
+          replacementWay(refillBank)(refillSet) := ~refillWay
+        }
+      }
+
+      for (lane <- 0 until groupWidth) {
+        when(refillLineMask(lane)) {
+          missBlocks(lane) := completedResponse.blocks(lane).bits
+        }
+      }
+      missingMask := remainingMask
+
+      when(remainingMask.orR && functionalMissLive) {
+        refillSlot := nextRefillSlot
+        missState  := Mux(io.refillReq.fire, ICacheMissState.refillResponse, ICacheMissState.refillRequest)
+      }.otherwise {
+        missState  := ICacheMissState.idle
+        missKilled := false.B
+        when(functionalMissLive) {
+          responseReg   := completedResponse
           responseValid := true.B
         }
-      }
-    }
 
-    when(mshrState === ICacheMshrState.SRefillReq) {
-      when(io.refillReq.fire) {
-        mshrState := ICacheMshrState.SRefillResp
-      }
-    }
-
-    when(mshrState === ICacheMshrState.SRefillResp && io.refillResp.fire) {
-      for (lane <- 0 until groupWidth) {
-        when(mshrSlot === lane.U(slotWidth.W)) {
-          mshrResp(lane)    := currentRefillResp
-          mshrPending(lane) := false.B
+        when(turnoverMissAction) {
+          missReq                  := turnoverReq
+          missingMask              := turnoverMissingMask
+          refillSlot               := OHToUInt(PriorityEncoderOH(turnoverMissingMask))
+          missKilled               := false.B
+          missInvalidateGeneration := invalidateGeneration
+          missState                := ICacheMissState.refillRequest
+          r1Valid                  := false.B
+          for (lane <- 0 until groupWidth) {
+            missBlocks(lane) := turnoverResponse.blocks(lane).bits
+          }
+          when(replayValid && io.req.fire) {
+            replayReq   := io.req.bits
+            replayValid := true.B
+          }.otherwise {
+            replayValid := false.B
+          }
+          if (cacheCfg.ways == 2) {
+            for (lane <- 0 until groupWidth) {
+              when(turnoverWayHit(lane).asUInt.orR) {
+                replacementWay(turnoverBank(lane))(turnoverSet(lane)) := ~turnoverHitWay(lane)
+              }
+            }
+          }
+        }.elsewhen(turnoverCandidateAccepted) {
+          r1Req       := turnoverReq
+          r1Valid     := true.B
+          replayValid := false.B
+        }.otherwise {
+          r1Valid     := false.B
+          replayValid := false.B
         }
-      }
-
-      // Redirected refills may warm the cache, while fence-killed refills must not repopulate it.
-      when(!io.refillResp.bits.exception.valid && !mshrKilled) {
-        validArray(refillBank)(refillSet) := true.B
-        tagArray(refillBank)(refillSet)   := refillTag
-        dataArray(refillBank)(refillSet)  := io.refillResp.bits.data
-      }
-
-      when(discardMshrResponse) {
-        mshrState   := ICacheMshrState.SIdle
-        mshrKilled  := false.B
-        mshrStale   := false.B
-        mshrPending := VecInit(Seq.fill(groupWidth)(false.B))
-      }.elsewhen(hasNextMiss) {
-        mshrSlot   := nextMissIdx
-        mshrRefill := mshrReq(nextMissIdx)
-        mshrState  := ICacheMshrState.SRefillReq
-      }.otherwise {
-        responseReg   := completedMshrResp
-        responseValid := true.B
-        mshrState     := ICacheMshrState.SIdle
       }
     }
   }
 
   when(io.req.fire) {
-    assert(io.req.bits.blocks(0).valid)
-    when(acceptedBlocks === groupWidth.U) {
-      assert(
-        io.req.bits.blocks(1).bits.meta.blockAddr ===
-          io.req.bits.blocks(0).bits.meta.blockAddr + cfg.fetchBytes.U
-      )
-      assert(
-        io.req.bits.blocks(1).bits.meta.control.epoch ===
-          io.req.bits.blocks(0).bits.meta.control.epoch
-      )
-      assert(
-        io.req.bits.blocks(1).bits.meta.control.sequence ===
-          io.req.bits.blocks(0).bits.meta.control.sequence + 1.U
-      )
-      assert(
-        io.req.bits.blocks(1).bits.meta.control.ftqIndex ===
-          io.req.bits.blocks(0).bits.meta.control.ftqIndex + 1.U
-      )
-    }
-    when(mshrActive && requestHasMiss) {
-      assert(!requestSharesMshr)
-      assert(!queuedValid)
+    assert(io.req.bits.blockValid(0))
+    for (lane <- 0 until groupWidth) {
+      when(io.req.bits.blockValid(lane)) {
+        assert(io.req.bits.blockAddr(lane)(cacheCfg.offsetBits - 1, 0) === 0.U)
+      }
+      if (lane > 0) {
+        when(io.req.bits.blockValid(lane)) {
+          assert(io.req.bits.blockValid(lane - 1))
+        }
+      }
     }
   }
-
-  when(
-    io.req.valid && mshrActive && requestHasMiss && requestSharesOutstanding &&
-      !io.invalidate && !io.redirect
-  ) {
-    assert(!io.req.ready)
+  when(io.lookup.valid) {
+    assert((io.lookup.bits.hitMask & io.lookup.bits.missingMask) === 0.U)
+    assert((io.lookup.bits.hitMask | io.lookup.bits.missingMask) === io.lookup.bits.blockValid.asUInt)
   }
-
-  when(io.resp.valid) {
-    assert(io.resp.bits.blocks(0).valid)
-    when(io.resp.bits.blocks(1).valid) {
-      assert(
-        io.resp.bits.blocks(1).bits.meta.blockAddr ===
-          io.resp.bits.blocks(0).bits.meta.blockAddr + cfg.fetchBytes.U
-      )
-      assert(
-        io.resp.bits.blocks(1).bits.meta.control.epoch ===
-          io.resp.bits.blocks(0).bits.meta.control.epoch
-      )
-      assert(
-        io.resp.bits.blocks(1).bits.meta.control.sequence ===
-          io.resp.bits.blocks(0).bits.meta.control.sequence + 1.U
-      )
-    }
+  when(missState =/= ICacheMissState.idle) {
+    assert(missingMask.orR)
   }
-
-  when(io.refillReq.fire) {
-    assert(mshrState === ICacheMshrState.SRefillReq)
-    assert(mshrPending(mshrSlot))
+  when(replayValid) {
+    assert(missState =/= ICacheMissState.idle)
   }
-  when(io.refillResp.fire) {
-    assert(mshrState === ICacheMshrState.SRefillResp)
-    assert(mshrPending(mshrSlot))
-  }
-  when(mshrActive) {
-    assert(PopCount(mshrPending) =/= 0.U)
-    assert(mshrPending(mshrSlot))
-  }
-  assert(
-    PopCount(
-      Seq(
-        mshrState === ICacheMshrState.SRefillReq,
-        mshrState === ICacheMshrState.SRefillResp
-      )
-    ) <= 1.U
-  )
 }

@@ -19,11 +19,19 @@ extern "C" void npc_difftest_context(int valid, int pc, int priv,
 extern "C" void npc_pmem_read(int addr, int len, int *data);
 extern "C" void npc_pmem_write(int addr, int len, int data);
 extern "C" uint64_t npc_time_read();
-extern "C" void npc_frontend_perf(int events, int fetch_queue_occupancy,
+extern "C" void npc_frontend_perf(int events, int stall_events,
+                                  char ifu_correction,
+                                  int fetch_queue_occupancy,
                                   int fetch_queue_enqueue_width,
-                                  int fetch_queue_dequeue_width);
+                                  int fetch_queue_dequeue_width,
+                                  char icache_lookup_valid,
+                                  int icache_block_valid_mask,
+                                  int icache_miss_mask, int icache_block_addr0,
+                                  int icache_block_addr1);
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,
-                                     char block_ready, char block_operand);
+                                     char block_ready, char block_operand,
+                                     int block_reason,
+                                     int rob_done_operand_count);
 extern "C" void npc_div_perf(int cycles, char special);
 extern "C" void npc_bpu_perf(int cfi_class, char pred_hit, char pred_taken,
                               char actual_taken, char correct);

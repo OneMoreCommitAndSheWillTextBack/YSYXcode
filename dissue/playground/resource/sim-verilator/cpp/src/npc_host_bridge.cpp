@@ -79,30 +79,43 @@ uint64_t NpcHostBridge::time_read() {
 }
 
 void NpcHostBridge::frontend_perf(uint32_t events,
+                                  uint32_t stall_events,
+                                  uint32_t ifu_correction,
                                   uint32_t fetch_queue_occupancy,
                                   uint32_t fetch_queue_enqueue_width,
-                                  uint32_t fetch_queue_dequeue_width) {
+                                  uint32_t fetch_queue_dequeue_width,
+                                  uint32_t icache_lookup_valid,
+                                  uint32_t icache_block_valid_mask,
+                                  uint32_t icache_miss_mask,
+                                  uint32_t icache_block_addr0,
+                                  uint32_t icache_block_addr1) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.frontend_perf == nullptr) {
     return;
   }
-  bridge->callbacks_.frontend_perf(active_opaque(), events,
-                                   fetch_queue_occupancy,
+  bridge->callbacks_.frontend_perf(active_opaque(), events, stall_events,
+                                   ifu_correction, fetch_queue_occupancy,
                                    fetch_queue_enqueue_width,
-                                   fetch_queue_dequeue_width);
+                                   fetch_queue_dequeue_width,
+                                   icache_lookup_valid,
+                                   icache_block_valid_mask, icache_miss_mask,
+                                   icache_block_addr0, icache_block_addr1);
 }
 
 void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
                                      uint8_t block_ready,
-                                     uint8_t block_operand) {
+                                     uint8_t block_operand,
+                                     uint8_t block_reason,
+                                     uint8_t rob_done_operand_count) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.issue_queue_perf == nullptr) {
     return;
   }
   bridge->callbacks_.issue_queue_perf(active_opaque(), issue_count, occupancy,
-                                      block_ready, block_operand);
+                                      block_ready, block_operand, block_reason,
+                                      rob_done_operand_count);
 }
 
 void NpcHostBridge::div_perf(uint32_t cycles, uint8_t special) {

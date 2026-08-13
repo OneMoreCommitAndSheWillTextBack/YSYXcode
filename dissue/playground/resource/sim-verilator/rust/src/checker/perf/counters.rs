@@ -34,6 +34,64 @@ impl BpuCfiClass {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum IssueQueueBlockReason {
+    Downstream = 1,
+    OlderStore = 2,
+    AmoOrder = 3,
+    CsrOrder = 4,
+    CfiOrder = 5,
+    LsuUnavailable = 6,
+    FuUnavailable = 7,
+    Other = 8,
+}
+
+impl IssueQueueBlockReason {
+    pub const COUNT: usize = 8;
+    #[cfg(test)]
+    pub const ALL: [Self; Self::COUNT] = [
+        Self::Downstream,
+        Self::OlderStore,
+        Self::AmoOrder,
+        Self::CsrOrder,
+        Self::CfiOrder,
+        Self::LsuUnavailable,
+        Self::FuUnavailable,
+        Self::Other,
+    ];
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Downstream => "selected-downstream-not-ready",
+            Self::OlderStore => "older-store-ordering",
+            Self::AmoOrder => "amo-ordering",
+            Self::CsrOrder => "csr-ordering",
+            Self::CfiOrder => "cfi-ordering",
+            Self::LsuUnavailable => "lsu-unavailable",
+            Self::FuUnavailable => "fu-unavailable",
+            Self::Other => "other",
+        }
+    }
+
+    pub const fn from_dpi(value: u8) -> Self {
+        match value {
+            1 => Self::Downstream,
+            2 => Self::OlderStore,
+            3 => Self::AmoOrder,
+            4 => Self::CsrOrder,
+            5 => Self::CfiOrder,
+            6 => Self::LsuUnavailable,
+            7 => Self::FuUnavailable,
+            _ => Self::Other,
+        }
+    }
+
+    const fn index(self) -> usize {
+        self as usize - 1
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct BpuCfiCounters {
     total: u64,
@@ -90,6 +148,8 @@ impl BpuCfiCounters {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PerfCounters {
     frontend_events: [u64; Self::FRONTEND_EVENT_COUNT],
+    frontend_stall_events: [u64; Self::FRONTEND_STALL_EVENT_COUNT],
+    ifu_corrections: u64,
     fetch_queue_sample_cycles: u64,
     fetch_queue_occupancy_sum: u64,
     fetch_queue_enqueue_width_total: u64,
@@ -101,6 +161,8 @@ pub struct PerfCounters {
     iq_dual_issue_cycles: u64,
     iq_block_ready_cycles: u64,
     iq_block_operand_cycles: u64,
+    iq_block_reason_cycles: [u64; IssueQueueBlockReason::COUNT],
+    iq_rob_done_operand_count: u64,
     iq_occupancy_sum: u64,
     div_operations: u64,
     div_cycles: u64,
@@ -173,14 +235,44 @@ impl PerfCounters {
     pub const LATE_OVERRIDE: usize = 31;
     pub const FRONTEND_EVENT_COUNT: usize = 32;
 
+    pub const BACKEND_BACKPRESSURE: usize = 0;
+    pub const BACKEND_BACKPRESSURE_FETCH_QUEUE_FULL: usize = 1;
+    pub const FETCH_QUEUE_ENQUEUE_BACKPRESSURE: usize = 2;
+    pub const FETCH_QUEUE_FULL_BACKPRESSURE: usize = 3;
+    pub const FETCH_QUEUE_PARTIAL_BACKPRESSURE: usize = 4;
+    pub const ALIGNER_OUTPUT_BACKPRESSURE: usize = 5;
+    pub const BLOCK_BUFFER_OUTPUT_BACKPRESSURE: usize = 6;
+    pub const ICACHE_RESPONSE_BACKPRESSURE: usize = 7;
+    pub const ICACHE_REQUEST_BACKPRESSURE: usize = 8;
+    pub const ICACHE_REQUEST_MISS_BACKPRESSURE: usize = 9;
+    pub const ICACHE_REQUEST_NON_MISS_BACKPRESSURE: usize = 10;
+    pub const FTQ_RESERVE_BACKPRESSURE: usize = 11;
+    pub const RECOVERY_HOLD: usize = 12;
+    pub const FETCH_QUEUE_STARVED_WITH_INCOMING_ENQUEUE: usize = 13;
+    pub const FETCH_QUEUE_STARVED_WITHOUT_INCOMING_ENQUEUE: usize = 14;
+    pub const FETCH_QUEUE_STARVED_BY_ICACHE_MISS: usize = 15;
+    pub const FETCH_QUEUE_STARVED_BY_RECOVERY_REFILL: usize = 16;
+    pub const FETCH_QUEUE_STARVED_BY_FTQ_RESERVE: usize = 17;
+    pub const FETCH_QUEUE_STARVED_BY_PIPELINE_BUBBLE: usize = 18;
+    pub const RECOVERY_HOLD_BACKEND: usize = 19;
+    pub const RECOVERY_HOLD_IFU_CORRECTION: usize = 20;
+    pub const RECOVERY_HOLD_BPU_OVERRIDE: usize = 21;
+    pub const FETCH_QUEUE_STARVED_AFTER_BACKEND_RECOVERY: usize = 22;
+    pub const FETCH_QUEUE_STARVED_AFTER_IFU_CORRECTION: usize = 23;
+    pub const FETCH_QUEUE_STARVED_AFTER_BPU_OVERRIDE: usize = 24;
+    pub const FRONTEND_STALL_EVENT_COUNT: usize = 32;
+
     pub fn frontend_perf(
         &mut self,
         events: u32,
+        stall_events: u32,
+        ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
         fetch_queue_dequeue_width: u32,
     ) {
         self.fetch_queue_sample_cycles += 1;
+        self.ifu_corrections += u64::from(ifu_correction);
         self.fetch_queue_occupancy_sum += u64::from(fetch_queue_occupancy);
         self.fetch_queue_enqueue_width_total += u64::from(fetch_queue_enqueue_width);
         self.fetch_queue_dequeue_width_total += u64::from(fetch_queue_dequeue_width);
@@ -195,6 +287,12 @@ impl PerfCounters {
                 self.frontend_events[index] += 1;
             }
         }
+
+        for index in 0..Self::FRONTEND_STALL_EVENT_COUNT {
+            if (stall_events & (1_u32 << index)) != 0 {
+                self.frontend_stall_events[index] += 1;
+            }
+        }
     }
 
     pub fn issue_queue_perf(
@@ -203,10 +301,13 @@ impl PerfCounters {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
         self.iq_sample_cycles += 1;
         self.iq_issue_count += u64::from(issue_count);
         self.iq_occupancy_sum += u64::from(occupancy);
+        self.iq_rob_done_operand_count += u64::from(rob_done_operand_count);
 
         if issue_count >= 2 {
             self.iq_dual_issue_cycles += 1;
@@ -214,6 +315,8 @@ impl PerfCounters {
 
         if block_ready {
             self.iq_block_ready_cycles += 1;
+            let reason = IssueQueueBlockReason::from_dpi(block_reason);
+            self.iq_block_reason_cycles[reason.index()] += 1;
         } else if block_operand {
             self.iq_block_operand_cycles += 1;
         }
@@ -313,6 +416,14 @@ impl PerfCounters {
         self.iq_block_operand_cycles
     }
 
+    pub fn issue_queue_block_reason_cycles(&self, reason: IssueQueueBlockReason) -> u64 {
+        self.iq_block_reason_cycles[reason.index()]
+    }
+
+    pub fn issue_queue_rob_done_operand_count(&self) -> u64 {
+        self.iq_rob_done_operand_count
+    }
+
     pub fn issue_queue_average_occupancy(&self) -> f64 {
         if self.iq_sample_cycles == 0 {
             0.0
@@ -375,6 +486,14 @@ impl PerfCounters {
 
     pub fn frontend_event(&self, index: usize) -> u64 {
         self.frontend_events[index]
+    }
+
+    pub fn frontend_stall_event(&self, index: usize) -> u64 {
+        self.frontend_stall_events[index]
+    }
+
+    pub fn ifu_corrections(&self) -> u64 {
+        self.ifu_corrections
     }
 
     pub fn fetch_queue_sample_cycles(&self) -> u64 {
@@ -456,7 +575,49 @@ impl PerfCounters {
 
 #[cfg(test)]
 mod tests {
-    use super::{BpuCfiClass, PerfCounters};
+    use super::{BpuCfiClass, IssueQueueBlockReason, PerfCounters};
+
+    #[test]
+    fn issue_queue_breakdown_is_exclusive_and_tracks_done_producers() {
+        let mut counters = PerfCounters::default();
+
+        counters.issue_queue_perf(
+            0,
+            5,
+            true,
+            false,
+            IssueQueueBlockReason::OlderStore as u8,
+            2,
+        );
+        counters.issue_queue_perf(
+            0,
+            4,
+            true,
+            false,
+            IssueQueueBlockReason::Downstream as u8,
+            1,
+        );
+        counters.issue_queue_perf(0, 3, false, true, 0, 0);
+
+        assert_eq!(counters.issue_queue_block_ready_cycles(), 2);
+        assert_eq!(counters.issue_queue_block_operand_cycles(), 1);
+        assert_eq!(
+            counters.issue_queue_block_reason_cycles(IssueQueueBlockReason::OlderStore),
+            1
+        );
+        assert_eq!(
+            counters.issue_queue_block_reason_cycles(IssueQueueBlockReason::Downstream),
+            1
+        );
+        assert_eq!(counters.issue_queue_rob_done_operand_count(), 3);
+        assert_eq!(
+            IssueQueueBlockReason::ALL
+                .iter()
+                .map(|reason| counters.issue_queue_block_reason_cycles(*reason))
+                .sum::<u64>(),
+            counters.issue_queue_block_ready_cycles()
+        );
+    }
 
     #[test]
     fn bpu_cfi_breakdown_tracks_prediction_causes() {
@@ -490,5 +651,32 @@ mod tests {
 
         assert_eq!(counters.bpu_predictions(), 6);
         assert_eq!(counters.bpu_correct_predictions(), 1);
+    }
+
+    #[test]
+    fn frontend_stall_mask_tracks_overlapping_boundaries() {
+        let mut counters = PerfCounters::default();
+        let stalls = (1_u32 << PerfCounters::BACKEND_BACKPRESSURE)
+            | (1_u32 << PerfCounters::FETCH_QUEUE_ENQUEUE_BACKPRESSURE)
+            | (1_u32 << PerfCounters::FETCH_QUEUE_FULL_BACKPRESSURE);
+
+        counters.frontend_perf(0, stalls, false, 32, 0, 0);
+
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::BACKEND_BACKPRESSURE),
+            1
+        );
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::FETCH_QUEUE_ENQUEUE_BACKPRESSURE),
+            1
+        );
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::FETCH_QUEUE_FULL_BACKPRESSURE),
+            1
+        );
+        assert_eq!(
+            counters.frontend_stall_event(PerfCounters::ICACHE_REQUEST_BACKPRESSURE),
+            0
+        );
     }
 }

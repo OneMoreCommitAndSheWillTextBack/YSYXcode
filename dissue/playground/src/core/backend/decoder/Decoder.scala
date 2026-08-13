@@ -10,7 +10,7 @@ import top.config.BackendConfig
 
 class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val in  = Input(new FetchInstPayload(cfg.addrWidth))
+    val in  = Input(new FetchInstPayload(cfg.frontendPayload))
     val out = Output(new DecodePacket(cfg))
   })
 
@@ -75,7 +75,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   private val csrUsesZimm  = decoded(DecodeIndex.src1Type) === SrcType.imm
   private val csrSetClear  = decoded(DecodeIndex.fuOp) === CsrOp.rs || decoded(DecodeIndex.fuOp) === CsrOp.rc
   private val csrScWriteEn = Mux(csrUsesZimm, immZ =/= 0.U, rs1 =/= 0.U)
-  io.out.csrWen      := isCsr && (
+  io.out.csrWen := isCsr && (
     decoded(DecodeIndex.fuOp) === CsrOp.rw ||
       (csrSetClear && csrScWriteEn)
   )
@@ -85,7 +85,7 @@ class Decoder(cfg: BackendConfig = BackendConfig()) extends Module {
   fetchException.cause     := io.in.exception.cause
   fetchException.tval      := io.in.exception.tval
 
-  io.out.exception   := fetchException
+  io.out.exception := fetchException
   when(!legal) {
     io.out.exception := ExceptionInfo.keepFirst(
       fetchException,

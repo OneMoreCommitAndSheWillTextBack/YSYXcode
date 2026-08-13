@@ -20,7 +20,7 @@ use difftest::{DiffTest, DifftestError};
 use event::AsyncInterrupt;
 use itrace::Itrace;
 use kanata::KanataTrace;
-use perf::{BpuCfiClass, Perf, PerfCounters};
+use perf::{BpuCfiClass, IssueQueueBlockReason, Perf, PerfCounters};
 use statistics::Statistics;
 use std::{fmt, io, mem, path::PathBuf};
 
@@ -292,12 +292,20 @@ impl Checker {
     pub(crate) fn on_frontend_perf(
         &mut self,
         events: u32,
+        stall_events: u32,
+        ifu_correction: bool,
         fetch_queue_occupancy: u32,
         fetch_queue_enqueue_width: u32,
         fetch_queue_dequeue_width: u32,
+        icache_lookup_valid: bool,
+        icache_block_valid_mask: u32,
+        icache_miss_mask: u32,
+        icache_block_addr: [u32; 2],
     ) {
         self.perf.frontend_perf(
             events,
+            stall_events,
+            ifu_correction,
             fetch_queue_occupancy,
             fetch_queue_enqueue_width,
             fetch_queue_dequeue_width,
@@ -305,9 +313,15 @@ impl Checker {
         if self.detailed_trace.is_some() {
             self.cycle_sample.record_frontend(
                 events,
+                stall_events,
+                ifu_correction,
                 fetch_queue_occupancy,
                 fetch_queue_enqueue_width,
                 fetch_queue_dequeue_width,
+                icache_lookup_valid,
+                icache_block_valid_mask,
+                icache_miss_mask,
+                icache_block_addr,
             );
         }
     }
@@ -318,15 +332,25 @@ impl Checker {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
-        self.perf
-            .issue_queue_perf(issue_count, occupancy, block_ready, block_operand);
+        self.perf.issue_queue_perf(
+            issue_count,
+            occupancy,
+            block_ready,
+            block_operand,
+            block_reason,
+            rob_done_operand_count,
+        );
         if self.detailed_trace.is_some() {
             self.cycle_sample.record_issue_queue(
                 issue_count,
                 occupancy,
                 block_ready,
                 block_operand,
+                block_reason,
+                rob_done_operand_count,
             );
         }
     }
@@ -531,8 +555,9 @@ impl Checker {
             self.perf.frontend_event(PerfCounters::STALE_RESPONSE_DROP)
         );
         crate::Log!(
-            "Frontend: redirects: {}, invalidates: {}, empty while backend ready: {}, AXI request wait cycles: {}",
+            "Frontend: redirects: {}, IFU corrections: {}, invalidates: {}, empty while backend ready: {}, AXI request wait cycles: {}",
             self.perf.frontend_event(PerfCounters::BACKEND_REDIRECT),
+            self.perf.ifu_corrections(),
             self.perf.frontend_event(PerfCounters::ICACHE_INVALIDATE),
             self.perf.frontend_event(PerfCounters::FRONTEND_EMPTY),
             self.perf.frontend_event(PerfCounters::AXI_REQUEST_WAIT)
@@ -571,6 +596,83 @@ impl Checker {
             self.perf.fetch_queue_average_miss_start_occupancy()
         );
         crate::Log!(
+            "Frontend pressure: backend blocked: {} (FetchQueue full: {}), IFU -> FetchQueue blocked: {} (full: {}, partial capacity: {})",
+            self.perf
+                .frontend_stall_event(PerfCounters::BACKEND_BACKPRESSURE),
+            self.perf.frontend_stall_event(
+                PerfCounters::BACKEND_BACKPRESSURE_FETCH_QUEUE_FULL
+            ),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_ENQUEUE_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_FULL_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_PARTIAL_BACKPRESSURE)
+        );
+        crate::Log!(
+            "Frontend pressure propagation: Aligner -> IFU: {}, BlockBuffer -> Aligner: {}, ICache response -> BlockBuffer: {}",
+            self.perf
+                .frontend_stall_event(PerfCounters::ALIGNER_OUTPUT_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::BLOCK_BUFFER_OUTPUT_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::ICACHE_RESPONSE_BACKPRESSURE)
+        );
+        crate::Log!(
+            "Frontend pressure upstream: FTQ -> ICache blocked: {} (miss busy: {}, other: {}), PC/BPU -> FTQ blocked: {}, recovery holds: {}",
+            self.perf
+                .frontend_stall_event(PerfCounters::ICACHE_REQUEST_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::ICACHE_REQUEST_MISS_BACKPRESSURE),
+            self.perf.frontend_stall_event(
+                PerfCounters::ICACHE_REQUEST_NON_MISS_BACKPRESSURE
+            ),
+            self.perf
+                .frontend_stall_event(PerfCounters::FTQ_RESERVE_BACKPRESSURE),
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD)
+        );
+        crate::Log!(
+            "Frontend starvation split: incoming enqueue without bypass: {}, no incoming enqueue: {}",
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_WITH_INCOMING_ENQUEUE
+            ),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_WITHOUT_INCOMING_ENQUEUE
+            )
+        );
+        crate::Log!(
+            "Frontend no-incoming starvation causes: ICache miss: {}, recovery refill: {}, FTQ reserve: {}, pipeline bubble: {}",
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_STARVED_BY_ICACHE_MISS),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_BY_RECOVERY_REFILL
+            ),
+            self.perf
+                .frontend_stall_event(PerfCounters::FETCH_QUEUE_STARVED_BY_FTQ_RESERVE),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_BY_PIPELINE_BUBBLE
+            )
+        );
+        crate::Log!(
+            "Frontend recovery split: holds backend/IFU/BPU: {}/{}/{}, refill starvation backend/IFU/BPU: {}/{}/{}",
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD_BACKEND),
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD_IFU_CORRECTION),
+            self.perf
+                .frontend_stall_event(PerfCounters::RECOVERY_HOLD_BPU_OVERRIDE),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_AFTER_BACKEND_RECOVERY
+            ),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_AFTER_IFU_CORRECTION
+            ),
+            self.perf.frontend_stall_event(
+                PerfCounters::FETCH_QUEUE_STARVED_AFTER_BPU_OVERRIDE
+            )
+        );
+        crate::Log!(
             "cycles: {}, total commits: {}, ipc: {:.3}",
             self.statistics.cycle(),
             self.statistics.total_commits(),
@@ -588,6 +690,21 @@ impl Checker {
             self.perf.issue_queue_block_ready_cycles(),
             self.perf.issue_queue_block_operand_cycles(),
             self.perf.issue_queue_average_occupancy()
+        );
+        crate::Log!(
+            "IssueQueue ready-block breakdown (exclusive): downstream: {}, older store: {}, AMO order: {}, CSR order: {}, CFI order: {}, LSU unavailable: {}, FU unavailable: {}, other: {}",
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::Downstream),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::OlderStore),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::AmoOrder),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::CsrOrder),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::CfiOrder),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::LsuUnavailable),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::FuUnavailable),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::Other)
+        );
+        crate::Log!(
+            "IssueQueue: dispatch operands waiting on an already-done ROB producer: {}",
+            self.perf.issue_queue_rob_done_operand_count()
         );
         crate::Log!(
             "DIV: operations: {}, cycles: {}, avg cycles/op: {:.3}, special operations: {}",

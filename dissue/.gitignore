@@ -17,6 +17,7 @@
 !.gitignore
 !.scalafmt.conf
 !README.md
+!doc/frontend-vnext-progress.md
 build/
 
 # mill
