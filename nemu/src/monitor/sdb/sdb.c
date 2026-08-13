@@ -15,6 +15,7 @@
 
 #include "sdb.h"
 #include "common.h"
+#include "debug.h"
 #include "utils.h"
 #include <cpu/cpu.h>
 #include <isa.h>
@@ -285,6 +286,9 @@ void sdb_set_batch_mode() { is_batch_mode = true; }
 
 void sdb_mainloop() {
   if (is_batch_mode) {
+    if(dbg_is_on()) {
+      Log("dbg-server is not supported in batch mode, dbg-server will be ignored");
+    }
     cmd_c(NULL);
     return;
   }
@@ -351,7 +355,7 @@ void init_sdb() {
   /* Initialize the watchpoint pool. */
   init_wp_pool();
 
-  if (dbg_is_on()) {
+  if (dbg_is_on() && !is_batch_mode) {
     dbg_init_and_wait_connection();
   }
 }
