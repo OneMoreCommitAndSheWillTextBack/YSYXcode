@@ -214,10 +214,10 @@ class Backend(
   }
 
   for (i <- 0 until cfg.scoreboardQueries) {
-    scoreboard.io.query(i).valid            := dispatch.io.scoreboardQuery(i).valid
-    scoreboard.io.query(i).rs               := dispatch.io.scoreboardQuery(i).rs
-    dispatch.io.scoreboardQuery(i).ready    := scoreboard.io.query(i).ready
-    dispatch.io.scoreboardQuery(i).producer := scoreboard.io.query(i).producer
+    scoreboard.io.query(i).valid                := dispatch.io.scoreboardQuery(i).valid
+    scoreboard.io.query(i).rs                   := dispatch.io.scoreboardQuery(i).rs
+    dispatch.io.scoreboardQuery(i).ready        := scoreboard.io.query(i).ready
+    dispatch.io.scoreboardQuery(i).producer     := scoreboard.io.query(i).producer
     dispatch.io.scoreboardQuery(i).producerDone := scoreboard.io.query(i).producerDone
   }
 
@@ -232,46 +232,46 @@ class Backend(
     retire.io.rob(i) <> rob.io.commit(i)
   }
 
-  scoreboard.io.commit             := retire.io.scoreboardCommit
-  lsu.io.storeCommit               := retire.io.storeCommit
-  lsu.io.serializedStore           := retire.io.serializedStore
-  retire.io.serializedStoreSuccess := lsu.io.serializedStoreSuccess
-  retire.io.storesDrained          := lsu.io.storesDrainedBeforeCommit
-  csrFile.io.commit                := retire.io.csrCommit
-  csrFile.io.trap                  := retire.io.csrTrap
-  csrFile.io.mret                  := retire.io.csrMret
-  csrFile.io.sret                  := retire.io.csrSret
-  csrFile.io.interrupt             := io.interrupt
-  csrFile.io.mtime                 := io.mtime
-  csrFile.io.retireCount           := PopCount(retire.io.retire.validMask)
-  retire.io.csrStatus              := csrFile.io.status
-  retire.io.hold                   := selectiveRecovery.valid
-  io.fenceIReq.valid               := retire.io.fenceIReq.valid
-  io.fenceIReq.bits                := retire.io.fenceIReq.bits
-  retire.io.fenceIReq.ready        := io.fenceIReq.ready
-  retire.io.fenceIDone             := io.fenceIDone
-  csrTracker.io.commit             := retire.io.csrTrackerCommit
-  csrTracker.io.robHead            := rob.io.head
-  rob.io.flush                     := globalFlush
-  rob.io.recover                   := selectiveRecovery
-  scoreboard.io.flush              := globalFlush
-  scoreboard.io.recover            := selectiveRecovery
-  scoreboard.io.robHead            := rob.io.head
-  scoreboard.io.producerEntries    := rob.io.producerEntries
-  csrTracker.io.flush              := globalFlush
-  csrTracker.io.recover            := selectiveRecovery
-  issueQueue.io.flush              := globalFlush
-  issueQueue.io.recover            := selectiveRecovery
-  issueQueue.io.hold               := retire.io.fenceIActive
+  scoreboard.io.commit              := retire.io.scoreboardCommit
+  lsu.io.storeCommit                := retire.io.storeCommit
+  lsu.io.serializedStore            := retire.io.serializedStore
+  retire.io.serializedStoreSuccess  := lsu.io.serializedStoreSuccess
+  retire.io.storesDrained           := lsu.io.storesDrainedBeforeCommit
+  csrFile.io.commit                 := retire.io.csrCommit
+  csrFile.io.trap                   := retire.io.csrTrap
+  csrFile.io.mret                   := retire.io.csrMret
+  csrFile.io.sret                   := retire.io.csrSret
+  csrFile.io.interrupt              := io.interrupt
+  csrFile.io.mtime                  := io.mtime
+  csrFile.io.retireCount            := PopCount(retire.io.retire.validMask)
+  retire.io.csrStatus               := csrFile.io.status
+  retire.io.hold                    := selectiveRecovery.valid
+  io.fenceIReq.valid                := retire.io.fenceIReq.valid
+  io.fenceIReq.bits                 := retire.io.fenceIReq.bits
+  retire.io.fenceIReq.ready         := io.fenceIReq.ready
+  retire.io.fenceIDone              := io.fenceIDone
+  csrTracker.io.commit              := retire.io.csrTrackerCommit
+  csrTracker.io.robHead             := rob.io.head
+  rob.io.flush                      := globalFlush
+  rob.io.recover                    := selectiveRecovery
+  scoreboard.io.flush               := globalFlush
+  scoreboard.io.recover             := selectiveRecovery
+  scoreboard.io.robHead             := rob.io.head
+  scoreboard.io.producerEntries     := rob.io.producerEntries
+  csrTracker.io.flush               := globalFlush
+  csrTracker.io.recover             := selectiveRecovery
+  issueQueue.io.flush               := globalFlush
+  issueQueue.io.recover             := selectiveRecovery
+  issueQueue.io.hold                := retire.io.fenceIActive
   issueQueue.io.robDoneOperandCount := dispatch.io.robDoneOperandCount
-  lsu.io.flush                     := globalFlush
-  lsu.io.recover                   := selectiveRecovery
-  lsu.io.robHead                   := rob.io.head
-  lsu.io.unresolvedCfi             := rob.io.unresolvedCfi
-  lsu.io.dmemCancel                := io.dmemCancel
-  lsu.io.csrStatus                 := csrFile.io.status
-  io.storesDrained                 := lsu.io.storesDrained
-  io.memoryIdle                    := lsu.io.memoryIdle
+  lsu.io.flush                      := globalFlush
+  lsu.io.recover                    := selectiveRecovery
+  lsu.io.robHead                    := rob.io.head
+  lsu.io.unresolvedCfi              := rob.io.unresolvedCfi
+  lsu.io.dmemCancel                 := io.dmemCancel
+  lsu.io.csrStatus                  := csrFile.io.status
+  io.storesDrained                  := lsu.io.storesDrained
+  io.memoryIdle                     := lsu.io.memoryIdle
 
   if (enableDifftest) {
     val difftest = Module(new DifftestMonitor(resetVector, cfg))

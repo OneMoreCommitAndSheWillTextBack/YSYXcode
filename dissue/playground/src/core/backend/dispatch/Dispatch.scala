@@ -16,13 +16,13 @@ import top.core.bundle.CfiType
 
 class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
-    val in              = Input(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
-    val robIdx          = Input(Vec(cfg.dispatchWidth, UInt(cfg.robIdxWidth.W)))
-    val sqIdx           = Input(Vec(cfg.dispatchWidth, UInt(cfg.sqIdxWidth.W)))
-    val rfRead          = Vec(cfg.scoreboardQueries, Flipped(new RegFileReadPort(cfg.dataWidth)))
-    val scoreboardQuery = Vec(cfg.scoreboardQueries, Flipped(new ScoreboardQuery(cfg)))
-    val scoreboardAlloc = Output(Vec(cfg.dispatchWidth, new ScoreboardAlloc(cfg)))
-    val out             = Vec(cfg.dispatchWidth, Decoupled(new IssuePacket(cfg)))
+    val in                  = Input(Vec(cfg.dispatchWidth, new DecodePacket(cfg)))
+    val robIdx              = Input(Vec(cfg.dispatchWidth, UInt(cfg.robIdxWidth.W)))
+    val sqIdx               = Input(Vec(cfg.dispatchWidth, UInt(cfg.sqIdxWidth.W)))
+    val rfRead              = Vec(cfg.scoreboardQueries, Flipped(new RegFileReadPort(cfg.dataWidth)))
+    val scoreboardQuery     = Vec(cfg.scoreboardQueries, Flipped(new ScoreboardQuery(cfg)))
+    val scoreboardAlloc     = Output(Vec(cfg.dispatchWidth, new ScoreboardAlloc(cfg)))
+    val out                 = Vec(cfg.dispatchWidth, Decoupled(new IssuePacket(cfg)))
     val robDoneOperandCount = Output(UInt(32.W))
   })
 
@@ -59,7 +59,7 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     operand
   }
 
-  val laneAllowed = Wire(Vec(cfg.dispatchWidth, Bool()))
+  val laneAllowed             = Wire(Vec(cfg.dispatchWidth, Bool()))
   private val robDoneOperands = Wire(Vec(cfg.scoreboardQueries, Bool()))
   robDoneOperands.foreach(_ := false.B)
 

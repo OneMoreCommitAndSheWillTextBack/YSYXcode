@@ -61,9 +61,8 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
     val waitsForEarlierLane                     = query.valid && query.rs =/= 0.U && hasEarlierAllocation
     val queryReady                              = !query.valid || query.rs === 0.U || (!busy(query.rs) && !waitsForEarlierLane)
     val selectedProducer                        = Mux(waitsForEarlierLane, earlierProducer, producer(query.rs))
-    val selectedProducerDone                    = VecInit(io.producerEntries.map { entry =>
-      entry.valid && entry.robIdx === selectedProducer && entry.done
-    }).asUInt.orR
+    val selectedProducerEntry                   = io.producerEntries(selectedProducer)
+    val selectedProducerDone                    = selectedProducerEntry.valid && selectedProducerEntry.done
     val selectedProducerCommits                 = VecInit(io.commit.map { commit =>
       commit.valid && commit.rfWen && commit.robIdx === selectedProducer
     }).asUInt.orR
