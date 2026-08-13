@@ -249,10 +249,11 @@ class IssuePacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
 }
 
 class ScoreboardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val valid    = Input(Bool())
-  val rs       = Input(UInt(5.W))
-  val ready    = Output(Bool())
-  val producer = Output(UInt(cfg.robIdxWidth.W))
+  val valid        = Input(Bool())
+  val rs           = Input(UInt(5.W))
+  val ready        = Output(Bool())
+  val producer     = Output(UInt(cfg.robIdxWidth.W))
+  val producerDone = Output(Bool())
 }
 
 class ScoreboardAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -349,6 +350,7 @@ class BackendMonitor(cfg: BackendConfig = BackendConfig()) extends Bundle {
 /** The portion of a ROB entry needed to reconstruct register dependencies after selective recovery. */
 class RobProducerEntry(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid  = Bool()
+  val done   = Bool()
   val robIdx = UInt(cfg.robIdxWidth.W)
   val rd     = UInt(5.W)
   val rfWen  = Bool()

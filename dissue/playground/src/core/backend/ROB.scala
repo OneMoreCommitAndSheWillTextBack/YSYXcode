@@ -158,6 +158,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
 
   for (index <- 0 until cfg.robEntries) {
     io.producerEntries(index).valid  := entries(index).valid
+    io.producerEntries(index).done   := entries(index).done
     io.producerEntries(index).robIdx := index.U(cfg.robIdxWidth.W)
     io.producerEntries(index).rd     := entries(index).rd
     io.producerEntries(index).rfWen  := entries(index).rfWen

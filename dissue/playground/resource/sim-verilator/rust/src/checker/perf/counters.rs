@@ -34,6 +34,63 @@ impl BpuCfiClass {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum IssueQueueBlockReason {
+    Downstream = 1,
+    OlderStore = 2,
+    AmoOrder = 3,
+    CsrOrder = 4,
+    CfiOrder = 5,
+    LsuUnavailable = 6,
+    FuUnavailable = 7,
+    Other = 8,
+}
+
+impl IssueQueueBlockReason {
+    pub const COUNT: usize = 8;
+    pub const ALL: [Self; Self::COUNT] = [
+        Self::Downstream,
+        Self::OlderStore,
+        Self::AmoOrder,
+        Self::CsrOrder,
+        Self::CfiOrder,
+        Self::LsuUnavailable,
+        Self::FuUnavailable,
+        Self::Other,
+    ];
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Downstream => "selected-downstream-not-ready",
+            Self::OlderStore => "older-store-ordering",
+            Self::AmoOrder => "amo-ordering",
+            Self::CsrOrder => "csr-ordering",
+            Self::CfiOrder => "cfi-ordering",
+            Self::LsuUnavailable => "lsu-unavailable",
+            Self::FuUnavailable => "fu-unavailable",
+            Self::Other => "other",
+        }
+    }
+
+    pub const fn from_dpi(value: u8) -> Self {
+        match value {
+            1 => Self::Downstream,
+            2 => Self::OlderStore,
+            3 => Self::AmoOrder,
+            4 => Self::CsrOrder,
+            5 => Self::CfiOrder,
+            6 => Self::LsuUnavailable,
+            7 => Self::FuUnavailable,
+            _ => Self::Other,
+        }
+    }
+
+    const fn index(self) -> usize {
+        self as usize - 1
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct BpuCfiCounters {
     total: u64,
@@ -103,6 +160,8 @@ pub struct PerfCounters {
     iq_dual_issue_cycles: u64,
     iq_block_ready_cycles: u64,
     iq_block_operand_cycles: u64,
+    iq_block_reason_cycles: [u64; IssueQueueBlockReason::COUNT],
+    iq_rob_done_operand_count: u64,
     iq_occupancy_sum: u64,
     div_operations: u64,
     div_cycles: u64,
@@ -241,10 +300,13 @@ impl PerfCounters {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
         self.iq_sample_cycles += 1;
         self.iq_issue_count += u64::from(issue_count);
         self.iq_occupancy_sum += u64::from(occupancy);
+        self.iq_rob_done_operand_count += u64::from(rob_done_operand_count);
 
         if issue_count >= 2 {
             self.iq_dual_issue_cycles += 1;
@@ -252,6 +314,8 @@ impl PerfCounters {
 
         if block_ready {
             self.iq_block_ready_cycles += 1;
+            let reason = IssueQueueBlockReason::from_dpi(block_reason);
+            self.iq_block_reason_cycles[reason.index()] += 1;
         } else if block_operand {
             self.iq_block_operand_cycles += 1;
         }
@@ -349,6 +413,14 @@ impl PerfCounters {
 
     pub fn issue_queue_block_operand_cycles(&self) -> u64 {
         self.iq_block_operand_cycles
+    }
+
+    pub fn issue_queue_block_reason_cycles(&self, reason: IssueQueueBlockReason) -> u64 {
+        self.iq_block_reason_cycles[reason.index()]
+    }
+
+    pub fn issue_queue_rob_done_operand_count(&self) -> u64 {
+        self.iq_rob_done_operand_count
     }
 
     pub fn issue_queue_average_occupancy(&self) -> f64 {
@@ -502,7 +574,49 @@ impl PerfCounters {
 
 #[cfg(test)]
 mod tests {
-    use super::{BpuCfiClass, PerfCounters};
+    use super::{BpuCfiClass, IssueQueueBlockReason, PerfCounters};
+
+    #[test]
+    fn issue_queue_breakdown_is_exclusive_and_tracks_done_producers() {
+        let mut counters = PerfCounters::default();
+
+        counters.issue_queue_perf(
+            0,
+            5,
+            true,
+            false,
+            IssueQueueBlockReason::OlderStore as u8,
+            2,
+        );
+        counters.issue_queue_perf(
+            0,
+            4,
+            true,
+            false,
+            IssueQueueBlockReason::Downstream as u8,
+            1,
+        );
+        counters.issue_queue_perf(0, 3, false, true, 0, 0);
+
+        assert_eq!(counters.issue_queue_block_ready_cycles(), 2);
+        assert_eq!(counters.issue_queue_block_operand_cycles(), 1);
+        assert_eq!(
+            counters.issue_queue_block_reason_cycles(IssueQueueBlockReason::OlderStore),
+            1
+        );
+        assert_eq!(
+            counters.issue_queue_block_reason_cycles(IssueQueueBlockReason::Downstream),
+            1
+        );
+        assert_eq!(counters.issue_queue_rob_done_operand_count(), 3);
+        assert_eq!(
+            IssueQueueBlockReason::ALL
+                .iter()
+                .map(|reason| counters.issue_queue_block_reason_cycles(*reason))
+                .sum::<u64>(),
+            counters.issue_queue_block_ready_cycles()
+        );
+    }
 
     #[test]
     fn bpu_cfi_breakdown_tracks_prediction_causes() {

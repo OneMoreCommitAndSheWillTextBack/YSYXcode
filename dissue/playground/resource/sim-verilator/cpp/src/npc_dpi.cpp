@@ -102,10 +102,14 @@ extern "C" void npc_frontend_perf(int events, int stall_events,
 }
 
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,
-                                     char block_ready, char block_operand) {
+                                     char block_ready, char block_operand,
+                                     int block_reason,
+                                     int rob_done_operand_count) {
   NpcHostBridge::issue_queue_perf(
       static_cast<uint8_t>(issue_count), static_cast<uint8_t>(occupancy),
-      static_cast<uint8_t>(block_ready), static_cast<uint8_t>(block_operand));
+      static_cast<uint8_t>(block_ready), static_cast<uint8_t>(block_operand),
+      static_cast<uint8_t>(block_reason),
+      static_cast<uint8_t>(rob_done_operand_count));
 }
 
 extern "C" void npc_div_perf(int cycles, char special) {

@@ -218,6 +218,7 @@ class Backend(
     scoreboard.io.query(i).rs               := dispatch.io.scoreboardQuery(i).rs
     dispatch.io.scoreboardQuery(i).ready    := scoreboard.io.query(i).ready
     dispatch.io.scoreboardQuery(i).producer := scoreboard.io.query(i).producer
+    dispatch.io.scoreboardQuery(i).producerDone := scoreboard.io.query(i).producerDone
   }
 
   for (i <- 0 until cfg.dispatchWidth) {
@@ -262,6 +263,7 @@ class Backend(
   issueQueue.io.flush              := globalFlush
   issueQueue.io.recover            := selectiveRecovery
   issueQueue.io.hold               := retire.io.fenceIActive
+  issueQueue.io.robDoneOperandCount := dispatch.io.robDoneOperandCount
   lsu.io.flush                     := globalFlush
   lsu.io.recover                   := selectiveRecovery
   lsu.io.robHead                   := rob.io.head

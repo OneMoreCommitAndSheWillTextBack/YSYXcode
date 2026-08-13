@@ -43,7 +43,9 @@ public:
                             uint32_t icache_block_addr0,
                             uint32_t icache_block_addr1);
   static void issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
-                               uint8_t block_ready, uint8_t block_operand);
+                               uint8_t block_ready, uint8_t block_operand,
+                               uint8_t block_reason,
+                               uint8_t rob_done_operand_count);
   static void div_perf(uint32_t cycles, uint8_t special);
   static void bpu_perf(uint8_t cfi_class, uint8_t pred_hit,
                        uint8_t pred_taken, uint8_t actual_taken,

@@ -1,4 +1,8 @@
-use super::{event::CommitGroup, itrace::write_instruction_summary, perf::PerfCounters};
+use super::{
+    event::CommitGroup,
+    itrace::write_instruction_summary,
+    perf::{IssueQueueBlockReason, PerfCounters},
+};
 use std::{
     fs::{self, File},
     io::{self, LineWriter, Write},
@@ -122,6 +126,8 @@ struct IssueQueueSample {
     occupancy: u8,
     block_ready: bool,
     block_operand: bool,
+    block_reason: u8,
+    rob_done_operand_count: u8,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -176,12 +182,16 @@ impl CycleSample {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
         self.issue_queue = Some(IssueQueueSample {
             issue_count,
             occupancy,
             block_ready,
             block_operand,
+            block_reason,
+            rob_done_operand_count,
         });
     }
 
@@ -358,8 +368,17 @@ fn write_issue_queue<W: Write>(writer: &mut W, sample: Option<IssueQueueSample>)
     match sample {
         Some(sample) => write!(
             writer,
-            "{{issue={},occ={},block_ready={},block_operand={}}}",
-            sample.issue_count, sample.occupancy, sample.block_ready, sample.block_operand
+            "{{issue={},occ={},block_ready={},block_operand={},block_reason={},rob_done_operands={}}}",
+            sample.issue_count,
+            sample.occupancy,
+            sample.block_ready,
+            sample.block_operand,
+            if sample.block_ready {
+                IssueQueueBlockReason::from_dpi(sample.block_reason).label()
+            } else {
+                "none"
+            },
+            sample.rob_done_operand_count
         ),
         None => write!(writer, "-"),
     }

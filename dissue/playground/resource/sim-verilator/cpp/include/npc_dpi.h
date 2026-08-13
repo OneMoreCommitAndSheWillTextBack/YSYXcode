@@ -29,7 +29,9 @@ extern "C" void npc_frontend_perf(int events, int stall_events,
                                   int icache_miss_mask, int icache_block_addr0,
                                   int icache_block_addr1);
 extern "C" void npc_issue_queue_perf(int issue_count, int occupancy,
-                                     char block_ready, char block_operand);
+                                     char block_ready, char block_operand,
+                                     int block_reason,
+                                     int rob_done_operand_count);
 extern "C" void npc_div_perf(int cycles, char special);
 extern "C" void npc_bpu_perf(int cfi_class, char pred_hit, char pred_taken,
                               char actual_taken, char correct);

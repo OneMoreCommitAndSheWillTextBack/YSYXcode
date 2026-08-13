@@ -105,14 +105,17 @@ void NpcHostBridge::frontend_perf(uint32_t events,
 
 void NpcHostBridge::issue_queue_perf(uint8_t issue_count, uint8_t occupancy,
                                      uint8_t block_ready,
-                                     uint8_t block_operand) {
+                                     uint8_t block_operand,
+                                     uint8_t block_reason,
+                                     uint8_t rob_done_operand_count) {
   NpcHostBridge *bridge = active_bridge();
 
   if (bridge == nullptr || bridge->callbacks_.issue_queue_perf == nullptr) {
     return;
   }
   bridge->callbacks_.issue_queue_perf(active_opaque(), issue_count, occupancy,
-                                      block_ready, block_operand);
+                                      block_ready, block_operand, block_reason,
+                                      rob_done_operand_count);
 }
 
 void NpcHostBridge::div_perf(uint32_t cycles, uint8_t special) {

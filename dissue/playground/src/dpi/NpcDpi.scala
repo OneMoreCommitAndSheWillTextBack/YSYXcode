@@ -71,7 +71,9 @@ object NpcIssueQueuePerf extends DPIClockedVoidFunctionImport {
       "issueCount",
       "occupancy",
       "blockReady",
-      "blockOperand"
+      "blockOperand",
+      "blockReason",
+      "robDoneOperandCount"
     )
   )
 }

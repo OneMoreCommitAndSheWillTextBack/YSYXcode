@@ -1,6 +1,6 @@
 mod counters;
 
-pub use counters::{BpuCfiClass, BpuCfiCounters, PerfCounters};
+pub use counters::{BpuCfiClass, BpuCfiCounters, IssueQueueBlockReason, PerfCounters};
 
 #[derive(Debug, Default)]
 pub struct Perf {
@@ -37,9 +37,17 @@ impl Perf {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
-        self.counters
-            .issue_queue_perf(issue_count, occupancy, block_ready, block_operand);
+        self.counters.issue_queue_perf(
+            issue_count,
+            occupancy,
+            block_ready,
+            block_operand,
+            block_reason,
+            rob_done_operand_count,
+        );
     }
 
     pub fn div_perf(&mut self, cycles: u32, special: bool) {
@@ -99,6 +107,14 @@ impl Perf {
 
     pub fn issue_queue_block_operand_cycles(&self) -> u64 {
         self.counters.issue_queue_block_operand_cycles()
+    }
+
+    pub fn issue_queue_block_reason_cycles(&self, reason: IssueQueueBlockReason) -> u64 {
+        self.counters.issue_queue_block_reason_cycles(reason)
+    }
+
+    pub fn issue_queue_rob_done_operand_count(&self) -> u64 {
+        self.counters.issue_queue_rob_done_operand_count()
     }
 
     pub fn issue_queue_average_occupancy(&self) -> f64 {

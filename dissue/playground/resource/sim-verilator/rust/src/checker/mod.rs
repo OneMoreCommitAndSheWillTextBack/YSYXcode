@@ -20,7 +20,7 @@ use difftest::{DiffTest, DifftestError};
 use event::AsyncInterrupt;
 use itrace::Itrace;
 use kanata::KanataTrace;
-use perf::{BpuCfiClass, Perf, PerfCounters};
+use perf::{BpuCfiClass, IssueQueueBlockReason, Perf, PerfCounters};
 use statistics::Statistics;
 use std::{fmt, io, mem, path::PathBuf};
 
@@ -332,15 +332,25 @@ impl Checker {
         occupancy: u8,
         block_ready: bool,
         block_operand: bool,
+        block_reason: u8,
+        rob_done_operand_count: u8,
     ) {
-        self.perf
-            .issue_queue_perf(issue_count, occupancy, block_ready, block_operand);
+        self.perf.issue_queue_perf(
+            issue_count,
+            occupancy,
+            block_ready,
+            block_operand,
+            block_reason,
+            rob_done_operand_count,
+        );
         if self.detailed_trace.is_some() {
             self.cycle_sample.record_issue_queue(
                 issue_count,
                 occupancy,
                 block_ready,
                 block_operand,
+                block_reason,
+                rob_done_operand_count,
             );
         }
     }
@@ -680,6 +690,21 @@ impl Checker {
             self.perf.issue_queue_block_ready_cycles(),
             self.perf.issue_queue_block_operand_cycles(),
             self.perf.issue_queue_average_occupancy()
+        );
+        crate::Log!(
+            "IssueQueue ready-block breakdown (exclusive): downstream: {}, older store: {}, AMO order: {}, CSR order: {}, CFI order: {}, LSU unavailable: {}, FU unavailable: {}, other: {}",
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::Downstream),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::OlderStore),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::AmoOrder),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::CsrOrder),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::CfiOrder),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::LsuUnavailable),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::FuUnavailable),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::Other)
+        );
+        crate::Log!(
+            "IssueQueue: dispatch operands waiting on an already-done ROB producer: {}",
+            self.perf.issue_queue_rob_done_operand_count()
         );
         crate::Log!(
             "DIV: operations: {}, cycles: {}, avg cycles/op: {:.3}, special operations: {}",

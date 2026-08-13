@@ -120,7 +120,8 @@ typedef struct NpcDpiCallbacks {
                         uint32_t icache_block_addr1);
   void (*issue_queue_perf)(void *opaque, uint8_t issue_count,
                            uint8_t occupancy, uint8_t block_ready,
-                           uint8_t block_operand);
+                           uint8_t block_operand, uint8_t block_reason,
+                           uint8_t rob_done_operand_count);
   void (*div_perf)(void *opaque, uint32_t cycles, uint8_t special);
   void (*bpu_perf)(void *opaque, uint8_t cfi_class, uint8_t pred_hit,
                    uint8_t pred_taken, uint8_t actual_taken, uint8_t correct);

@@ -59,9 +59,15 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
     val dispatchSlot                            = queryIdx / cfg.operandsPerInst
     val (hasEarlierAllocation, earlierProducer) = newestAllocation(query.rs, 0 until dispatchSlot)
     val waitsForEarlierLane                     = query.valid && query.rs =/= 0.U && hasEarlierAllocation
+    val queryReady                              = !query.valid || query.rs === 0.U || (!busy(query.rs) && !waitsForEarlierLane)
+    val selectedProducer                        = Mux(waitsForEarlierLane, earlierProducer, producer(query.rs))
+    val selectedProducerDone                    = VecInit(io.producerEntries.map { entry =>
+      entry.valid && entry.robIdx === selectedProducer && entry.done
+    }).asUInt.orR
 
-    query.ready    := !query.valid || query.rs === 0.U || (!busy(query.rs) && !waitsForEarlierLane)
-    query.producer := Mux(waitsForEarlierLane, earlierProducer, producer(query.rs))
+    query.ready        := queryReady
+    query.producer     := selectedProducer
+    query.producerDone := query.valid && !queryReady && !waitsForEarlierLane && selectedProducerDone
   }
 
   when(io.flush) {

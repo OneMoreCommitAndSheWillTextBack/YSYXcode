@@ -73,6 +73,8 @@ pub struct NpcDpiCallbacks {
             occupancy: u8,
             block_ready: u8,
             block_operand: u8,
+            block_reason: u8,
+            rob_done_operand_count: u8,
         ),
     >,
     pub div_perf: Option<extern "C" fn(*mut c_void, cycles: u32, special: u8)>,

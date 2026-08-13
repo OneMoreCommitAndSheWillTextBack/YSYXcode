@@ -420,6 +420,8 @@ extern "C" fn issue_queue_perf(
     occupancy: u8,
     block_ready: u8,
     block_operand: u8,
+    block_reason: u8,
+    rob_done_operand_count: u8,
 ) {
     if let Some(host) = unsafe { host_from_opaque(opaque) } {
         host.checker.on_issue_queue_perf(
@@ -427,6 +429,8 @@ extern "C" fn issue_queue_perf(
             occupancy,
             block_ready != 0,
             block_operand != 0,
+            block_reason,
+            rob_done_operand_count,
         );
     }
 }
