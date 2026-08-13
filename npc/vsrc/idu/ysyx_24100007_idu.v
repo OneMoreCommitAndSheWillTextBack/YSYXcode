@@ -11,7 +11,6 @@ module ysyx_24100007_idu(
 
   input is_jmp,
 
-  // 寄存器堆读出的数据
   input [31:0] regout1,
   input [31:0] regout2,
 
@@ -26,7 +25,7 @@ module ysyx_24100007_idu(
   input exu_regew,
   input [31:0] exu_transmit_data,
   input exu_transmit_data_valid,
-  input exu_memer_bypass,              // EXU 是否是 load 指令（用于处理 load-use 冲突）
+  input exu_memer_bypass,    // EXU 是否是 load 指令（用于处理 load-use 冲突）
 
   // 经过旁路选择后的数据
   output [31:0] src1_data,
