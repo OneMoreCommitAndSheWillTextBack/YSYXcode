@@ -162,6 +162,7 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     io.producerEntries(index).robIdx := index.U(cfg.robIdxWidth.W)
     io.producerEntries(index).rd     := entries(index).rd
     io.producerEntries(index).rfWen  := entries(index).rfWen
+    io.producerEntries(index).result := entries(index).result
     io.unresolvedCfi(index)          := entries(index).valid && entries(index).cfi =/= CfiType.none && !entries(index).done
     io.unresolvedAmo(index)          := entries(index).valid && entries(index).isAmo && !entries(index).done
   }

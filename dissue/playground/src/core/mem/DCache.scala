@@ -321,13 +321,16 @@ class DCache(
   private val mshrResponseVisible =
     hasResponding && !io.flush && !io.recover.valid && !ownerKilled(respondingWaiter.owner)
   private val responseBusy        = hitRespValid || hasResponding
-  private val requestCanAllocate  = hasFreeMshr && hasVictim && mayIssueAxi(io.req.bits.owner)
+  // A dirty-victim allocation would create a second evicting MSHR; the writeback path only
+  // arbitrates one eviction at a time. Hits and merges into pending MSHRs still proceed during
+  // an eviction, but a fresh miss allocation waits for the writeback to drain.
+  private val requestCanAllocate  = hasFreeMshr && hasVictim && mayIssueAxi(io.req.bits.owner) && !hasEvicting
   private val requestReady        = Mux(hit, true.B, Mux(mshrMatch, matchWaiterSpace, requestCanAllocate))
 
-  // An eviction owns the single AXI writer until all of its beats are durable.
-  // Blocking new requests here keeps the selected victim stable throughout the
-  // writeback transaction sequence.
-  io.req.ready := !io.flush && !io.recover.valid && !responseBusy && !hasEvicting &&
+  // The victim line is snapshotted into mshrEvictData at allocation and its way stays reserved
+  // (reservedWay) for the whole writeback sequence, so hits on other lines and merges into pending
+  // MSHRs need not wait for the writeback to drain. Only maintenance and clean-all still block.
+  io.req.ready := !io.flush && !io.recover.valid && !responseBusy &&
     !maintenanceWriteActive && !cleanAllActive && !io.cleanInvalidate.valid && !io.cleanAll.valid && requestReady
 
   private val requestFire     = io.req.fire

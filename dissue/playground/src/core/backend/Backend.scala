@@ -220,6 +220,7 @@ class Backend(
     dispatch.io.scoreboardQuery(i).ready        := scoreboard.io.query(i).ready
     dispatch.io.scoreboardQuery(i).producer     := scoreboard.io.query(i).producer
     dispatch.io.scoreboardQuery(i).producerDone := scoreboard.io.query(i).producerDone
+    dispatch.io.scoreboardQuery(i).producerData := scoreboard.io.query(i).producerData
   }
 
   for (i <- 0 until cfg.dispatchWidth) {
@@ -292,6 +293,7 @@ class Backend(
 
   issueQueue.io.robHead       := rob.io.head
   issueQueue.io.unresolvedAmo := rob.io.unresolvedAmo
+  issueQueue.io.unresolvedCfi := rob.io.unresolvedCfi
   for (port <- 0 until cfg.intIssueWidth) {
     issueQueue.io.intStatus(port) := execute.io.status(port)
   }
