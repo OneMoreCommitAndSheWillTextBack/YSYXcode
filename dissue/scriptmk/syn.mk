@@ -54,8 +54,14 @@ export CLK_PORT_NAME
 
 # ---- input RTL: Chisel-generated filelist (entries relative to build/) -------
 RTL_FILELIST   ?= $(DISSUE_HOME)/build/filelist.f
-RTL_OUTPUT_DIR ?= $(dir $(RTL_FILELIST))
+RTL_FILELIST   := $(abspath $(RTL_FILELIST))
+RTL_OUTPUT_DIR := $(dir $(RTL_FILELIST))
 RTL_FILES      := $(addprefix $(RTL_OUTPUT_DIR),$(shell grep -Ev '^[[:space:]]*$$' $(RTL_FILELIST) 2>/dev/null))
+
+# RTL list computed when the recipe actually runs (fresh after Chisel
+# regenerates the filelist). Kept on one line: a multi-line expansion inside a
+# recipe would be split into several shell commands by make.
+SYN_RTL_AT_BUILD = $(shell grep -Ev '^[[:space:]]*$$' $(RTL_FILELIST) 2>/dev/null | sed 's#^#$(RTL_OUTPUT_DIR)#' | tr '\n' ' ')
 
 # ---- outputs: keep this run's reports inside dissue/run ----------------------
 O           	?= $(DISSUE_HOME)/run
@@ -110,9 +116,8 @@ print-timing:
 
 $(NETLIST_SYN_V): $(SYN_RTL_PREREQ) $(SYN_TCL_DEPS)
 	@mkdir -p "$(@D)"
-	@rtl=$$(grep -Ev '^[[:space:]]*$$' "$(RTL_FILELIST)" 2>/dev/null | sed 's#^#$(RTL_OUTPUT_DIR)#'); \
-	test -n "$$rtl" || { echo "[syn] error: no RTL sources in $(RTL_FILELIST), run 'make verilog' first"; exit 1; }; \
-	echo "tcl $(SCRIPT_DIR)/yosys.tcl $(DESIGN) $(PDK) \"$$rtl\" $@" | $(YOSYS) -g -l "$(@D)/yosys.log" -s -
+	@test -n "$(SYN_RTL_AT_BUILD)" || { echo "[syn] error: no RTL sources in $(RTL_FILELIST), run 'make verilog' first"; exit 1; }; \
+	echo "tcl $(SCRIPT_DIR)/yosys.tcl $(DESIGN) $(PDK) \"$(SYN_RTL_AT_BUILD)\" $@" | $(YOSYS) -g -l "$(@D)/yosys.log" -s -
 
 $(TIMING_RPT): $(SCRIPT_DIR)/sta.tcl $(SDC_FILE) $(SYN_TCL_DEPS) $(NETLIST_SYN_V)
 	@mkdir -p "$(RESULT_DIR)"
