@@ -46,6 +46,7 @@ clean:
 	-rm -rf $(BUILD_DIR)
 
 include scriptmk/run.mk
+include scriptmk/syn.mk
 
 -include ../Makefile
 
