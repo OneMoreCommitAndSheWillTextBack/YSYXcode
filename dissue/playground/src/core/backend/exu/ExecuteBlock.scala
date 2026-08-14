@@ -6,6 +6,7 @@ import top.core.backend.bundle.{IssuePortStatus, IssueWakeup, RobWritebackPacket
 import top.core.backend.csr.CsrReadPort
 import top.core.backend.bundle.BranchResolve
 import top.core.bundle.RobRecovery
+import top.core.trace.DivPerfTrace
 import top.config.BackendConfig
 
 class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
@@ -20,6 +21,7 @@ class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
     val writeback = Output(Vec(cfg.intIssueWidth, Valid(new RobWritebackPacket(cfg))))
     val wakeup    = Output(Vec(cfg.intIssueWidth, new IssueWakeup(cfg)))
     val resolve   = Output(Vec(cfg.intIssueWidth, Valid(new BranchResolve(cfg))))
+    val divPerf   = Output(new DivPerfTrace)
   })
 
   private val unitConfigs = (0 until cfg.intIssueWidth).map { port =>
@@ -50,4 +52,12 @@ class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
   require(csrReadSources.size <= 1, "ExecuteBlock has one CSR read port; add ports before enabling multiple CSR units")
 
   io.csrRead.addr := (if (csrReadSources.isEmpty) 0.U else csrReadSources.head)
+
+  private val divPerfSources = unitConfigs.zip(units).collect {
+    case (unitConfig, unit) if unitConfig.supports(ExuFuKind.Div) =>
+      unit.io.divPerf
+  }
+  require(divPerfSources.size <= 1, "ExecuteBlock expects at most one DIV-capable unit")
+
+  io.divPerf := (if (divPerfSources.isEmpty) 0.U.asTypeOf(new DivPerfTrace) else divPerfSources.head)
 }

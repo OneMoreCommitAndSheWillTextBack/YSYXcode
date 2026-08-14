@@ -24,13 +24,14 @@ import top.core.backend.lsu.LSU
 import top.core.backend.regfile._
 import top.core.backend.retire.RetireUnit
 import top.core.backend.rob.ROB
-import top.sim.DifftestMonitor
+import top.sim.{BackendPerfBridge, DifftestMonitor}
 
 class Backend(
   resetVector:    BigInt = BigInt("80000000", 16),
   cfg:            BackendConfig = BackendConfig(),
   enableMonitor:  Boolean = true,
-  enableDifftest: Boolean = true)
+  enableDifftest: Boolean = true,
+  enablePerf:     Boolean = true)
     extends Module {
   require(cfg.issueWidth > 0, "Backend requires at least one frontend slot")
   require(cfg.writebackWidth >= cfg.intIssueWidth + 1, "Backend reserves writeback ports for integer EXUs and LSU")
@@ -273,8 +274,12 @@ class Backend(
   io.storesDrained                  := lsu.io.storesDrained
   io.memoryIdle                     := lsu.io.memoryIdle
 
+  val perfBridge = Module(new BackendPerfBridge(enablePerf))
+  perfBridge.io.issueQueue <> issueQueue.io.perf
+  perfBridge.io.div <> execute.io.divPerf
+
   if (enableDifftest) {
-    val difftest = Module(new DifftestMonitor(resetVector, cfg))
+    val difftest = Module(new DifftestMonitor(resetVector, cfg, enableDpi = enableDifftest))
     difftest.io.retire    := retire.io.retire
     difftest.io.regWrite  := retire.io.regWrite
     difftest.io.csrCommit := retire.io.csrCommit

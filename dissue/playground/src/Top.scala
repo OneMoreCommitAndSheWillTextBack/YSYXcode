@@ -8,12 +8,13 @@ import top.core.Core
 
 class Top(
   target:      Target = Target.Npc,
+  view:        View = View.Sim,
   enableTrace: Boolean = true,
   frontendCfg: FrontendConfig = FrontendConfig())
     extends Module {
   override def desiredName: String = "ysyx_24100007"
   private val resetVector     = target.resetVector
-  private val simulationBuild = target == Target.Npc
+  private val simulationBuild = view.isSim && target == Target.Npc
 
   val io = IO(new Bundle {
     val interrupt = Input(Bool())

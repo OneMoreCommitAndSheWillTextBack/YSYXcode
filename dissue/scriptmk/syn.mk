@@ -18,7 +18,7 @@
 #
 # Overridable knobs (cmdline or environment):
 #   DESIGN / CLK_FREQ_MHZ / CLK_PORT_NAME / PDK / RTL_FILELIST / SDC_FILE / O
-#   YOSYS / IEDA / YOSYS_STA_HOME
+#   YOSYS / IEDA / YOSYS_STA_HOME / SYN_RTL_EXCLUDE
 #===============================================================================
 
 SHELL := /bin/bash
@@ -52,16 +52,32 @@ SDC_FILE      ?= $(SCRIPT_DIR)/default.sdc
 export CLK_FREQ_MHZ
 export CLK_PORT_NAME
 
-# ---- input RTL: Chisel-generated filelist (entries relative to build/) -------
-RTL_FILELIST   ?= $(DISSUE_HOME)/build/filelist.f
-RTL_FILELIST   := $(abspath $(RTL_FILELIST))
-RTL_OUTPUT_DIR := $(dir $(RTL_FILELIST))
-RTL_FILES      := $(addprefix $(RTL_OUTPUT_DIR),$(shell grep -Ev '^[[:space:]]*$$' $(RTL_FILELIST) 2>/dev/null))
+# ---- input RTL: Chisel-generated synthesis view (build/synth/filelist.f) -----
+# Prefer the filelist computed by scriptmk/chisel.mk when integrated; fall back
+# to the default synth directory for standalone use. Variables are prefixed
+# SYN_RTL_* on purpose: config.mk's RTL_FILELIST/RTL_OUTPUT_DIR describe the
+# simulation view and must stay untouched.
+ifdef SYNTH_RTL_FILELIST
+  SYN_RTL_FILELIST = $(SYNTH_RTL_FILELIST)
+else
+  SYN_RTL_FILELIST = $(DISSUE_HOME)/build/synth/filelist.f
+endif
+SYN_RTL_FILELIST   := $(abspath $(SYN_RTL_FILELIST))
+SYN_RTL_OUTPUT_DIR := $(dir $(SYN_RTL_FILELIST))
+
+# Simulation-only checkers excluded from synthesis: the CIRCT verification
+# library emits bind modules and cross-module hierarchical references (e.g.
+# `FetchTargetQueue.io_...') that yosys's Verilog frontend cannot elaborate.
+# One ERE matched against filelist entries (relative to build/); may hold
+# several |-separated patterns.
+SYN_RTL_EXCLUDE ?= ^verification/
+
+SYN_RTL_FILES := $(addprefix $(SYN_RTL_OUTPUT_DIR),$(shell grep -Ev '^[[:space:]]*$$' $(SYN_RTL_FILELIST) 2>/dev/null | grep -Ev '$(SYN_RTL_EXCLUDE)'))
 
 # RTL list computed when the recipe actually runs (fresh after Chisel
 # regenerates the filelist). Kept on one line: a multi-line expansion inside a
 # recipe would be split into several shell commands by make.
-SYN_RTL_AT_BUILD = $(shell grep -Ev '^[[:space:]]*$$' $(RTL_FILELIST) 2>/dev/null | sed 's#^#$(RTL_OUTPUT_DIR)#' | tr '\n' ' ')
+SYN_RTL_AT_BUILD = $(shell grep -Ev '^[[:space:]]*$$' $(SYN_RTL_FILELIST) 2>/dev/null | grep -Ev '$(SYN_RTL_EXCLUDE)' | sed 's#^#$(SYN_RTL_OUTPUT_DIR)#' | tr '\n' ' ')
 
 # ---- outputs: keep this run's reports inside dissue/run ----------------------
 O           	?= $(DISSUE_HOME)/run
@@ -75,11 +91,11 @@ SYN_TCL_DEPS := \
 	$(SCRIPT_DIR)/pdk/$(PDK).tcl
 
 # When included from the top-level Makefile (config.mk is loaded), hook the
-# netlist onto the Chisel generation chain so that regenerated RTL
-# automatically triggers re-synthesis.
-SYN_RTL_PREREQ := $(RTL_FILELIST) $(RTL_FILES)
-ifdef CHISEL_DONE_STAMP
-  SYN_RTL_PREREQ := $(CHISEL_DONE_STAMP) $(RTL_OUTPUT_SIG) $(SYN_RTL_PREREQ)
+# netlist onto the Chisel synthesis-view generation chain so that regenerated
+# RTL automatically triggers re-synthesis.
+SYN_RTL_PREREQ := $(SYN_RTL_FILELIST) $(SYN_RTL_FILES)
+ifdef CHISEL_SYN_DONE_STAMP
+  SYN_RTL_PREREQ := $(CHISEL_SYN_DONE_STAMP) $(SYNTH_RTL_OUTPUT_SIG) $(SYN_RTL_PREREQ)
 endif
 
 #===============================================================================
@@ -116,7 +132,7 @@ print-timing:
 
 $(NETLIST_SYN_V): $(SYN_RTL_PREREQ) $(SYN_TCL_DEPS)
 	@mkdir -p "$(@D)"
-	@test -n "$(SYN_RTL_AT_BUILD)" || { echo "[syn] error: no RTL sources in $(RTL_FILELIST), run 'make verilog' first"; exit 1; }; \
+	@test -n "$(SYN_RTL_AT_BUILD)" || { echo "[syn] error: no RTL sources in $(SYN_RTL_FILELIST), run 'make verilog-synth' first"; exit 1; }; \
 	echo "tcl $(SCRIPT_DIR)/yosys.tcl $(DESIGN) $(PDK) \"$(SYN_RTL_AT_BUILD)\" $@" | $(YOSYS) -g -l "$(@D)/yosys.log" -s -
 
 $(TIMING_RPT): $(SCRIPT_DIR)/sta.tcl $(SDC_FILE) $(SYN_TCL_DEPS) $(NETLIST_SYN_V)
