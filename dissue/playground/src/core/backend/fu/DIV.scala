@@ -3,7 +3,7 @@ package top.core.backend.fu
 import chisel3._
 import chisel3.util.{is, log2Ceil, switch, Cat, Decoupled, Enum, Fill, Valid}
 import top.core.backend.decoder.{AluOp, FuOp}
-import top.dpi.NpcDivPerf
+import top.core.trace.DivPerfTrace
 
 class DivReq(dataWidth: Int = 32) extends Bundle {
   val src1 = UInt(dataWidth.W)
@@ -19,6 +19,7 @@ class DIV(dataWidth: Int = 32) extends Module {
     val out   = Valid(UInt(dataWidth.W))
     val flush = Input(Bool())
     val busy  = Output(Bool())
+    val perf  = Output(new DivPerfTrace)
   })
 
   private val countWidth = math.max(log2Ceil(dataWidth + 1), 1)
@@ -82,7 +83,9 @@ class DIV(dataWidth: Int = 32) extends Module {
   io.out.bits  := result
   io.busy      := state =/= sIdle
 
-  NpcDivPerf.callWithEnable(!reset.asBool && state === sDone && !io.flush, cycleCount.pad(32), specialResult)
+  io.perf.enable  := !reset.asBool && state === sDone && !io.flush
+  io.perf.cycles  := cycleCount.pad(32)
+  io.perf.special := specialResult
 
   when(io.flush) {
     state := sIdle

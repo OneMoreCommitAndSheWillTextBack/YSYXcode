@@ -6,8 +6,8 @@ import top.core.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, Store
 import top.core.backend.csr.CsrTrackerQuery
 import top.core.backend.decoder.FuType
 import top.core.bundle.{CfiType, RobAge, RobRecovery}
+import top.core.trace.IssueQueuePerfTrace
 import top.config.BackendConfig
-import top.dpi.NpcIssueQueuePerf
 
 class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   val io = IO(new Bundle {
@@ -26,6 +26,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val recover             = Input(new RobRecovery(cfg.robIdxWidth))
     val hold                = Input(Bool())
     val robDoneOperandCount = Input(UInt(32.W))
+    val perf                = Output(new IssueQueuePerfTrace)
   })
 
   private val entries    = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
@@ -199,15 +200,13 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     assert(blockReady === (blockReason =/= blockReasonNone))
   }
 
-  NpcIssueQueuePerf.callWithEnable(
-    perfEnable,
-    issueCountThisCycle.pad(32),
-    occupancy.pad(32),
-    blockReady,
-    blockOperand,
-    blockReason.pad(32),
-    io.robDoneOperandCount
-  )
+  io.perf.enable              := perfEnable
+  io.perf.issueCount          := issueCountThisCycle.pad(32)
+  io.perf.occupancy           := occupancy.pad(32)
+  io.perf.blockReady          := blockReady
+  io.perf.blockOperand        := blockOperand
+  io.perf.blockReason         := blockReason.pad(32)
+  io.perf.robDoneOperandCount := io.robDoneOperandCount
 
   private val freeCount = PopCount(free)
   for (enqIdx <- 0 until cfg.dispatchWidth) {

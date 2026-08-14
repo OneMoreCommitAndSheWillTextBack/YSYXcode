@@ -46,11 +46,14 @@ clean:
 	-rm -rf $(BUILD_DIR)
 
 include scriptmk/run.mk
+include scriptmk/syn.mk
 
 -include ../Makefile
 
 verilog: $(CHISEL_DONE_STAMP)
 
+verilog-synth: $(CHISEL_SYN_DONE_STAMP)
+
 verilator: $(VERILATOR_DONE_STAMP)
 
-.PHONY: verilog verilator test profile-log test-riscv32i test-riscv32im test-riscv32ima tb testbench tb-list testbench-list tb-clean testbench-clean help reformat checkformat bsp idea clean
+.PHONY: verilog verilog-synth verilator test profile-log test-riscv32i test-riscv32im test-riscv32ima tb testbench tb-list testbench-list tb-clean testbench-clean help reformat checkformat bsp idea clean

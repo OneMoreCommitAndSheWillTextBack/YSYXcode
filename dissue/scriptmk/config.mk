@@ -9,6 +9,7 @@ PRJ ?= playground
 TARGET ?= npc
 TOP_MODULE ?= npc
 ELABORATE_ARGS ?=
+CHISEL_MODE ?= sim
 
 ifeq ($(TOP_MODULE),npc)
 else
@@ -33,7 +34,9 @@ SIM_VERILOG_DIR ?= $(SIM_RESOURCE_DIR)/verilog
 SIM_CPP_DIR ?= $(SIM_RESOURCE_DIR)/cpp
 SIM_RUST_DIR ?= $(SIM_RESOURCE_DIR)/rust
 
-RTL_FILELIST ?= $(BUILD_DIR)/filelist.f
+# Simulation view RTL (--mode sim); the synthesis view lives in
+# $(BUILD_DIR)/synth and is consumed by scriptmk/syn.mk.
+RTL_FILELIST ?= $(BUILD_DIR)/sim/filelist.f
 RTL_OUTPUT_DIR ?= $(dir $(RTL_FILELIST))
 EXTRA_V ?= $(sort $(wildcard $(SIM_VERILOG_DIR)/*.v))
 

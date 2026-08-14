@@ -21,7 +21,8 @@ import top.config.BackendConfig
 
 class DifftestMonitor(
   resetVector: BigInt = BigInt("80000000", 16),
-  cfg:         BackendConfig = BackendConfig())
+  cfg:         BackendConfig = BackendConfig(),
+  enableDpi:   Boolean = true)
     extends Module {
   val io = IO(new Bundle {
     val retire    = Input(new RetireGroup(cfg))
@@ -98,7 +99,7 @@ class DifftestMonitor(
     writeCsrReport(reportContext.csr, resetReportedCsr)
   }
 
-  private val bridge = Module(new DifftestBridge(cfg))
+  private val bridge = Module(new DifftestBridge(cfg, enableDpi))
   bridge.io.retire  := io.retire
   bridge.io.csrTrap := io.csrTrap
   bridge.io.context := reportContext

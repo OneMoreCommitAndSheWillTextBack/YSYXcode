@@ -1,36 +1,33 @@
 package top.sim
 
 import chisel3._
-import top.core.bundle.{FrontendPerfEvent, FrontendStallEvent}
+import top.config.FrontendConfig
+import top.core.trace.FrontendTraceSample
 import top.dpi.NpcFrontendPerf
 
-/** Aggregates frontend events into one DPI sample per active cycle. */
-class FrontendPerfBridge extends Module {
+/** Translates the frontend trace sample into one DPI sample per active cycle.
+  *
+  * With enableDpi = false the module elaborates to an empty shell, so the synthesis view contains no DPI import.
+  */
+class FrontendPerfBridge(frontendCfg: FrontendConfig = FrontendConfig(), enableDpi: Boolean = true) extends Module {
   val io = IO(new Bundle {
-    val events                 = Input(UInt(FrontendPerfEvent.width.W))
-    val stallEvents            = Input(UInt(FrontendStallEvent.width.W))
-    val fetchQueueOccupancy    = Input(UInt(32.W))
-    val fetchQueueEnqueueWidth = Input(UInt(32.W))
-    val fetchQueueDequeueWidth = Input(UInt(32.W))
-    val ifuCorrection          = Input(Bool())
-    val icacheLookupValid      = Input(Bool())
-    val icacheBlockValidMask   = Input(UInt(2.W))
-    val icacheMissMask         = Input(UInt(2.W))
-    val icacheBlockAddr        = Input(Vec(2, UInt(32.W)))
+    val trace = Input(new FrontendTraceSample(frontendCfg))
   })
 
-  NpcFrontendPerf.callWithEnable(
-    !reset.asBool,
-    io.events.pad(32),
-    io.stallEvents.pad(32),
-    io.ifuCorrection,
-    io.fetchQueueOccupancy,
-    io.fetchQueueEnqueueWidth,
-    io.fetchQueueDequeueWidth,
-    io.icacheLookupValid,
-    io.icacheBlockValidMask.pad(32),
-    io.icacheMissMask.pad(32),
-    io.icacheBlockAddr(0),
-    io.icacheBlockAddr(1)
-  )
+  if (enableDpi) {
+    NpcFrontendPerf.callWithEnable(
+      !reset.asBool,
+      io.trace.events.pad(32),
+      io.trace.stallEvents.pad(32),
+      io.trace.ifuCorrection,
+      io.trace.fetchQueueOccupancy,
+      io.trace.fetchQueueEnqueueWidth,
+      io.trace.fetchQueueDequeueWidth,
+      io.trace.icacheLookupValid,
+      io.trace.icacheBlockValidMask.pad(32),
+      io.trace.icacheMissMask.pad(32),
+      io.trace.icacheBlockAddr(0),
+      io.trace.icacheBlockAddr(1)
+    )
+  }
 }

@@ -5,13 +5,13 @@ import chisel3.util.Valid
 import top.core.backend.Backend
 import top.core.backend.csr.CsrInterruptPending
 import top.bus.axi.AxiPort
-import top.core.bundle.{DataMemTxn, FrontendToBackend, MemPerfEvent}
+import top.core.bundle.{DataMemTxn, FrontendToBackend}
 import top.config.{BackendConfig, FrontendConfig, MemConfig}
 import top.core.mem.Mem
 import top.core.frontend.Frontend
 import top.core.frontend.ifetch.FetchWidth
 import top.core.frontend.bundle.RasAction
-import top.core.trace.BackendPipelineTrace
+import top.core.trace.{BackendPipelineTrace, PipelineTraceEvent}
 import top.sim.{BpuPerfBridge, FrontendPerfBridge, MemPerfBridge, PipelineTraceBridge}
 
 class Core(
@@ -41,68 +41,68 @@ class Core(
   })
 
   val frontend = Module(new Frontend(resetVector, frontendCfg, backendCfg, enableTrace))
-  val backend  = Module(new Backend(resetVector, backendCfg, enableTrace, enableSimulation))
+  val backend  = Module(new Backend(resetVector, backendCfg, enableTrace, enableSimulation, enableSimulation))
   val mem      = Module(new Mem(memCfg, backendCfg.robEntries))
 
-  if (enableTrace) {
-    val backendTrace = Module(new BackendPipelineTrace(backendCfg))
-    val monitor      = backend.io.monitor
+  // Observation layer: producers export plain trace bundles, sim bridges own
+  // every DPI call. All bridges are instantiated unconditionally; enableDpi =
+  // false turns them into empty shells so both views share this exact wiring.
+  private val monitor = backend.io.monitor
 
-    backendTrace.io.frontendFire        := monitor.frontendFire
-    backendTrace.io.frontend            := monitor.frontend
-    backendTrace.io.dispatchFire        := monitor.dispatchFire
-    backendTrace.io.dispatchDecode      := monitor.dispatchDecode
-    backendTrace.io.dispatchIssue       := monitor.dispatchIssue
-    backendTrace.io.intIssueFire        := monitor.intIssueFire
-    backendTrace.io.intIssue            := monitor.intIssue
-    backendTrace.io.memIssueFire        := monitor.memIssueFire
-    backendTrace.io.memIssue            := monitor.memIssue
-    backendTrace.io.writeback           := monitor.writeback
-    backendTrace.io.retire              := monitor.retire
-    backendTrace.io.storeReady          := monitor.storeReady
-    backendTrace.io.storeCommit         := monitor.storeCommit
-    backendTrace.io.storeRequest        := monitor.storeRequest
-    backendTrace.io.storeResponse       := monitor.storeResponse
-    backendTrace.io.memoryRequestFire   := monitor.memoryRequestFire
-    backendTrace.io.memoryRequestRobIdx := monitor.memoryRequestRobIdx
-    backendTrace.io.memoryRequestKind   := monitor.memoryRequestKind
-    backendTrace.io.memoryRequestWrite  := monitor.memoryRequestWrite
-    backendTrace.io.memoryRequestTxnId  := monitor.memoryRequestTxnId
-    backendTrace.io.robHead             := monitor.robHead
-    backendTrace.io.recover             := monitor.recover
-    backendTrace.io.globalFlush         := monitor.globalFlush
-
-    val pipelineTraceEventCount = FetchWidth.frontend + BackendPipelineTrace.eventCount(backendCfg)
-    val pipelineTrace           = Module(new PipelineTraceBridge(pipelineTraceEventCount))
-    for (lane  <- 0 until FetchWidth.frontend) {
-      pipelineTrace.io.events(lane) := frontend.io.pipelineTrace(lane)
-    }
-    for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
-      pipelineTrace.io.events(FetchWidth.frontend + event) := backendTrace.io.events(event)
-    }
-
-    val frontendPerf = Module(new FrontendPerfBridge)
-    frontendPerf.io.events                 := frontend.io.perfTrace.events
-    frontendPerf.io.stallEvents            := frontend.io.perfTrace.stallEvents
-    frontendPerf.io.fetchQueueOccupancy    := frontend.io.perfTrace.fetchQueueOccupancy
-    frontendPerf.io.fetchQueueEnqueueWidth := frontend.io.perfTrace.fetchQueueEnqueueWidth
-    frontendPerf.io.fetchQueueDequeueWidth := frontend.io.perfTrace.fetchQueueDequeueWidth
-    frontendPerf.io.ifuCorrection          := frontend.io.perfTrace.ifuCorrection
-    frontendPerf.io.icacheLookupValid      := frontend.io.perfTrace.icacheLookupValid
-    frontendPerf.io.icacheBlockValidMask   := frontend.io.perfTrace.icacheBlockValidMask
-    frontendPerf.io.icacheMissMask         := frontend.io.perfTrace.icacheMissMask
-    frontendPerf.io.icacheBlockAddr        := frontend.io.perfTrace.icacheBlockAddr
-
-    for (lane <- 0 until backendCfg.commitWidth) {
-      val bpuPerf = Module(new BpuPerfBridge)
-      bpuPerf.io.valid       := monitor.bpuPerf(lane).valid
-      bpuPerf.io.cfiClass    := monitor.bpuPerf(lane).cfiClass
-      bpuPerf.io.predHit     := monitor.bpuPerf(lane).predHit
-      bpuPerf.io.predTaken   := monitor.bpuPerf(lane).predTaken
-      bpuPerf.io.actualTaken := monitor.bpuPerf(lane).actualTaken
-      bpuPerf.io.correct     := monitor.bpuPerf(lane).correct
-    }
+  private val backendTrace = Option.when(enableTrace)(Module(new BackendPipelineTrace(backendCfg)))
+  backendTrace.foreach { trace =>
+    trace.io.frontendFire        := monitor.frontendFire
+    trace.io.frontend            := monitor.frontend
+    trace.io.dispatchFire        := monitor.dispatchFire
+    trace.io.dispatchDecode      := monitor.dispatchDecode
+    trace.io.dispatchIssue       := monitor.dispatchIssue
+    trace.io.intIssueFire        := monitor.intIssueFire
+    trace.io.intIssue            := monitor.intIssue
+    trace.io.memIssueFire        := monitor.memIssueFire
+    trace.io.memIssue            := monitor.memIssue
+    trace.io.writeback           := monitor.writeback
+    trace.io.retire              := monitor.retire
+    trace.io.storeReady          := monitor.storeReady
+    trace.io.storeCommit         := monitor.storeCommit
+    trace.io.storeRequest        := monitor.storeRequest
+    trace.io.storeResponse       := monitor.storeResponse
+    trace.io.memoryRequestFire   := monitor.memoryRequestFire
+    trace.io.memoryRequestRobIdx := monitor.memoryRequestRobIdx
+    trace.io.memoryRequestKind   := monitor.memoryRequestKind
+    trace.io.memoryRequestWrite  := monitor.memoryRequestWrite
+    trace.io.memoryRequestTxnId  := monitor.memoryRequestTxnId
+    trace.io.robHead             := monitor.robHead
+    trace.io.recover             := monitor.recover
+    trace.io.globalFlush         := monitor.globalFlush
   }
+
+  private val pipelineTraceEventCount = FetchWidth.frontend + BackendPipelineTrace.eventCount(backendCfg)
+  private val pipelineTrace           = Module(new PipelineTraceBridge(pipelineTraceEventCount, enableDpi = enableTrace))
+  for (lane <- 0 until FetchWidth.frontend) {
+    pipelineTrace.io.events(lane) := frontend.io.pipelineTrace(lane)
+  }
+  backendTrace match {
+    case Some(trace) =>
+      for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
+        pipelineTrace.io.events(FetchWidth.frontend + event) := trace.io.events(event)
+      }
+    case None        =>
+      for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
+        pipelineTrace.io.events(FetchWidth.frontend + event) := 0.U.asTypeOf(Valid(new PipelineTraceEvent))
+      }
+  }
+
+  private val frontendPerf = Module(new FrontendPerfBridge(frontendCfg, enableDpi = enableTrace))
+  frontendPerf.io.trace <> frontend.io.perfTrace
+
+  for (lane <- 0 until backendCfg.commitWidth) {
+    val bpuPerf = Module(new BpuPerfBridge(enableDpi = enableTrace))
+    bpuPerf.io.sample <> monitor.bpuPerf(lane)
+  }
+
+  private val memPerf = Module(new MemPerfBridge(memCfg.dcache, backendCfg, enableDpi = enableSimulation))
+  memPerf.io.memTrace <> mem.io.perf
+  memPerf.io.backendTrace <> backend.io.memPerf
 
   frontend.io.csrStatus := backend.io.csrStatus
   backend.io.interrupt  := io.interrupt
@@ -193,38 +193,6 @@ class Core(
   frontend.io.ptwResp.valid := mem.io.ptwResp.valid
   frontend.io.ptwResp.bits  := mem.io.ptwResp.bits
   mem.io.ptwResp.ready      := frontend.io.ptwResp.ready
-
-  if (enableSimulation) {
-    val memPerf       = Module(new MemPerfBridge)
-    val memPerfEvents = Seq(
-      MemPerfEvent.bit(MemPerfEvent.dcacheAccess, mem.io.perf.access),
-      MemPerfEvent.bit(MemPerfEvent.dcacheHit, mem.io.perf.hit),
-      MemPerfEvent.bit(MemPerfEvent.dcacheMiss, mem.io.perf.miss),
-      MemPerfEvent.bit(MemPerfEvent.dcacheBypass, mem.io.perf.bypass),
-      MemPerfEvent.bit(MemPerfEvent.mshrAlloc, mem.io.perf.mshrAlloc),
-      MemPerfEvent.bit(MemPerfEvent.mshrMerge, mem.io.perf.mshrMerge),
-      MemPerfEvent.bit(MemPerfEvent.mshrFullStallCycle, mem.io.perf.mshrFullStall),
-      MemPerfEvent.bit(MemPerfEvent.hitUnderMiss, mem.io.perf.hitUnderMiss),
-      MemPerfEvent.bit(MemPerfEvent.queuedMiss, mem.io.perf.queuedMiss),
-      MemPerfEvent.bit(MemPerfEvent.refillStart, mem.io.perf.refillStart),
-      MemPerfEvent.bit(MemPerfEvent.refillComplete, mem.io.perf.refillComplete),
-      MemPerfEvent.bit(MemPerfEvent.refillFault, mem.io.perf.refillFault),
-      MemPerfEvent.bit(MemPerfEvent.loadTxnFullStallCycle, backend.io.memPerf.loadTxnFullStall),
-      MemPerfEvent.bit(MemPerfEvent.sqAlloc, backend.io.memPerf.sqAlloc),
-      MemPerfEvent.bit(MemPerfEvent.sqFullStallCycle, backend.io.memPerf.sqFullStall),
-      MemPerfEvent.bit(MemPerfEvent.forwardFull, backend.io.memPerf.forwardFull),
-      MemPerfEvent.bit(MemPerfEvent.forwardPartial, backend.io.memPerf.forwardPartial),
-      MemPerfEvent.bit(MemPerfEvent.forwardUnresolvedStallCycle, backend.io.memPerf.forwardUnresolvedStoreStall),
-      MemPerfEvent.bit(MemPerfEvent.storeDrain, backend.io.memPerf.storeDrain),
-      MemPerfEvent.bit(MemPerfEvent.storeCommit, backend.io.memPerf.storeCommit),
-      MemPerfEvent.bit(MemPerfEvent.storeResponse, backend.io.memPerf.storeResponse)
-    ).reduce(_ | _)
-
-    memPerf.io.events              := memPerfEvents
-    memPerf.io.mshrOccupancy       := mem.io.perf.mshrOccupancy.pad(32)
-    memPerf.io.storeQueueOccupancy := backend.io.memPerf.sqOccupancy.pad(32)
-    memPerf.io.loadTxnOccupancy    := backend.io.memPerf.loadTxnOccupancy.pad(32)
-  }
 
   io.axi <> mem.io.axi
 }
