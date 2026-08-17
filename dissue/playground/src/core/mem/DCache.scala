@@ -32,6 +32,13 @@ class DCacheWaiter(cfg: DCacheConfig, robIdxWidth: Int) extends Bundle {
   val owner      = new DataMemOwner(robIdxWidth)
 }
 
+
+class DCacheArray(cfg: DCacheConfig) extends Module {
+  val io = IO(new Bundle {
+    
+  })
+}
+
 class DCachePerf(cfg: DCacheConfig) extends Bundle {
   val access         = Bool()
   val hit            = Bool()

@@ -16,9 +16,6 @@
 #   print-timing  re-parse the .rpt and print the timing table again (runs no tool)
 #   clean-syn     remove this run's reports from run/
 #
-# Overridable knobs (cmdline or environment):
-#   DESIGN / CLK_FREQ_MHZ / CLK_PORT_NAME / PDK / RTL_FILELIST / SDC_FILE / O
-#   YOSYS / IEDA / YOSYS_STA_HOME / SYN_RTL_EXCLUDE
 #===============================================================================
 
 SHELL := /bin/bash
