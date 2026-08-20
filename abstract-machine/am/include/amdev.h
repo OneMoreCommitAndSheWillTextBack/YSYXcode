@@ -1,5 +1,9 @@
+// clang-format off
 #ifndef __AMDEV_H__
 #define __AMDEV_H__
+#ifndef AM_H__
+  #include "am.h"
+#endif
 
 // **MAY SUBJECT TO CHANGE IN THE FUTURE**
 
@@ -72,3 +76,5 @@ struct gpu_canvas {
 } __attribute__((packed));
 
 #endif
+
+// clang-format on

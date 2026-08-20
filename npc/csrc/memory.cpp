@@ -66,12 +66,14 @@ int space_to_host(uint32_t addr, socspace **space) {
   return -1;
 }
 
+extern Cpu *cpu;
 uint8_t *guest_to_host(uint32_t addr) {
   socspace *space;
   if (space_to_host(addr, &space)) {
     return (uint8_t *)space->space + addr - space->start;
   }
-  printf("[guest_to_host]the addr 0x%08x is out of bound\n", addr);
+  printf("[guest_to_host]the addr 0x%08x is out of bound at pc 0x%08x\n", addr,
+         cpu->pc);
   assert(0);
 }
 
@@ -116,7 +118,8 @@ uint32_t paddr_read(uint32_t addr, uint32_t len) {
     return ret;
   }
   return mmio_read(addr, len);
-  printf("[paddr_read]the addr 0x%08x is out of bound\n", addr);
+  printf("[paddr_read]the addr 0x%08x is out of bound pc at 0x%08x\n", addr,
+         cpu->pc);
   assert(0);
 }
 

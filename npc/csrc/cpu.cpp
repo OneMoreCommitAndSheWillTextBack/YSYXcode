@@ -172,6 +172,7 @@ void trace_or_diff() {
     diff_step();
   }
 #endif
+
 #ifdef MEMORY_GUARD
   if (cpu->valid == 1)
     check_mem_guard();
