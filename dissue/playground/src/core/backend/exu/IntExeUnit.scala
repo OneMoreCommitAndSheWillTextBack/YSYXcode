@@ -45,14 +45,20 @@ class IntExeUnit(
   private val csr = Option.when(has(ExuFuKind.Csr))(Module(new CSR(cfg)))
 
   io.status := 0.U.asTypeOf(new IssuePortStatus)
-  private val mulOutValid         = mul.map(_.io.out.valid).getOrElse(false.B)
-  private val mulInReady          = mul.map(_.io.in.ready).getOrElse(false.B)
-  private val divOutValid         = div.map(_.io.out.valid).getOrElse(false.B)
-  private val divInReady          = div.map(_.io.in.ready).getOrElse(false.B)
-  private val divBusy             = div.map(_.io.busy).getOrElse(false.B)
-  private val longLatencyOutValid = mulOutValid || divOutValid
-  // Keep this single-writeback port quiet while DIV owns it; MUL can still be pipelined when DIV is idle.
-  private val immediateFuReady    = !longLatencyOutValid && !divBusy
+  private val mulOutValid = mul.map(_.io.out.valid).getOrElse(false.B)
+  private val mulInReady  = mul.map(_.io.in.ready).getOrElse(false.B)
+  private val divOutValid = div.map(_.io.out.valid).getOrElse(false.B)
+  private val divInReady  = div.map(_.io.in.ready).getOrElse(false.B)
+
+  // Immediate (ALU/BJU/CSR) results are combinational with issue and cannot wait for the single
+  // writeback port. When a MUL/DIV result owns the port, an immediate result parks in a one-deep
+  // skid register and immediate issue blocks only while the skid is occupied. MUL/DIV results are
+  // already registered and wait in a one-deep hold instead, so neither blocks the other's issue.
+  private val skidValid        = RegInit(false.B)
+  private val skidBits         = RegInit(0.U.asTypeOf(new ExuResult(cfg)))
+  private val mulHoldValid     = RegInit(false.B)
+  private val mulHoldBits      = RegInit(0.U.asTypeOf(new ExuResult(cfg)))
+  private val immediateFuReady = !skidValid
 
   private val mulMeta0 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
   private val mulMeta1 = RegInit(0.U.asTypeOf(Valid(new ExuResult(cfg))))
@@ -65,7 +71,7 @@ class IntExeUnit(
   div.foreach { unit => io.divPerf := unit.io.perf }
 
   io.status.alu := has(ExuFuKind.Alu).B && immediateFuReady
-  io.status.mul := has(ExuFuKind.Mul).B && mulInReady && !divBusy
+  io.status.mul := has(ExuFuKind.Mul).B && mulInReady
   io.status.div := has(ExuFuKind.Div).B && divInReady
   io.status.bru := has(ExuFuKind.Bru).B && immediateFuReady
   io.status.jmp := has(ExuFuKind.Jmp).B && immediateFuReady
@@ -75,7 +81,7 @@ class IntExeUnit(
 
   private val isMulReq        = io.in.bits.fuType === FuType.mul
   private val isDivReq        = io.in.bits.fuType === FuType.div
-  private val selectedFuReady = Mux(isMulReq, mulInReady && !divBusy, Mux(isDivReq, divInReady, immediateFuReady))
+  private val selectedFuReady = Mux(isMulReq, mulInReady, Mux(isDivReq, divInReady, immediateFuReady))
   io.in.ready := supports(io.in.bits.fuType) && selectedFuReady
 
   alu.foreach { unit =>
@@ -231,10 +237,46 @@ class IntExeUnit(
   private val liveDivResult = divResult.valid && !killedByRecovery(divResult.bits.robIdx)
   private val liveMulResult = mulResult.valid && !killedByRecovery(mulResult.bits.robIdx)
   private val liveExuResult = exuResult.valid && !killedByRecovery(exuResult.bits.robIdx)
+  private val liveMulHold   = mulHoldValid && !killedByRecovery(mulHoldBits.robIdx)
+  private val liveSkid      = skidValid && !killedByRecovery(skidBits.robIdx)
+
+  // Single writeback port arbitration: DIV > held MUL > fresh MUL > skidded immediate > fresh immediate.
+  private val wbDiv     = liveDivResult
+  private val wbMulHold = !wbDiv && liveMulHold
+  private val wbMul     = !wbDiv && !wbMulHold && liveMulResult
+  private val wbSkid    = !wbDiv && !wbMulHold && !wbMul && liveSkid
+  private val wbAlu     = !wbDiv && !wbMulHold && !wbMul && !wbSkid && liveExuResult
+
+  // A fresh MUL result is blocked only by a DIV writeback or by an older held MUL draining this
+  // cycle. DIV results pulse at most once per division (33+ cycles apart), so the one-deep hold
+  // can never overflow.
+  private val mulResultBlocked = liveMulResult && (wbDiv || wbMulHold)
+  private val aluResultBlocked = liveExuResult && (wbDiv || wbMulHold || wbMul)
+  when(io.flush) {
+    mulHoldValid := false.B
+    skidValid    := false.B
+  }.otherwise {
+    when(mulResultBlocked) {
+      mulHoldValid := true.B
+      mulHoldBits  := mulResult.bits
+    }.elsewhen(wbMulHold || killedByRecovery(mulHoldBits.robIdx)) {
+      mulHoldValid := false.B
+    }
+    when(aluResultBlocked) {
+      skidValid := true.B
+      skidBits  := exuResult.bits
+    }.elsewhen(wbSkid || killedByRecovery(skidBits.robIdx)) {
+      skidValid := false.B
+    }
+  }
 
   private val writebackResult = Wire(Valid(new ExuResult(cfg)))
-  writebackResult.valid := liveDivResult || liveMulResult || liveExuResult
-  writebackResult.bits  := Mux(liveDivResult, divResult.bits, Mux(liveMulResult, mulResult.bits, exuResult.bits))
+  writebackResult.valid := wbDiv || wbMulHold || wbMul || wbSkid || wbAlu
+  writebackResult.bits  := Mux(
+    wbDiv,
+    divResult.bits,
+    Mux(wbMulHold, mulHoldBits, Mux(wbMul, mulResult.bits, Mux(wbSkid, skidBits, exuResult.bits)))
+  )
 
   private val resolveInput = Wire(Valid(new BranchResolve(cfg)))
   resolveInput                      := 0.U.asTypeOf(Valid(new BranchResolve(cfg)))

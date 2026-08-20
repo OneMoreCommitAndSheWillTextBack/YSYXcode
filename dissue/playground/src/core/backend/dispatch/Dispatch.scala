@@ -50,12 +50,15 @@ class Dispatch(cfg: BackendConfig = BackendConfig()) extends Module {
     regData:    UInt,
     scoreboard: ScoreboardQuery
   ): IssueOperand = {
-    val operand = Wire(new IssueOperand(cfg))
-    val isReg   = srcType === SrcType.reg
+    val operand        = Wire(new IssueOperand(cfg))
+    val isReg          = srcType === SrcType.reg
+    // A producer that already executed (ROB done) still holds its result in the ROB entry. Capture
+    // it directly instead of tagging the operand and waiting for a commit-time wakeup.
+    val producerBypass = decode.needsIssue && isReg && scoreboard.producerDone
 
-    operand.data  := selectSrc(decode, srcType, regData)
-    operand.ready := !decode.needsIssue || !isReg || scoreboard.ready
-    operand.tag   := Mux(isReg && !scoreboard.ready, scoreboard.producer, 0.U)
+    operand.data  := Mux(producerBypass, scoreboard.producerData, selectSrc(decode, srcType, regData))
+    operand.ready := !decode.needsIssue || !isReg || scoreboard.ready || scoreboard.producerDone
+    operand.tag   := Mux(isReg && !scoreboard.ready && !scoreboard.producerDone, scoreboard.producer, 0.U)
     operand
   }
 

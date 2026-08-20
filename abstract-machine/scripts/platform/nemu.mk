@@ -15,9 +15,9 @@ LDFLAGS   += -T $(LDSCRIPT) \
              --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e $(ENTRY)
 NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt -f$(IMAGE).elf
-NEMUFLAGS += -b
+# NEMUFLAGS += -b
 # NEMUFLAGS += -k
-# NEMUFLAGS += -g 10000
+NEMUFLAGS += -g 10000
 
 CFLAGS += -DMAINARGS=\"$(mainargs)\"
 CFLAGS += -I$(AM_HOME)/am/src/platform/nemu/include

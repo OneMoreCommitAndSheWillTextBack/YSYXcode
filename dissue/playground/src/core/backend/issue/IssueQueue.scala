@@ -5,7 +5,7 @@ import chisel3.util.{Decoupled, Mux1H, MuxLookup, PopCount}
 import top.core.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, StoreTrackerQuery}
 import top.core.backend.csr.CsrTrackerQuery
 import top.core.backend.decoder.FuType
-import top.core.bundle.{CfiType, RobAge, RobRecovery}
+import top.core.bundle.{CfiType, DataMemExternalization, DataMemOwner, RobAge, RobRecovery}
 import top.core.trace.IssueQueuePerfTrace
 import top.config.BackendConfig
 
@@ -20,6 +20,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val unresolvedAmo       = Input(Vec(cfg.robEntries, Bool()))
     val storeQuery          = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
     val csrQuery            = Vec(cfg.issueQueueEntries, Flipped(new CsrTrackerQuery(cfg)))
+    val unresolvedCfi       = Input(Vec(cfg.robEntries, Bool()))
     val intIssue            = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
     val memIssue            = Decoupled(new IssuePacket(cfg))
     val flush               = Input(Bool())
@@ -72,6 +73,19 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       )
     }).asUInt.orR
     val memPipe               = entries(i).fuType === FuType.lsu
+    // Mirror the LSU entry gate (DataMemExternalization): a memory op may only enter the LSU when
+    // every older CFI has resolved. Filtering here instead of wasting the age-priority mem selection
+    // on an entry the LSU will reject lets younger eligible memory ops proceed (no HOL blocking).
+    val memOwner              = Wire(new DataMemOwner(cfg.robIdxWidth))
+    memOwner.squashable := true.B
+    memOwner.robIdx     := entries(i).robIdx
+    val memCanEnter           = !DataMemExternalization.hasOlderUnresolvedCfi(
+      memOwner,
+      io.unresolvedCfi,
+      io.robHead,
+      cfg.robEntries,
+      cfg.robIdxWidth
+    )
     val memOperationAvailable = Mux(
       entries(i).isAmo,
       io.memStatus.atomic,
@@ -119,7 +133,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       intSelect(port).io.robIdx(i)  := entries(i).robIdx
     }
 
-    memSelect.io.request(i) := request && memPipe && fuAvailable(io.memStatus, entries(i).fuType) &&
+    memSelect.io.request(i) := request && memPipe && memCanEnter && fuAvailable(io.memStatus, entries(i).fuType) &&
       memOperationAvailable
     memSelect.io.robIdx(i)  := entries(i).robIdx
   }

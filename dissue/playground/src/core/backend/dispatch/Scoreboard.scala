@@ -71,6 +71,7 @@ class Scoreboard(cfg: BackendConfig = BackendConfig()) extends Module {
     query.producer     := selectedProducer
     query.producerDone := query.valid && !queryReady && !waitsForEarlierLane && selectedProducerDone &&
       !selectedProducerCommits
+    query.producerData := selectedProducerEntry.result
   }
 
   when(io.flush) {

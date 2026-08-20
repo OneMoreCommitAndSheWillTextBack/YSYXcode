@@ -254,6 +254,9 @@ class ScoreboardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val ready        = Output(Bool())
   val producer     = Output(UInt(cfg.robIdxWidth.W))
   val producerDone = Output(Bool())
+
+  /** Result captured from the producer's ROB entry when `producerDone` is set. */
+  val producerData = Output(UInt(cfg.dataWidth.W))
 }
 
 class ScoreboardAlloc(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -354,6 +357,9 @@ class RobProducerEntry(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val robIdx = UInt(cfg.robIdxWidth.W)
   val rd     = UInt(5.W)
   val rfWen  = Bool()
+
+  /** Execution result retained in the ROB until commit; lets dispatch capture already-done producer data. */
+  val result = UInt(cfg.dataWidth.W)
 }
 
 class RobCommitPacket(cfg: BackendConfig = BackendConfig()) extends Bundle {
