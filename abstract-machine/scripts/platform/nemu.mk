@@ -7,17 +7,11 @@ AM_SRCS := platform/nemu/trm.c \
            platform/nemu/ioe/disk.c \
            platform/nemu/mpe.c
 
-LDSCRIPT  ?= $(AM_HOME)/scripts/linker.ld
-ENTRY     ?= _start
-
 CFLAGS    += -fdata-sections -ffunction-sections
-LDFLAGS   += -T $(LDSCRIPT) \
+LDFLAGS   += -T $(AM_HOME)/scripts/linker.ld \
              --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
-LDFLAGS   += --gc-sections -e $(ENTRY)
-NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt -f$(IMAGE).elf
-# NEMUFLAGS += -b
-# NEMUFLAGS += -k
-NEMUFLAGS += -g 10000
+LDFLAGS   += --gc-sections -e _start
+NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt
 
 CFLAGS += -DMAINARGS=\"$(mainargs)\"
 CFLAGS += -I$(AM_HOME)/am/src/platform/nemu/include
@@ -33,6 +27,3 @@ run: image
 
 gdb: image
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
-
-perf: image
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) perf ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin

@@ -1,4 +1,3 @@
-// clang-format off
 #ifndef AM_H__
 #define AM_H__
 
@@ -64,17 +63,10 @@ Context *kcontext    (Area kstack, void (*entry)(void *), void *arg);
 
 // ----------------------- VME: Virtual Memory -----------------------
 bool     vme_init    (void *(*pgalloc)(int), void (*pgfree)(void *));
-bool     vme_attach  (AddrSpace *kas, void *(*pgalloc)(int), void (*pgfree)(void *));
 void     protect     (AddrSpace *as);
 void     unprotect   (AddrSpace *as);
 void     map         (AddrSpace *as, void *vaddr, void *paddr, int prot);
 Context *ucontext    (AddrSpace *as, Area kstack, void *entry);
-
-bool     vme_map     (AddrSpace *as, void *vaddr, void *paddr, int prot);
-void     unmap       (AddrSpace *as, void *vaddr, void **paddr);
-bool     vme_query   (AddrSpace *as, void *vaddr, void **paddr, int *prot);
-void     vme_switch  (AddrSpace *as);
-void     vme_flush   (AddrSpace *as, void *vaddr);
 
 // ---------------------- MPE: Multi-Processing ----------------------
 bool     mpe_init    (void (*entry)());
