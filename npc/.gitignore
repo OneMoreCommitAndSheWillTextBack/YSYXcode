@@ -36,4 +36,5 @@ profile_exec.dat
 !./include/*.h
 !compile_flags.txt
 !*.py
+!*.nxdc
 !performance.txt
