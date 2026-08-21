@@ -1,6 +1,7 @@
 # 公共配置
 VERILATOR = verilator
 VERILATOR_FLAGS = --trace --prof-exec --cc --MMD --exe --build --autoflush 
+YSYXSOC_HOME ?= $(YSYX_HOME)/ysyxSoC
 SOCPATH = $(YSYXSOC_HOME)
 INCLUDE_PATH = $(abspath ./include/)
 VERILATOR_INCLUDE_PATH = $(abspath ./vsrc/include/)
