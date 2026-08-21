@@ -29,6 +29,9 @@ extern Cpu *cpu;
 static bool inst_ref_skip = false;
 static int inst_skip_nr = 0;
 
+static constexpr uint32_t INST_ECALL = 0x00000073;
+static constexpr uint32_t INST_MRET = 0x30200073;
+
 // fit for nemu
 struct DifftestCsr {
   uint32_t mepc;
@@ -198,6 +201,18 @@ void diff_step() {
   context ref_state{};
   ref_difftest_exec(1);
   ref_difftest_regcpy(&ref_context, DIFF_TO_DUT);
+
+  if (cpu->inst == INST_ECALL || cpu->inst == INST_MRET) {
+    // Preserve NEMU's post-trap PC and privilege while aligning compared state.
+    std::memcpy(ref_context.gpr, cpu->commit.gpr,
+                sizeof(ref_context.gpr));
+    ref_context.csr.mstatus = cpu->commit.csr.mstatus;
+    ref_context.csr.mtvec = cpu->commit.csr.mtvec;
+    ref_context.csr.mepc = cpu->commit.csr.mepc;
+    ref_context.csr.mcause = cpu->commit.csr.mcause;
+    ref_difftest_regcpy(&ref_context, DIFF_TO_REF);
+  }
+
   unpack_context(&ref_state, &ref_context);
   checkregs(&ref_state);
 }
