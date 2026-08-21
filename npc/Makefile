@@ -21,6 +21,8 @@ VERILATOR_FLAGS += --timescale "1ns/1ns" --no-timing
 # 默认第三种：ysyxsoc + nvboard
 BUILD_MODE ?= ysyxsoc_nvboard
 
+-include $(NVBOARD_HOME)/scripts/nvboard.mk
+
 # 检查 BUILD_MODE 合法性
 VALID_BUILD_MODES := npc ysyxsoc ysyxsoc_nvboard release
 ifeq ($(filter $(BUILD_MODE),$(VALID_BUILD_MODES)),)
@@ -103,7 +105,6 @@ $(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD
 		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN)) \
 		$(if $(filter 1,$(NVBOARD_ENABLE)),$(patsubst %, --LDFLAGS %, $(LDFLAGS)))
 
--include $(NVBOARD_HOME)/scripts/nvboard.mk
 
 # 自动生成引脚绑定文件
 $(SRC_AUTO_BIND): $(NXDC_FILES)

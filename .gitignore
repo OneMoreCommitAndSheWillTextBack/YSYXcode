@@ -11,7 +11,7 @@
 !.gitignore
 !/cachesim/*
 !init.sh
-!patch/
+!/patch/**
 /fceux-am
 /nvboard
 /am-kernels
@@ -19,5 +19,5 @@
 /.nvim
 /.hdl_checker
 /.git
-/rt-thread-am/bsp/abstract-machine/build/
+/rt-thread-am/
 *compile_commands.json

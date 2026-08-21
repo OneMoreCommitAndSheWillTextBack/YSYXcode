@@ -35,7 +35,7 @@ image: $(IMAGE).elf
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: image
-	$(MAKE) -C $(NPC_HOME) ARGS='$(ARGS)' BUILD_MODE=release run
+	$(MAKE) -C $(NPC_HOME) ARGS='$(ARGS)' BUILD_MODE=ysyxsoc_nvboard run
 
 sim:
 	$(MAKE) -C $(NPC_HOME) sim
