@@ -1,0 +1,192 @@
+From a6b47b597a5685bc4b9226b28dbc640b3372dc28 Mon Sep 17 00:00:00 2001
+From: sunmingyang <2326103265@qq.com>
+Date: Sat, 22 Nov 2025 14:21:03 +0800
+Subject: [PATCH 1/4] fix the gpio and vga bugs
+
+---
+ perip/gpio/gpio_top_apb.v |  2 +-
+ perip/vga/vga_top_apb.v   | 77 ++++++++++++++++++++-------------------
+ 2 files changed, 41 insertions(+), 38 deletions(-)
+
+diff --git a/perip/gpio/gpio_top_apb.v b/perip/gpio/gpio_top_apb.v
+index f6b7a713..4c0e18e2 100644
+--- a/perip/gpio/gpio_top_apb.v
++++ b/perip/gpio/gpio_top_apb.v
+@@ -53,7 +53,7 @@ module gpio_top_apb(
+   
+   // APB 接口信号
+   .inport_rd_i(is_read),
+-  .inport_wr_i(in_pstrb),
++  .inport_wr_i(in_pstrb&{4{is_write}}),
+   .inport_addr_i(in_paddr),
+   .inport_write_data_i(in_pwdata),
+   .inport_len_i(1'b0),     // 根据您的设计需要设置
+diff --git a/perip/vga/vga_top_apb.v b/perip/vga/vga_top_apb.v
+index a1f4599c..2f81ce64 100644
+--- a/perip/vga/vga_top_apb.v
++++ b/perip/vga/vga_top_apb.v
+@@ -46,14 +46,12 @@ module vga_top_apb(
+     .clk_i(clock),
+     .rst_i(reset),
+     .inport_rd_i(1'b0), // read not supported
+-    .inport_wr_i(is_write),
++    .inport_wr_i(in_pstrb&{4{is_write}}),
+     .inport_addr_i(in_paddr),
+     .inport_write_data_i(in_pwdata),
+     .inport_len_i(1'b0),
+     .inport_ack_o(in_pready),
+ 
+-    .h_valid(h_valid),
+-    .v_valid(v_valid),
+     .vga_r(vga_r),
+     .vga_g(vga_g),
+     .vga_b(vga_b),
+@@ -62,14 +60,14 @@ module vga_top_apb(
+     .vga_valid(vga_valid)
+   );
+ 
+-  assign 
+ 
+ endmodule
+ 
+ module vgd_mem (
+   input clk_i,
+   input rst_i,
+-  input [31:0] addr_i,
++  input [31:0] w_addr_i,
++  input [31:0] r_addr_i,
+   input [3:0] strb_i,
+   input is_read,
+   input [31:0] data_i,
+@@ -81,51 +79,51 @@ module vgd_mem (
+   // ------------------------------------
+   // WRITE LOGIC
+   // ------------------------------------
+-  wire [9:0] h_addr = addr_i[11:2];
+-  wire [8:0] v_addr = addr_i[20:12];
+-  wire write_enable = (strb != 4'b0);
++  wire [9:0] w_h_addr = w_addr_i[11:2];
++  wire [8:0] w_v_addr = w_addr_i[20:12];
++  wire write_enable = (strb_i != 4'b0);
+   always @(posedge clk_i) begin
+     if(rst_i) begin
+-      vga_mem[{h_addr, v_addr}] <= 0;
++      vga_mem[{w_h_addr, w_v_addr}] <= 0;
+     end else if(write_enable) begin
+-      if(strb_q[0]) vga_mem[{h_addr, v_addr}] <= data_q[7:0];
+-      if(strb_q[1]) vga_mem[{h_addr, v_addr}] <= data_q[15:8];
+-      if(strb_q[2]) vga_mem[{h_addr, v_addr}] <= data_q[23:16];
++      if(strb_i[0]) vga_mem[{w_h_addr, w_v_addr}][7:0] <= data_i[7:0];
++      if(strb_i[1]) vga_mem[{w_h_addr, w_v_addr}][15:8] <= data_i[15:8];
++      if(strb_i[2]) vga_mem[{w_h_addr, w_v_addr}][23:16] <= data_i[23:16];
+     end
+   end
+ 
+   // ------------------------------------
+   // READ LOGIC
+   // ------------------------------------
+-  wire [9:0] h_addr = addr_i[11:2];
+-  wire [8:0] v_addr = addr_i[20:12];
+-  wire read_enable = (strb_q != 4'b0);
++  wire [9:0] r_h_addr = r_addr_i[11:2];
++  wire [8:0] r_v_addr = r_addr_i[20:12];
+ 
+-  assign vga_data = vga_mem[{h_addr, v_addr}];
++  assign vga_data = vga_mem[{r_h_addr, r_v_addr}];
+ 
+   // ACK生成 -- 读不需要确认
++  reg ack_o;
+   always @(posedge clk_i or posedge rst_i) begin
+     if (rst_i) begin
+-      ack <= 1'b0;
++      ack_o <= 1'b0;
+     end else begin
+-      ack <= (|strb_i);
++      ack_o <= (|strb_i);
+     end
+   end
+ 
++  assign ack = ack_o;
++
+ endmodule
+ 
+ module vga_core (
+   input clk_i,
+   input rst_i,
+   input inport_rd_i,
+-  input inport_wr_i,
+-  input inport_addr_i,
+-  input inport_write_data_i,
++  input [3:0] inport_wr_i,
++  input [31:0] inport_addr_i,
++  input [31:0] inport_write_data_i,
+   input inport_len_i,
+   output inport_ack_o,
+ 
+-  output h_valid,
+-  output v_valid,
+   output [7:0] vga_r,
+   output [7:0] vga_g,
+   output [7:0] vga_b,
+@@ -146,39 +144,44 @@ module vga_core (
+ 
+   reg [9:0] x_cnt;
+   reg [9:0] y_cnt;
+-  wire h_valid;
+-  wire v_valid;
+ 
+   always @(posedge clk_i) begin
+     if(rst_i) begin
+       x_cnt <= 1;
+-      y_cnt <= 1
++      y_cnt <= 1;
+     end else begin
+       if(x_cnt == h_total) begin
+         x_cnt <= 1;
+-      if(y_cnt == v_total) y_cnt <= 1;
+-      else y_cnt <= y_cnt + 1;
+-      end else x_cnt <= x_cnt + 1;
++        if(y_cnt == v_total) 
++          y_cnt <= 1;
++        else 
++          y_cnt <= y_cnt + 1;
++      end else begin
++        x_cnt <= x_cnt + 1;
++      end
+     end
+   end
+ 
+-  assign h_valid = (x_cnt >= h_frontporch && x_cnt < h_active);
+-  assign v_valid = (y_cnt >= v_frontporch && y_cnt < v_active);
++  wire h_valid = (x_cnt >= h_frontporch && x_cnt < h_active);
++  wire v_valid = (y_cnt >= v_frontporch && y_cnt < v_active);
+   assign vga_valid = h_valid & v_valid;
+-  assign h_addr = h_valid ? (x_cnt - 10'd145) : 10'd0;
+-  assign v_addr = v_valid ? (y_cnt - 10'd36) : 10'd0;
++  wire [9:0] h_addr = h_valid ? (x_cnt - 10'd145) : 10'd0;
++  wire [9:0] v_addr = v_valid ? (y_cnt - 10'd36) : 10'd0;
+   assign vga_hsync = (x_cnt > h_frontporch);
+   assign vga_vsync = (y_cnt > v_frontporch);
++  
++  wire [31:0] r_addr_i = {12'd0, v_addr, h_addr};
+ 
+ 
+-  wire vga_data;
++  wire [23:0] vga_data;
+   vgd_mem vgd_mem_inst (
+     .clk_i(clk_i),
+     .rst_i(rst_i),
+-    .addr_i(addr_i),
+-    .strb_i(strb_i),
++    .w_addr_i(inport_addr_i),
++    .r_addr_i(r_addr_i),
++    .strb_i(inport_wr_i),
+     .is_read(inport_rd_i),
+-    .data_i(data_i),
++    .data_i(inport_write_data_i),
+     .vga_data(vga_data),
+     .ack(inport_ack_o)
+   );
+-- 
+2.53.0
+

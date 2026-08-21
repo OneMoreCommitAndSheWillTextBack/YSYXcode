@@ -1,0 +1,780 @@
+From 282d022446ed2c105d097f0ef2cbf076aa1ad312 Mon Sep 17 00:00:00 2001
+From: sunmingyang <2326103265@qq.com>
+Date: Tue, 2 Dec 2025 19:44:06 +0800
+Subject: [PATCH 2/4] fix the yosys error and calibrate memory access latency
+
+---
+ perip/amba/apb_delayer.v             | 121 ++++++++++++++++++++++++++
+ perip/bitrev/bitrev.v                |   2 +
+ perip/flash/flash.v                  |  21 +++--
+ perip/gpio/gpio_top_apb.v            |  14 ++-
+ perip/ps2/ps2_top_apb.v              |   2 +-
+ perip/psram/efabless/EF_PSRAM_CTRL.v |   3 +-
+ perip/psram/psram.v                  |  40 ++++++++-
+ perip/sdram/sdram.v                  |  35 ++++++--
+ perip/sdram/sdram_top_apb.v          |   2 +-
+ perip/spi/rtl/spi_top_apb.v          |   5 +-
+ perip/vga/vga_top_apb.v              | 123 +++++++++++++++++----------
+ src/Top.scala                        |   5 +-
+ 12 files changed, 305 insertions(+), 68 deletions(-)
+
+diff --git a/perip/amba/apb_delayer.v b/perip/amba/apb_delayer.v
+index c0d20764..a2775249 100644
+--- a/perip/amba/apb_delayer.v
++++ b/perip/amba/apb_delayer.v
+@@ -1,3 +1,5 @@
++// `define FAST_APB
++
+ module apb_delayer(
+   input         clock,
+   input         reset,
+@@ -24,6 +26,8 @@ module apb_delayer(
+   input         out_pslverr
+ );
+ 
++`ifdef FAST_APB 
++
+   assign out_paddr   = in_paddr;
+   assign out_psel    = in_psel;
+   assign out_penable = in_penable;
+@@ -35,4 +39,121 @@ module apb_delayer(
+   assign in_prdata   = out_prdata;
+   assign in_pslverr  = out_pslverr;
+ 
++`else 
++  // assume the npc MHZ is 550, the device work at 100 MHZ
++  // so the r is 5.5
++  // so we set r * s = 11, so the s is 2
++  localparam R_S = 32'd11;  // r * s，用于累加阶段每周期加的值
++  localparam S = 2;      // 放大系数，用于避免小数计算
++  localparam K = 32'd5;      // 示例：设备服务请求的周期数（实际是动态的） 
++  localparam LOGS = 1;
++  localparam K_R_S = K * R_S;
++
++  typedef enum logic [1:0] {
++    ST_IDLE, ST_DELAY, ST_PSEL, ST_TRAN
++  } state_t;
++
++  // ----------------------------
++  // STATE MACHINE
++  // ----------------------------
++  // IDLE -> DELAY-> ST_PSEL -> ST_TRAN
++
++  state_t state_current_q;
++  state_t state_next;
++
++  always @(posedge clock) begin
++    if(reset) begin
++      state_current_q <= ST_IDLE;
++    end else begin
++      state_current_q <= state_next;
++    end
++  end
++
++  always @(posedge clock) begin
++    state_next = ST_IDLE;
++    case(state_current_q) 
++      ST_IDLE: begin
++        if(req_valid) begin
++          state_next = ST_DELAY;
++        end else begin
++          state_next = ST_IDLE;
++        end
++      end
++
++      ST_DELAY: begin
++        if(counter_finish) begin
++          state_next = ST_PSEL;
++        end else begin
++          state_next = ST_DELAY;
++        end
++      end
++
++      ST_PSEL: begin
++        state_next = ST_TRAN;
++      end
++
++      ST_TRAN: begin
++        if(out_pready) begin
++          state_next = ST_IDLE;
++        end else begin
++          state_next = ST_TRAN;
++        end
++      end
++    endcase
++  end
++
++  wire req_valid;  // 判断当前APB总线上是否有有效请求
++  assign req_valid = in_psel && !in_penable;   // 在psel被置高的时候进入delay
++
++  // APB协议要求：SETUP阶段(psel=1,penable=0)和ACCESS阶段(psel=1,penable=1)所有控制信号和数据都应该稳定
++  // 在ST_PSEL和ST_TRAN阶段传递所有信号，其他阶段传递无效值（因为下游不会采样，psel=0）
++  wire apb_active = (state_current_q == ST_PSEL || state_current_q == ST_TRAN);
++  
++  assign out_psel = apb_active;
++  assign out_penable = (state_current_q == ST_TRAN);
++  assign out_paddr = apb_active ? in_paddr : 32'b0;
++  assign out_pprot = apb_active ? in_pprot : 3'b0;
++  assign out_pwrite = apb_active ? in_pwrite : 1'b0;
++  assign out_pstrb = apb_active ? in_pstrb : 4'b0;
++  assign out_pwdata = apb_active ? in_pwdata : 32'b0;
++
++  assign in_prdata = out_prdata;
++  assign in_pready = (state_current_q == ST_DELAY) ? 1'b0 : out_pready;
++  assign in_pslverr = out_pslverr; 
++
++  // ----------------------------
++  // DELAY COUNTER
++  // ----------------------------
++  reg [31:0] counter;
++  reg [31:0] k_scaled;
++  wire [31:0] k_r_s = k_scaled * R_S;
++  wire [31:0] counter_next = counter + R_S;
++  wire counter_finish = (counter_next > k_r_s);
++  always @(posedge clock) begin
++    if(reset) begin
++      counter <= 32'b0;
++    end else if(state_current_q == ST_DELAY) begin
++        if(counter_finish) begin
++          counter <= (counter_next >> LOGS);
++        end else begin
++          counter <= counter_next;
++        end
++      end
++  end 
++
++  always @(posedge clock) begin
++    if(reset) begin
++      k_scaled <= K;
++    end else begin
++      if(state_current_q == ST_TRAN) begin
++        k_scaled <= k_scaled + 1'b1;
++      end else if(state_current_q == ST_PSEL) begin
++        k_scaled <= 32'b0;
++      end
++    end
++
++  end
++
++`endif
++
+ endmodule
+diff --git a/perip/bitrev/bitrev.v b/perip/bitrev/bitrev.v
+index 73597f76..4045ac91 100644
+--- a/perip/bitrev/bitrev.v
++++ b/perip/bitrev/bitrev.v
+@@ -46,7 +46,9 @@ module bitrev (
+         end
+ 
+         default: begin
++          // synopsys translate_off
+           $stop();
++          // synopsys translate_on
+         end
+       endcase
+     end
+diff --git a/perip/flash/flash.v b/perip/flash/flash.v
+index 480d7092..11c82155 100644
+--- a/perip/flash/flash.v
++++ b/perip/flash/flash.v
+@@ -11,7 +11,7 @@ module flash (
+ );
+   wire reset = ss;
+ 
+-  typedef enum [2:0] { cmd_t, addr_t, data_t, err_t } state_t;
++  typedef enum logic [2:0] { cmd_t, addr_t, data_t, err_t } state_t;
+   reg [2:0]  state;
+   reg [7:0]  counter;
+   reg [7:0]  cmd;
+@@ -40,8 +40,10 @@ module flash (
+ 
+         default: begin
+           state <= state;
++          // synopsys translate_off
+           $fwrite(32'h80000002, "Assertion failed: Unsupported command `%xh`, only support `03h` read command\n", cmd);
+           $fatal;
++          // synopsys translate_on
+         end
+       endcase
+     end
+@@ -70,18 +72,22 @@ module flash (
+   end
+ 
+   wire [31:0] data_bswap = {rdata[7:0], rdata[15:8], rdata[23:16], rdata[31:24]};
++  wire [31:0] data_mux = {counter == 8'd0 ? data_bswap : data};
+   always@(posedge sck or posedge reset) begin
+     if (reset) data <= 32'd0;
+     else if (state == data_t) begin
+-      data <= { {counter == 8'd0 ? data_bswap : data}[30:0], 1'b0 };
++      data <= { data_mux[30:0], 1'b0 };
+     end
+   end
+ 
+-  assign miso = ss ? 1'b1 : ({(state == data_t && counter == 8'd0) ? data_bswap : data}[31]);
++  wire [31:0] miso_mux = {(state == data_t && counter == 8'd0) ? data_bswap : data};
++  assign miso = ss ? 1'b1 : (miso_mux[31]);
+ 
+ endmodule
+ 
++// synopsys translate_off
+ import "DPI-C" function void flash_read(input int addr, output int data);
++// synopsys translate_on
+ 
+ module flash_cmd(
+   input             clock,
+@@ -92,10 +98,15 @@ module flash_cmd(
+ );
+   always@(posedge clock) begin
+     if (valid)
+-      if (cmd == 8'h03) flash_read(addr, data);
+-      else begin
++      if (cmd == 8'h03) begin
++        // synopsys translate_off
++        flash_read(addr, data);
++        // synopsys translate_on
++      end else begin
++        // synopsys translate_off
+         $fwrite(32'h80000002, "Assertion failed: Unsupport command `%xh`, only support `03h` read command\n", cmd);
+         $fatal;
++        // synopsys translate_on
+       end
+   end
+ endmodule
+diff --git a/perip/gpio/gpio_top_apb.v b/perip/gpio/gpio_top_apb.v
+index 4c0e18e2..0dfd5bc8 100644
+--- a/perip/gpio/gpio_top_apb.v
++++ b/perip/gpio/gpio_top_apb.v
+@@ -24,7 +24,7 @@ module gpio_top_apb(
+   output [7:0]  gpio_seg_7
+ );
+ 
+-  typedef enum [1:0] { ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK } state_t;
++  typedef enum logic [1:0] { ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK } state_t;
+   reg [1:0] state;
+ 
+   always @(posedge clock) begin
+@@ -159,7 +159,7 @@ module gpio_axi_core(
+   // STATE MACHINE
+   // -------------------------
+ 
+-  typedef enum [1:0] {ST_IDLE, ST_READ, ST_WRITE} state;
++  typedef enum logic [1:0] {ST_IDLE, ST_READ, ST_WRITE} state;
+   reg [1:0] state_current_q;
+   reg [1:0] state_next_r;
+ 
+@@ -196,8 +196,11 @@ module gpio_axi_core(
+           state_next_r = ST_IDLE;
+       end
+ 
+-      default:
++      default: begin
++        // synopsys translate_off
+         $error("invalid state gpio_top_apb");
++        // synopsys translate_on
++      end
+     endcase
+   end
+ 
+@@ -235,8 +238,11 @@ module gpio_axi_core(
+         end
+       end
+ 
+-      default:
++      default: begin
++        // synopsys translate_off
+         $error("invalid state gpio_top_apb");
++        // synopsys translate_on
++      end
+     endcase
+   end
+ 
+diff --git a/perip/ps2/ps2_top_apb.v b/perip/ps2/ps2_top_apb.v
+index 830ced31..57841076 100644
+--- a/perip/ps2/ps2_top_apb.v
++++ b/perip/ps2/ps2_top_apb.v
+@@ -16,7 +16,7 @@ module ps2_top_apb(
+   input         ps2_data
+ );
+ 
+-	typedef enum [1:0] {ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK} state_t;
++	typedef enum logic [1:0] {ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK} state_t;
+ 	reg [1:0] state;
+ 
+ 	always @(posedge clock) begin
+diff --git a/perip/psram/efabless/EF_PSRAM_CTRL.v b/perip/psram/efabless/EF_PSRAM_CTRL.v
+index 683c3ceb..0d1fa49a 100644
+--- a/perip/psram/efabless/EF_PSRAM_CTRL.v
++++ b/perip/psram/efabless/EF_PSRAM_CTRL.v
+@@ -113,7 +113,8 @@ module PSRAM_READER (
+             saddr <= {addr[23:0]};
+ 
+     // Sample with the negedge of sck
+-    wire[1:0] byte_index = {counter[7:1] - 8'd10}[1:0];
++    wire [7:0] _byte_index_mid = {counter[7:1] - 8'd10};
++    wire [1:0] byte_index = _byte_index_mid [1:0];
+     always @ (posedge clk)
+         if(counter >= 20 && counter <= FINAL_COUNT)
+             if(sck)
+diff --git a/perip/psram/psram.v b/perip/psram/psram.v
+index 91363b19..aca3a9ec 100644
+--- a/perip/psram/psram.v
++++ b/perip/psram/psram.v
+@@ -10,6 +10,7 @@ module psram(
+     WAIT_CYCLES,
+     EXECUTE
+   } state_t;
++
+   reg [3:0] state;
+   reg [7:0] inst_buffer;
+   reg [23:0] addr_buffer;
+@@ -21,11 +22,17 @@ module psram(
+   reg [3:0] dio_out_reg;
+   reg dio_en;
+ 
++  reg [7:0] psram_memory;
++
+   reg qpi_mode;
+   always @(posedge sck or posedge reset) begin
+     if(reset) begin
+-      if(inst_buffer == 8'h38)
++      if(inst_buffer == 8'h38) begin
++        // synopsys translate_off
+         psram_write({8'b0,addr_buffer}, data);
++        // synopsys translate_on
++      end
++      psram_memory <= 8'b0;
+       state <= LEISURE;
+       inst_counter <= 3'b000;
+       addr_counter <= 3'b000;
+@@ -86,12 +93,23 @@ module psram(
+             8'heb:begin
+               state <= WAIT_CYCLES;
+               wait_counter <= 3'b001;
+-              data <= psram_read({8'h00, addr_buffer});
++              // synopsys translate_off
++                `define PSRAM_DPIC_READ
++                `ifdef PSRAM_DPIC_READ
++                  data <= psram_read({8'h00, addr_buffer});
++                `else
++                // synopsys translate_on
++                  data <= psram_memory;
++                // synopsys translate_off
++                `endif
++                // synopsys translate_on
+             end
+ 
+             default:begin
++              // synopsys translate_off
+               $fwrite(32'h80000002, "Assertion failed: Unsupport command `%xh`\n", inst_buffer);
+               $fatal();
++              // synopsys translate_on
+             end
+             endcase
+           end else begin
+@@ -117,7 +135,10 @@ module psram(
+             8'h38:begin
+               if(finish == 0) begin
+                 data[7:4] <= dio[3:0];
++                // synopsys translate_off
+                 psram_write({8'b0,addr_buffer}, data);
++                // synopsys translate_on
++                psram_memory <= data;
+                 addr_buffer <= addr_buffer + 1;
+                 finish <= 1;
+               end else begin
+@@ -131,7 +152,16 @@ module psram(
+                 dio_en <= 1;
+                 finish <= 1;
+               end else begin
+-                data <= psram_read({8'h00, addr_buffer});
++                // synopsys translate_off
++                `define PSRAM_DPIC_READ
++                `ifdef PSRAM_DPIC_READ
++                  data <= psram_read({8'h00, addr_buffer});
++                `else
++                // synopsys translate_on
++                  data <= psram_memory;
++                // synopsys translate_off
++                `endif
++                // synopsys translate_on
+                 addr_buffer <= addr_buffer + 1;
+                 dio_out_reg <= data[3:0];
+                 dio_en <= 1;
+@@ -140,8 +170,10 @@ module psram(
+             end
+             
+             default: begin
++              // synopsys translate_off
+               $fwrite(32'h80000002, "Assertion failed: Unsupport command `%xh`\n", inst_buffer);
+               $fatal();
++              // synopsys translate_on
+             end
+           endcase
+         end
+@@ -154,6 +186,8 @@ module psram(
+ 
+   assign dio = dio_en ? dio_out_reg : 4'bz;
+ 
++  // synopsys translate_off
+   import "DPI-C" function void psram_write(input int addr, input byte data);
+   import "DPI-C" function byte psram_read(input int addr);
++  // synopsys translate_on
+ endmodule
+\ No newline at end of file
+diff --git a/perip/sdram/sdram.v b/perip/sdram/sdram.v
+index 0c64bcc4..06d11f99 100644
+--- a/perip/sdram/sdram.v
++++ b/perip/sdram/sdram.v
+@@ -14,6 +14,9 @@ module sdram(
+   reg [12:0] mode_q;
+   reg [12:0] row_reg [0:3];
+ 
++  // It is used for synthesis and is closer in concept, but has no practical function.
++  reg [15:0] sdram_memory;
++
+   // ------------------------------------
+   // SDRAM DECODER
+   // ------------------------------------
+@@ -90,12 +93,14 @@ module sdram(
+   // ------------------------------------
+   // READ PIPELINE
+   // ------------------------------------
++  // synopsys translate_off
+   import "DPI-C" function void sdram_read(
+     input int bank,
+     input int row,
+     input int col,
+     output shortint data
+   );
++  // synopsys translate_on
+   localparam MAX_PIPELINE = 6;
+ 
+   reg [12:0] rd_pip_in_addr_q;
+@@ -107,7 +112,7 @@ module sdram(
+   wire [15:0] data_output;
+   wire [2:0] pipeline_cl = mode_q[6:4];
+ 
+-  wire [15:0] sdram_data_input_i;
++  reg [15:0] sdram_data_input_i;
+ 
+   wire [2:0] cl = mode_q[6:4];
+ 
+@@ -125,7 +130,17 @@ module sdram(
+ 
+   always @(negedge valclk) begin
+     if(select_valid) begin
++      // synopsys translate_off
++      `define SDRAM_DPIC_READ
++      `ifdef SDRAM_DPIC_READ
+       sdram_read({30'b0, select_bank}, {19'b0, row_reg[select_bank]}, {22'b0, select_col}, sdram_data_input_i);
++      `else
++      // synopsys translate_on
++      sdram_data_input_i <= sdram_memory;
++      // synopsys translate_off
++      `endif
++      // synopsys translate_on
++
+       rd_data_valid_q <= 1'b1;
+     end else begin
+       rd_data_valid_q <= 1'b0;
+@@ -159,7 +174,7 @@ module sdram(
+   // SDRAM WRITE 
+   // ------------------------------------
+ 
+-  // FIXME layout the sdran data one cyc by using reg
++  // synopsys translate_off
+   import "DPI-C" function void sdram_write(
+     input int bank,
+     input int row, 
+@@ -167,13 +182,18 @@ module sdram(
+     input int data,
+     input int dqm_mask
+   );
++  // synopsys translate_on
+   wire [15:0] sdram_data = dq;
+   reg [12:0]  wr_in_addr_q;
+   reg         wr_in_val_q;
+ 
+   always @(negedge valclk) begin
+-    if(wr_in_val_r)
++    if(wr_in_val_r) begin
++      // synopsys translate_off
+       sdram_write({30'b0,wr_in_addr_q[12:11]}, {19'b0, row_reg[wr_in_addr_q[12:11]]}, {22'b0, wr_in_addr_q[9:0]}, {16'b0, sdram_data}, {30'b0, dqm});
++      // synopsys translate_on
++      sdram_memory <= sdram_data;
++    end
+   end
+ 
+   // mode reg behave
+@@ -316,8 +336,11 @@ module sdram(
+         state_next_r = STATE_IDLE;
+       end
+ 
+-      default:
++      default: begin
++        // synopsys translate_off
+         $error("sdram state machine meet invalid state, the state is %b", state_current_q);
++        // synopsys translate_on
++      end
+     endcase
+   end
+ 
+@@ -460,11 +483,13 @@ module sdram(
+ 
+       STATE_MODE_REG: begin
+         // MODE_REG -> IDLE
+-        // no nothing
++        // no thing
+       end
+ 
+       default: begin
++        // synopsys translate_off
+         $error("sdram state mechine meet unvlaid state"); 
++        // synopsys translate_on
+       end
+     endcase
+   end
+diff --git a/perip/sdram/sdram_top_apb.v b/perip/sdram/sdram_top_apb.v
+index 3bc5b93b..2c3c9136 100644
+--- a/perip/sdram/sdram_top_apb.v
++++ b/perip/sdram/sdram_top_apb.v
+@@ -28,7 +28,7 @@ module sdram_top_apb (
+   wire [15:0] sdram_dout;
+   assign sdram_dq = sdram_dout_en ? sdram_dout : 16'bz;
+ 
+-  typedef enum [1:0] { ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK } state_t;
++  typedef enum logic [1:0] { ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK } state_t;
+   reg [1:0] state;
+   wire req_accept;
+ 
+diff --git a/perip/spi/rtl/spi_top_apb.v b/perip/spi/rtl/spi_top_apb.v
+index 7c63456a..5d4951cc 100644
+--- a/perip/spi/rtl/spi_top_apb.v
++++ b/perip/spi/rtl/spi_top_apb.v
+@@ -148,8 +148,11 @@ always @(posedge clock) begin
+ end
+ 
+ always @(posedge clock) begin
+-  if(in_pwrite && is_xip_access) 
++  if(in_pwrite && is_xip_access) begin
++    // synopsys translate_off 
+     $stop();
++    // synopsys translate_on
++  end
+ end
+ 
+ assign xip_paddr = (state == WRITE_TX_) ? 5'b00100 :
+diff --git a/perip/vga/vga_top_apb.v b/perip/vga/vga_top_apb.v
+index 2f81ce64..dee8c23a 100644
+--- a/perip/vga/vga_top_apb.v
++++ b/perip/vga/vga_top_apb.v
+@@ -42,15 +42,22 @@ module vga_top_apb(
+   wire is_write = ((in_psel && !in_penable) || (state == ST_WAIT_ACCEPT)) && in_pwrite;
+   wire req_accept = is_write;
+ 
++  wire [23:0] vga_data;
++  wire [9:0] r_v_addr, r_h_addr, w_v_addr, w_h_addr;
++
+   vga_core vga_core_inst (
+     .clk_i(clock),
+     .rst_i(reset),
+-    .inport_rd_i(1'b0), // read not supported
++
+     .inport_wr_i(in_pstrb&{4{is_write}}),
+     .inport_addr_i(in_paddr),
+     .inport_write_data_i(in_pwdata),
+-    .inport_len_i(1'b0),
+-    .inport_ack_o(in_pready),
++
++    .vga_data(vga_data),
++    .r_v_addr(r_v_addr),
++    .r_h_addr(r_h_addr),
++    .w_v_addr(w_v_addr),
++    .w_h_addr(w_h_addr),
+ 
+     .vga_r(vga_r),
+     .vga_g(vga_g),
+@@ -60,45 +67,77 @@ module vga_top_apb(
+     .vga_valid(vga_valid)
+   );
+ 
++  vga_mem_block mem(
++    .clk_i(clock),
++    .rst_i(reset),
++    .w_h_addr(w_h_addr),
++    .w_v_addr(w_v_addr[8:0]),
++    .strb_i(in_pstrb & {4{is_write}}),
++    .data_i(in_pwdata),
++    .ack(in_pready),
++    .h_addr(r_h_addr),
++    .v_addr(r_v_addr[8:0]),
++    .vga_data(vga_data)
++  );
+ 
+ endmodule
+ 
+-module vgd_mem (
++module vga_mem_block (
+   input clk_i,
+   input rst_i,
+-  input [31:0] w_addr_i,
+-  input [31:0] r_addr_i,
++  
++  input [9:0] w_h_addr,
++  input [8:0] w_v_addr,
+   input [3:0] strb_i,
+-  input is_read,
+   input [31:0] data_i,
+-  output [23:0] vga_data,
+-  output ack
++  output ack,
++
++  input [8:0] v_addr,
++  input [9:0] h_addr,
++  output [23:0] vga_data
+ );
+   reg [23:0] vga_mem [524287:0];
+ 
++  // initial begin
++  //   $readmemh("/home/ysyx/project/ysyx-workbench/nvboard/example/preexmple/resource/picture.hex", vga_mem);
++  // end
++
+   // ------------------------------------
+   // WRITE LOGIC
+   // ------------------------------------
+-  wire [9:0] w_h_addr = w_addr_i[11:2];
+-  wire [8:0] w_v_addr = w_addr_i[20:12];
+   wire write_enable = (strb_i != 4'b0);
+   always @(posedge clk_i) begin
+     if(rst_i) begin
+       vga_mem[{w_h_addr, w_v_addr}] <= 0;
+     end else if(write_enable) begin
+-      if(strb_i[0]) vga_mem[{w_h_addr, w_v_addr}][7:0] <= data_i[7:0];
+-      if(strb_i[1]) vga_mem[{w_h_addr, w_v_addr}][15:8] <= data_i[15:8];
+-      if(strb_i[2]) vga_mem[{w_h_addr, w_v_addr}][23:16] <= data_i[23:16];
++      // $display("[VGA_MEM] Write: addr w_h_addr=%0d, w_v_addr=%0d, combined_addr=%0d, strb=0x%h, data=0x%h", 
++      //          w_h_addr, w_v_addr, {w_h_addr, w_v_addr}, strb_i, data_i);
++      // $fflush();
++      if(strb_i[0]) begin
++        vga_mem[{w_h_addr, w_v_addr}][7:0] <= data_i[7:0];
++        // $display("[VGA_MEM]   Writing byte[7:0] = 0x%h", data_i[7:0]);
++        // $fflush();
++      end
++      if(strb_i[1]) begin
++        vga_mem[{w_h_addr, w_v_addr}][15:8] <= data_i[15:8];
++        // $display("[VGA_MEM]   Writing byte[15:8] = 0x%h", data_i[15:8]);
++        // $fflush();
++      end
++      if(strb_i[2]) begin
++        vga_mem[{w_h_addr, w_v_addr}][23:16] <= data_i[23:16];
++        // $display("[VGA_MEM]   Writing byte[23:16] = 0x%h", data_i[23:16]);
++        // $fflush();
++      end
++      // $display("[VGA_MEM]   Final mem value = 0x%h", vga_mem[{w_h_addr, w_v_addr}]);
++      // $fflush();
+     end
+   end
+ 
+   // ------------------------------------
+   // READ LOGIC
+   // ------------------------------------
+-  wire [9:0] r_h_addr = r_addr_i[11:2];
+-  wire [8:0] r_v_addr = r_addr_i[20:12];
+ 
+-  assign vga_data = vga_mem[{r_h_addr, r_v_addr}];
++  assign vga_data = vga_mem[{h_addr, v_addr}];
+ 
+   // ACK生成 -- 读不需要确认
+   reg ack_o;
+@@ -117,12 +156,15 @@ endmodule
+ module vga_core (
+   input clk_i,
+   input rst_i,
+-  input inport_rd_i,
+   input [3:0] inport_wr_i,
+-  input [31:0] inport_addr_i,
+   input [31:0] inport_write_data_i,
+-  input inport_len_i,
+-  output inport_ack_o,
++  input [31:0] inport_addr_i,
++
++  input [23:0] vga_data,
++  output [9:0] r_v_addr,
++  output [9:0] r_h_addr,
++  output [9:0] w_v_addr,
++  output [9:0] w_h_addr,
+ 
+   output [7:0] vga_r,
+   output [7:0] vga_g,
+@@ -144,6 +186,7 @@ module vga_core (
+ 
+   reg [9:0] x_cnt;
+   reg [9:0] y_cnt;
++  wire h_valid, v_valid;
+ 
+   always @(posedge clk_i) begin
+     if(rst_i) begin
+@@ -162,32 +205,20 @@ module vga_core (
+     end
+   end
+ 
+-  wire h_valid = (x_cnt >= h_frontporch && x_cnt < h_active);
+-  wire v_valid = (y_cnt >= v_frontporch && y_cnt < v_active);
+-  assign vga_valid = h_valid & v_valid;
+-  wire [9:0] h_addr = h_valid ? (x_cnt - 10'd145) : 10'd0;
+-  wire [9:0] v_addr = v_valid ? (y_cnt - 10'd36) : 10'd0;
++  //生成同步信号    
+   assign vga_hsync = (x_cnt > h_frontporch);
+   assign vga_vsync = (y_cnt > v_frontporch);
+-  
+-  wire [31:0] r_addr_i = {12'd0, v_addr, h_addr};
+-
+-
+-  wire [23:0] vga_data;
+-  vgd_mem vgd_mem_inst (
+-    .clk_i(clk_i),
+-    .rst_i(rst_i),
+-    .w_addr_i(inport_addr_i),
+-    .r_addr_i(r_addr_i),
+-    .strb_i(inport_wr_i),
+-    .is_read(inport_rd_i),
+-    .data_i(inport_write_data_i),
+-    .vga_data(vga_data),
+-    .ack(inport_ack_o)
+-  );
+-
+-  assign vga_r = vga_data[7:0];
+-  assign vga_g = vga_data[15:8];
+-  assign vga_b = vga_data[23:16];
++  //生成消隐信号
++  assign h_valid = (x_cnt > h_active) & (x_cnt <= h_backporch);
++  assign v_valid = (y_cnt > v_active) & (y_cnt <= v_backporch);
++  assign vga_valid = h_valid & v_valid;
++  //计算当前有效像素坐标
++  assign r_h_addr = h_valid ? (x_cnt - 10'd145) : 10'd0;
++  assign r_v_addr = v_valid ? (y_cnt - 10'd36) : 10'd0;
++  //设置输出的颜色值
++  assign {vga_r, vga_g, vga_b} = vga_data;
++
++  assign w_h_addr = inport_addr_i[11:2];
++  assign w_v_addr = inport_addr_i[21:12];
+ 
+ endmodule
+diff --git a/src/Top.scala b/src/Top.scala
+index c00378a6..e9bc8d0b 100644
+--- a/src/Top.scala
++++ b/src/Top.scala
+@@ -21,6 +21,9 @@ class ysyxSoCTop extends Module {
+ }
+ 
+ object Elaborate extends App {
+-  val firtoolOptions = Array("--disable-annotation-unknown")
++  val firtoolOptions = Array(
++    "--disable-annotation-unknown",
++    "--lowering-options=disallowLocalVariables,disallowExpressionInliningInPorts"
++    )
+   circt.stage.ChiselStage.emitSystemVerilogFile(new ysyxSoCTop, args, firtoolOptions)
+ }
+-- 
+2.53.0
+
