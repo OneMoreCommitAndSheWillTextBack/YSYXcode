@@ -11,6 +11,7 @@
 !.gitignore
 !/cachesim/*
 !init.sh
+!patch/
 /fceux-am
 /nvboard
 /am-kernels
