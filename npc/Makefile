@@ -187,8 +187,8 @@ sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST)
 	vvp ./build/npc_ivg
 
 # Verilator 网表仿真：使用 NETLIST 替代 RTL，npc 为顶层，无需 ivg_top
-# 用法: make sim-verilator-netlist NETLIST=path/to/ysyx_24100007.netlist.v.sim [CELLS=path/to/cells]
-# 可选 CELLS: 工艺库路径，用于门级网表
+# make sim-verilator-netlist NETLIST=path/to/ysyx_24100007.netlist.v.sim [CELLS=path/to/cells]
+#	CELLS: 工艺库 has default
 BUILDDIR_NETLIST = ./build/netlist
 OBJDIR_NETLIST = $(BUILDDIR_NETLIST)/obj_dir
 BIN_NETLIST = $(BUILDDIR_NETLIST)/npc
