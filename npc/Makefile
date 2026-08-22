@@ -3,6 +3,8 @@ VERILATOR = verilator
 VERILATOR_FLAGS = --trace --prof-exec --cc --MMD --exe --build --autoflush 
 YSYXSOC_HOME ?= $(YSYX_HOME)/ysyxSoC
 SOCPATH = $(YSYXSOC_HOME)
+SOC_FULL_V = $(SOCPATH)/build/ysyxSoCFull.v
+MK_SOC_SCRIPT = $(abspath ./scripts/mk_soc.py)
 INCLUDE_PATH = $(abspath ./include/)
 VERILATOR_INCLUDE_PATH = $(abspath ./vsrc/include/)
 
@@ -91,10 +93,19 @@ endif
 BUILDDIR = ./build/$(BUILD_MODE)
 OBJDIR = $(BUILDDIR)/obj_dir
 BIN = $(BUILDDIR)/$(TOPNAME)
+NEEDS_SOC_PATCH := $(or $(findstring soc,$(BUILD_MODE)),$(filter release,$(BUILD_MODE)))
 
 $(shell mkdir -p $(BUILDDIR))
 
 VERILATOR_INCLUDE = $(patsubst %, -I%, $(VERILATOR_INCLUDE_PATH))
+
+.PHONY: mk_soc
+mk_soc: $(SOC_FULL_V) $(MK_SOC_SCRIPT)
+	python3 $(MK_SOC_SCRIPT) $(SOC_FULL_V)
+
+ifneq ($(NEEDS_SOC_PATCH),)
+$(BIN): mk_soc
+endif
 
 $(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD_ARCHIVE) $(SRC_AUTO_BIND))
 	$(VERILATOR) $(VERILATOR_FLAGS) \
@@ -105,7 +116,6 @@ $(BIN): $(VSRC) $(CSRC) $(HEADFILE) $(if $(filter 1,$(NVBOARD_ENABLE)),$(NVBOARD
 		--top-module $(TOPNAME) \
 		--Mdir $(OBJDIR) --exe -o $(abspath $(BIN)) \
 		$(if $(filter 1,$(NVBOARD_ENABLE)),$(patsubst %, --LDFLAGS %, $(LDFLAGS)))
-
 
 # 自动生成引脚绑定文件
 $(SRC_AUTO_BIND): $(NXDC_FILES)
