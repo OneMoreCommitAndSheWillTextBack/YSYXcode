@@ -212,12 +212,6 @@ void init(int argc, char *argv[]) {
   npc->cycs = 0;
   npc->timer = 0;
 
-  // #ifdef __NVBOARD__
-  // nvboard_bind_all_pins(npc->top);
-  // nvboard_init();
-  // nvboard_set_divisor(16);
-  // #endif
-
   npc->state = STOP;
   npc->top->reset = 1;
   init_trace();
@@ -238,12 +232,9 @@ void init(int argc, char *argv[]) {
 #ifdef __NVBOARD__
   nvboard_bind_all_pins(npc->top);
   nvboard_init();
-  nvboard_set_divisor(16);
 #endif
 
   npc->top->reset = 0;
-  // Dump reset deassertion in its own timestep so synchronous state updates
-  // do not look level-sensitive in the VCD.
   npc->top->eval();
   demp_wave();
 }
