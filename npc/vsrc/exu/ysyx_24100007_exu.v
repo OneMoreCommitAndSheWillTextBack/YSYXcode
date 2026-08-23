@@ -123,7 +123,7 @@ module ysyx_24100007_exu (
   wire [2:0] muxsig;
   wire csrrs, csrrw;
 
-  exu_pipline_connect exu_pipeline_u (
+  ysyx_24100007_exu_pipline_connect exu_pipeline_u (
       .clk(clk),
       .rst(rst),
 
@@ -295,7 +295,7 @@ module ysyx_24100007_exu (
 
 endmodule
 
-module exu_pipline_connect (
+module ysyx_24100007_exu_pipline_connect (
     input clk,
     input rst,
 

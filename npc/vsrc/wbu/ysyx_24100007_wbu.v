@@ -79,7 +79,7 @@ module ysyx_24100007_wbu (
   wire ecallsig;
   wire csrrs, csrrw;
 
-  wbu_pipline_connect wbu_pipeline_u (
+  ysyx_24100007_wbu_pipline_connect wbu_pipeline_u (
       .clk(clk),
       .rst(rst),
 
@@ -221,7 +221,7 @@ module ysyx_24100007_wbu (
   assign wbu_req_ready = (wbu_state == BUS_TRANSACTION);
 endmodule
 
-module wbu_pipline_connect (
+module ysyx_24100007_wbu_pipline_connect (
     input clk,
     input rst,
 
@@ -359,4 +359,3 @@ module wbu_pipline_connect (
   assign ecallsig_out = ecallsig_r;
 
 endmodule
-

@@ -96,7 +96,7 @@ module ysyx_24100007_idu(
   wire [31:0] inst;
   wire pipline_valid;
   wire flush;
-  idu_pipline_connect idu_connect(
+  ysyx_24100007_idu_pipline_connect idu_connect(
     .clk(clk),
     .rst(rst),
 
@@ -200,7 +200,7 @@ module ysyx_24100007_idu(
   // synopsys translate_on
 endmodule
 
-module idu_pipline_connect(
+module ysyx_24100007_idu_pipline_connect(
   input clk,
   input rst,
 

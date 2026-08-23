@@ -1,4 +1,5 @@
 # 公共配置
+NPC_HOME ?= $(CURDIR)
 VERILATOR = verilator
 VERILATOR_FLAGS = --trace --prof-exec --cc --MMD --exe --build --autoflush 
 YSYXSOC_HOME ?= $(YSYX_HOME)/ysyxSoC
@@ -134,7 +135,11 @@ sim:
 		gtkwave ./wave.vcd & \
 	fi
 
-VERILOG_OUT = $(abspath ./build/ysyx_24100007.v)
+VERILOG_OUT = $(NPC_HOME)/build/ysyx_24100007.v
+IVG_SIM_BIN = $(NPC_HOME)/build/npc_ivg
+IVG_TOP = $(NPC_HOME)/vsrc-extra/ivg_top.v
+NPC_WRAPPER_V = $(NPC_HOME)/vsrc-extra/npc.v
+BIN_IVG = $(NPC_HOME)/bin.ivg
 VERILOG_ORDER = \
 	vsrc/ysyx_24100007.v \
 	vsrc/exu/ysyx_24100007_alucontrol.v \
@@ -161,21 +166,19 @@ VERILOG_ORDER = \
 	vsrc/wbu/ysyx_24100007_wbu.v \
 	vsrc/ysyx_24100007_core.v
 verilog:
-	@mkdir -p build
+	@mkdir -p $(dir $(VERILOG_OUT))
 	@echo + Merging vsrc/*.v into $(VERILOG_OUT)
 	@( for f in $(VERILOG_ORDER); do cat "$$f"; echo; done ) > $(VERILOG_OUT)
 
 ivg:
 	@if [ -n "$(IVG)" ]; then \
-		ln -sf $(IVG) /home/cinder/Code/project/ysyx-workbench/npc/bin.ivg; \
+		ln -sf "$(IVG)" "$(BIN_IVG)"; \
 	fi
-	iverilog -D__NPC__ -o /home/cinder/Code/project/ysyx-workbench/npc/build/npc_ivg -g2012 \
-		/home/cinder/Code/project/ysyx-workbench/npc/build/ysyx_24100007.v \
-		/home/cinder/Code/project/ysyx-workbench/npc/vsrc-extra/ivg_top.v \
-		/home/cinder/Code/project/ysyx-workbench/npc/vsrc-extra/npc.v 
-	vvp /home/cinder/Code/project/ysyx-workbench/npc/build/npc_ivg
-
-BIN_IVG = /home/cinder/Code/project/ysyx-workbench/npc/bin.ivg
+	iverilog -D__NPC__ -o $(IVG_SIM_BIN) -g2012 \
+		$(VERILOG_OUT) \
+		$(IVG_TOP) \
+		$(NPC_WRAPPER_V)
+	vvp $(IVG_SIM_BIN)
 
 $(BIN_IVG): $(IMG)
 	@if [ -z "$(IMG)" ]; then echo "Error: IMG=xxx.bin required"; exit 1; fi
@@ -183,20 +186,20 @@ $(BIN_IVG): $(IMG)
 	@(echo "@0"; xxd -p -c 0 $(IMG) | sed 's/\(..\)/\1 /g') > $(BIN_IVG)
 
 sim-iverilog: $(IMG) $(BIN_IVG)
-	iverilog -D__NPC__ -o $(abspath ./build/npc_ivg) -g2012 \
+	iverilog -D__NPC__ -o $(IVG_SIM_BIN) -g2012 \
 		$(VERILOG_OUT) \
-		./vsrc-extra/ivg_top.v \
-		./vsrc-extra/npc.v
-	vvp ./build/npc_ivg
+		$(IVG_TOP) \
+		$(NPC_WRAPPER_V)
+	vvp $(IVG_SIM_BIN)
 
 CELLS_V = $(if $(CELLS),$(shell find $(CELLS) -name "*.v" 2>/dev/null),)
 sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST)
-	iverilog -o $(abspath ./build/npc_ivg) -g2012 \
+	iverilog -o $(IVG_SIM_BIN) -g2012 \
 		$(CELLS_V) \
 		$(NETLIST) \
-		./vsrc-extra/ivg_top.v \
-		./vsrc-extra/npc.v
-	vvp ./build/npc_ivg
+		$(IVG_TOP) \
+		$(NPC_WRAPPER_V)
+	vvp $(IVG_SIM_BIN)
 
 # Verilator 网表仿真：使用 NETLIST 替代 RTL，npc 为顶层，无需 ivg_top
 # 用法: make sim-verilator-netlist NETLIST=path/to/ysyx_24100007.netlist.v.sim [CELLS=path/to/cells]
@@ -218,7 +221,7 @@ $(BIN_NETLIST): $(NETLIST) $(CSRC) $(HEADFILE)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Wno-UNOPTFLAT -fno-inline \
 		$(CELLS_V) \
 		$(NETLIST) \
-		./vsrc-extra/npc.v \
+		$(NPC_WRAPPER_V) \
 		$(CSRC) \
 		$(BASE_CFLAGS) \
 		$(VERILATOR_INCLUDE) \
@@ -228,7 +231,7 @@ $(BIN_NETLIST): $(NETLIST) $(CSRC) $(HEADFILE)
 	
 
 check:
-	$(VERILATOR) --lint-only --top-module ysyx_24100007 -Wall -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME /home/cinder/Code/project/ysyx-workbench/npc/release/ysyx_24100007.v 
+	$(VERILATOR) --lint-only --top-module ysyx_24100007 -Wall -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME $(NPC_HOME)/release/ysyx_24100007.v
 
 perf:
 	python3 show-perf-table.py ./performance.txt

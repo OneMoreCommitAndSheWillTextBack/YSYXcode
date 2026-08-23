@@ -6,11 +6,13 @@ module ysyx_24100007_pcreg (
     output reg [31:0] pcout
 );
 
+`ifndef SYNTHESIS
 `ifdef __NPC__
   localparam init = 32'h80000000;
-`elsif __YSYXSOC__
+`else
   localparam init = 32'h30000000;
-`else  // for syn
+`endif
+`else
   localparam init = 32'h80000000;
 `endif
 
