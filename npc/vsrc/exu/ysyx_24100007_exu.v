@@ -103,7 +103,6 @@ module ysyx_24100007_exu (
   wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp);
   wire flush = (exu_wbu_handshake & !idu_valid);
 
-  // Pipeline connect: 流水线寄存器
   wire [2:0] func3;
   wire btypebranch;
   wire func7;
@@ -278,9 +277,9 @@ module ysyx_24100007_exu (
   assign exu_transmit_data = (muxsig == 3'b010) ? imm : (muxsig == 3'b100) ? link_addr : res;
   // 输出有效 && 不是访存指令
   assign exu_transmit_data_valid = out_valid && !(memew_out || memer_out);
+
   // load-use
   assign exu_memer_bypass = memer_out;
-
   wire exu_need_mepc_mtvec = ecallsig || mretsig;
   wire exu_csr_delay = wbu_write_csr & exu_need_mepc_mtvec;
 

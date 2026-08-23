@@ -568,7 +568,6 @@ module ysyx_24100007_exu (
   wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp);
   wire flush = (exu_wbu_handshake & !idu_valid);
 
-  // Pipeline connect: 流水线寄存器
   wire [2:0] func3;
   wire btypebranch;
   wire func7;
@@ -743,9 +742,9 @@ module ysyx_24100007_exu (
   assign exu_transmit_data = (muxsig == 3'b010) ? imm : (muxsig == 3'b100) ? link_addr : res;
   // 输出有效 && 不是访存指令
   assign exu_transmit_data_valid = out_valid && !(memew_out || memer_out);
+
   // load-use
   assign exu_memer_bypass = memer_out;
-
   wire exu_need_mepc_mtvec = ecallsig || mretsig;
   wire exu_csr_delay = wbu_write_csr & exu_need_mepc_mtvec;
 
@@ -835,7 +834,6 @@ module ysyx_24100007_exu_pipline_connect (
 
   assign avaliable = avaliable_r;
 
-  // 寄存器存储所有输入信号
   reg [2:0] func3_r;
   reg btypebranch_r;
   reg func7_r;
@@ -862,7 +860,6 @@ module ysyx_24100007_exu_pipline_connect (
   reg csrrs_r;
   reg [11:0] csr_addr_r;
 
-  // Datapath contents are irrelevant while the pipeline stage is invalid.
   always @(posedge clk) begin
     if (pipline_valid) begin
       func3_r <= func3_in;
@@ -882,7 +879,6 @@ module ysyx_24100007_exu_pipline_connect (
     end
   end
 
-  // Reset side-effect controls so invalid datapath values cannot escape.
   always @(posedge clk) begin
     if (rst) begin
       btypebranch_r <= 1'b0;
@@ -1837,48 +1833,45 @@ module ysyx_24100007_lsu (
     input clk,
     input rst,
 
-    input        ifu_read_req,
-    output       ifu_req_acp,
-    input [31:0] ifu_addr_in,
+    input         ifu_read_req,
+    output        ifu_req_acp,
+    input  [31:0] ifu_addr_in,
 
-    input        wbu_read_req,
-    input        wbu_write_req,
-    output       wbu_req_acp,
+    input  wbu_read_req,
+    input  wbu_write_req,
+    output wbu_req_acp,
 
-    input        ifu_req_ready,   // IFU 准备好接收读数据
-    output       ifu_req_finish,
-    input        wbu_req_ready,   // WBU 准备好接收读数据/写响应
-    output       wbu_req_finish,
+    input  ifu_req_ready,   // IFU 准备好接收读数据
+    output ifu_req_finish,
+    input  wbu_req_ready,   // WBU 准备好接收读数据/写响应
+    output wbu_req_finish,
 
-    // WBU 内存访问控制
     input        mem_we_in,
     input [31:0] mem_addr_in,
     input [31:0] mem_wdata_in,
-    input [2:0]  mem_mask_in,
+    input [ 2:0] mem_mask_in,
     input        mem_sext_in,
 
-    // 读数据输出
     output [127:0] data_read,
-    
-    // AXI Master 接口
+
     output        arvalid,
     input         arready,
     output [31:0] araddr,
-    output [7:0]  arlen,
-    output [2:0]  arsize,
-    output [1:0]  arburst,
+    output [ 7:0] arlen,
+    output [ 2:0] arsize,
+    output [ 1:0] arburst,
 
     output        awvalid,
     input         awready,
     output [31:0] awaddr,
-    output [7:0]  awlen,
-    output [2:0]  awsize,
-    output [1:0]  awburst,
+    output [ 7:0] awlen,
+    output [ 2:0] awsize,
+    output [ 1:0] awburst,
 
     output        wvalid,
     input         wready,
     output [31:0] wdata,
-    output [3:0]  wstrb,
+    output [ 3:0] wstrb,
     output        wlast,
 
     input         rvalid,
@@ -1886,14 +1879,14 @@ module ysyx_24100007_lsu (
     input  [31:0] rdata,
     input         rlast,
 
-    input         bvalid,
-    output        bready,
-    input  [1:0]  bresp
+    input        bvalid,
+    output       bready,
+    input  [1:0] bresp
 );
 
-  wire has_req   = ifu_read_req | wbu_read_req | wbu_write_req;
-  wire has_ifu   = ifu_read_req;
-  wire has_wbu   = wbu_read_req | wbu_write_req;
+  wire has_req = ifu_read_req | wbu_read_req | wbu_write_req;
+  wire has_ifu = ifu_read_req;
+  wire has_wbu = wbu_read_req | wbu_write_req;
   wire is_wbu_rd = wbu_read_req;
   wire is_wbu_wr = wbu_write_req;
 
@@ -1903,12 +1896,11 @@ module ysyx_24100007_lsu (
   assign ifu_req_acp = idle && ifu_read_req;
   assign wbu_req_acp = idle && !ifu_read_req && (wbu_read_req | wbu_write_req);
 
-  // 握手时锁存全部输入，保证事务期间数据稳定
   reg [31:0] ifu_addr;
   reg        mem_we;
   reg [31:0] mem_addr;
   reg [31:0] mem_wdata;
-  reg [2:0]  mem_mask;
+  reg [ 2:0] mem_mask;
   reg        mem_sext;
 
   always @(posedge clk) begin
@@ -1933,8 +1925,7 @@ module ysyx_24100007_lsu (
     end
   end
 
-  // 请求完成条件：PROCESSION 状态下，对方已准备好消费数据/响应
-  wire ifu_finish  = (master == IFU)  && (state == PROCESSION);
+  wire ifu_finish = (master == IFU) && (state == PROCESSION);
   wire wbu_finish  = (master == WBU_R) && (state == PROCESSION) ||
                      (master == WBU_W) && (state == PROCESSION);
   assign ifu_req_finish = ifu_finish;
@@ -1942,7 +1933,6 @@ module ysyx_24100007_lsu (
   wire finish = ifu_finish | wbu_finish;
   wire finish_acp = finish && (ifu_req_ready | wbu_req_ready);
 
-  // 当前服务的请求源
   typedef enum logic [1:0] {
     IFU,
     WBU_R,
@@ -1961,18 +1951,17 @@ module ysyx_24100007_lsu (
     end
   end
 
-  // ---------- ifucfg / wbucfg 实例化 ----------
   wire [31:0] ifu_araddr;
-  wire [7:0]  ifu_arlen;
-  wire [2:0]  ifu_arsize;
-  wire [1:0]  ifu_arburst;
+  wire [ 7:0] ifu_arlen;
+  wire [ 2:0] ifu_arsize;
+  wire [ 1:0] ifu_arburst;
 
   wire [31:0] wbu_araddr, wbu_awaddr;
-  wire [2:0]  wbu_arsize, wbu_awsize;
-  wire [7:0]  wbu_arlen, wbu_awlen;
-  wire [1:0]  wbu_arburst, wbu_awburst;
+  wire [2:0] wbu_arsize, wbu_awsize;
+  wire [7:0] wbu_arlen, wbu_awlen;
+  wire [1:0] wbu_arburst, wbu_awburst;
   wire [31:0] wbu_wdata;
-  wire [3:0]  wbu_wstrb;
+  wire [ 3:0] wbu_wstrb;
 
   ysyx_24100007_ifucfg ifucfg_u (
       .addr   (ifu_addr),
@@ -2001,13 +1990,12 @@ module ysyx_24100007_lsu (
       .wstrb  (wbu_wstrb)
   );
 
-  // ---------- AXI 参数多路选择 ----------
-  wire is_read  = (master == IFU) | (master == WBU_R);
+  wire is_read = (master == IFU) | (master == WBU_R);
   wire is_write = (master == WBU_W);
 
-  assign araddr  = (master == IFU) ? ifu_araddr  : wbu_araddr;
-  assign arlen   = (master == IFU) ? ifu_arlen   : wbu_arlen;
-  assign arsize  = (master == IFU) ? ifu_arsize  : wbu_arsize;
+  assign araddr  = (master == IFU) ? ifu_araddr : wbu_araddr;
+  assign arlen   = (master == IFU) ? ifu_arlen : wbu_arlen;
+  assign arsize  = (master == IFU) ? ifu_arsize : wbu_arsize;
   assign arburst = (master == IFU) ? ifu_arburst : wbu_arburst;
 
   assign awaddr  = wbu_awaddr;
@@ -2016,7 +2004,7 @@ module ysyx_24100007_lsu (
   assign awburst = wbu_awburst;
   assign wdata   = wbu_wdata;
   assign wstrb   = wbu_wstrb;
-  assign wlast   = wvalid;   // 与原先一致：单 beat 写时 wlast = wvalid
+  assign wlast   = wvalid;
 
   assign arvalid = is_read & (state == WAIT_HANDSHAKE);
   assign awvalid = is_write & (state == WAIT_HANDSHAKE);
@@ -2044,27 +2032,23 @@ module ysyx_24100007_lsu (
         end
 
         WAIT_HANDSHAKE: begin
-          if (is_write && awready && wready)
-            state <= WAIT_SLAVE;
-          else if (is_read && arready)
-            state <= WAIT_SLAVE;
+          if (is_write && awready && wready) state <= WAIT_SLAVE;
+          else if (is_read && arready) state <= WAIT_SLAVE;
         end
 
         WAIT_SLAVE: begin
-          if (is_read && rvalid && rlast)
-            state <= PROCESSION;
-          else if (is_write && bvalid)
-            state <= PROCESSION;
+          if (is_read && rvalid && rlast) state <= PROCESSION;
+          else if (is_write && bvalid) state <= PROCESSION;
         end
 
         PROCESSION: begin
           if (finish_acp) begin
-            if(has_req) begin
-                state <= WAIT_HANDSHAKE;
+            if (has_req) begin
+              state <= WAIT_HANDSHAKE;
             end else begin
-                state <= READY;
+              state <= READY;
             end
-          end 
+          end
         end
 
         default: state <= READY;
@@ -2074,9 +2058,7 @@ module ysyx_24100007_lsu (
 
   // ---------- 读数据缓冲与输出 ----------
   reg [127:0] data_buffer;
-
-  // IFU WRAP: 仅需 2-bit 槽位索引，4-beat 回绕
-  reg [1:0] buffer_index;
+  reg [  1:0] buffer_index;
 
   always @(posedge clk) begin
     if (rst) begin
@@ -2090,7 +2072,7 @@ module ysyx_24100007_lsu (
     end
   end
 
-  wire in_sram  = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
+  wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
   wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
   wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
   wire is_unalign = in_psram | in_sdram | in_sram;
@@ -2107,22 +2089,20 @@ module ysyx_24100007_lsu (
 
   // IFU: 4-beat 组装；WBU: 单 beat
   always @(posedge clk) begin
-      if (state == WAIT_SLAVE && rvalid && rready) begin
-        if (master == IFU) begin
-          case (buffer_index)
-            2'd0: data_buffer[31:0]   <= rdata;
-            2'd1: data_buffer[63:32]  <= rdata;
-            2'd2: data_buffer[95:64]  <= rdata;
-            2'd3: data_buffer[127:96] <= rdata;
-            default: ;
-          endcase
-        end else if(master == WBU_R) begin
-            data_buffer[31:0] <= memread;
-        end
-      end else if (finish_acp) begin
-        data_buffer <= 128'b0;
+    if (state == WAIT_SLAVE && rvalid && rready) begin
+      if (master == IFU) begin
+        case (buffer_index)
+          2'd0: data_buffer[31:0] <= rdata;
+          2'd1: data_buffer[63:32] <= rdata;
+          2'd2: data_buffer[95:64] <= rdata;
+          2'd3: data_buffer[127:96] <= rdata;
+          default: ;
+        endcase
+      end else if (master == WBU_R) begin
+        data_buffer[31:0] <= memread;
       end
     end
+  end
 
   assign data_read = data_buffer;
 
@@ -2130,7 +2110,7 @@ module ysyx_24100007_lsu (
   // PERFORMANCE COUNTER LOGIC
   // ------------------------------------
   // synopsys translate_off
-  `ifdef VERILATOR
+`ifdef VERILATOR
   import "DPI-C" function void host_get_io_op(int addr);
   import "DPI-C" function void host_get_wbu_start();
   import "DPI-C" function void host_get_wbu_finish();
@@ -2156,11 +2136,12 @@ module ysyx_24100007_lsu (
           end
         end
 
-        default: begin end
+        default: begin
+        end
       endcase
     end
   end
-  `endif
+`endif
   // synopsys translate_on
 
 endmodule
@@ -2302,49 +2283,42 @@ module ysyx_24100007_wbucfg (
     input        mem_we,
     input [31:0] mem_addr,
     input [31:0] mem_wdata,
-    input [2:0]  mem_mask,
-    input is_unalign,
+    input [ 2:0] mem_mask,
+    input        is_unalign,
 
     output [31:0] araddr,
     output [31:0] awaddr,
-    output [2:0]  arsize,
-    output [2:0]  awsize,
-    output [7:0]  arlen,
-    output [7:0]  awlen,
-    output [1:0]  arburst,
-    output [1:0]  awburst,
+    output [ 2:0] arsize,
+    output [ 2:0] awsize,
+    output [ 7:0] arlen,
+    output [ 7:0] awlen,
+    output [ 1:0] arburst,
+    output [ 1:0] awburst,
     output [31:0] wdata,
-    output [3:0]  wstrb
+    output [ 3:0] wstrb
 );
 
-  // 地址范围（与 axi_mem_controller 一致）
-  wire in_sram  = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
+  wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
   wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
   wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
 
-  // 读地址：SRAM/PSRAM/SDRAM 需 4B 对齐
-  assign araddr = (is_unalign) ? {mem_addr[31:2], 2'b00} : mem_addr;
+  assign araddr  = (is_unalign) ? {mem_addr[31:2], 2'b00} : mem_addr;
 
-  // 写地址
-  assign awaddr = mem_addr;
+  assign awaddr  = mem_addr;
 
-  // 读通道：单 beat
   assign arlen   = 8'd0;
   assign arburst = 2'b01;  // INCR
-  assign arsize  = (mem_mask == 3'b001) ? 3'b000 :
-                   (mem_mask == 3'b010) ? 3'b001 :
-                   3'b010;
+  assign arsize  = (mem_mask == 3'b001) ? 3'b000 : (mem_mask == 3'b010) ? 3'b001 : 3'b010;
 
-  // 写通道：单 beat
   assign awlen   = 8'd0;
 
   wire [1:0] wdata_offset;
 
   ysyx_24100007_memwritelen strbcontrol (
-      .awaddr (mem_addr),
+      .awaddr(mem_addr),
       .wirtelen(mem_mask),
-      .wstrb  (wstrb),
-      .awsize (awsize),
+      .wstrb(wstrb),
+      .awsize(awsize),
       .wdata_offset(wdata_offset),
       .awburst(awburst)
   );
@@ -2644,7 +2618,6 @@ module ysyx_24100007_arbiter #(
   wire [31:0] current_addr = arvalid ? araddr : awaddr;
   wire is_clint_addr = (current_addr >= 32'h02000000) && (current_addr <= 32'h0200ffff);
 
-  // This router has exactly two targets: external AXI (0) and CLINT (1).
   reg slave_owner;
   wire trans_active = (state == ST_TRANS);
   wire owner_external = trans_active & ~slave_owner;
@@ -2721,22 +2694,14 @@ module ysyx_24100007_arbiter #(
   endgenerate
 
   // Return zero while idle instead of implicitly selecting CLINT.
-  assign rdata = owner_external ? rdata_in[0*32+:32] :
-                 owner_clint ? rdata_in[1*32+:32] : 32'b0;
-  assign bresp = owner_external ? bresp_in[0*2+:2] :
-                 owner_clint ? bresp_in[1*2+:2] : 2'b0;
-  assign rvalid = owner_external ? rvalid_in[0] :
-                  owner_clint ? rvalid_in[1] : 1'b0;
-  assign bvalid = owner_external ? bvalid_in[0] :
-                  owner_clint ? bvalid_in[1] : 1'b0;
-  assign rlast = owner_external ? rlast_in[0] :
-                 owner_clint ? rlast_in[1] : 1'b0;
-  assign awready = owner_external ? awready_in[0] :
-                   owner_clint ? awready_in[1] : 1'b0;
-  assign wready = owner_external ? wready_in[0] :
-                  owner_clint ? wready_in[1] : 1'b0;
-  assign arready = owner_external ? arready_in[0] :
-                   owner_clint ? arready_in[1] : 1'b0;
+  assign rdata   = owner_external ? rdata_in[0*32+:32] : owner_clint ? rdata_in[1*32+:32] : 32'b0;
+  assign bresp   = owner_external ? bresp_in[0*2+:2] : owner_clint ? bresp_in[1*2+:2] : 2'b0;
+  assign rvalid  = owner_external ? rvalid_in[0] : owner_clint ? rvalid_in[1] : 1'b0;
+  assign bvalid  = owner_external ? bvalid_in[0] : owner_clint ? bvalid_in[1] : 1'b0;
+  assign rlast   = owner_external ? rlast_in[0] : owner_clint ? rlast_in[1] : 1'b0;
+  assign awready = owner_external ? awready_in[0] : owner_clint ? awready_in[1] : 1'b0;
+  assign wready  = owner_external ? wready_in[0] : owner_clint ? wready_in[1] : 1'b0;
+  assign arready = owner_external ? arready_in[0] : owner_clint ? arready_in[1] : 1'b0;
 
 endmodule
 
@@ -3064,8 +3029,6 @@ module ysyx_24100007_wbu (
   always @(posedge clk) begin
     if (wbu_req_finish && memer) begin
       memread_data_q <= wbu_data_read;
-    end else if (wbu_state == WRITE_BACK) begin
-      memread_data_q <= 32'b0;
     end
   end
 
@@ -3718,3 +3681,4 @@ module ysyx_24100007_pipline_tracer(
   end
 endmodule
 // synopsys translate_on
+

@@ -183,8 +183,6 @@ module ysyx_24100007_wbu (
   always @(posedge clk) begin
     if (wbu_req_finish && memer) begin
       memread_data_q <= wbu_data_read;
-    end else if (wbu_state == WRITE_BACK) begin
-      memread_data_q <= 32'b0;
     end
   end
 
