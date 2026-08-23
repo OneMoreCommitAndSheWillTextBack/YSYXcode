@@ -2,48 +2,45 @@ module ysyx_24100007_lsu (
     input clk,
     input rst,
 
-    input        ifu_read_req,
-    output       ifu_req_acp,
-    input [31:0] ifu_addr_in,
+    input         ifu_read_req,
+    output        ifu_req_acp,
+    input  [31:0] ifu_addr_in,
 
-    input        wbu_read_req,
-    input        wbu_write_req,
-    output       wbu_req_acp,
+    input  wbu_read_req,
+    input  wbu_write_req,
+    output wbu_req_acp,
 
-    input        ifu_req_ready,   // IFU 准备好接收读数据
-    output       ifu_req_finish,
-    input        wbu_req_ready,   // WBU 准备好接收读数据/写响应
-    output       wbu_req_finish,
+    input  ifu_req_ready,   // IFU 准备好接收读数据
+    output ifu_req_finish,
+    input  wbu_req_ready,   // WBU 准备好接收读数据/写响应
+    output wbu_req_finish,
 
-    // WBU 内存访问控制
     input        mem_we_in,
     input [31:0] mem_addr_in,
     input [31:0] mem_wdata_in,
-    input [2:0]  mem_mask_in,
+    input [ 2:0] mem_mask_in,
     input        mem_sext_in,
 
-    // 读数据输出
     output [127:0] data_read,
-    
-    // AXI Master 接口
+
     output        arvalid,
     input         arready,
     output [31:0] araddr,
-    output [7:0]  arlen,
-    output [2:0]  arsize,
-    output [1:0]  arburst,
+    output [ 7:0] arlen,
+    output [ 2:0] arsize,
+    output [ 1:0] arburst,
 
     output        awvalid,
     input         awready,
     output [31:0] awaddr,
-    output [7:0]  awlen,
-    output [2:0]  awsize,
-    output [1:0]  awburst,
+    output [ 7:0] awlen,
+    output [ 2:0] awsize,
+    output [ 1:0] awburst,
 
     output        wvalid,
     input         wready,
     output [31:0] wdata,
-    output [3:0]  wstrb,
+    output [ 3:0] wstrb,
     output        wlast,
 
     input         rvalid,
@@ -51,14 +48,14 @@ module ysyx_24100007_lsu (
     input  [31:0] rdata,
     input         rlast,
 
-    input         bvalid,
-    output        bready,
-    input  [1:0]  bresp
+    input        bvalid,
+    output       bready,
+    input  [1:0] bresp
 );
 
-  wire has_req   = ifu_read_req | wbu_read_req | wbu_write_req;
-  wire has_ifu   = ifu_read_req;
-  wire has_wbu   = wbu_read_req | wbu_write_req;
+  wire has_req = ifu_read_req | wbu_read_req | wbu_write_req;
+  wire has_ifu = ifu_read_req;
+  wire has_wbu = wbu_read_req | wbu_write_req;
   wire is_wbu_rd = wbu_read_req;
   wire is_wbu_wr = wbu_write_req;
 
@@ -68,12 +65,11 @@ module ysyx_24100007_lsu (
   assign ifu_req_acp = idle && ifu_read_req;
   assign wbu_req_acp = idle && !ifu_read_req && (wbu_read_req | wbu_write_req);
 
-  // 握手时锁存全部输入，保证事务期间数据稳定
   reg [31:0] ifu_addr;
   reg        mem_we;
   reg [31:0] mem_addr;
   reg [31:0] mem_wdata;
-  reg [2:0]  mem_mask;
+  reg [ 2:0] mem_mask;
   reg        mem_sext;
 
   always @(posedge clk) begin
@@ -98,8 +94,7 @@ module ysyx_24100007_lsu (
     end
   end
 
-  // 请求完成条件：PROCESSION 状态下，对方已准备好消费数据/响应
-  wire ifu_finish  = (master == IFU)  && (state == PROCESSION);
+  wire ifu_finish = (master == IFU) && (state == PROCESSION);
   wire wbu_finish  = (master == WBU_R) && (state == PROCESSION) ||
                      (master == WBU_W) && (state == PROCESSION);
   assign ifu_req_finish = ifu_finish;
@@ -107,7 +102,6 @@ module ysyx_24100007_lsu (
   wire finish = ifu_finish | wbu_finish;
   wire finish_acp = finish && (ifu_req_ready | wbu_req_ready);
 
-  // 当前服务的请求源
   typedef enum logic [1:0] {
     IFU,
     WBU_R,
@@ -126,18 +120,17 @@ module ysyx_24100007_lsu (
     end
   end
 
-  // ---------- ifucfg / wbucfg 实例化 ----------
   wire [31:0] ifu_araddr;
-  wire [7:0]  ifu_arlen;
-  wire [2:0]  ifu_arsize;
-  wire [1:0]  ifu_arburst;
+  wire [ 7:0] ifu_arlen;
+  wire [ 2:0] ifu_arsize;
+  wire [ 1:0] ifu_arburst;
 
   wire [31:0] wbu_araddr, wbu_awaddr;
-  wire [2:0]  wbu_arsize, wbu_awsize;
-  wire [7:0]  wbu_arlen, wbu_awlen;
-  wire [1:0]  wbu_arburst, wbu_awburst;
+  wire [2:0] wbu_arsize, wbu_awsize;
+  wire [7:0] wbu_arlen, wbu_awlen;
+  wire [1:0] wbu_arburst, wbu_awburst;
   wire [31:0] wbu_wdata;
-  wire [3:0]  wbu_wstrb;
+  wire [ 3:0] wbu_wstrb;
 
   ysyx_24100007_ifucfg ifucfg_u (
       .addr   (ifu_addr),
@@ -166,13 +159,12 @@ module ysyx_24100007_lsu (
       .wstrb  (wbu_wstrb)
   );
 
-  // ---------- AXI 参数多路选择 ----------
-  wire is_read  = (master == IFU) | (master == WBU_R);
+  wire is_read = (master == IFU) | (master == WBU_R);
   wire is_write = (master == WBU_W);
 
-  assign araddr  = (master == IFU) ? ifu_araddr  : wbu_araddr;
-  assign arlen   = (master == IFU) ? ifu_arlen   : wbu_arlen;
-  assign arsize  = (master == IFU) ? ifu_arsize  : wbu_arsize;
+  assign araddr  = (master == IFU) ? ifu_araddr : wbu_araddr;
+  assign arlen   = (master == IFU) ? ifu_arlen : wbu_arlen;
+  assign arsize  = (master == IFU) ? ifu_arsize : wbu_arsize;
   assign arburst = (master == IFU) ? ifu_arburst : wbu_arburst;
 
   assign awaddr  = wbu_awaddr;
@@ -181,7 +173,7 @@ module ysyx_24100007_lsu (
   assign awburst = wbu_awburst;
   assign wdata   = wbu_wdata;
   assign wstrb   = wbu_wstrb;
-  assign wlast   = wvalid;   // 与原先一致：单 beat 写时 wlast = wvalid
+  assign wlast   = wvalid;
 
   assign arvalid = is_read & (state == WAIT_HANDSHAKE);
   assign awvalid = is_write & (state == WAIT_HANDSHAKE);
@@ -209,27 +201,23 @@ module ysyx_24100007_lsu (
         end
 
         WAIT_HANDSHAKE: begin
-          if (is_write && awready && wready)
-            state <= WAIT_SLAVE;
-          else if (is_read && arready)
-            state <= WAIT_SLAVE;
+          if (is_write && awready && wready) state <= WAIT_SLAVE;
+          else if (is_read && arready) state <= WAIT_SLAVE;
         end
 
         WAIT_SLAVE: begin
-          if (is_read && rvalid && rlast)
-            state <= PROCESSION;
-          else if (is_write && bvalid)
-            state <= PROCESSION;
+          if (is_read && rvalid && rlast) state <= PROCESSION;
+          else if (is_write && bvalid) state <= PROCESSION;
         end
 
         PROCESSION: begin
           if (finish_acp) begin
-            if(has_req) begin
-                state <= WAIT_HANDSHAKE;
+            if (has_req) begin
+              state <= WAIT_HANDSHAKE;
             end else begin
-                state <= READY;
+              state <= READY;
             end
-          end 
+          end
         end
 
         default: state <= READY;
@@ -239,9 +227,7 @@ module ysyx_24100007_lsu (
 
   // ---------- 读数据缓冲与输出 ----------
   reg [127:0] data_buffer;
-
-  // IFU WRAP: 仅需 2-bit 槽位索引，4-beat 回绕
-  reg [1:0] buffer_index;
+  reg [  1:0] buffer_index;
 
   always @(posedge clk) begin
     if (rst) begin
@@ -255,7 +241,7 @@ module ysyx_24100007_lsu (
     end
   end
 
-  wire in_sram  = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
+  wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
   wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
   wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
   wire is_unalign = in_psram | in_sdram | in_sram;
@@ -272,22 +258,20 @@ module ysyx_24100007_lsu (
 
   // IFU: 4-beat 组装；WBU: 单 beat
   always @(posedge clk) begin
-      if (state == WAIT_SLAVE && rvalid && rready) begin
-        if (master == IFU) begin
-          case (buffer_index)
-            2'd0: data_buffer[31:0]   <= rdata;
-            2'd1: data_buffer[63:32]  <= rdata;
-            2'd2: data_buffer[95:64]  <= rdata;
-            2'd3: data_buffer[127:96] <= rdata;
-            default: ;
-          endcase
-        end else if(master == WBU_R) begin
-            data_buffer[31:0] <= memread;
-        end
-      end else if (finish_acp) begin
-        data_buffer <= 128'b0;
+    if (state == WAIT_SLAVE && rvalid && rready) begin
+      if (master == IFU) begin
+        case (buffer_index)
+          2'd0: data_buffer[31:0] <= rdata;
+          2'd1: data_buffer[63:32] <= rdata;
+          2'd2: data_buffer[95:64] <= rdata;
+          2'd3: data_buffer[127:96] <= rdata;
+          default: ;
+        endcase
+      end else if (master == WBU_R) begin
+        data_buffer[31:0] <= memread;
       end
     end
+  end
 
   assign data_read = data_buffer;
 
@@ -295,7 +279,7 @@ module ysyx_24100007_lsu (
   // PERFORMANCE COUNTER LOGIC
   // ------------------------------------
   // synopsys translate_off
-  `ifdef VERILATOR
+`ifdef VERILATOR
   import "DPI-C" function void host_get_io_op(int addr);
   import "DPI-C" function void host_get_wbu_start();
   import "DPI-C" function void host_get_wbu_finish();
@@ -321,11 +305,12 @@ module ysyx_24100007_lsu (
           end
         end
 
-        default: begin end
+        default: begin
+        end
       endcase
     end
   end
-  `endif
+`endif
   // synopsys translate_on
 
 endmodule

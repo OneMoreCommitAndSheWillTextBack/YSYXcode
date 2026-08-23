@@ -3172,54 +3172,43 @@ module ysyx_24100007_wbu_pipline_connect (
   reg [11:0] csr_addr_r;
   reg ecallsig_r;
 
+  // Datapath fields are ignored unless the WBU stage is valid.
+  always @(posedge clk) begin
+    if (pipline_valid) begin
+      res_r <= res_in;
+      regout2_r <= regout2_in;
+      imm_r <= imm_in;
+      link_addr_r <= link_addr_in;
+      muxsig_r <= muxsig_in;
+      func3_r <= func3_in;
+      rd_r <= rd_in;
+      csr_addr_r <= csr_addr_in;
+    end
+  end
+
+  // Keep reset and flush only on controls that can cause side effects.
   always @(posedge clk) begin
     if (rst) begin
-      res_r <= 32'b0;
-      regout2_r <= 32'b0;
       memew_r <= 1'b0;
       memer_r <= 1'b0;
-      imm_r <= 32'b0;
-      link_addr_r <= 32'b0;
-      muxsig_r <= 3'b0;
-      func3_r <= 3'b0;
       regew_control_r <= 1'b0;
-      rd_r <= 5'b0;
       csrrw_r <= 1'b0;
       csrrs_r <= 1'b0;
-      csr_addr_r <= 12'b0;
       ecallsig_r <= 1'b0;
-    end else begin
-      if (pipline_valid) begin
-        res_r <= res_in;
-        regout2_r <= regout2_in;
-        memew_r <= memew_in;
-        memer_r <= memer_in;
-        imm_r <= imm_in;
-        link_addr_r <= link_addr_in;
-        muxsig_r <= muxsig_in;
-        func3_r <= func3_in;
-        regew_control_r <= regew_control_in;
-        rd_r <= rd_in;
-        csrrw_r <= csrrw_in;
-        csrrs_r <= csrrs_in;
-        csr_addr_r <= csr_addr_in;
-        ecallsig_r <= ecallsig_in;
-      end else if (flush) begin
-        res_r <= 32'b0;
-        regout2_r <= 32'b0;
-        memew_r <= 1'b0;
-        memer_r <= 1'b0;
-        imm_r <= 32'b0;
-        link_addr_r <= 32'b0;
-        muxsig_r <= 3'b0;
-        func3_r <= 3'b0;
-        regew_control_r <= 1'b0;
-        rd_r <= 5'b0;
-        csrrw_r <= 1'b0;
-        csrrs_r <= 1'b0;
-        csr_addr_r <= 12'b0;
-        ecallsig_r <= 1'b0;
-      end
+    end else if (pipline_valid) begin
+      memew_r <= memew_in;
+      memer_r <= memer_in;
+      regew_control_r <= regew_control_in;
+      csrrw_r <= csrrw_in;
+      csrrs_r <= csrrs_in;
+      ecallsig_r <= ecallsig_in;
+    end else if (flush) begin
+      memew_r <= 1'b0;
+      memer_r <= 1'b0;
+      regew_control_r <= 1'b0;
+      csrrw_r <= 1'b0;
+      csrrs_r <= 1'b0;
+      ecallsig_r <= 1'b0;
     end
   end
 

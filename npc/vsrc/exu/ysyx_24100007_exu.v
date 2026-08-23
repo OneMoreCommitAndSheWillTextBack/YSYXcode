@@ -370,7 +370,6 @@ module ysyx_24100007_exu_pipline_connect (
 
   assign avaliable = avaliable_r;
 
-  // 寄存器存储所有输入信号
   reg [2:0] func3_r;
   reg btypebranch_r;
   reg func7_r;
@@ -397,7 +396,6 @@ module ysyx_24100007_exu_pipline_connect (
   reg csrrs_r;
   reg [11:0] csr_addr_r;
 
-  // Datapath contents are irrelevant while the pipeline stage is invalid.
   always @(posedge clk) begin
     if (pipline_valid) begin
       func3_r <= func3_in;
@@ -417,7 +415,6 @@ module ysyx_24100007_exu_pipline_connect (
     end
   end
 
-  // Reset side-effect controls so invalid datapath values cannot escape.
   always @(posedge clk) begin
     if (rst) begin
       btypebranch_r <= 1'b0;
