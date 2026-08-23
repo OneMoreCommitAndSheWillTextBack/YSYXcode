@@ -165,7 +165,9 @@ VERILOG_ORDER = \
 	vsrc/tools/ysyx_24100007_clint.v \
 	vsrc/wbu/ysyx_24100007_wbu.v \
 	vsrc/ysyx_24100007_core.v
-verilog:
+verilog: $(VERILOG_OUT)
+
+$(VERILOG_OUT):
 	@mkdir -p $(dir $(VERILOG_OUT))
 	@echo + Merging vsrc/*.v into $(VERILOG_OUT)
 	@( for f in $(VERILOG_ORDER); do cat "$$f"; echo; done ) > $(VERILOG_OUT)
@@ -185,7 +187,7 @@ $(BIN_IVG): $(IMG)
 	@echo Converting $(IMG) to readmemh format
 	@(echo "@0"; xxd -p -c 0 $(IMG) | sed 's/\(..\)/\1 /g') > $(BIN_IVG)
 
-sim-iverilog: $(IMG) $(BIN_IVG)
+sim-iverilog: $(IMG) $(BIN_IVG) $(VERILOG_OUT)
 	iverilog -D__NPC__ -o $(IVG_SIM_BIN) -g2012 \
 		$(VERILOG_OUT) \
 		$(IVG_TOP) \

@@ -37,15 +37,12 @@ module ysyx_24100007_exu (
     input [31:0] src1_in,
     input [31:0] src2_in,
 
-    output [31:0] res,
+    output [31:0] emit_out,
     output [31:0] npc,
-    output [31:0] link_addr,  // PC value to write to register (for JAL/JALR)
     output [31:0] src2_out,   // src2 output to WBU
-    output [31:0] imm_out,    // imm output to WBU
 
     output memew_out,
     output memer_out,
-    output [2:0] muxsig_out,
     output [2:0] func3_out,
     output regew_control_out,
     output [4:0] rd_out,
@@ -233,6 +230,8 @@ module ysyx_24100007_exu (
   wire is_jmp_r_1;
   wire is_jmp_r;
   wire [31:0] res_r;
+  wire [31:0] res;
+  wire [31:0] link_addr;
   ysyx_24100007_branchcontrol branchcontrol0 (
       .btypebranch(btypebranch),
       .func3(func3),
@@ -267,16 +266,24 @@ module ysyx_24100007_exu (
   assign is_jmp = is_jmp_r;
 
   assign res = (csrrw || csrrs) ? src1 : res_r;
-  assign src2_out = src2;  // 将流水线的src2输出到WBU
-  assign imm_out = imm;  // 将流水线的imm输出到WBU
-  assign muxsig_out = muxsig;
+  assign src2_out = src2;
+
+  reg [31:0] exu_emit;
+  always @(*) begin
+    case (muxsig)
+      3'b010:  exu_emit = imm;
+      3'b100:  exu_emit = link_addr;
+      default: exu_emit = res;
+    endcase
+  end
+
+  assign emit_out = exu_emit;
 
   // EXU 向 IDU 转发的旁路信号
   assign exu_rd = rd_out;
-  assign exu_regew = regew_control_out || (memew_out || memer_out);
-  assign exu_transmit_data = (muxsig == 3'b010) ? imm : (muxsig == 3'b100) ? link_addr : res;
-  // 输出有效 && 不是访存指令
-  assign exu_transmit_data_valid = out_valid && !(memew_out || memer_out);
+  assign exu_regew = regew_control_out;
+  assign exu_transmit_data = exu_emit;
+  assign exu_transmit_data_valid = out_valid && !memer_out;
 
   // load-use
   assign exu_memer_bypass = memer_out;

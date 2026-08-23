@@ -164,16 +164,14 @@ module ysyx_24100007_core #(
     .mtvec(mtvec)
   ); 
   
-  wire [31:0] res;
-  wire [31:0] link_addr;
+  wire [31:0] exu_emit;
   wire is_jmp;
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
   wire exu_memew, exu_memer, exu_regew_control;
-  wire [2:0] exu_muxsig, exu_func3;
+  wire [2:0] exu_func3;
   wire [31:0] exu_src2_out;  // src2 from EXU to WBU
-  wire [31:0] exu_imm_out;   // imm from EXU to WBU
   wire exu_csrrw_out, exu_csrrs_out;
   wire [11:0] exu_csr_addr_out;
   wire exu_ecallsig_out;
@@ -222,16 +220,13 @@ module ysyx_24100007_core #(
   .src1_in(src1_data),         // 使用 IDU 经过旁路选择后的数据
   .src2_in(src2_data),         // 使用 IDU 经过旁路选择后的数据
 
-  .res(res),
+  .emit_out(exu_emit),
   .npc(npc),
-  .link_addr(link_addr),
   .src2_out(exu_src2_out),           // to WBU
-  .imm_out(exu_imm_out),             // to WBU
   .is_jmp(is_jmp),
 
   .memew_out(exu_memew),             // to WBU
   .memer_out(exu_memer),             // to WBU
-  .muxsig_out(exu_muxsig),            // to WBU
   .func3_out(exu_func3),             // to WBU
   .regew_control_out(exu_regew_control),     // to WBU
   .rd_out(exu_rd),
@@ -271,14 +266,10 @@ module ysyx_24100007_core #(
   ysyx_24100007_wbu wbu0(
   .clk(clock),
   .rst(reset),
-  .res_in(res),
+  .emit_in(exu_emit),
   .regout2_in(exu_src2_out),  // 使用从EXU传递的src2（已通过旁路选择）
   .memew_in(exu_memew),
   .memer_in(exu_memer),
-  .imm_in(exu_imm_out),        // 使用从EXU传递的imm（已通过流水线寄存器）
-  .link_addr_in(link_addr),
-  
-  .muxsig_in(exu_muxsig),
   .func3_in(exu_func3),
   .regew_control_in(exu_regew_control),
   .rd_in(exu_rd),

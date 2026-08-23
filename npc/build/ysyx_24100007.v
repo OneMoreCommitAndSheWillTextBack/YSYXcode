@@ -502,15 +502,12 @@ module ysyx_24100007_exu (
     input [31:0] src1_in,
     input [31:0] src2_in,
 
-    output [31:0] res,
+    output [31:0] emit_out,
     output [31:0] npc,
-    output [31:0] link_addr,  // PC value to write to register (for JAL/JALR)
     output [31:0] src2_out,   // src2 output to WBU
-    output [31:0] imm_out,    // imm output to WBU
 
     output memew_out,
     output memer_out,
-    output [2:0] muxsig_out,
     output [2:0] func3_out,
     output regew_control_out,
     output [4:0] rd_out,
@@ -698,6 +695,8 @@ module ysyx_24100007_exu (
   wire is_jmp_r_1;
   wire is_jmp_r;
   wire [31:0] res_r;
+  wire [31:0] res;
+  wire [31:0] link_addr;
   ysyx_24100007_branchcontrol branchcontrol0 (
       .btypebranch(btypebranch),
       .func3(func3),
@@ -732,16 +731,24 @@ module ysyx_24100007_exu (
   assign is_jmp = is_jmp_r;
 
   assign res = (csrrw || csrrs) ? src1 : res_r;
-  assign src2_out = src2;  // 将流水线的src2输出到WBU
-  assign imm_out = imm;  // 将流水线的imm输出到WBU
-  assign muxsig_out = muxsig;
+  assign src2_out = src2;
+
+  reg [31:0] exu_emit;
+  always @(*) begin
+    case (muxsig)
+      3'b010:  exu_emit = imm;
+      3'b100:  exu_emit = link_addr;
+      default: exu_emit = res;
+    endcase
+  end
+
+  assign emit_out = exu_emit;
 
   // EXU 向 IDU 转发的旁路信号
   assign exu_rd = rd_out;
-  assign exu_regew = regew_control_out || (memew_out || memer_out);
-  assign exu_transmit_data = (muxsig == 3'b010) ? imm : (muxsig == 3'b100) ? link_addr : res;
-  // 输出有效 && 不是访存指令
-  assign exu_transmit_data_valid = out_valid && !(memew_out || memer_out);
+  assign exu_regew = regew_control_out;
+  assign exu_transmit_data = exu_emit;
+  assign exu_transmit_data_valid = out_valid && !memer_out;
 
   // load-use
   assign exu_memer_bypass = memer_out;
@@ -2847,13 +2854,10 @@ endmodule
 module ysyx_24100007_wbu (
     input clk,
     input rst,
-    input [31:0] res_in,
+    input [31:0] emit_in,
     input [31:0] regout2_in,
     input memew_in,
     input memer_in,
-    input [31:0] imm_in,
-    input [31:0] link_addr_in,
-    input [2:0] muxsig_in,
     input [2:0] func3_in,
     input regew_control_in,
     input [4:0] rd_in,
@@ -2904,13 +2908,10 @@ module ysyx_24100007_wbu (
   wire flush = ((wbu_state == WRITE_BACK) & !in_valid);
 
   // Pipeline connect: 流水线寄存器
-  wire [31:0] res;
+  wire [31:0] emit;
   wire [31:0] regout2;
   wire memew;
   wire memer;
-  wire [31:0] imm;
-  wire [31:0] link_addr;
-  wire [2:0] muxsig;
   wire [2:0] func3;
   wire regew_control;
   // Derive memmask and memsextsig from func3 (load/store encoding)
@@ -2929,13 +2930,10 @@ module ysyx_24100007_wbu (
       .clk(clk),
       .rst(rst),
 
-      .res_in(res_in),
+      .emit_in(emit_in),
       .regout2_in(regout2_in),
       .memew_in(memew_in),
       .memer_in(memer_in),
-      .imm_in(imm_in),
-      .link_addr_in(link_addr_in),
-      .muxsig_in(muxsig_in),
       .func3_in(func3_in),
       .regew_control_in(regew_control_in),
       .rd_in(rd_in),
@@ -2944,13 +2942,10 @@ module ysyx_24100007_wbu (
       .csr_addr_in(csr_addr_in),
       .ecallsig_in(ecallsig_in),
 
-      .res_out(res),
+      .emit_out(emit),
       .regout2_out(regout2),
       .memew_out(memew),
       .memer_out(memer),
-      .imm_out(imm),
-      .link_addr_out(link_addr),
-      .muxsig_out(muxsig),
       .func3_out(func3),
       .regew_control_out(regew_control),
       .rd_out(rd),
@@ -3024,7 +3019,6 @@ module ysyx_24100007_wbu (
   wire regew;
   assign regew = (wbu_state == WRITE_BACK) & regew_control;
   reg  [31:0] memread_data_q;
-  wire [31:0] memread_data_r;
 
   always @(posedge clk) begin
     if (wbu_req_finish && memer) begin
@@ -3032,16 +3026,7 @@ module ysyx_24100007_wbu (
     end
   end
 
-  reg [31:0] regwrite;
-  always @(*) begin
-    case (muxsig)
-      3'b000:  regwrite = res;
-      3'b001:  regwrite = memread_data_q;
-      3'b010:  regwrite = imm;
-      3'b100:  regwrite = link_addr;
-      default: regwrite = 32'b0;
-    endcase
-  end
+  wire [31:0] regwrite = memer ? memread_data_q : emit;
 
   assign transmit_data = regwrite;
   assign wbu_rd = rd;
@@ -3055,7 +3040,7 @@ module ysyx_24100007_wbu (
   assign rd_out = rd;
 
   assign lsu_mem_we    = memew;
-  assign lsu_mem_addr  = res;
+  assign lsu_mem_addr  = emit;
   assign lsu_mem_wdata = regout2;
   assign lsu_mem_mask  = memmask;
   assign lsu_mem_sext  = memsextsig;
@@ -3069,13 +3054,10 @@ module ysyx_24100007_wbu_pipline_connect (
     input clk,
     input rst,
 
-    input [31:0] res_in,
+    input [31:0] emit_in,
     input [31:0] regout2_in,
     input memew_in,
     input memer_in,
-    input [31:0] imm_in,
-    input [31:0] link_addr_in,
-    input [2:0] muxsig_in,
     input [2:0] func3_in,
     input regew_control_in,
     input [4:0] rd_in,
@@ -3084,13 +3066,10 @@ module ysyx_24100007_wbu_pipline_connect (
     input [11:0] csr_addr_in,
     input ecallsig_in,
 
-    output [31:0] res_out,
+    output [31:0] emit_out,
     output [31:0] regout2_out,
     output memew_out,
     output memer_out,
-    output [31:0] imm_out,
-    output [31:0] link_addr_out,
-    output [2:0] muxsig_out,
     output [2:0] func3_out,
     output regew_control_out,
     output [4:0] rd_out,
@@ -3120,13 +3099,10 @@ module ysyx_24100007_wbu_pipline_connect (
   assign avaliable = avaliable_r;
 
   // 寄存器存储所有输入信号
-  reg [31:0] res_r;
+  reg [31:0] emit_r;
   reg [31:0] regout2_r;
   reg memew_r;
   reg memer_r;
-  reg [31:0] imm_r;
-  reg [31:0] link_addr_r;
-  reg [2:0] muxsig_r;
   reg [2:0] func3_r;
   reg regew_control_r;
   reg [4:0] rd_r;
@@ -3138,11 +3114,8 @@ module ysyx_24100007_wbu_pipline_connect (
   // Datapath fields are ignored unless the WBU stage is valid.
   always @(posedge clk) begin
     if (pipline_valid) begin
-      res_r <= res_in;
+      emit_r <= emit_in;
       regout2_r <= regout2_in;
-      imm_r <= imm_in;
-      link_addr_r <= link_addr_in;
-      muxsig_r <= muxsig_in;
       func3_r <= func3_in;
       rd_r <= rd_in;
       csr_addr_r <= csr_addr_in;
@@ -3176,13 +3149,10 @@ module ysyx_24100007_wbu_pipline_connect (
   end
 
   // 输出连接到寄存器
-  assign res_out = res_r;
+  assign emit_out = emit_r;
   assign regout2_out = regout2_r;
   assign memew_out = memew_r;
   assign memer_out = memer_r;
-  assign imm_out = imm_r;
-  assign link_addr_out = link_addr_r;
-  assign muxsig_out = muxsig_r;
   assign func3_out = func3_r;
   assign regew_control_out = regew_control_r;
   assign rd_out = rd_r;
@@ -3359,16 +3329,14 @@ module ysyx_24100007_core #(
     .mtvec(mtvec)
   ); 
   
-  wire [31:0] res;
-  wire [31:0] link_addr;
+  wire [31:0] exu_emit;
   wire is_jmp;
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
   wire exu_memew, exu_memer, exu_regew_control;
-  wire [2:0] exu_muxsig, exu_func3;
+  wire [2:0] exu_func3;
   wire [31:0] exu_src2_out;  // src2 from EXU to WBU
-  wire [31:0] exu_imm_out;   // imm from EXU to WBU
   wire exu_csrrw_out, exu_csrrs_out;
   wire [11:0] exu_csr_addr_out;
   wire exu_ecallsig_out;
@@ -3417,16 +3385,13 @@ module ysyx_24100007_core #(
   .src1_in(src1_data),         // 使用 IDU 经过旁路选择后的数据
   .src2_in(src2_data),         // 使用 IDU 经过旁路选择后的数据
 
-  .res(res),
+  .emit_out(exu_emit),
   .npc(npc),
-  .link_addr(link_addr),
   .src2_out(exu_src2_out),           // to WBU
-  .imm_out(exu_imm_out),             // to WBU
   .is_jmp(is_jmp),
 
   .memew_out(exu_memew),             // to WBU
   .memer_out(exu_memer),             // to WBU
-  .muxsig_out(exu_muxsig),            // to WBU
   .func3_out(exu_func3),             // to WBU
   .regew_control_out(exu_regew_control),     // to WBU
   .rd_out(exu_rd),
@@ -3466,14 +3431,10 @@ module ysyx_24100007_core #(
   ysyx_24100007_wbu wbu0(
   .clk(clock),
   .rst(reset),
-  .res_in(res),
+  .emit_in(exu_emit),
   .regout2_in(exu_src2_out),  // 使用从EXU传递的src2（已通过旁路选择）
   .memew_in(exu_memew),
   .memer_in(exu_memer),
-  .imm_in(exu_imm_out),        // 使用从EXU传递的imm（已通过流水线寄存器）
-  .link_addr_in(link_addr),
-  
-  .muxsig_in(exu_muxsig),
   .func3_in(exu_func3),
   .regew_control_in(exu_regew_control),
   .rd_in(exu_rd),
