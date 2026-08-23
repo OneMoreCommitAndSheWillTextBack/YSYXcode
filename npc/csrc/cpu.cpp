@@ -24,6 +24,7 @@ pid_t fork_pid_val = 0;
 #endif
 #ifdef ITRACE
 itrace_cfg_t *itrace_cfg = NULL;
+extern bool itrace_on;
 #endif
 static bool start_load = false;
 static unsigned long long loadfinish_time = -1;
@@ -121,7 +122,7 @@ static void exe_once() {
   }
 
 #ifdef ITRACE
-  if (cpu->valid) {
+  if (itrace_on && cpu->valid) {
     char *p = cpu->logbuf;
     p += snprintf(p, sizeof(cpu->logbuf), "0x%08x:", cpu->commit.pc);
     int i;
@@ -157,7 +158,7 @@ void trace_or_diff() {
 #endif
 
 #ifdef ITRACE
-  if (itrace_valid) {
+  if (itrace_on && itrace_valid) {
     fprintf(itrace_cfg->itrace_out, "%s\n", cpu->logbuf);
     itrace_valid = false;
   }

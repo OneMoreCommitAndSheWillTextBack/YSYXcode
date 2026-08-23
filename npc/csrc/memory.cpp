@@ -32,6 +32,7 @@ socspace soc_spaces[] = {
 
 #ifdef MTRACE
 extern char *mtrace_out_file;
+extern bool mtrace_on;
 FILE *mtrace_fd = NULL;
 #endif
 
@@ -42,9 +43,18 @@ void init_mem() {
   }
 
 #ifdef MTRACE
-  mtrace_fd = fopen(mtrace_out_file, "w");
-  printf(COLOR_GREEN "[INFO] mtrace log file %s\n" COLOR_RESET,
-         mtrace_out_file);
+  if (mtrace_on) {
+    mtrace_fd = fopen(mtrace_out_file, "w");
+    if (mtrace_fd == NULL) {
+      printf(COLOR_RED "[ERROR] Failed to open mtrace output file: %s\n"
+                       COLOR_RESET,
+             mtrace_out_file);
+      mtrace_on = false;
+    } else {
+      printf(COLOR_GREEN "[INFO] mtrace log file %s\n" COLOR_RESET,
+             mtrace_out_file);
+    }
+  }
 #endif
 }
 
@@ -112,7 +122,9 @@ uint32_t paddr_read(uint32_t addr, uint32_t len) {
     uint32_t ret = pmem_read(guest_to_host(addr), len);
     // printf("\t[paddr_read]space mrom, addr 0x%08x data %u\n", addr, ret);
 #ifdef MTRACE
-    fprintf(mtrace_fd, "[memory read] %u from 0x%08x\n", ret, addr);
+    if (mtrace_on) {
+      fprintf(mtrace_fd, "[memory read] %u from 0x%08x\n", ret, addr);
+    }
 #endif
     return ret;
   }
@@ -127,7 +139,9 @@ void paddr_write(uint32_t addr, uint32_t len, uint32_t data) {
     pmem_write(guest_to_host(addr), len, data);
     // printf("\t[paddr_write]space mrom, addr 0x%08x data %u\n", addr, data);
 #ifdef MTRACE
-    fprintf(mtrace_fd, "[memory write] %u to 0x%08x\n", data, addr);
+    if (mtrace_on) {
+      fprintf(mtrace_fd, "[memory write] %u to 0x%08x\n", data, addr);
+    }
 #endif
     return;
   }

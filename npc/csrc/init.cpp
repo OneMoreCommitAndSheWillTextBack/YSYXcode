@@ -85,6 +85,9 @@ char *itrace_out_file = NULL;
 char *mtrace_out_file = NULL;
 char *wave_out_file = NULL;
 char *perf_output_file = NULL;
+bool itrace_on = false;
+bool mtrace_on = false;
+bool perf_on = false;
 int port = 0;
 bool batch_mode_on = false;
 
@@ -165,15 +168,18 @@ void parse_args(int argc, char *argv[]) {
       break;
     case OPT_ITRACE_LOG:
       itrace_out_file = optarg;
+      itrace_on = true;
       break;
     case OPT_MTRACE_LOG:
       mtrace_out_file = optarg;
+      mtrace_on = true;
       break;
     case OPT_WAVE:
       wave_out_file = optarg;
       break;
     case OPT_PERF_OUTPUT:
       perf_output_file = optarg;
+      perf_on = true;
       break;
     }
   }
@@ -202,26 +208,29 @@ void init(int argc, char *argv[]) {
     img_size = init_build(filepath);
   }
 #ifdef ITRACE
-  init_disasm("riscv32-pc-linux-gnu");
-  itrace_cfg = new (std::nothrow) itrace_cfg_t;
-  if (itrace_cfg == nullptr) {
-    printf(COLOR_RED
-           "[ERROR] Failed to allocate memory for itrace_cfg\n" COLOR_RESET);
-    exit(1);
-  }
+  if (itrace_on) {
+    init_disasm("riscv32-pc-linux-gnu");
+    itrace_cfg = new (std::nothrow) itrace_cfg_t;
+    if (itrace_cfg == nullptr) {
+      printf(COLOR_RED
+             "[ERROR] Failed to allocate memory for itrace_cfg\n" COLOR_RESET);
+      exit(1);
+    }
 
-  itrace_cfg->itrace_out = fopen(itrace_out_file, "w");
-  if (itrace_cfg->itrace_out == nullptr) {
-    printf(COLOR_RED
-           "[ERROR] Failed to open itrace output file: %s\n" COLOR_RESET,
-           itrace_out_file);
-    printf(COLOR_YELLOW "[WARNING] Itrace will be disabled due to file open "
-                        "failure\n" COLOR_RESET);
-    delete itrace_cfg;
-    itrace_cfg = nullptr;
-  } else {
-    printf(COLOR_GREEN "[INFO] Itrace output file opened: %s\n" COLOR_RESET,
-           itrace_out_file);
+    itrace_cfg->itrace_out = fopen(itrace_out_file, "w");
+    if (itrace_cfg->itrace_out == nullptr) {
+      printf(COLOR_RED
+             "[ERROR] Failed to open itrace output file: %s\n" COLOR_RESET,
+             itrace_out_file);
+      printf(COLOR_YELLOW "[WARNING] Itrace will be disabled due to file open "
+                          "failure\n" COLOR_RESET);
+      delete itrace_cfg;
+      itrace_cfg = nullptr;
+      itrace_on = false;
+    } else {
+      printf(COLOR_GREEN "[INFO] Itrace output file opened: %s\n" COLOR_RESET,
+             itrace_out_file);
+    }
   }
 #endif
   init_regex();
@@ -268,7 +277,7 @@ void init(int argc, char *argv[]) {
 }
 
 bool batch_mode() { return batch_mode_on; }
-bool need_dump_perform() { return perform_dump; }
+bool need_dump_perform() { return perform_dump && perf_on; }
 #ifdef TRACE
 bool fork_interval_is_on() { return fork_interval_on; }
 int fork_interval_val() { return fork_interval; }
