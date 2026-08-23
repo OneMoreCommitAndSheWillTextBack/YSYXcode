@@ -63,49 +63,47 @@ module ysyx_24100007_arbiter #(
     input  [SLAVE_NUM-1:0]    rlast_in
 );
 
-  typedef enum logic [1:0] {
+  typedef enum logic {
     ST_IDLE,
-    SLAVE_SELECT,
-    ST_BUSY
+    ST_TRANS
   } state_t;
   state_t state;
 
   wire has_req = arvalid | awvalid;
   wire trans_end = (rvalid & rready & rlast) | (bvalid & bready);
 
-  reg [SLAVE_NUM-1:0] slave_owner_one_hot;
-
   wire [31:0] current_addr = arvalid ? araddr : awaddr;
   wire is_clint_addr = (current_addr >= 32'h02000000) && (current_addr <= 32'h0200ffff);
-  wire [SLAVE_NUM-1:0] selected_slave = {is_clint_addr, !is_clint_addr};
+
+  reg slave_owner;
+  wire trans_active = (state == ST_TRANS);
+  wire owner_external = trans_active & ~slave_owner;
+  wire owner_clint = trans_active & slave_owner;
+  wire [SLAVE_NUM-1:0] slave_owner_one_hot = {owner_clint, owner_external};
 
   always @(posedge clk) begin
     if (rst) begin
       state <= ST_IDLE;
-      slave_owner_one_hot <= {SLAVE_NUM{1'b0}};
+      slave_owner <= 1'b0;
     end else begin
       case (state)
         ST_IDLE: begin
           if (has_req) begin
-            state <= SLAVE_SELECT;
-            // Lock the target slave as soon as a transaction starts so the
-            // first ready/valid handshake is routed back to the requester.
-            slave_owner_one_hot <= selected_slave;
+            state <= ST_TRANS;
+            slave_owner <= is_clint_addr;
           end
         end
 
-        SLAVE_SELECT: begin
-          state <= ST_BUSY;
-        end
-
-        ST_BUSY: begin
+        ST_TRANS: begin
           if (trans_end) begin
             state <= ST_IDLE;
-            slave_owner_one_hot <= {SLAVE_NUM{1'b0}};
+            slave_owner <= 1'b0;
           end
         end
 
         default: begin
+          state <= ST_IDLE;
+          slave_owner <= 1'b0;
           // synopsys translate_off
           $error("arbiter Invalid state");
           // synopsys translate_on
@@ -152,23 +150,14 @@ module ysyx_24100007_arbiter #(
     end
   endgenerate
 
-  // slave 响应回 master
-  wire [31:0] sel_rdata = slave_owner_one_hot[0] ? rdata_in[0*32+:32] : rdata_in[1*32+:32];
-  wire [ 1:0] sel_bresp = slave_owner_one_hot[0] ? bresp_in[0*2+:2] : bresp_in[1*2+:2];
-  wire        sel_rvalid = slave_owner_one_hot[0] ? rvalid_in[0] : rvalid_in[1];
-  wire        sel_bvalid = slave_owner_one_hot[0] ? bvalid_in[0] : bvalid_in[1];
-  wire        sel_rlast = slave_owner_one_hot[0] ? rlast_in[0] : rlast_in[1];
-  wire        sel_awready = slave_owner_one_hot[0] ? awready_in[0] : awready_in[1];
-  wire        sel_wready = slave_owner_one_hot[0] ? wready_in[0] : wready_in[1];
-  wire        sel_arready = slave_owner_one_hot[0] ? arready_in[0] : arready_in[1];
-
-  assign rdata   = sel_rdata;
-  assign bresp   = sel_bresp;
-  assign rvalid  = sel_rvalid;
-  assign bvalid  = sel_bvalid;
-  assign rlast   = sel_rlast;
-  assign awready = sel_awready;
-  assign wready  = sel_wready;
-  assign arready = sel_arready;
+  // Return zero while idle instead of implicitly selecting CLINT.
+  assign rdata   = owner_external ? rdata_in[0*32+:32] : owner_clint ? rdata_in[1*32+:32] : 32'b0;
+  assign bresp   = owner_external ? bresp_in[0*2+:2] : owner_clint ? bresp_in[1*2+:2] : 2'b0;
+  assign rvalid  = owner_external ? rvalid_in[0] : owner_clint ? rvalid_in[1] : 1'b0;
+  assign bvalid  = owner_external ? bvalid_in[0] : owner_clint ? bvalid_in[1] : 1'b0;
+  assign rlast   = owner_external ? rlast_in[0] : owner_clint ? rlast_in[1] : 1'b0;
+  assign awready = owner_external ? awready_in[0] : owner_clint ? awready_in[1] : 1'b0;
+  assign wready  = owner_external ? wready_in[0] : owner_clint ? wready_in[1] : 1'b0;
+  assign arready = owner_external ? arready_in[0] : owner_clint ? arready_in[1] : 1'b0;
 
 endmodule

@@ -345,28 +345,28 @@ module ysyx_24100007_alucontrol(
   assign aluopcode = (is_csr) ? aluopcode_csr : aluopcode_I;
 endmodule
 
-module ysyx_24100007_alu(
-  input [31:0] A,
-  input [31:0] B,
-  input [4:0] op,
-  output reg [31:0] res,
-  output zero,
-  output signal,
-  output carry
+module ysyx_24100007_alu (
+    input [31:0] A,
+    input [31:0] B,
+    input [4:0] op,
+    output reg [31:0] res,
+    output zero,
+    output signal,
+    output carry
 );
   wire addsig, logsig, shfsig, sltsig;
   reg carry_tmp;
 
-  assign addsig = !(op[3]|op[2]);
+  assign addsig = !(op[3] | op[2]);
   assign logsig = (op[3] == 0) & (op[2] == 1);
-  assign shfsig = (op[3]&op[2]);
+  assign shfsig = (op[3] & op[2]);
   assign sltsig = (op[3] == 1) & (op[2] == 0);
- 
+
   wire type_I = op[4];
   // logic part
   reg [31:0] logres;
   always @(*) begin
-    case(op[1:0])
+    case (op[1:0])
       2'b00: logres = (type_I) ? A & $signed(B) : A & B;
       2'b01: logres = A | B;
       2'b10: logres = A ^ B;
@@ -376,24 +376,21 @@ module ysyx_24100007_alu(
 
   // add part
   reg [31:0] addres;
-  wire addzero;
   always @(*) begin
-    case(op[0] ^ op[1])
-      1'b1: {carry_tmp, addres} = {1'b0,A} + {1'b0,B};
-      1'b0: {carry_tmp, addres} = {1'b0,A} + {1'b0,(~B)} + 1;
+    case (op[0] ^ op[1])
+      1'b1: {carry_tmp, addres} = {1'b0, A} + {1'b0, B};
+      1'b0: {carry_tmp, addres} = {1'b0, A} + {1'b0, (~B)} + 1;
     endcase
     // $display("%x + %x = %x", A, B, addres);
   end
-  assign addzero = (addres == 0);
 
   // shift part
   reg [31:0] shfres;
   always @(*) begin
-    case(op[1:0])
-      2'b00: shfres = (type_I) ? A << B[4:0] : A << B[4:0];
-      2'b01: shfres = (type_I) ? A >> B[4:0] : A >> B[4:0];
-      2'b10: shfres = (type_I) ? ($signed(A)) >>> B[4:0] : 
-                                 ($signed(A)) >>> B[4:0];
+    case (op[1:0])
+      2'b00:   shfres = (type_I) ? A << B[4:0] : A << B[4:0];
+      2'b01:   shfres = (type_I) ? A >> B[4:0] : A >> B[4:0];
+      2'b10:   shfres = (type_I) ? ($signed(A)) >>> B[4:0] : ($signed(A)) >>> B[4:0];
       default: shfres = 32'b0;
     endcase
   end
@@ -403,61 +400,55 @@ module ysyx_24100007_alu(
   wire signed [31:0] A_s = A;
   wire signed [31:0] B_s = B;
   always @(*) begin
-    case(op[0]) 
-      1'b0: sltres = (A<B) ? 32'b1 : 32'b0;
-      1'b1: sltres = (A_s<B_s) ? 32'b1 : 32'b0;
+    case (op[0])
+      1'b0: sltres = (A < B) ? 32'd1 : 32'b0;
+      1'b1: sltres = (A_s < B_s) ? 32'd1 : 32'b0;
     endcase
   end
 
-  assign res = addsig ? addres :
-               logsig ? logres :
-               shfsig ? shfres :
-               sltsig ? sltres :
-               32'b0;
+  assign res = addsig ? addres : logsig ? logres : shfsig ? shfres : sltsig ? sltres : 32'b0;
   assign zero = (res == 0);
   assign signal = res[31];
   assign carry = carry_tmp;
 
 endmodule
 
-module ysyx_24100007_branchcontrol(
-  input btypebranch,
-  input [2:0] func3,
-  input zero,
-  input signal,
-  input carry,
-  input [31:0] res,
-  input [31:0] pcadd4,
-  input [31:0] pcaddimm,
-  input jalsig,
-  input jalrsig,
-  input auipcsig,
-  input mretsig,
-  input ecallsig,
-  input [31:0] mtvec,
-  input [31:0] mepc,
+module ysyx_24100007_branchcontrol (
+    input btypebranch,
+    input [2:0] func3,
+    input zero,
+    input signal,
+    input carry,
+    input [31:0] res,
+    input [31:0] pcadd4,
+    input [31:0] pcaddimm,
+    input [31:0] pc,
+    input jalsig,
+    input jalrsig,
+    input auipcsig,
+    input mretsig,
+    input ecallsig,
+    input [31:0] mtvec,
+    input [31:0] mepc,
 
-  output [31:0] npc,
-  output reg [31:0] pcwritereg,
-  output is_jmp
+    output [31:0] npc,
+    output reg [31:0] pcwritereg,
+    output is_jmp
 );
- assign pcwritereg = (jalsig || jalrsig) ? pcadd4 : 
-                    auipcsig ? pcaddimm :
-                    (ecallsig) ? pcadd4 :
-                    0;
+  assign pcwritereg = (jalsig || jalrsig) ? pcadd4 : auipcsig ? pcaddimm : (ecallsig) ? pc : 0;
 
-wire npc_is_pcaddimm = (jalsig) || (btypebranch && func3 == 3'b000 && zero) || 
+  wire npc_is_pcaddimm = (jalsig) || (btypebranch && func3 == 3'b000 && zero) ||
                         (btypebranch && func3 == 3'b001 && !zero) || 
                         (btypebranch && func3 == 3'b100 && res[0]) || 
                         (btypebranch && func3 == 3'b101 && (!res[0] || zero)) || 
                         (btypebranch && func3 == 3'b110 && res[0]) || 
                         (btypebranch && func3 == 3'b111 && (!res[0] || zero));
 
-wire npc_is_mepc = (mretsig == 1'b1);
-wire npc_is_mtvec = (ecallsig == 1'b1);
-wire npc_is_res = (jalrsig);
- 
-assign npc = (jalsig) ? pcaddimm :
+  wire npc_is_mepc = (mretsig == 1'b1);
+  wire npc_is_mtvec = (ecallsig == 1'b1);
+  wire npc_is_res = (jalrsig);
+
+  assign npc = (jalsig) ? pcaddimm :
              (jalrsig) ? {res[31:1], 1'b0} :
              (btypebranch && func3 == 3'b000 && zero)    ? pcaddimm :
              (btypebranch && func3 == 3'b001 && !zero)   ? pcaddimm :
@@ -472,109 +463,108 @@ assign npc = (jalsig) ? pcaddimm :
   assign is_jmp = (npc_is_mepc) | (npc_is_mtvec) | (npc_is_pcaddimm) | (npc_is_res);
 endmodule
 
-module ysyx_24100007_exu(
-  input clk,
-  input rst,
+module ysyx_24100007_exu (
+    input clk,
+    input rst,
 
-  input in_valid,
-  output in_ready,
-  input out_ready,
-  output out_valid,
+    input  in_valid,
+    output in_ready,
+    input  out_ready,
+    output out_valid,
 
-  // need sig
-  input [2:0] func3_in,
-  input btypebranch_in,
-  input func7_in,
-  input [1:0] aluop_in,
-  input jalrsig_in,
-  input jalsig_in,
-  input [31:0] imm_in,
-  input muximm_in,
-  input [31:0] pc_in,
-  input auipcsig_in,
-  input mretsig_in,
-  input ecallsig_in,
-  input [31:0] mtvec_in,
-  input [31:0] mepc_in,
+    // need sig
+    input [2:0] func3_in,
+    input btypebranch_in,
+    input func7_in,
+    input [1:0] aluop_in,
+    input jalrsig_in,
+    input jalsig_in,
+    input [31:0] imm_in,
+    input muximm_in,
+    input [31:0] pc_in,
+    input auipcsig_in,
+    input mretsig_in,
+    input ecallsig_in,
+    input [31:0] mtvec_in,
+    input [31:0] mepc_in,
 
-  // pass sig
-  input memew_in,               
-  input memer_in,              
-  input [2:0] muxsig_in,        
-  input regew_control_in,
-  input [4:0] rd_in,
-  input csrrw_in,
-  input csrrs_in,
-  input [11:0] csr_addr_in,
-  input wbu_write_csr, 
-  
-  input [31:0] src1_in,
-  input [31:0] src2_in,
+    // pass sig
+    input memew_in,
+    input memer_in,
+    input [2:0] muxsig_in,
+    input regew_control_in,
+    input [4:0] rd_in,
+    input csrrw_in,
+    input csrrs_in,
+    input [11:0] csr_addr_in,
+    input wbu_write_csr,
 
-  output [31:0] res,
-  output [31:0] npc,
-  output [31:0] link_addr,   // PC value to write to register (for JAL/JALR)
-  output [31:0] src2_out,    // src2 output to WBU
-  output [31:0] imm_out,     // imm output to WBU
+    input [31:0] src1_in,
+    input [31:0] src2_in,
 
-  output memew_out,              
-  output memer_out,              
-  output [2:0] muxsig_out,        
-  output [2:0] func3_out,        
-  output regew_control_out,   
-  output [4:0] rd_out,
-  output csrrw_out,
-  output csrrs_out,
-  output [11:0] csr_addr_out,
-  output ecallsig_out,
+    output [31:0] res,
+    output [31:0] npc,
+    output [31:0] link_addr,  // PC value to write to register (for JAL/JALR)
+    output [31:0] src2_out,   // src2 output to WBU
+    output [31:0] imm_out,    // imm output to WBU
 
-  output is_jmp, // tell ifu flush the pipline
+    output memew_out,
+    output memer_out,
+    output [2:0] muxsig_out,
+    output [2:0] func3_out,
+    output regew_control_out,
+    output [4:0] rd_out,
+    output csrrw_out,
+    output csrrs_out,
+    output [11:0] csr_addr_out,
+    output ecallsig_out,
 
-  // EXU 向 IDU 转发的旁路信号
-  output [4:0] exu_rd,                // EXU 阶段的 rd（用于旁路）
-  output exu_regew,                   // EXU 阶段的写使能（用于旁路）
-  output [31:0] exu_transmit_data,    // EXU 阶段的计算结果（用于旁路）
-  output exu_transmit_data_valid,     // EXU 阶段的旁路数据有效信号
-  output exu_memer_bypass             // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
-); 
+    output is_jmp,  // tell ifu flush the pipline
 
-  typedef enum logic{
-    IDLE, VALID
+    // EXU 向 IDU 转发的旁路信号
+    output [4:0] exu_rd,  // EXU 阶段的 rd（用于旁路）
+    output exu_regew,  // EXU 阶段的写使能（用于旁路）
+    output [31:0] exu_transmit_data,  // EXU 阶段的计算结果（用于旁路）
+    output exu_transmit_data_valid,  // EXU 阶段的旁路数据有效信号
+    output exu_memer_bypass  // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
+);
+
+  typedef enum logic {
+    IDLE,
+    VALID
   } exu_state_t;
   exu_state_t exu_state_r;
 
   wire exu_wbu_handshake = exu_valid_sig & out_ready;
   wire avaliable;
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       exu_state_r <= IDLE;
     end else begin
-      case(exu_state_r)
+      case (exu_state_r)
         IDLE: begin
-          if(in_valid & in_ready) begin
+          if (in_valid & in_ready) begin
             exu_state_r <= VALID;
-          end 
+          end
         end
 
         VALID: begin
-          if(exu_wbu_handshake) begin
-            if(in_valid)
-              exu_state_r <= VALID;
-            else 
-              exu_state_r <= IDLE;
+          if (exu_wbu_handshake) begin
+            if (in_valid) exu_state_r <= VALID;
+            else exu_state_r <= IDLE;
           end
         end
       endcase
     end
-  end 
+  end
 
   wire exu_valid_sig = (exu_state_r == VALID) & !exu_csr_delay;
   wire accept = ((exu_state_r == IDLE) || exu_wbu_handshake) && in_valid;
   wire idu_valid = in_valid & !is_jmp;
 
   assign out_valid = exu_valid_sig;
-  assign in_ready = accept;
-  
+  assign in_ready  = accept;
+
   wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp);
   wire flush = (exu_wbu_handshake & !idu_valid);
 
@@ -598,69 +588,69 @@ module ysyx_24100007_exu(
   wire [2:0] muxsig;
   wire csrrs, csrrw;
 
-  exu_pipline_connect exu_pipeline_u(
-    .clk(clk),
-    .rst(rst),
+  ysyx_24100007_exu_pipline_connect exu_pipeline_u (
+      .clk(clk),
+      .rst(rst),
 
-    // need sig inputs
-    .func3_in(func3_in),
-    .btypebranch_in(btypebranch_in),
-    .func7_in(func7_in),
-    .aluop_in(aluop_in),
-    .jalrsig_in(jalrsig_in),
-    .jalsig_in(jalsig_in),
-    .imm_in(imm_in),
-    .muximm_in(muximm_in),
-    .src1_in(src1_in),
-    .src2_in(src2_in),
-    .pc_in(pc_in),
-    .auipcsig_in(auipcsig_in),
-    .mretsig_in(mretsig_in),
-    .ecallsig_in(ecallsig_in),
-    .mtvec_in(mtvec_in),
-    .mepc_in(mepc_in),
+      // need sig inputs
+      .func3_in(func3_in),
+      .btypebranch_in(btypebranch_in),
+      .func7_in(func7_in),
+      .aluop_in(aluop_in),
+      .jalrsig_in(jalrsig_in),
+      .jalsig_in(jalsig_in),
+      .imm_in(imm_in),
+      .muximm_in(muximm_in),
+      .src1_in(src1_in),
+      .src2_in(src2_in),
+      .pc_in(pc_in),
+      .auipcsig_in(auipcsig_in),
+      .mretsig_in(mretsig_in),
+      .ecallsig_in(ecallsig_in),
+      .mtvec_in(mtvec_in),
+      .mepc_in(mepc_in),
 
-    // pass sig inputs
-    .memew_in(memew_in),
-    .memer_in(memer_in),
-    .muxsig_in(muxsig_in),
-    .regew_control_in(regew_control_in),
-    .rd_in(rd_in),
-    .csrrw_in(csrrw_in),
-    .csrrs_in(csrrs_in),
-    .csr_addr_in(csr_addr_in),
+      // pass sig inputs
+      .memew_in(memew_in),
+      .memer_in(memer_in),
+      .muxsig_in(muxsig_in),
+      .regew_control_in(regew_control_in),
+      .rd_in(rd_in),
+      .csrrw_in(csrrw_in),
+      .csrrs_in(csrrs_in),
+      .csr_addr_in(csr_addr_in),
 
-    // need sig outputs
-    .func3_out(func3),
-    .btypebranch_out(btypebranch),
-    .func7_out(func7),
-    .aluop_out(aluop),
-    .jalrsig_out(jalrsig),
-    .jalsig_out(jalsig),
-    .imm_out(imm),
-    .muximm_out(muximm),
-    .src1_out(src1),
-    .src2_out(src2),
-    .pc_out(pc),
-    .auipcsig_out(auipcsig),
-    .mretsig_out(mretsig),
-    .ecallsig_out(ecallsig),
-    .mtvec_out(mtvec),
-    .mepc_out(mepc),
-    .muxsig_out(muxsig),
+      // need sig outputs
+      .func3_out(func3),
+      .btypebranch_out(btypebranch),
+      .func7_out(func7),
+      .aluop_out(aluop),
+      .jalrsig_out(jalrsig),
+      .jalsig_out(jalsig),
+      .imm_out(imm),
+      .muximm_out(muximm),
+      .src1_out(src1),
+      .src2_out(src2),
+      .pc_out(pc),
+      .auipcsig_out(auipcsig),
+      .mretsig_out(mretsig),
+      .ecallsig_out(ecallsig),
+      .mtvec_out(mtvec),
+      .mepc_out(mepc),
+      .muxsig_out(muxsig),
 
-    // pass sig outputs
-    .memew_out(memew_out),
-    .memer_out(memer_out),
-    .regew_control_out(regew_control_out),
-    .rd_out(rd_out),
-    .csrrw_out(csrrw),
-    .csrrs_out(csrrs),
-    .csr_addr_out(csr_addr_out),
+      // pass sig outputs
+      .memew_out(memew_out),
+      .memer_out(memer_out),
+      .regew_control_out(regew_control_out),
+      .rd_out(rd_out),
+      .csrrw_out(csrrw),
+      .csrrs_out(csrrs),
+      .csr_addr_out(csr_addr_out),
 
-    .avaliable(avaliable),
-    .pipline_valid(pipline_valid),
-    .flush(flush)
+      .avaliable(avaliable),
+      .pipline_valid(pipline_valid),
+      .flush(flush)
   );
 
   assign csrrs_out = csrrs;
@@ -669,18 +659,18 @@ module ysyx_24100007_exu(
   assign func3_out = func3;
 
   wire [31:0] pc_plus_4, pc_plus_imm;
-  assign pc_plus_4 = pc + 32'd4;
+  assign pc_plus_4   = pc + 32'd4;
   assign pc_plus_imm = pc + imm;
 
-  
+
   wire [4:0] alu_opcode;
-  ysyx_24100007_alucontrol alucontrol0(
-    .func3(func3),
-    .func7(func7),
-    .aluop(aluop),
-    .jalrsig(jalrsig),
-    .is_csr(csrrw || csrrs),
-    .aluopcode(alu_opcode)
+  ysyx_24100007_alucontrol alucontrol0 (
+      .func3(func3),
+      .func7(func7),
+      .aluop(aluop),
+      .jalrsig(jalrsig),
+      .is_csr(csrrw || csrrs),
+      .aluopcode(alu_opcode)
   );
 
   reg [31:0] alu_arg2;
@@ -693,14 +683,14 @@ module ysyx_24100007_exu(
   end
 
   wire zero_flag, sign_flag, carry_flag;
-  ysyx_24100007_alu alu0(
-    .A(src1),
-    .B(alu_arg2),
-    .op(alu_opcode),
-    .res(res_r),
-    .zero(zero_flag),
-    .signal(sign_flag),
-    .carry(carry_flag)
+  ysyx_24100007_alu alu0 (
+      .A(src1),
+      .B(alu_arg2),
+      .op(alu_opcode),
+      .res(res_r),
+      .zero(zero_flag),
+      .signal(sign_flag),
+      .carry(carry_flag)
   );
 
   // ------------------------------------
@@ -709,30 +699,31 @@ module ysyx_24100007_exu(
   wire is_jmp_r_1;
   wire is_jmp_r;
   wire [31:0] res_r;
-  ysyx_24100007_branchcontrol branchcontrol0(
-    .btypebranch(btypebranch),
-    .func3(func3),
-    .zero(zero_flag),
-    .signal(sign_flag),
-    .carry(carry_flag),
-    .res(res_r),
-    .pcadd4(pc_plus_4),
-    .pcaddimm(pc_plus_imm),
-    .jalsig(jalsig),
-    .jalrsig(jalrsig),
-    .auipcsig(auipcsig),
-    .mretsig(mretsig),
-    .ecallsig(ecallsig),
-    .mtvec(mtvec),
-    .mepc(mepc),
+  ysyx_24100007_branchcontrol branchcontrol0 (
+      .btypebranch(btypebranch),
+      .func3(func3),
+      .zero(zero_flag),
+      .signal(sign_flag),
+      .carry(carry_flag),
+      .res(res_r),
+      .pcadd4(pc_plus_4),
+      .pcaddimm(pc_plus_imm),
+      .pc(pc),
+      .jalsig(jalsig),
+      .jalrsig(jalrsig),
+      .auipcsig(auipcsig),
+      .mretsig(mretsig),
+      .ecallsig(ecallsig),
+      .mtvec(mtvec),
+      .mepc(mepc),
 
-    .npc(npc),
-    .pcwritereg(link_addr),
-    .is_jmp(is_jmp_r_1)
+      .npc(npc),
+      .pcwritereg(link_addr),
+      .is_jmp(is_jmp_r_1)
   );
   reg is_jmp_mask;
   always @(posedge clk) begin
-    if((in_valid & in_ready) | exu_csr_delay) begin
+    if ((in_valid & in_ready) | exu_csr_delay) begin
       is_jmp_mask <= 1'b1;
     end else begin
       is_jmp_mask <= 1'b0;
@@ -743,102 +734,100 @@ module ysyx_24100007_exu(
 
   assign res = (csrrw || csrrs) ? src1 : res_r;
   assign src2_out = src2;  // 将流水线的src2输出到WBU
-  assign imm_out = imm;    // 将流水线的imm输出到WBU
+  assign imm_out = imm;  // 将流水线的imm输出到WBU
   assign muxsig_out = muxsig;
 
   // EXU 向 IDU 转发的旁路信号
   assign exu_rd = rd_out;
   assign exu_regew = regew_control_out || (memew_out || memer_out);
-  assign exu_transmit_data = (muxsig == 3'b010) ? imm :
-                             (muxsig == 3'b100) ? link_addr :
-                             res;
- // 旁路数据有效条件：输出有效 && 不是访存指令（访存指令的结果需要从 WBU 获取）
+  assign exu_transmit_data = (muxsig == 3'b010) ? imm : (muxsig == 3'b100) ? link_addr : res;
+  // 输出有效 && 不是访存指令
   assign exu_transmit_data_valid = out_valid && !(memew_out || memer_out);
-  // EXU 是否是 load 指令（用于 IDU 处理 load-use 冲突）
+  // load-use
   assign exu_memer_bypass = memer_out;
 
   wire exu_need_mepc_mtvec = ecallsig || mretsig;
   wire exu_csr_delay = wbu_write_csr & exu_need_mepc_mtvec;
-  
+
   // synopsys translate_off
-  `ifdef VERILATOR
+`ifdef VERILATOR
   import "DPI-C" function void get_exu_state(int state);
-  always @(posedge clk) begin 
+  always @(posedge clk) begin
     get_exu_state({31'b0, exu_state_r == VALID});
   end
-  `endif
+`endif
   // synopsys translate_on
 
 endmodule
 
-module exu_pipline_connect(
-  input clk, 
-  input rst,
+module ysyx_24100007_exu_pipline_connect (
+    input clk,
+    input rst,
 
-  input [2:0] func3_in,
-  input btypebranch_in,
-  input func7_in,
-  input [1:0] aluop_in,
-  input jalrsig_in,
-  input jalsig_in,
-  input [31:0] imm_in,
-  input muximm_in,
-  input [31:0] src1_in,
-  input [31:0] src2_in,
-  input [31:0] pc_in,
-  input auipcsig_in,
-  input mretsig_in,
-  input ecallsig_in,
-  input [31:0] mtvec_in,
-  input [31:0] mepc_in,
+    input [2:0] func3_in,
+    input btypebranch_in,
+    input func7_in,
+    input [1:0] aluop_in,
+    input jalrsig_in,
+    input jalsig_in,
+    input [31:0] imm_in,
+    input muximm_in,
+    input [31:0] src1_in,
+    input [31:0] src2_in,
+    input [31:0] pc_in,
+    input auipcsig_in,
+    input mretsig_in,
+    input ecallsig_in,
+    input [31:0] mtvec_in,
+    input [31:0] mepc_in,
 
-  input memew_in,               
-  input memer_in,              
-  input [2:0] muxsig_in,        
-  input regew_control_in,
-  input [4:0] rd_in,
-  input csrrw_in,
-  input csrrs_in,
-  input [11:0] csr_addr_in,
+    input memew_in,
+    input memer_in,
+    input [2:0] muxsig_in,
+    input regew_control_in,
+    input [4:0] rd_in,
+    input csrrw_in,
+    input csrrs_in,
+    input [11:0] csr_addr_in,
 
-  output [2:0] func3_out,
-  output btypebranch_out,
-  output func7_out,
-  output [1:0] aluop_out,
-  output jalrsig_out,
-  output jalsig_out,
-  output [31:0] imm_out,
-  output muximm_out,
-  output [31:0] src1_out,
-  output [31:0] src2_out,
-  output [31:0] pc_out,
-  output auipcsig_out,
-  output mretsig_out,
-  output ecallsig_out,
-  output [31:0] mtvec_out,
-  output [31:0] mepc_out,
+    output [2:0] func3_out,
+    output btypebranch_out,
+    output func7_out,
+    output [1:0] aluop_out,
+    output jalrsig_out,
+    output jalsig_out,
+    output [31:0] imm_out,
+    output muximm_out,
+    output [31:0] src1_out,
+    output [31:0] src2_out,
+    output [31:0] pc_out,
+    output auipcsig_out,
+    output mretsig_out,
+    output ecallsig_out,
+    output [31:0] mtvec_out,
+    output [31:0] mepc_out,
 
-  output memew_out,               
-  output memer_out,              
-  output [2:0] muxsig_out,        
-  output regew_control_out,
-  output [4:0] rd_out,
-  output csrrw_out,
-  output csrrs_out,
-  output [11:0] csr_addr_out,
+    output memew_out,
+    output memer_out,
+    output [2:0] muxsig_out,
+    output regew_control_out,
+    output [4:0] rd_out,
+    output csrrw_out,
+    output csrrs_out,
+    output [11:0] csr_addr_out,
 
-  output avaliable,
-  input pipline_valid,
-  input flush
+    output avaliable,
+    input  pipline_valid,
+    input  flush
 );
   reg avaliable_r;
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       avaliable_r <= 1'b0;
     end else begin
-      if(pipline_valid) begin
+      if (pipline_valid) begin
         avaliable_r <= 1'b1;
-      end else if(flush) begin
+      end else if (flush) begin
         avaliable_r <= 1'b0;
       end
     end
@@ -873,67 +862,61 @@ module exu_pipline_connect(
   reg csrrs_r;
   reg [11:0] csr_addr_r;
 
+  // Datapath contents are irrelevant while the pipeline stage is invalid.
   always @(posedge clk) begin
-    if(rst) begin
-      func3_r <= 3'b0;
+    if (pipline_valid) begin
+      func3_r <= func3_in;
+      func7_r <= func7_in;
+      aluop_r <= aluop_in;
+      imm_r <= imm_in;
+      muximm_r <= muximm_in;
+      src1_r <= src1_in;
+      src2_r <= src2_in;
+      pc_r <= pc_in;
+      auipcsig_r <= auipcsig_in;
+      mtvec_r <= mtvec_in;
+      mepc_r <= mepc_in;
+      muxsig_r <= muxsig_in;
+      rd_r <= rd_in;
+      csr_addr_r <= csr_addr_in;
+    end
+  end
+
+  // Reset side-effect controls so invalid datapath values cannot escape.
+  always @(posedge clk) begin
+    if (rst) begin
       btypebranch_r <= 1'b0;
-      func7_r <= 1'b0;
-      aluop_r <= 2'b0;
       jalrsig_r <= 1'b0;
       jalsig_r <= 1'b0;
-      imm_r <= 32'b0;
-      muximm_r <= 1'b0;
-      src1_r <= 32'b0;
-      src2_r <= 32'b0;
-      pc_r <= 32'b0;
-      auipcsig_r <= 1'b0;
       mretsig_r <= 1'b0;
       ecallsig_r <= 1'b0;
-      mtvec_r <= 32'b0;
-      mepc_r <= 32'b0;
       memew_r <= 1'b0;
       memer_r <= 1'b0;
-      muxsig_r <= 3'b0;
       regew_control_r <= 1'b0;
-      rd_r <= 5'b0;
       csrrw_r <= 1'b0;
       csrrs_r <= 1'b0;
-      csr_addr_r <= 12'b0;
-    end else begin
-      if(pipline_valid) begin
-        func3_r <= func3_in;
-        btypebranch_r <= btypebranch_in;
-        func7_r <= func7_in;
-        aluop_r <= aluop_in;
-        jalrsig_r <= jalrsig_in;
-        jalsig_r <= jalsig_in;
-        imm_r <= imm_in;
-        muximm_r <= muximm_in;
-        src1_r <= src1_in;
-        src2_r <= src2_in;
-        pc_r <= pc_in;
-        auipcsig_r <= auipcsig_in;
-        mretsig_r <= mretsig_in;
-        ecallsig_r <= ecallsig_in;
-        mtvec_r <= mtvec_in;
-        mepc_r <= mepc_in;
-        memew_r <= memew_in;
-        memer_r <= memer_in;
-        muxsig_r <= muxsig_in;
-        regew_control_r <= regew_control_in;
-        rd_r <= rd_in;
-        csrrw_r <= csrrw_in;
-        csrrs_r <= csrrs_in;
-        csr_addr_r <= csr_addr_in;
-      end else if(flush) begin
-        regew_control_r <= 1'b0;   
-        memew_r <= 1'b0;
-        memer_r <= 1'b0;          
-        rd_r <= 5'b0;             
-        csrrw_r <= 1'b0;
-        csrrs_r <= 1'b0;
-        ecallsig_r <= 1'b0; 
-      end
+    end else if (pipline_valid) begin
+      btypebranch_r <= btypebranch_in;
+      jalrsig_r <= jalrsig_in;
+      jalsig_r <= jalsig_in;
+      mretsig_r <= mretsig_in;
+      ecallsig_r <= ecallsig_in;
+      memew_r <= memew_in;
+      memer_r <= memer_in;
+      regew_control_r <= regew_control_in;
+      csrrw_r <= csrrw_in;
+      csrrs_r <= csrrs_in;
+    end else if (flush) begin
+      btypebranch_r <= 1'b0;
+      jalrsig_r <= 1'b0;
+      jalsig_r <= 1'b0;
+      mretsig_r <= 1'b0;
+      ecallsig_r <= 1'b0;
+      memew_r <= 1'b0;
+      memer_r <= 1'b0;
+      regew_control_r <= 1'b0;
+      csrrw_r <= 1'b0;
+      csrrs_r <= 1'b0;
     end
   end
 
@@ -1138,7 +1121,6 @@ module ysyx_24100007_idu(
 
   input is_jmp,
 
-  // 寄存器堆读出的数据
   input [31:0] regout1,
   input [31:0] regout2,
 
@@ -1153,7 +1135,7 @@ module ysyx_24100007_idu(
   input exu_regew,
   input [31:0] exu_transmit_data,
   input exu_transmit_data_valid,
-  input exu_memer_bypass,              // EXU 是否是 load 指令（用于处理 load-use 冲突）
+  input exu_memer_bypass,    // EXU 是否是 load 指令（用于处理 load-use 冲突）
 
   // 经过旁路选择后的数据
   output [31:0] src1_data,
@@ -1224,7 +1206,7 @@ module ysyx_24100007_idu(
   wire [31:0] inst;
   wire pipline_valid;
   wire flush;
-  idu_pipline_connect idu_connect(
+  ysyx_24100007_idu_pipline_connect idu_connect(
     .clk(clk),
     .rst(rst),
 
@@ -1328,7 +1310,7 @@ module ysyx_24100007_idu(
   // synopsys translate_on
 endmodule
 
-module idu_pipline_connect(
+module ysyx_24100007_idu_pipline_connect(
   input clk,
   input rst,
 
@@ -1486,46 +1468,45 @@ module ysyx_24100007_icache (
     output hit,
     output [31:0] data_r
 );
-    localparam LINE_NUM = 1;
-    localparam INDEX_LEN = 0;
-    localparam TAG_LEN = 32 - INDEX_LEN - 4;
-    localparam OFFSET_LEN = 4;
+  localparam INDEX_LEN = 0;
+  localparam TAG_LEN = 32 - INDEX_LEN - 4;
+  localparam OFFSET_LEN = 4;
 
-    wire [OFFSET_LEN-1:0] offset = addr[OFFSET_LEN-1:0];
-    wire [TAG_LEN-1:0] tag = addr[31:OFFSET_LEN+INDEX_LEN];
+  wire [OFFSET_LEN-1:0] offset = addr[OFFSET_LEN-1:0];
+  wire [TAG_LEN-1:0] tag = addr[31:OFFSET_LEN+INDEX_LEN];
 
-    wire line_hit;
-    wire [31:0] line_data_r;
-    wire line_w_valid;
-    wire [127:0] line_data_w;
+  wire line_hit;
+  wire [31:0] line_data_r;
+  wire line_w_valid;
+  wire [127:0] line_data_w;
 
-    assign line_w_valid = w_valid;
-    assign line_data_w = w_data;
+  assign line_w_valid = w_valid;
+  assign line_data_w  = w_data;
 
-    // Manually expanded cache lines (4 instances)
-    ysyx_24100007_icahce_line #(
-        .TAG_LEN(TAG_LEN),
-        .OFFSET_LEN(OFFSET_LEN)
-    ) u_cacheline_0 (
-        .clk(clk),
-        .rst(rst),
-        .tag(tag),
-        .offset(offset),
-        .set_invalid(set_invalid),
-        .w_valid(line_w_valid),
-        .data_w(line_data_w),
-        .hit(line_hit),
-        .data_r(line_data_r)
-    );
+  // Manually expanded cache lines (4 instances)
+  ysyx_24100007_icahce_line #(
+      .TAG_LEN(TAG_LEN),
+      .OFFSET_LEN(OFFSET_LEN)
+  ) u_cacheline_0 (
+      .clk(clk),
+      .rst(rst),
+      .tag(tag),
+      .offset(offset),
+      .set_invalid(set_invalid),
+      .w_valid(line_w_valid),
+      .data_w(line_data_w),
+      .hit(line_hit),
+      .data_r(line_data_r)
+  );
 
-    assign hit = line_hit;
-    assign data_r = line_data_r;
+  assign hit = line_hit;
+  assign data_r = line_data_r;
 endmodule
 
 module ysyx_24100007_icahce_line #(
     parameter TAG_LEN = 26,
     parameter OFFSET_LEN = 4
-)(
+) (
     input clk,
     input rst,
     input [TAG_LEN-1:0] tag,
@@ -1536,30 +1517,30 @@ module ysyx_24100007_icahce_line #(
     output hit,
     output [31:0] data_r
 );
-    localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
-    localparam DATABLOCK_NUMB = DATABLOCK_SIZE / 32;
+  localparam DATABLOCK_SIZE = (2 ** OFFSET_LEN) * 8;
+  localparam DATABLOCK_NUMB = DATABLOCK_SIZE / 32;
 
-    reg [DATABLOCK_NUMB-1:0][31:0] data_block;
-    reg valid_r;
-    reg [TAG_LEN-1:0] tag_r;
+  reg [DATABLOCK_NUMB-1:0][31:0] data_block;
+  reg valid_r;
+  reg [TAG_LEN-1:0] tag_r;
 
-    wire [OFFSET_LEN-3:0] word_idx = offset[OFFSET_LEN-1:2];
-    assign data_r = data_block[word_idx];
-    assign hit = (valid_r && (tag == tag_r));
+  wire [OFFSET_LEN-3:0] word_idx = offset[OFFSET_LEN-1:2];
+  assign data_r = data_block[word_idx];
+  assign hit = (valid_r && (tag == tag_r));
 
-    always @(posedge clk) begin
-        if(rst) begin
-            valid_r <= 1'b0;
-        end else begin
-            if(set_invalid) begin
-              valid_r <= 1'b0;
-            end else if(w_valid) begin
-                valid_r <= 1'b1;
-                tag_r <= tag;
-                data_block <= data_w;
-            end
-        end
+  always @(posedge clk) begin
+    if (rst) begin
+      valid_r <= 1'b0;
+    end else begin
+      if (set_invalid) begin
+        valid_r <= 1'b0;
+      end else if (w_valid) begin
+        valid_r <= 1'b1;
+        tag_r <= tag;
+        data_block <= data_w;
+      end
     end
+  end
 
 endmodule
 
@@ -1691,7 +1672,7 @@ module ysyx_24100007_ifu(
     end else begin
       case(ifu_state) 
         INIT: begin
-          ifu_state <= 3'd3;
+          ifu_state <= BUS_HANDSHAKE;
         end
 
         VALID: begin
@@ -1795,18 +1776,20 @@ module ysyx_24100007_ifu(
   assign valid = (ifu_state == VALID);
 endmodule
 
-module ysyx_24100007_pcreg(
-  input clk,
-  input [31:0] npc,
-  input rst,
-  input ready_from,
-  output reg [31:0] pcout
+module ysyx_24100007_pcreg (
+    input clk,
+    input [31:0] npc,
+    input rst,
+    input ready_from,
+    output reg [31:0] pcout
 );
 
+`ifndef SYNTHESIS
 `ifdef __NPC__
   localparam init = 32'h80000000;
-`elsif __YSYXSOC__
+`else
   localparam init = 32'h30000000;
+`endif
 `else
   localparam init = 32'h80000000;
 `endif
@@ -1814,18 +1797,17 @@ module ysyx_24100007_pcreg(
   // synopsys translate_off
   initial begin
     pcout = init;
-    `ifdef __ICARUS__
-      $display("[Init] Start PC: 0x%h", pcout);
-    `endif
+`ifdef __ICARUS__
+    $display("[Init] Start PC: 0x%h", pcout);
+`endif
   end
   // synopsys translate_on
   // 综合时仅依赖 reset 初始化，initial 块已被 translate_off 排除
 
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       pcout <= init;
-    end else
-    if (ready_from == 1) begin
+    end else if (ready_from == 1) begin
       pcout <= npc;
     end
   end
@@ -2436,31 +2418,38 @@ endmodule
 
 `ifdef VERILATOR
 // synopsys translate_off
-import "DPI-C" function void host_get_reg(int regval, int regnum);
-import "DPI-C" function void host_get_csr(int csrval, int csrnum);
+import "DPI-C" function void host_get_reg(
+  int regval,
+  int regnum
+);
+import "DPI-C" function void host_get_csr(
+  int csrval,
+  int csrnum
+);
 // synopsys translate_on
 `endif
-module ysyx_24100007_registers(
-  input clk,
-  input rst,
-  input ew,
-  input csrrw,
-  input csrrs,
-  input ecall,
-  input [2:0]csr_choose,
-  input [4:0] addr,
-  input [31:0] data,
-  output [32*15-1:0] gr_flat,
-  output [32*6-1:0] csr_flat
+module ysyx_24100007_registers (
+    input clk,
+    input rst,
+    input ew,
+    input csrrw,
+    input csrrs,
+    input ecall,
+    input [2:0] csr_choose,
+    input [4:0] addr,
+    input [31:0] data,
+    output [32*15-1:0] gr_flat,
+    output [32*6-1:0] csr_flat
 );
-  
-  reg [31:0] gr [15:1];
+
+  reg [31:0] gr[15:1];
   reg [31:0] csr_mstatus;
   reg [31:0] csr_mtvec;
   reg [31:0] csr_mepc;
   reg [31:0] csr_mcause;
-  reg [31:0] csr_mvendorid;
-  reg [31:0] csr_marchid;
+
+  localparam [31:0] CSR_MVENDORID = 32'h79737978;
+  localparam [31:0] CSR_MARCHID   = 32'h016FBCA7;
 
   wire [3:0] reg_addr = addr[3:0];
   reg [31:0] csr_rdata;
@@ -2468,18 +2457,18 @@ module ysyx_24100007_registers(
   // write op
   always @(*) begin
     case (csr_choose)
-      3'b000: csr_rdata = csr_mstatus;
-      3'b001: csr_rdata = csr_mtvec;
-      3'b010: csr_rdata = csr_mepc;
-      3'b011: csr_rdata = csr_mcause;
-      3'b100: csr_rdata = csr_mvendorid;
-      3'b101: csr_rdata = csr_marchid;
+      3'b000:  csr_rdata = csr_mstatus;
+      3'b001:  csr_rdata = csr_mtvec;
+      3'b010:  csr_rdata = csr_mepc;
+      3'b011:  csr_rdata = csr_mcause;
+      3'b100:  csr_rdata = CSR_MVENDORID;
+      3'b101:  csr_rdata = CSR_MARCHID;
       default: csr_rdata = 32'b0;
     endcase
   end
 
-  always @(posedge clk) begin 
-    if(rst) begin
+  always @(posedge clk) begin
+    if (rst) begin
       gr[1] <= 0;
       gr[2] <= 0;
       gr[3] <= 0;
@@ -2500,56 +2489,50 @@ module ysyx_24100007_registers(
       csr_mtvec <= 0;
       csr_mepc <= 0;
       csr_mcause <= 0;
-      csr_mvendorid <= 32'h79737978;
-      csr_marchid <= 32'h016FBCA7;
     end else begin
-      if(csrrw) begin
-        if(reg_addr != 4'b0) begin
+      if (csrrw) begin
+        if (reg_addr != 4'b0) begin
           gr[reg_addr] <= csr_rdata;
         end
         case (csr_choose)
-          3'b000: csr_mstatus <= data;
-          3'b001: csr_mtvec <= data;
-          3'b010: csr_mepc <= data;
-          3'b011: csr_mcause <= data;
-          3'b100: csr_mvendorid <= data;
-          3'b101: csr_marchid <= data;
+          3'b000:  csr_mstatus <= data;
+          3'b001:  csr_mtvec <= data;
+          3'b010:  csr_mepc <= data;
+          3'b011:  csr_mcause <= data;
           default: ;
         endcase
-      end else if(csrrs) begin
-        if(reg_addr != 4'b0) begin
+      end else if (csrrs) begin
+        if (reg_addr != 4'b0) begin
           gr[reg_addr] <= csr_rdata;
         end
         case (csr_choose)
-          3'b000: csr_mstatus <= data | csr_mstatus;
-          3'b001: csr_mtvec <= data | csr_mtvec;
-          3'b010: csr_mepc <= data | csr_mepc;
-          3'b011: csr_mcause <= data | csr_mcause;
-          3'b100: csr_mvendorid <= data | csr_mvendorid;
-          3'b101: csr_marchid <= data | csr_marchid;
+          3'b000:  csr_mstatus <= data | csr_mstatus;
+          3'b001:  csr_mtvec <= data | csr_mtvec;
+          3'b010:  csr_mepc <= data | csr_mepc;
+          3'b011:  csr_mcause <= data | csr_mcause;
           default: ;
         endcase
-      end else if(ew && reg_addr != 4'b0) begin
+      end else if (ew && reg_addr != 4'b0) begin
         gr[reg_addr] <= data;
       end
 
-      if(ecall) begin
-        csr_mepc <= data;
-        csr_mcause <= 32'd1;
+      if (ecall) begin
+        csr_mepc   <= data;
+        csr_mcause <= 32'd11;
       end
     end
   end
 
   // synopsys translate_off
-  `ifdef VERILATOR
+`ifdef VERILATOR
   always @(*) begin
     integer i;
     host_get_reg(0, 0);
-    for(i=1;i<16;i=i+1) begin
+    for (i = 1; i < 16; i = i + 1) begin
       host_get_reg(gr[i], i);
     end
 
-    for(i=0;i<4;i++) begin
+    for (i = 0; i < 4; i++) begin
       case (i)
         0: host_get_csr(csr_mstatus, i);
         1: host_get_csr(csr_mtvec, i);
@@ -2558,22 +2541,22 @@ module ysyx_24100007_registers(
       endcase
     end
   end
-  `endif
+`endif
   // synopsys translate_on
 
   genvar gi;
   generate
-    for (gi = 1; gi < 16; gi = gi + 1) begin: PACK_GR
-      assign gr_flat[(gi-1)*32 +: 32] = gr[gi];
+    for (gi = 1; gi < 16; gi = gi + 1) begin : PACK_GR
+      assign gr_flat[(gi-1)*32+:32] = gr[gi];
     end
   endgenerate
 
-  assign csr_flat[0*32 +: 32] = csr_mstatus;
-  assign csr_flat[1*32 +: 32] = csr_mtvec;
-  assign csr_flat[2*32 +: 32] = csr_mepc;
-  assign csr_flat[3*32 +: 32] = csr_mcause;
-  assign csr_flat[4*32 +: 32] = csr_mvendorid;
-  assign csr_flat[5*32 +: 32] = csr_marchid;
+  assign csr_flat[0*32+:32] = csr_mstatus;
+  assign csr_flat[1*32+:32] = csr_mtvec;
+  assign csr_flat[2*32+:32] = csr_mepc;
+  assign csr_flat[3*32+:32] = csr_mcause;
+  assign csr_flat[4*32+:32] = CSR_MVENDORID;
+  assign csr_flat[5*32+:32] = CSR_MARCHID;
 
 endmodule
 
@@ -2589,107 +2572,108 @@ endmodule
 // 单 master 版本：仅做地址解码与 slave 路由，无 master 仲裁
 // ---------------------------------------------
 module ysyx_24100007_arbiter #(
-  parameter SLAVE_NUM=2             // slave设备数量（CLINT, 外部AXI等）
-)(
-  input wire clk,
-  input wire rst,
+    parameter SLAVE_NUM = 2  // slave设备数量（CLINT, 外部AXI等）
+) (
+    input wire clk,
+    input wire rst,
 
-  // 单 master AXI 接口
-  input        awvalid,
-  input        wvalid,
-  input        arvalid,
-  input        rready,
-  input        bready,
-  output       bvalid,
-  output       rvalid,
-  output       awready,
-  output       wready,
-  output       arready,
+    // 单 master AXI 接口
+    input  awvalid,
+    input  wvalid,
+    input  arvalid,
+    input  rready,
+    input  bready,
+    output bvalid,
+    output rvalid,
+    output awready,
+    output wready,
+    output arready,
 
-  input  [31:0] araddr,
-  input  [31:0] awaddr,
-  input  [31:0] wdata,
-  input  [3:0]  wstrb,
-  output [31:0] rdata,
-  output [1:0]  bresp,
-  input  [2:0]  awsize,
-  input  [2:0]  arsize,
-  input  [7:0]  awlen,
-  input  [7:0]  arlen,
-  input  [1:0]  awburst,
-  input  [1:0]  arburst,
-  input         wlast,
-  output        rlast,
+    input  [31:0] araddr,
+    input  [31:0] awaddr,
+    input  [31:0] wdata,
+    input  [ 3:0] wstrb,
+    output [31:0] rdata,
+    output [ 1:0] bresp,
+    input  [ 2:0] awsize,
+    input  [ 2:0] arsize,
+    input  [ 7:0] awlen,
+    input  [ 7:0] arlen,
+    input  [ 1:0] awburst,
+    input  [ 1:0] arburst,
+    input         wlast,
+    output        rlast,
 
-  // slave 接口
-  output [SLAVE_NUM-1:0] awvalid_out,
-  output [SLAVE_NUM-1:0] wvalid_out,
-  output [SLAVE_NUM-1:0] arvalid_out,
-  output [SLAVE_NUM-1:0] rready_out,
-  output [SLAVE_NUM-1:0] bready_out,
-  input  [SLAVE_NUM-1:0] bvalid_in,
-  input  [SLAVE_NUM-1:0] rvalid_in,
-  input  [SLAVE_NUM-1:0] awready_in,
-  input  [SLAVE_NUM-1:0] wready_in,
-  input  [SLAVE_NUM-1:0] arready_in,
+    // slave 接口
+    output [SLAVE_NUM-1:0] awvalid_out,
+    output [SLAVE_NUM-1:0] wvalid_out,
+    output [SLAVE_NUM-1:0] arvalid_out,
+    output [SLAVE_NUM-1:0] rready_out,
+    output [SLAVE_NUM-1:0] bready_out,
+    input  [SLAVE_NUM-1:0] bvalid_in,
+    input  [SLAVE_NUM-1:0] rvalid_in,
+    input  [SLAVE_NUM-1:0] awready_in,
+    input  [SLAVE_NUM-1:0] wready_in,
+    input  [SLAVE_NUM-1:0] arready_in,
 
-  output [SLAVE_NUM*32-1:0] araddr_out,
-  output [SLAVE_NUM*32-1:0] awaddr_out,
-  output [SLAVE_NUM*32-1:0] wdata_out,
-  output [SLAVE_NUM*4-1:0]  wstrb_out,
-  input  [SLAVE_NUM*32-1:0] rdata_in,
-  input  [SLAVE_NUM*2-1:0]  bresp_in,
-  output [SLAVE_NUM*3-1:0]  awsize_out,
-  output [SLAVE_NUM*3-1:0]  arsize_out,
-  output [SLAVE_NUM*8-1:0]  awlen_out,
-  output [SLAVE_NUM*8-1:0]  arlen_out,
-  output [SLAVE_NUM*2-1:0]  awburst_out,
-  output [SLAVE_NUM*2-1:0]  arburst_out,
-  output [SLAVE_NUM-1:0]    wlast_out,
-  input  [SLAVE_NUM-1:0]    rlast_in
+    output [SLAVE_NUM*32-1:0] araddr_out,
+    output [SLAVE_NUM*32-1:0] awaddr_out,
+    output [SLAVE_NUM*32-1:0] wdata_out,
+    output [SLAVE_NUM*4-1:0]  wstrb_out,
+    input  [SLAVE_NUM*32-1:0] rdata_in,
+    input  [SLAVE_NUM*2-1:0]  bresp_in,
+    output [SLAVE_NUM*3-1:0]  awsize_out,
+    output [SLAVE_NUM*3-1:0]  arsize_out,
+    output [SLAVE_NUM*8-1:0]  awlen_out,
+    output [SLAVE_NUM*8-1:0]  arlen_out,
+    output [SLAVE_NUM*2-1:0]  awburst_out,
+    output [SLAVE_NUM*2-1:0]  arburst_out,
+    output [SLAVE_NUM-1:0]    wlast_out,
+    input  [SLAVE_NUM-1:0]    rlast_in
 );
 
-  typedef enum logic [1:0] {
-    ST_IDLE, SLAVE_SELECT, ST_BUSY
+  typedef enum logic {
+    ST_IDLE,
+    ST_TRANS
   } state_t;
   state_t state;
 
-  // 事务开始：master 发出请求；结束：收到响应
   wire has_req = arvalid | awvalid;
   wire trans_end = (rvalid & rready & rlast) | (bvalid & bready);
 
-  reg [SLAVE_NUM-1:0] slave_owner_one_hot;
-
-  // 地址解码选择 slave
   wire [31:0] current_addr = arvalid ? araddr : awaddr;
   wire is_clint_addr = (current_addr >= 32'h02000000) && (current_addr <= 32'h0200ffff);
-  wire [SLAVE_NUM-1:0] selected_slave = {is_clint_addr, !is_clint_addr};
+
+  // This router has exactly two targets: external AXI (0) and CLINT (1).
+  reg slave_owner;
+  wire trans_active = (state == ST_TRANS);
+  wire owner_external = trans_active & ~slave_owner;
+  wire owner_clint = trans_active & slave_owner;
+  wire [SLAVE_NUM-1:0] slave_owner_one_hot = {owner_clint, owner_external};
 
   always @(posedge clk) begin
     if (rst) begin
       state <= ST_IDLE;
-      slave_owner_one_hot <= {SLAVE_NUM{1'b0}};
+      slave_owner <= 1'b0;
     end else begin
       case (state)
         ST_IDLE: begin
           if (has_req) begin
-            state <= SLAVE_SELECT;
+            state <= ST_TRANS;
+            slave_owner <= is_clint_addr;
           end
         end
 
-        SLAVE_SELECT: begin
-          state <= ST_BUSY;
-          slave_owner_one_hot <= selected_slave;
-        end
-
-        ST_BUSY: begin
+        ST_TRANS: begin
           if (trans_end) begin
             state <= ST_IDLE;
-            slave_owner_one_hot <= {SLAVE_NUM{1'b0}};
+            slave_owner <= 1'b0;
           end
         end
 
         default: begin
+          state <= ST_IDLE;
+          slave_owner <= 1'b0;
           // synopsys translate_off
           $error("arbiter Invalid state");
           // synopsys translate_on
@@ -2699,17 +2683,17 @@ module ysyx_24100007_arbiter #(
   end
 
   // master 信号直通到 slave（由 slave_owner 选通）
-  wire [31:0] master_awaddr  = awaddr;
-  wire [31:0] master_araddr  = araddr;
-  wire [31:0] master_wdata   = wdata;
-  wire [3:0]  master_wstrb   = wstrb;
-  wire [2:0]  master_awsize  = awsize;
-  wire [2:0]  master_arsize  = arsize;
-  wire [7:0]  master_awlen   = awlen;
-  wire [7:0]  master_arlen   = arlen;
-  wire [1:0]  master_awburst = awburst;
-  wire [1:0]  master_arburst = arburst;
-  wire        master_wlast   = wlast;
+  wire [31:0] master_awaddr = awaddr;
+  wire [31:0] master_araddr = araddr;
+  wire [31:0] master_wdata = wdata;
+  wire [ 3:0] master_wstrb = wstrb;
+  wire [ 2:0] master_awsize = awsize;
+  wire [ 2:0] master_arsize = arsize;
+  wire [ 7:0] master_awlen = awlen;
+  wire [ 7:0] master_arlen = arlen;
+  wire [ 1:0] master_awburst = awburst;
+  wire [ 1:0] master_arburst = arburst;
+  wire        master_wlast = wlast;
 
   genvar m;
   generate
@@ -2736,224 +2720,221 @@ module ysyx_24100007_arbiter #(
     end
   endgenerate
 
-  // slave 响应回 master
-  wire [31:0] sel_rdata  = slave_owner_one_hot[0] ? rdata_in[0*32 +: 32] : rdata_in[1*32 +: 32];
-  wire [1:0]  sel_bresp  = slave_owner_one_hot[0] ? bresp_in[0*2 +: 2] : bresp_in[1*2 +: 2];
-  wire        sel_rvalid = slave_owner_one_hot[0] ? rvalid_in[0] : rvalid_in[1];
-  wire        sel_bvalid = slave_owner_one_hot[0] ? bvalid_in[0] : bvalid_in[1];
-  wire        sel_rlast  = slave_owner_one_hot[0] ? rlast_in[0] : rlast_in[1];
-  wire        sel_awready = slave_owner_one_hot[0] ? awready_in[0] : awready_in[1];
-  wire        sel_wready  = slave_owner_one_hot[0] ? wready_in[0] : wready_in[1];
-  wire        sel_arready = slave_owner_one_hot[0] ? arready_in[0] : arready_in[1];
-
-  assign rdata   = sel_rdata;
-  assign bresp   = sel_bresp;
-  assign rvalid  = sel_rvalid;
-  assign bvalid  = sel_bvalid;
-  assign rlast   = sel_rlast;
-  assign awready = sel_awready;
-  assign wready  = sel_wready;
-  assign arready = sel_arready;
+  // Return zero while idle instead of implicitly selecting CLINT.
+  assign rdata = owner_external ? rdata_in[0*32+:32] :
+                 owner_clint ? rdata_in[1*32+:32] : 32'b0;
+  assign bresp = owner_external ? bresp_in[0*2+:2] :
+                 owner_clint ? bresp_in[1*2+:2] : 2'b0;
+  assign rvalid = owner_external ? rvalid_in[0] :
+                  owner_clint ? rvalid_in[1] : 1'b0;
+  assign bvalid = owner_external ? bvalid_in[0] :
+                  owner_clint ? bvalid_in[1] : 1'b0;
+  assign rlast = owner_external ? rlast_in[0] :
+                 owner_clint ? rlast_in[1] : 1'b0;
+  assign awready = owner_external ? awready_in[0] :
+                   owner_clint ? awready_in[1] : 1'b0;
+  assign wready = owner_external ? wready_in[0] :
+                  owner_clint ? wready_in[1] : 1'b0;
+  assign arready = owner_external ? arready_in[0] :
+                   owner_clint ? arready_in[1] : 1'b0;
 
 endmodule
 
 module ysyx_24100007_clint (
-  input clk,
-  input reset,
+    input clk,
+    input reset,
 
-  input         awvalid,
-  output        awready,
-  input         wvalid,
-  output        wready,
-  input         arvalid,
-  output        arready,
-  input         rready,
-  output        rvalid,
-  input         bready,
-  output        bvalid,
+    input  awvalid,
+    output awready,
+    input  wvalid,
+    output wready,
+    input  arvalid,
+    output arready,
+    input  rready,
+    output rvalid,
+    input  bready,
+    output bvalid,
 
-  input  [31:0] araddr,
-  input  [31:0] awaddr,
-  input  [31:0] wdata,
-  output [31:0] rdata,
-  input  [3:0]  wstrb,
-  output [1:0]  bresp,
-  input  [2:0]  awsize,
-  input  [2:0]  arsize
+    input  [31:0] araddr,
+    input  [31:0] awaddr,
+    input  [31:0] wdata,
+    output [31:0] rdata,
+    input  [ 3:0] wstrb,
+    output [ 1:0] bresp,
+    input  [ 2:0] awsize,
+    input  [ 2:0] arsize
 );
 
-    // 仅仅作为slave模块存在，返回一个mtime，代表时间的流速
-    reg[63:0] mtime;
-    wire is_penable = (araddr >= 32'h02000000) && (araddr <= 32'h0200ffff);
+  // 仅仅作为slave模块存在，返回一个mtime，代表时间的流速
+  reg [63:0] mtime;
+  wire is_penable = (araddr >= 32'h02000000) && (araddr <= 32'h0200ffff);
 
-    always @(posedge clk) begin
-        if(reset) begin
-            mtime <= 64'b0;
-        end else begin
-            mtime <= mtime + 1;
-        end
+  always @(posedge clk) begin
+    if (reset) begin
+      mtime <= 64'b0;
+    end else begin
+      mtime <= mtime + 1;
+    end
+  end
+
+  // ---------------------------------
+  // STATE MACHINE
+  // ---------------------------------
+  typedef enum logic [1:0] {
+    ST_IDLE,
+    ST_ACCEPT,
+    ST_VALID
+  } state_t;
+
+  reg [1:0] state_next_r;
+  reg [1:0] state_current_q;
+
+  always @(posedge clk) begin
+    if (reset) begin
+      state_current_q <= ST_IDLE;
+    end else begin
+      state_current_q <= state_next_r;
+    end
+  end
+
+  wire arvalid_match = is_penable & arvalid;
+  wire rready_match = (state_current_q == ST_VALID) & rready;
+  always @(*) begin
+    state_next_r = ST_IDLE;
+
+    case (state_current_q)
+      ST_IDLE: begin
+        if (arvalid_match) state_next_r = ST_ACCEPT;
+      end
+
+      ST_ACCEPT: begin
+        state_next_r = ST_VALID;
+      end
+
+      ST_VALID: begin
+        if (rready_match) state_next_r = ST_IDLE;
+        else state_next_r = ST_VALID;
+      end
+
+      default: begin
+        // synopsys translate_off
+        $error("unkonw state in clint");
+        // synopsys translate_on
+      end
+    endcase
+  end
+
+  reg [31:0] rdata_out_r;
+  reg [31:0] rdata_out_q;
+  reg [31:0] addr_q;
+  reg addr_capture_en_r;
+
+  // 地址捕获逻辑（组合逻辑）
+  always @(*) begin
+    addr_capture_en_r = 1'b0;
+    rdata_out_r = 32'b0;
+
+    // 在ST_IDLE状态且收到有效读请求时，准备捕获地址
+    if (state_current_q == ST_IDLE && arvalid_match) begin
+      addr_capture_en_r = 1'b1;
     end
 
-    // ---------------------------------
-    // STATE MACHINE
-    // ---------------------------------
-    typedef enum logic [1:0] {
-        ST_IDLE, ST_ACCEPT, ST_VALID 
-    } state_t;
-
-    reg [1:0] state_next_r;
-    reg [1:0] state_current_q;
-
-    always @(posedge clk) begin
-        if(reset) begin
-            state_current_q <= ST_IDLE;
-        end else begin
-            state_current_q <= state_next_r;
-        end
+    // 在ST_ACCEPT状态时，根据地址选择要读取的数据
+    // CLINT地址映射：
+    // 0x02000000 (offset 0x0): mtime[31:0]  低32位
+    // 0x02000004 (offset 0x4): mtime[63:32] 高32位
+    if (state_current_q == ST_ACCEPT) begin
+      // 根据地址的第2位（addr_q[2]）选择mtime的低32位或高32位
+      if (addr_q[2] == 1'b0) begin
+        rdata_out_r = mtime[31:0];  // 低32位
+      end else begin
+        rdata_out_r = mtime[63:32];  // 高32位
+      end
     end
+  end
 
-    wire arvalid_match = is_penable & arvalid;
-    wire rready_match = (state_current_q == ST_VALID) & rready;
-    always @(*) begin
-        state_next_r = ST_IDLE;
-
-        case(state_current_q) 
-            ST_IDLE: begin
-                if(arvalid_match) 
-                    state_next_r = ST_ACCEPT;
-            end
-
-            ST_ACCEPT: begin 
-                state_next_r = ST_VALID;
-            end
-
-            ST_VALID: begin
-                if(rready_match)
-                    state_next_r = ST_IDLE;
-                else
-                    state_next_r = ST_VALID;
-            end
-
-
-            default: begin
-                // synopsys translate_off
-                $error("unkonw state in clint");
-                // synopsys translate_on
-            end
-        endcase
+  always @(posedge clk) begin
+    if (reset) begin
+      addr_q <= 32'b0;
+    end else if (addr_capture_en_r) begin
+      addr_q <= araddr;
     end
+  end
 
-    reg [31:0] rdata_out_r;
-    reg [31:0] rdata_out_q;
-    reg [31:0] addr_q;
-    reg addr_capture_en_r;
-
-    // 地址捕获逻辑（组合逻辑）
-    always @(*) begin
-        addr_capture_en_r = 1'b0;
-        rdata_out_r = 32'b0;
-
-        // 在ST_IDLE状态且收到有效读请求时，准备捕获地址
-        if(state_current_q == ST_IDLE && arvalid_match) begin
-            addr_capture_en_r = 1'b1;
-        end 
-
-        // 在ST_ACCEPT状态时，根据地址选择要读取的数据
-        // CLINT地址映射：
-        // 0x02000000 (offset 0x0): mtime[31:0]  低32位
-        // 0x02000004 (offset 0x4): mtime[63:32] 高32位
-        if(state_current_q == ST_ACCEPT) begin
-            // 根据地址的第2位（addr_q[2]）选择mtime的低32位或高32位
-            if(addr_q[2] == 1'b0) begin
-                rdata_out_r = mtime[31:0];   // 低32位
-            end else begin
-                rdata_out_r = mtime[63:32];  // 高32位
-            end
-        end
+  always @(posedge clk) begin
+    if (reset) begin
+      rdata_out_q <= 32'b0;
+    end else if (state_current_q == ST_ACCEPT) begin
+      rdata_out_q <= rdata_out_r;
     end
+  end
 
-    always @(posedge clk) begin
-        if(reset) begin
-            addr_q <= 32'b0;
-        end else if(addr_capture_en_r) begin
-            addr_q <= araddr;
-        end
-    end
+  assign arready = (state_current_q == ST_ACCEPT);
+  assign rvalid  = (state_current_q == ST_VALID);
+  assign rdata   = rdata_out_q;
 
-    always @(posedge clk) begin
-        if(reset) begin
-            rdata_out_q <= 32'b0;
-        end else if(state_current_q == ST_ACCEPT) begin
-            rdata_out_q <= rdata_out_r;
-        end
-    end
-
-    assign arready = (state_current_q == ST_ACCEPT);
-    assign rvalid = (state_current_q == ST_VALID);
-    assign rdata = rdata_out_q;
-
-    assign awready = 0;
-    assign wready = 0;
-    assign bvalid = 0;
-    assign bresp = 2'b00;
+  assign awready = 0;
+  assign wready  = 0;
+  assign bvalid  = 0;
+  assign bresp   = 2'b00;
 endmodule
 
-module ysyx_24100007_wbu(
-  input clk,
-  input rst,
-  input [31:0] res_in,
-  input [31:0] regout2_in,
-  input memew_in,
-  input memer_in,
-  input [31:0] imm_in,
-  input [31:0] link_addr_in,
-  input [2:0] muxsig_in,
-  input [2:0] func3_in,
-  input regew_control_in,
-  input [4:0] rd_in,
-  input csrrw_in,
-  input csrrs_in,
-  input [11:0] csr_addr_in,
-  input ecallsig_in,
+module ysyx_24100007_wbu (
+    input clk,
+    input rst,
+    input [31:0] res_in,
+    input [31:0] regout2_in,
+    input memew_in,
+    input memer_in,
+    input [31:0] imm_in,
+    input [31:0] link_addr_in,
+    input [2:0] muxsig_in,
+    input [2:0] func3_in,
+    input regew_control_in,
+    input [4:0] rd_in,
+    input csrrw_in,
+    input csrrs_in,
+    input [11:0] csr_addr_in,
+    input ecallsig_in,
 
-  output [31:0] regwrite_out,
-  output regew_out,
-  output [4:0] rd_out,
-  output csrrw_out,
-  output csrrs_out,
-  output [11:0] csr_addr_out,
-  output ecallsig_out,
-  output wbu_write_csr,
+    output [31:0] regwrite_out,
+    output regew_out,
+    output [4:0] rd_out,
+    output csrrw_out,
+    output csrrs_out,
+    output [11:0] csr_addr_out,
+    output ecallsig_out,
+    output wbu_write_csr,
 
-  // wbu is the last model
-  input in_valid,
-  output in_ready,
+    // wbu is the last model
+    input  in_valid,
+    output in_ready,
 
-  output wbu_commit,
+    output wbu_commit,
 
     // LSU handshake
-  output        wbu_read_req,
-  output        wbu_write_req,
-  input         wbu_req_acp,
-  input         wbu_req_finish,
-  output        wbu_req_ready,
-  input  [31:0] wbu_data_read,   // 来自 LSU.data_read[31:0]
+    output        wbu_read_req,
+    output        wbu_write_req,
+    input         wbu_req_acp,
+    input         wbu_req_finish,
+    output        wbu_req_ready,
+    input  [31:0] wbu_data_read,   // 来自 LSU.data_read[31:0]
 
-  // 给 LSU 的访问信号
-  output        lsu_mem_we,
-  output [31:0] lsu_mem_addr,
-  output [31:0] lsu_mem_wdata,
-  output [2:0]  lsu_mem_mask,
-  output        lsu_mem_sext,
+    // 给 LSU 的访问信号
+    output        lsu_mem_we,
+    output [31:0] lsu_mem_addr,
+    output [31:0] lsu_mem_wdata,
+    output [ 2:0] lsu_mem_mask,
+    output        lsu_mem_sext,
 
-  output [4:0] wbu_rd,
-  output wbu_regew,
-  output [31:0] transmit_data,
-  output transmit_data_valid
+    output [4:0] wbu_rd,
+    output wbu_regew,
+    output [31:0] transmit_data,
+    output transmit_data_valid
 );
 
   wire accept = ((wbu_state == WAIT_VALID) || (wbu_state == WRITE_BACK)) && in_valid;
-  assign in_ready = (wbu_state == WAIT_VALID) ;
+  assign in_ready = (wbu_state == WAIT_VALID);
   wire pipline_valid = accept;
   wire flush = ((wbu_state == WRITE_BACK) & !in_valid);
 
@@ -2974,92 +2955,90 @@ module ysyx_24100007_wbu(
                (func3 == 3'b100) ? 3'b001 :
                (func3 == 3'b101) ? 3'b010 :
                3'b000;
-  wire memsextsig = (func3 == 3'b100) ? 1'b0 :
-                    (func3 == 3'b101) ? 1'b0 :
-                    1'b1;
+  wire memsextsig = (func3 == 3'b100) ? 1'b0 : (func3 == 3'b101) ? 1'b0 : 1'b1;
   wire [4:0] rd;
   wire ecallsig;
   wire csrrs, csrrw;
 
-  wbu_pipline_connect wbu_pipeline_u(
-    .clk(clk),
-    .rst(rst),
+  ysyx_24100007_wbu_pipline_connect wbu_pipeline_u (
+      .clk(clk),
+      .rst(rst),
 
-    .res_in(res_in),
-    .regout2_in(regout2_in),
-    .memew_in(memew_in),
-    .memer_in(memer_in),
-    .imm_in(imm_in),
-    .link_addr_in(link_addr_in),
-    .muxsig_in(muxsig_in),
-    .func3_in(func3_in),
-    .regew_control_in(regew_control_in),
-    .rd_in(rd_in),
-    .csrrw_in(csrrw_in),
-    .csrrs_in(csrrs_in),
-    .csr_addr_in(csr_addr_in),
-    .ecallsig_in(ecallsig_in),
+      .res_in(res_in),
+      .regout2_in(regout2_in),
+      .memew_in(memew_in),
+      .memer_in(memer_in),
+      .imm_in(imm_in),
+      .link_addr_in(link_addr_in),
+      .muxsig_in(muxsig_in),
+      .func3_in(func3_in),
+      .regew_control_in(regew_control_in),
+      .rd_in(rd_in),
+      .csrrw_in(csrrw_in),
+      .csrrs_in(csrrs_in),
+      .csr_addr_in(csr_addr_in),
+      .ecallsig_in(ecallsig_in),
 
-    .res_out(res),
-    .regout2_out(regout2),
-    .memew_out(memew),
-    .memer_out(memer),
-    .imm_out(imm),
-    .link_addr_out(link_addr),
-    .muxsig_out(muxsig),
-    .func3_out(func3),
-    .regew_control_out(regew_control),
-    .rd_out(rd),
-    .csrrw_out(csrrw),
-    .csrrs_out(csrrs),
-    .csr_addr_out(csr_addr_out),
-    .ecallsig_out(ecallsig),
+      .res_out(res),
+      .regout2_out(regout2),
+      .memew_out(memew),
+      .memer_out(memer),
+      .imm_out(imm),
+      .link_addr_out(link_addr),
+      .muxsig_out(muxsig),
+      .func3_out(func3),
+      .regew_control_out(regew_control),
+      .rd_out(rd),
+      .csrrw_out(csrrw),
+      .csrrs_out(csrrs),
+      .csr_addr_out(csr_addr_out),
+      .ecallsig_out(ecallsig),
 
-    .avaliable(avaliable),
-    .pipline_valid(pipline_valid),
-    .flush(flush)
+      .avaliable(avaliable),
+      .pipline_valid(pipline_valid),
+      .flush(flush)
   );
 
   // Memory access state machine
-  localparam [1:0] WAIT_VALID    = 2'd0;
+  localparam [1:0] WAIT_VALID = 2'd0;
   localparam [1:0] BUS_HANDSHAKE = 2'd1;
   localparam [1:0] BUS_TRANSACTION = 2'd2;
-  localparam [1:0] WRITE_BACK    = 2'd3;
+  localparam [1:0] WRITE_BACK = 2'd3;
 
   reg [1:0] wbu_state;
 
   wire mem_access = memew_in | memer_in;
   wire avaliable;
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       wbu_state <= WAIT_VALID;
     end else begin
-      case(wbu_state)
+      case (wbu_state)
         WAIT_VALID: begin
-          if(in_valid & in_ready) begin
-            if(mem_access) begin
+          if (in_valid & in_ready) begin
+            if (mem_access) begin
               wbu_state <= BUS_HANDSHAKE;
             end else begin
               wbu_state <= WRITE_BACK;
             end
-          end 
+          end
         end
 
         BUS_HANDSHAKE: begin
-          if(wbu_req_acp) begin
+          if (wbu_req_acp) begin
             wbu_state <= BUS_TRANSACTION;
           end
         end
 
         BUS_TRANSACTION: begin
-          if(wbu_req_finish && wbu_req_ready) begin
+          if (wbu_req_finish && wbu_req_ready) begin
             wbu_state <= WRITE_BACK;
           end
         end
 
         WRITE_BACK: begin
-          if(in_valid & in_ready) begin
-            if(mem_access) begin
+          if (in_valid & in_ready) begin
+            if (mem_access) begin
               wbu_state <= BUS_HANDSHAKE;
             end else begin
               wbu_state <= WRITE_BACK;
@@ -3079,7 +3058,7 @@ module ysyx_24100007_wbu(
 
   wire regew;
   assign regew = (wbu_state == WRITE_BACK) & regew_control;
-  reg [31:0] memread_data_q;
+  reg  [31:0] memread_data_q;
   wire [31:0] memread_data_r;
 
   always @(posedge clk) begin
@@ -3093,10 +3072,10 @@ module ysyx_24100007_wbu(
   reg [31:0] regwrite;
   always @(*) begin
     case (muxsig)
-      3'b000: regwrite = res;
-      3'b001: regwrite = memread_data_q;
-      3'b010: regwrite = imm;
-      3'b100: regwrite = link_addr;
+      3'b000:  regwrite = res;
+      3'b001:  regwrite = memread_data_q;
+      3'b010:  regwrite = imm;
+      3'b100:  regwrite = link_addr;
       default: regwrite = 32'b0;
     endcase
   end
@@ -3123,53 +3102,53 @@ module ysyx_24100007_wbu(
   assign wbu_req_ready = (wbu_state == BUS_TRANSACTION);
 endmodule
 
-module wbu_pipline_connect(
-  input clk,
-  input rst,
+module ysyx_24100007_wbu_pipline_connect (
+    input clk,
+    input rst,
 
-  input [31:0] res_in,
-  input [31:0] regout2_in,
-  input memew_in,
-  input memer_in,
-  input [31:0] imm_in,
-  input [31:0] link_addr_in,
-  input [2:0] muxsig_in,
-  input [2:0] func3_in,
-  input regew_control_in,
-  input [4:0] rd_in,
-  input csrrw_in,
-  input csrrs_in,
-  input [11:0] csr_addr_in,
-  input ecallsig_in,
+    input [31:0] res_in,
+    input [31:0] regout2_in,
+    input memew_in,
+    input memer_in,
+    input [31:0] imm_in,
+    input [31:0] link_addr_in,
+    input [2:0] muxsig_in,
+    input [2:0] func3_in,
+    input regew_control_in,
+    input [4:0] rd_in,
+    input csrrw_in,
+    input csrrs_in,
+    input [11:0] csr_addr_in,
+    input ecallsig_in,
 
-  output [31:0] res_out,
-  output [31:0] regout2_out,
-  output memew_out,
-  output memer_out,
-  output [31:0] imm_out,
-  output [31:0] link_addr_out,
-  output [2:0] muxsig_out,
-  output [2:0] func3_out,
-  output regew_control_out,
-  output [4:0] rd_out,
-  output csrrw_out,
-  output csrrs_out,
-  output [11:0] csr_addr_out,
-  output ecallsig_out,
+    output [31:0] res_out,
+    output [31:0] regout2_out,
+    output memew_out,
+    output memer_out,
+    output [31:0] imm_out,
+    output [31:0] link_addr_out,
+    output [2:0] muxsig_out,
+    output [2:0] func3_out,
+    output regew_control_out,
+    output [4:0] rd_out,
+    output csrrw_out,
+    output csrrs_out,
+    output [11:0] csr_addr_out,
+    output ecallsig_out,
 
-  output avaliable,
-  input pipline_valid,
-  input flush
+    output avaliable,
+    input  pipline_valid,
+    input  flush
 );
 
   reg avaliable_r;
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       avaliable_r <= 1'b0;
     end else begin
-      if(pipline_valid) begin
+      if (pipline_valid) begin
         avaliable_r <= 1'b1;
-      end else if(flush) begin
+      end else if (flush) begin
         avaliable_r <= 1'b0;
       end
     end
@@ -3194,7 +3173,7 @@ module wbu_pipline_connect(
   reg ecallsig_r;
 
   always @(posedge clk) begin
-    if(rst) begin
+    if (rst) begin
       res_r <= 32'b0;
       regout2_r <= 32'b0;
       memew_r <= 1'b0;
@@ -3210,7 +3189,7 @@ module wbu_pipline_connect(
       csr_addr_r <= 12'b0;
       ecallsig_r <= 1'b0;
     end else begin
-      if(pipline_valid) begin
+      if (pipline_valid) begin
         res_r <= res_in;
         regout2_r <= regout2_in;
         memew_r <= memew_in;
@@ -3225,7 +3204,7 @@ module wbu_pipline_connect(
         csrrs_r <= csrrs_in;
         csr_addr_r <= csr_addr_in;
         ecallsig_r <= ecallsig_in;
-      end else if(flush) begin
+      end else if (flush) begin
         res_r <= 32'b0;
         regout2_r <= 32'b0;
         memew_r <= 1'b0;
@@ -3261,7 +3240,6 @@ module wbu_pipline_connect(
   assign ecallsig_out = ecallsig_r;
 
 endmodule
-
 
 module ysyx_24100007_core #(
   parameter PORT_NUM=2  // 连接到arbiter的端口数量（IFU和WBU）

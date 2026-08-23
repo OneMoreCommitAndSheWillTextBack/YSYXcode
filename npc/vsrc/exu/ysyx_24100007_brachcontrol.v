@@ -22,7 +22,7 @@ module ysyx_24100007_branchcontrol (
 );
   assign pcwritereg = (jalsig || jalrsig) ? pcadd4 : auipcsig ? pcaddimm : (ecallsig) ? pc : 0;
 
-  wire npc_is_pcaddimm = (jalsig) || (btypebranch && func3 == 3'b000 && zero) || 
+  wire npc_is_pcaddimm = (jalsig) || (btypebranch && func3 == 3'b000 && zero) ||
                         (btypebranch && func3 == 3'b001 && !zero) || 
                         (btypebranch && func3 == 3'b100 && res[0]) || 
                         (btypebranch && func3 == 3'b101 && (!res[0] || zero)) || 

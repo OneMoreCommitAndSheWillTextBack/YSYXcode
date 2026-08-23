@@ -397,67 +397,61 @@ module ysyx_24100007_exu_pipline_connect (
   reg csrrs_r;
   reg [11:0] csr_addr_r;
 
+  // Datapath contents are irrelevant while the pipeline stage is invalid.
+  always @(posedge clk) begin
+    if (pipline_valid) begin
+      func3_r <= func3_in;
+      func7_r <= func7_in;
+      aluop_r <= aluop_in;
+      imm_r <= imm_in;
+      muximm_r <= muximm_in;
+      src1_r <= src1_in;
+      src2_r <= src2_in;
+      pc_r <= pc_in;
+      auipcsig_r <= auipcsig_in;
+      mtvec_r <= mtvec_in;
+      mepc_r <= mepc_in;
+      muxsig_r <= muxsig_in;
+      rd_r <= rd_in;
+      csr_addr_r <= csr_addr_in;
+    end
+  end
+
+  // Reset side-effect controls so invalid datapath values cannot escape.
   always @(posedge clk) begin
     if (rst) begin
-      func3_r <= 3'b0;
       btypebranch_r <= 1'b0;
-      func7_r <= 1'b0;
-      aluop_r <= 2'b0;
       jalrsig_r <= 1'b0;
       jalsig_r <= 1'b0;
-      imm_r <= 32'b0;
-      muximm_r <= 1'b0;
-      src1_r <= 32'b0;
-      src2_r <= 32'b0;
-      pc_r <= 32'b0;
-      auipcsig_r <= 1'b0;
       mretsig_r <= 1'b0;
       ecallsig_r <= 1'b0;
-      mtvec_r <= 32'b0;
-      mepc_r <= 32'b0;
       memew_r <= 1'b0;
       memer_r <= 1'b0;
-      muxsig_r <= 3'b0;
       regew_control_r <= 1'b0;
-      rd_r <= 5'b0;
       csrrw_r <= 1'b0;
       csrrs_r <= 1'b0;
-      csr_addr_r <= 12'b0;
-    end else begin
-      if (pipline_valid) begin
-        func3_r <= func3_in;
-        btypebranch_r <= btypebranch_in;
-        func7_r <= func7_in;
-        aluop_r <= aluop_in;
-        jalrsig_r <= jalrsig_in;
-        jalsig_r <= jalsig_in;
-        imm_r <= imm_in;
-        muximm_r <= muximm_in;
-        src1_r <= src1_in;
-        src2_r <= src2_in;
-        pc_r <= pc_in;
-        auipcsig_r <= auipcsig_in;
-        mretsig_r <= mretsig_in;
-        ecallsig_r <= ecallsig_in;
-        mtvec_r <= mtvec_in;
-        mepc_r <= mepc_in;
-        memew_r <= memew_in;
-        memer_r <= memer_in;
-        muxsig_r <= muxsig_in;
-        regew_control_r <= regew_control_in;
-        rd_r <= rd_in;
-        csrrw_r <= csrrw_in;
-        csrrs_r <= csrrs_in;
-        csr_addr_r <= csr_addr_in;
-      end else if (flush) begin
-        regew_control_r <= 1'b0;
-        memew_r <= 1'b0;
-        memer_r <= 1'b0;
-        rd_r <= 5'b0;
-        csrrw_r <= 1'b0;
-        csrrs_r <= 1'b0;
-        ecallsig_r <= 1'b0;
-      end
+    end else if (pipline_valid) begin
+      btypebranch_r <= btypebranch_in;
+      jalrsig_r <= jalrsig_in;
+      jalsig_r <= jalsig_in;
+      mretsig_r <= mretsig_in;
+      ecallsig_r <= ecallsig_in;
+      memew_r <= memew_in;
+      memer_r <= memer_in;
+      regew_control_r <= regew_control_in;
+      csrrw_r <= csrrw_in;
+      csrrs_r <= csrrs_in;
+    end else if (flush) begin
+      btypebranch_r <= 1'b0;
+      jalrsig_r <= 1'b0;
+      jalsig_r <= 1'b0;
+      mretsig_r <= 1'b0;
+      ecallsig_r <= 1'b0;
+      memew_r <= 1'b0;
+      memer_r <= 1'b0;
+      regew_control_r <= 1'b0;
+      csrrw_r <= 1'b0;
+      csrrs_r <= 1'b0;
     end
   end
 
