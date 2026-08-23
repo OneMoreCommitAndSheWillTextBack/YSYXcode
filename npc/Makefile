@@ -140,6 +140,7 @@ IVG_SIM_BIN = $(NPC_HOME)/build/npc_ivg
 IVG_TOP = $(NPC_HOME)/vsrc-extra/ivg_top.v
 NPC_WRAPPER_V = $(NPC_HOME)/vsrc-extra/npc.v
 BIN_IVG = $(NPC_HOME)/bin.ivg
+IVG_BIN_DEFINE = -DBIN_IVG=\"$(BIN_IVG)\"
 VERILOG_ORDER = \
 	vsrc/ysyx_24100007.v \
 	vsrc/exu/ysyx_24100007_alucontrol.v \
@@ -176,7 +177,7 @@ ivg:
 	@if [ -n "$(IVG)" ]; then \
 		ln -sf "$(IVG)" "$(BIN_IVG)"; \
 	fi
-	iverilog -D__NPC__ -o $(IVG_SIM_BIN) -g2012 \
+	iverilog -D__NPC__ $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
 		$(VERILOG_OUT) \
 		$(IVG_TOP) \
 		$(NPC_WRAPPER_V)
@@ -188,7 +189,7 @@ $(BIN_IVG): $(IMG)
 	@(echo "@0"; xxd -p -c 0 $(IMG) | sed 's/\(..\)/\1 /g') > $(BIN_IVG)
 
 sim-iverilog: $(IMG) $(BIN_IVG) $(VERILOG_OUT)
-	iverilog -D__NPC__ -o $(IVG_SIM_BIN) -g2012 \
+	iverilog -D__NPC__ $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
 		$(VERILOG_OUT) \
 		$(IVG_TOP) \
 		$(NPC_WRAPPER_V)
@@ -196,7 +197,7 @@ sim-iverilog: $(IMG) $(BIN_IVG) $(VERILOG_OUT)
 
 CELLS_V = $(if $(CELLS),$(shell find $(CELLS) -name "*.v" 2>/dev/null),)
 sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST)
-	iverilog -o $(IVG_SIM_BIN) -g2012 \
+	iverilog $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
 		$(CELLS_V) \
 		$(NETLIST) \
 		$(IVG_TOP) \

@@ -64,6 +64,7 @@ module ysyx_24100007_idu(
   idu_state_t idu_state_r;
 
   wire avaliable;
+  wire src_data_valid;
   always @(posedge clk) begin
     if(rst) begin
       idu_state_r <= IDLE;
@@ -166,8 +167,6 @@ module ysyx_24100007_idu(
   assign func7 = func7bridge;
   assign func3 = func3bridge;
   assign csr_addr = inst[31:20];  // Extract CSR address from instruction
-
-  wire src_data_valid;
 
   ysyx_24100007_transmit transmit0(
     .clk(clk),

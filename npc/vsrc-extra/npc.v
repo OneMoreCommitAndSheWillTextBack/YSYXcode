@@ -264,6 +264,9 @@ module npc (
 endmodule
 
 `ifdef __ICARUS__
+`ifndef BIN_IVG
+`define BIN_IVG "bin.ivg"
+`endif
 module axi_memory (
     input clk,
     input rst,
@@ -312,6 +315,13 @@ module axi_memory (
 
   state_t state_current;
   state_t state_next;
+  reg  [ 1:0] arburst_i;
+  reg  [ 7:0] arlen_i;
+  reg  [ 2:0] arsize_i;
+  reg  [31:0] current_addr;
+  reg read_done;
+  reg write_done;
+  wire [31:0] pmem_read_data_mux;
 
   always @(posedge clk) begin
     if (rst) begin
@@ -412,9 +422,6 @@ module axi_memory (
   wire [31:0] wrap_end = wrap_boundary + wrap_size;
 
 
-  reg  [ 1:0] arburst_i;
-  reg  [ 7:0] arlen_i;
-  reg  [ 2:0] arsize_i;
   always @(posedge clk) begin
     if (rst) begin
       arsize_i  <= 3'b0;
@@ -427,7 +434,6 @@ module axi_memory (
     end
   end
 
-  reg [31:0] current_addr;
   always @(posedge clk) begin
     if (rst) begin
       current_addr <= 32'b0;
@@ -471,7 +477,6 @@ module axi_memory (
     end
   end
 
-  reg read_done;
   reg read_valid;
   reg [31:0] data_output;
   reg [7:0] read_burst_counter;
@@ -519,10 +524,8 @@ module axi_memory (
 
   reg [7:0] pmem[536870911:0];
   initial begin
-    $readmemh("/home/ysyx/project/ysyx-workbench/npc/bin.ivg", pmem);
+    $readmemh(`BIN_IVG, pmem);
   end
-
-  reg write_done;
 
   reg [31:0] data_i;
   reg [3:0] wstrb_i;
@@ -554,7 +557,7 @@ module axi_memory (
   } : 32'h0;
   wire [31:0] uart_read_data = 32'h0;  // UART 仅支持写，读返回 0
 
-  wire [31:0] pmem_read_data_mux = in_uart ? uart_read_data : pmem_read_data;
+  assign pmem_read_data_mux = in_uart ? uart_read_data : pmem_read_data;
 
   always @(*) begin
     if ((state_current == READ || state_current == WRITE) && !in_pmem && !in_uart) begin
@@ -662,6 +665,12 @@ module axi_memory (
 
   state_t state_current;
   state_t state_next;
+  reg [1:0] arburst_i;
+  reg [7:0] arlen_i;
+  reg [2:0] arsize_i;
+  reg [31:0] current_addr;
+  reg read_done;
+  reg write_done;
 
   always @(posedge clk) begin
     if (rst) begin
@@ -767,9 +776,6 @@ module axi_memory (
     output int data
   );
 
-  reg [1:0] arburst_i;
-  reg [7:0] arlen_i;
-  reg [2:0] arsize_i;
   always @(posedge clk) begin
     if (rst) begin
       arsize_i  <= 3'b0;
@@ -782,7 +788,6 @@ module axi_memory (
     end
   end
 
-  reg [31:0] current_addr;
   always @(posedge clk) begin
     if (rst) begin
       current_addr <= 32'b0;
@@ -826,7 +831,6 @@ module axi_memory (
     end
   end
 
-  reg read_done;
   reg read_valid;
   reg [31:0] data_output;
   reg [7:0] read_burst_counter;
@@ -863,8 +867,6 @@ module axi_memory (
     input int len,
     input int data
   );
-  reg write_done;
-
   reg [31:0] data_i;
   reg [3:0] wstrb_i;
 

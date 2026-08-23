@@ -532,6 +532,8 @@ module ysyx_24100007_exu (
   } exu_state_t;
   exu_state_t exu_state_r;
 
+  wire exu_valid_sig;
+  wire exu_csr_delay;
   wire exu_wbu_handshake = exu_valid_sig & out_ready;
   wire avaliable;
   always @(posedge clk) begin
@@ -555,7 +557,7 @@ module ysyx_24100007_exu (
     end
   end
 
-  wire exu_valid_sig = (exu_state_r == VALID) & !exu_csr_delay;
+  assign exu_valid_sig = (exu_state_r == VALID) & !exu_csr_delay;
   wire accept = ((exu_state_r == IDLE) || exu_wbu_handshake) && in_valid;
   wire idu_valid = in_valid & !is_jmp;
 
@@ -753,7 +755,7 @@ module ysyx_24100007_exu (
   // load-use
   assign exu_memer_bypass = memer_out;
   wire exu_need_mepc_mtvec = ecallsig || mretsig;
-  wire exu_csr_delay = wbu_write_csr & exu_need_mepc_mtvec;
+  assign exu_csr_delay = wbu_write_csr & exu_need_mepc_mtvec;
 
   // synopsys translate_off
 `ifdef VERILATOR
@@ -1177,6 +1179,7 @@ module ysyx_24100007_idu(
   idu_state_t idu_state_r;
 
   wire avaliable;
+  wire src_data_valid;
   always @(posedge clk) begin
     if(rst) begin
       idu_state_r <= IDLE;
@@ -1279,8 +1282,6 @@ module ysyx_24100007_idu(
   assign func7 = func7bridge;
   assign func3 = func3bridge;
   assign csr_addr = inst[31:20];  // Extract CSR address from instruction
-
-  wire src_data_valid;
 
   ysyx_24100007_transmit transmit0(
     .clk(clk),
