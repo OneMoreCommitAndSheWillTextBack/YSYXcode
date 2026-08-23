@@ -46,7 +46,7 @@ ifeq ($(BUILD_MODE),ysyxsoc)
   TOPNAME = ysyxSoCFull
   NVBOARD_ENABLE = 0
 
-	VERILATOR_FLAGS += -D__YSYXSOC__
+	VERILATOR_FLAGS += -D__YSYXSOC__ -D__UART_TO_CONSOLE__
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/uart16550/rtl
 	VERILATOR_INCLUDE_PATH += $(SOCPATH)/perip/spi/rtl
 	VSRC += $(shell find $(SOCPATH)/perip -name "*.v")
