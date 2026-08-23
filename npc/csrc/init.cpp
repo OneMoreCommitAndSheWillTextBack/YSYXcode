@@ -80,19 +80,27 @@ unsigned long long die_on_end = 0;
 bool die_on_end_on = false;
 
 char *filepath = NULL;
-char diff_ref[] = "/home/cinder/Code/project/ysyx-workbench/nemu/build/"
-                  "riscv32-nemu-interpreter-so";
+char *diff_ref = NULL;
+char *itrace_out_file = NULL;
+char *mtrace_out_file = NULL;
+char *wave_out_file = NULL;
+char *perf_output_file = NULL;
 int port = 0;
 bool batch_mode_on = false;
-
-char itrace_out_file[] =
-    "/home/cinder/Code/project/ysyx-workbench/simulator/itrace-log.txt";
 
 #ifdef __NVBOARD__
 extern void nvboard_bind_all_pins(VysyxSoCFull *top);
 #endif
 
 void parse_args(int argc, char *argv[]) {
+  enum {
+    OPT_DIFF = 256,
+    OPT_ITRACE_LOG,
+    OPT_MTRACE_LOG,
+    OPT_WAVE,
+    OPT_PERF_OUTPUT,
+  };
+
   const struct option table[] = {
       {"port", required_argument, NULL, 'p'},
       {"file", required_argument, NULL, 'f'},
@@ -103,6 +111,11 @@ void parse_args(int argc, char *argv[]) {
       {"enable-record", no_argument, NULL, 'e'},
       {"enable-record-when", required_argument, NULL, 'w'},
       {"performance-dump", no_argument, NULL, 'm'},
+      {"diff", required_argument, NULL, OPT_DIFF},
+      {"itrace-log", required_argument, NULL, OPT_ITRACE_LOG},
+      {"mtrace-log", required_argument, NULL, OPT_MTRACE_LOG},
+      {"wave", required_argument, NULL, OPT_WAVE},
+      {"perf-output", required_argument, NULL, OPT_PERF_OUTPUT},
       {0, 0, NULL, 0},
   };
   int o;
@@ -147,6 +160,21 @@ void parse_args(int argc, char *argv[]) {
       break;
     case 'p':
       break;
+    case OPT_DIFF:
+      diff_ref = optarg;
+      break;
+    case OPT_ITRACE_LOG:
+      itrace_out_file = optarg;
+      break;
+    case OPT_MTRACE_LOG:
+      mtrace_out_file = optarg;
+      break;
+    case OPT_WAVE:
+      wave_out_file = optarg;
+      break;
+    case OPT_PERF_OUTPUT:
+      perf_output_file = optarg;
+      break;
     }
   }
 }
@@ -159,7 +187,7 @@ void init_trace() {
   trace->context = new VerilatedContext;
   trace->context->traceEverOn(true);
   npc->top->trace(trace->tfp, 0);
-  trace->tfp->open("/home/cinder/Code/project/ysyx-workbench/npc/wave.vcd");
+  trace->tfp->open(wave_out_file);
 #endif
   return;
 }

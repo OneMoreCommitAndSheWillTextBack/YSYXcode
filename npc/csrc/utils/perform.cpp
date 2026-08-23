@@ -2,6 +2,7 @@
 
 extern Npc *npc;
 extern Cpu *cpu;
+extern char *perf_output_file;
 
 #include <fstream>
 #include <ctime>
@@ -25,8 +26,7 @@ static std::string now_time() {
 
 void dump_performance() {
      // 覆盖写入，文件中只保留最近一次的性能数据，使用 key=value 形式便于脚本解析
-     std::ofstream ofs("/home/ysyx/project/ysyx-workbench/npc/performance.txt",
-                       std::ios::out | std::ios::trunc);
+     std::ofstream ofs(perf_output_file, std::ios::out | std::ios::trunc);
 
   uint64_t total_inst   = npc->npc_commit_time;
   uint64_t total_cycle  = npc->cycs;

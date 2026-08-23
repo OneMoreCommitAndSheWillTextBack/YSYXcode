@@ -31,8 +31,7 @@ socspace soc_spaces[] = {
 #define SPACE_NUM (sizeof(soc_spaces) / sizeof(soc_spaces[0]))
 
 #ifdef MTRACE
-char mtrace_log_file[] =
-    "/home/cinder/Code/project/ysyx-workbench/simulator/mtrace_log.txt";
+extern char *mtrace_out_file;
 FILE *mtrace_fd = NULL;
 #endif
 
@@ -43,9 +42,9 @@ void init_mem() {
   }
 
 #ifdef MTRACE
-  mtrace_fd = fopen(mtrace_log_file, "w");
+  mtrace_fd = fopen(mtrace_out_file, "w");
   printf(COLOR_GREEN "[INFO] mtrace log file %s\n" COLOR_RESET,
-         mtrace_log_file);
+         mtrace_out_file);
 #endif
 }
 
