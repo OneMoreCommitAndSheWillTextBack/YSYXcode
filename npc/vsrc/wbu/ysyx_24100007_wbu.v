@@ -49,6 +49,14 @@ module ysyx_24100007_wbu (
     output transmit_data_valid
 );
 
+  localparam [1:0] WAIT_VALID = 2'd0;
+  localparam [1:0] BUS_HANDSHAKE = 2'd1;
+  localparam [1:0] BUS_TRANSACTION = 2'd2;
+  localparam [1:0] WRITE_BACK = 2'd3;
+
+  reg [1:0] wbu_state;
+  wire avaliable;
+
   wire accept = ((wbu_state == WAIT_VALID) || (wbu_state == WRITE_BACK)) && in_valid;
   assign in_ready = (wbu_state == WAIT_VALID);
   wire pipline_valid = accept;
@@ -107,15 +115,7 @@ module ysyx_24100007_wbu (
   );
 
   // Memory access state machine
-  localparam [1:0] WAIT_VALID = 2'd0;
-  localparam [1:0] BUS_HANDSHAKE = 2'd1;
-  localparam [1:0] BUS_TRANSACTION = 2'd2;
-  localparam [1:0] WRITE_BACK = 2'd3;
-
-  reg [1:0] wbu_state;
-
   wire mem_access = memew_in | memer_in;
-  wire avaliable;
   always @(posedge clk) begin
     if (rst) begin
       wbu_state <= WAIT_VALID;

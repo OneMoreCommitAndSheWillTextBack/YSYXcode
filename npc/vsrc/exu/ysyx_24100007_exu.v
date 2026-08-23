@@ -214,6 +214,7 @@ module ysyx_24100007_exu (
   end
 
   wire zero_flag, sign_flag, carry_flag;
+  wire [31:0] res_r;
   ysyx_24100007_alu alu0 (
       .A(src1),
       .B(alu_arg2),
@@ -229,7 +230,6 @@ module ysyx_24100007_exu (
   // ------------------------------------
   wire is_jmp_r_1;
   wire is_jmp_r;
-  wire [31:0] res_r;
   wire [31:0] res;
   wire [31:0] link_addr;
   ysyx_24100007_branchcontrol branchcontrol0 (

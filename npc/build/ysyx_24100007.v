@@ -679,6 +679,7 @@ module ysyx_24100007_exu (
   end
 
   wire zero_flag, sign_flag, carry_flag;
+  wire [31:0] res_r;
   ysyx_24100007_alu alu0 (
       .A(src1),
       .B(alu_arg2),
@@ -694,7 +695,6 @@ module ysyx_24100007_exu (
   // ------------------------------------
   wire is_jmp_r_1;
   wire is_jmp_r;
-  wire [31:0] res_r;
   wire [31:0] res;
   wire [31:0] link_addr;
   ysyx_24100007_branchcontrol branchcontrol0 (
@@ -1568,6 +1568,18 @@ module ysyx_24100007_ifu(
   input  [127:0] ifu_line_data
 );
 
+  localparam [2:0] INIT            = 3'd0;
+  localparam [2:0] VALID           = 3'd1;
+  localparam [2:0] CHECK_CACHE     = 3'd2;
+  localparam [2:0] BUS_HANDSHAKE   = 3'd3;
+  localparam [2:0] BUS_TRANSACTION = 3'd4;
+  localparam [2:0] UPDATE_CACHE    = 3'd5;
+  localparam [2:0] BUS_INVALID     = 3'd6;
+  localparam [2:0] UPDATE_PC       = 3'd7;
+
+  reg [2:0] ifu_state;
+  reg [31:0] inst_reg;
+
   wire [31:0] pcbridge;
   wire infetch_req = is_jmp | (ready & valid); // update pc
   // Keep the PC register clock-enabled during reset so a synthesized
@@ -1658,17 +1670,6 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // IFU STATE MACHINE
   // ------------------------------------
-  localparam [2:0] INIT          = 3'd0;
-  localparam [2:0] VALID         = 3'd1;
-  localparam [2:0] CHECK_CACHE   = 3'd2;
-  localparam [2:0] BUS_HANDSHAKE = 3'd3;
-  localparam [2:0] BUS_TRANSACTION = 3'd4;
-  localparam [2:0] UPDATE_CACHE  = 3'd5;
-  localparam [2:0] BUS_INVALID   = 3'd6;
-  localparam [2:0] UPDATE_PC     = 3'd7;
-
-  reg [2:0] ifu_state;
-
   always @(posedge clk) begin
     if(rst) begin
       ifu_state <= INIT;
@@ -1759,7 +1760,6 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // INST UPDATE LOGIC
   // ------------------------------------
-  reg [31:0] inst_reg;
   wire icache_hit = (ifu_state == CHECK_CACHE) && hit;
   always @(posedge clk) begin
     if(rst) begin
@@ -1891,6 +1891,24 @@ module ysyx_24100007_lsu (
     input  [1:0] bresp
 );
 
+  typedef enum logic [1:0] {
+    IFU,
+    WBU_R,
+    WBU_W
+  } master_t;
+
+  typedef enum logic [1:0] {
+    READY,
+    WAIT_HANDSHAKE,
+    WAIT_SLAVE,
+    PROCESSION
+  } axi_state_t;
+
+  master_t master;
+  axi_state_t state;
+  wire finish_acp;
+  wire is_unalign;
+
   wire has_req = ifu_read_req | wbu_read_req | wbu_write_req;
   wire has_ifu = ifu_read_req;
   wire has_wbu = wbu_read_req | wbu_write_req;
@@ -1938,15 +1956,7 @@ module ysyx_24100007_lsu (
   assign ifu_req_finish = ifu_finish;
   assign wbu_req_finish = wbu_finish;
   wire finish = ifu_finish | wbu_finish;
-  wire finish_acp = finish && (ifu_req_ready | wbu_req_ready);
-
-  typedef enum logic [1:0] {
-    IFU,
-    WBU_R,
-    WBU_W
-  } master_t;
-
-  master_t master;
+  assign finish_acp = finish && (ifu_req_ready | wbu_req_ready);
 
   always @(posedge clk) begin
     if (rst) begin
@@ -2019,16 +2029,6 @@ module ysyx_24100007_lsu (
   assign rready  = is_read & (state == WAIT_SLAVE);
   assign bready  = is_write & (state == WAIT_SLAVE);
 
-  // ---------- AXI 状态机 ----------
-  typedef enum logic [1:0] {
-    READY,
-    WAIT_HANDSHAKE,
-    WAIT_SLAVE,
-    PROCESSION
-  } axi_state_t;
-
-  axi_state_t state;
-
   always @(posedge clk) begin
     if (rst) begin
       state <= READY;
@@ -2082,7 +2082,7 @@ module ysyx_24100007_lsu (
   wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
   wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
   wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
-  wire is_unalign = in_psram | in_sdram | in_sram;
+  assign is_unalign = in_psram | in_sdram | in_sram;
 
   wire [31:0] memread;
   ysyx_24100007_memreadlen memreadlen_u (
@@ -2902,6 +2902,14 @@ module ysyx_24100007_wbu (
     output transmit_data_valid
 );
 
+  localparam [1:0] WAIT_VALID = 2'd0;
+  localparam [1:0] BUS_HANDSHAKE = 2'd1;
+  localparam [1:0] BUS_TRANSACTION = 2'd2;
+  localparam [1:0] WRITE_BACK = 2'd3;
+
+  reg [1:0] wbu_state;
+  wire avaliable;
+
   wire accept = ((wbu_state == WAIT_VALID) || (wbu_state == WRITE_BACK)) && in_valid;
   assign in_ready = (wbu_state == WAIT_VALID);
   wire pipline_valid = accept;
@@ -2960,15 +2968,7 @@ module ysyx_24100007_wbu (
   );
 
   // Memory access state machine
-  localparam [1:0] WAIT_VALID = 2'd0;
-  localparam [1:0] BUS_HANDSHAKE = 2'd1;
-  localparam [1:0] BUS_TRANSACTION = 2'd2;
-  localparam [1:0] WRITE_BACK = 2'd3;
-
-  reg [1:0] wbu_state;
-
   wire mem_access = memew_in | memer_in;
-  wire avaliable;
   always @(posedge clk) begin
     if (rst) begin
       wbu_state <= WAIT_VALID;
@@ -3220,6 +3220,24 @@ module ysyx_24100007_core #(
   wire ifu_req_ready;
   wire [31:0] ifu_addr;
   wire [127:0] lsu_data_read;
+  wire is_jmp;
+  wire [31:0] regout1, regout2;
+  wire [4:0] exu_rd_bypass;
+  wire exu_regew_bypass;
+  wire [31:0] exu_transmit_data;
+  wire exu_transmit_data_valid;
+  wire exu_memer_bypass;
+  wire regew;
+  wire [4:0] wbu_rd_bypass;
+  wire wbu_regew_bypass;
+  wire [31:0] wbu_transmit_data;
+  wire wbu_transmit_data_valid;
+  wire [4:0] wbu_reg_rd;
+  wire wbu_commit;
+  wire wbu_csrrw_out, wbu_csrrs_out;
+  wire [11:0] wbu_csr_addr_out;
+  wire wbu_ecallsig_out;
+  wire wbu_write_csr;
 
   ysyx_24100007_ifu ifu0(
     .clk(clock),
@@ -3309,7 +3327,7 @@ module ysyx_24100007_core #(
   .pc_out(idu_pc)
 );
 
-  wire [31:0] regwrite, regout1, regout2;
+  wire [31:0] regwrite;
   wire [31:0] mepc, mtvec;
   ysyx_24100007_regheap regfile(
     .clk(clock),
@@ -3330,7 +3348,6 @@ module ysyx_24100007_core #(
   ); 
   
   wire [31:0] exu_emit;
-  wire is_jmp;
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
@@ -3342,11 +3359,6 @@ module ysyx_24100007_core #(
   wire exu_ecallsig_out;
 
   // EXU 向 IDU 转发的旁路信号
-  wire [4:0] exu_rd_bypass;               // EXU 阶段的 rd（用于旁路）
-  wire exu_regew_bypass;                  // EXU 阶段的写使能（用于旁路）
-  wire [31:0] exu_transmit_data;          // EXU 阶段的计算结果（用于旁路）
-  wire exu_transmit_data_valid;           // EXU 阶段的旁路数据有效信号
-  wire exu_memer_bypass;                  // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
   ysyx_24100007_exu exu0(
   .clk(clock),
   .rst(reset),
@@ -3408,20 +3420,7 @@ module ysyx_24100007_core #(
   .exu_memer_bypass(exu_memer_bypass)
 );
 
-  wire regew;
-
   // WBU 向 IDU 转发的旁路信号
-  wire [4:0] wbu_rd_bypass;               // WBU 阶段的 rd（用于旁路）
-  wire wbu_regew_bypass;                  // WBU 阶段的写使能（用于旁路）
-  wire [31:0] wbu_transmit_data;          // WBU 阶段的写回数据（用于旁路）
-  wire wbu_transmit_data_valid;           // WBU 阶段的旁路数据有效信号
-  wire [4:0] wbu_reg_rd;
-  wire wbu_commit;
-  wire wbu_csrrw_out, wbu_csrrs_out;
-  wire [11:0] wbu_csr_addr_out;
-  wire wbu_ecallsig_out;
-  wire wbu_write_csr;
-
   wire wbu_read_req, wbu_write_req;
   wire wbu_req_acp, wbu_req_finish, wbu_req_ready;
   wire lsu_mem_we;

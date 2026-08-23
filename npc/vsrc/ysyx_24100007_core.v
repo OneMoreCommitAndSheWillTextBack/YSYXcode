@@ -55,6 +55,24 @@ module ysyx_24100007_core #(
   wire ifu_req_ready;
   wire [31:0] ifu_addr;
   wire [127:0] lsu_data_read;
+  wire is_jmp;
+  wire [31:0] regout1, regout2;
+  wire [4:0] exu_rd_bypass;
+  wire exu_regew_bypass;
+  wire [31:0] exu_transmit_data;
+  wire exu_transmit_data_valid;
+  wire exu_memer_bypass;
+  wire regew;
+  wire [4:0] wbu_rd_bypass;
+  wire wbu_regew_bypass;
+  wire [31:0] wbu_transmit_data;
+  wire wbu_transmit_data_valid;
+  wire [4:0] wbu_reg_rd;
+  wire wbu_commit;
+  wire wbu_csrrw_out, wbu_csrrs_out;
+  wire [11:0] wbu_csr_addr_out;
+  wire wbu_ecallsig_out;
+  wire wbu_write_csr;
 
   ysyx_24100007_ifu ifu0(
     .clk(clock),
@@ -144,7 +162,7 @@ module ysyx_24100007_core #(
   .pc_out(idu_pc)
 );
 
-  wire [31:0] regwrite, regout1, regout2;
+  wire [31:0] regwrite;
   wire [31:0] mepc, mtvec;
   ysyx_24100007_regheap regfile(
     .clk(clock),
@@ -165,7 +183,6 @@ module ysyx_24100007_core #(
   ); 
   
   wire [31:0] exu_emit;
-  wire is_jmp;
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
@@ -177,11 +194,6 @@ module ysyx_24100007_core #(
   wire exu_ecallsig_out;
 
   // EXU 向 IDU 转发的旁路信号
-  wire [4:0] exu_rd_bypass;               // EXU 阶段的 rd（用于旁路）
-  wire exu_regew_bypass;                  // EXU 阶段的写使能（用于旁路）
-  wire [31:0] exu_transmit_data;          // EXU 阶段的计算结果（用于旁路）
-  wire exu_transmit_data_valid;           // EXU 阶段的旁路数据有效信号
-  wire exu_memer_bypass;                  // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
   ysyx_24100007_exu exu0(
   .clk(clock),
   .rst(reset),
@@ -243,20 +255,7 @@ module ysyx_24100007_core #(
   .exu_memer_bypass(exu_memer_bypass)
 );
 
-  wire regew;
-
   // WBU 向 IDU 转发的旁路信号
-  wire [4:0] wbu_rd_bypass;               // WBU 阶段的 rd（用于旁路）
-  wire wbu_regew_bypass;                  // WBU 阶段的写使能（用于旁路）
-  wire [31:0] wbu_transmit_data;          // WBU 阶段的写回数据（用于旁路）
-  wire wbu_transmit_data_valid;           // WBU 阶段的旁路数据有效信号
-  wire [4:0] wbu_reg_rd;
-  wire wbu_commit;
-  wire wbu_csrrw_out, wbu_csrrs_out;
-  wire [11:0] wbu_csr_addr_out;
-  wire wbu_ecallsig_out;
-  wire wbu_write_csr;
-
   wire wbu_read_req, wbu_write_req;
   wire wbu_req_acp, wbu_req_finish, wbu_req_ready;
   wire lsu_mem_we;

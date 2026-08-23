@@ -53,6 +53,24 @@ module ysyx_24100007_lsu (
     input  [1:0] bresp
 );
 
+  typedef enum logic [1:0] {
+    IFU,
+    WBU_R,
+    WBU_W
+  } master_t;
+
+  typedef enum logic [1:0] {
+    READY,
+    WAIT_HANDSHAKE,
+    WAIT_SLAVE,
+    PROCESSION
+  } axi_state_t;
+
+  master_t master;
+  axi_state_t state;
+  wire finish_acp;
+  wire is_unalign;
+
   wire has_req = ifu_read_req | wbu_read_req | wbu_write_req;
   wire has_ifu = ifu_read_req;
   wire has_wbu = wbu_read_req | wbu_write_req;
@@ -100,15 +118,7 @@ module ysyx_24100007_lsu (
   assign ifu_req_finish = ifu_finish;
   assign wbu_req_finish = wbu_finish;
   wire finish = ifu_finish | wbu_finish;
-  wire finish_acp = finish && (ifu_req_ready | wbu_req_ready);
-
-  typedef enum logic [1:0] {
-    IFU,
-    WBU_R,
-    WBU_W
-  } master_t;
-
-  master_t master;
+  assign finish_acp = finish && (ifu_req_ready | wbu_req_ready);
 
   always @(posedge clk) begin
     if (rst) begin
@@ -181,16 +191,6 @@ module ysyx_24100007_lsu (
   assign rready  = is_read & (state == WAIT_SLAVE);
   assign bready  = is_write & (state == WAIT_SLAVE);
 
-  // ---------- AXI 状态机 ----------
-  typedef enum logic [1:0] {
-    READY,
-    WAIT_HANDSHAKE,
-    WAIT_SLAVE,
-    PROCESSION
-  } axi_state_t;
-
-  axi_state_t state;
-
   always @(posedge clk) begin
     if (rst) begin
       state <= READY;
@@ -244,7 +244,7 @@ module ysyx_24100007_lsu (
   wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
   wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
   wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
-  wire is_unalign = in_psram | in_sdram | in_sram;
+  assign is_unalign = in_psram | in_sdram | in_sram;
 
   wire [31:0] memread;
   ysyx_24100007_memreadlen memreadlen_u (

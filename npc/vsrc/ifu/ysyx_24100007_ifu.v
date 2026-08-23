@@ -19,6 +19,18 @@ module ysyx_24100007_ifu(
   input  [127:0] ifu_line_data
 );
 
+  localparam [2:0] INIT            = 3'd0;
+  localparam [2:0] VALID           = 3'd1;
+  localparam [2:0] CHECK_CACHE     = 3'd2;
+  localparam [2:0] BUS_HANDSHAKE   = 3'd3;
+  localparam [2:0] BUS_TRANSACTION = 3'd4;
+  localparam [2:0] UPDATE_CACHE    = 3'd5;
+  localparam [2:0] BUS_INVALID     = 3'd6;
+  localparam [2:0] UPDATE_PC       = 3'd7;
+
+  reg [2:0] ifu_state;
+  reg [31:0] inst_reg;
+
   wire [31:0] pcbridge;
   wire infetch_req = is_jmp | (ready & valid); // update pc
   // Keep the PC register clock-enabled during reset so a synthesized
@@ -109,17 +121,6 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // IFU STATE MACHINE
   // ------------------------------------
-  localparam [2:0] INIT          = 3'd0;
-  localparam [2:0] VALID         = 3'd1;
-  localparam [2:0] CHECK_CACHE   = 3'd2;
-  localparam [2:0] BUS_HANDSHAKE = 3'd3;
-  localparam [2:0] BUS_TRANSACTION = 3'd4;
-  localparam [2:0] UPDATE_CACHE  = 3'd5;
-  localparam [2:0] BUS_INVALID   = 3'd6;
-  localparam [2:0] UPDATE_PC     = 3'd7;
-
-  reg [2:0] ifu_state;
-
   always @(posedge clk) begin
     if(rst) begin
       ifu_state <= INIT;
@@ -210,7 +211,6 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // INST UPDATE LOGIC
   // ------------------------------------
-  reg [31:0] inst_reg;
   wire icache_hit = (ifu_state == CHECK_CACHE) && hit;
   always @(posedge clk) begin
     if(rst) begin
