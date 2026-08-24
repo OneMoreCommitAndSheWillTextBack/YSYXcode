@@ -15,9 +15,9 @@ initial begin
     #60 $display("start to sim the design\n");
 end
 
-initial begin
-    $dumpfile("wave.vcd");    //生成的vcd文件名称
-    $dumpvars(0, ivg_top);    //tb模块名称
-end
+// initial begin
+//     $dumpfile("wave.vcd");    //生成的vcd文件名称
+//     $dumpvars(0, ivg_top);    //tb模块名称
+// end
 
 endmodule

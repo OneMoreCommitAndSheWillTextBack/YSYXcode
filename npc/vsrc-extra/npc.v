@@ -511,7 +511,8 @@ module axi_memory (
   // 内存映射
   // --------------------------
   localparam PMEM_BASE = 32'h80000000;
-  localparam PMEM_SIZE = 32'h20000000;  // 512MB
+  // localparam PMEM_SIZE = 32'h20000000;  // 512MB
+  localparam PMEM_SIZE = 32'h01000000;
   localparam PMEM_END = PMEM_BASE + PMEM_SIZE;
 
   localparam SERIAL_BASE = 32'ha00003f8;
@@ -522,7 +523,8 @@ module axi_memory (
   wire in_uart = (addr_aligned >= SERIAL_BASE) && (addr_aligned < SERIAL_END);
   wire [28:0] pmem_offset = addr_aligned[28:0];
 
-  reg [7:0] pmem[536870911:0];
+  // reg [7:0] pmem[536870911:0];
+  reg [7:0] pmem[0:16777215];
   initial begin
     $readmemh(`BIN_IVG, pmem);
   end
@@ -559,8 +561,8 @@ module axi_memory (
 
   assign pmem_read_data_mux = in_uart ? uart_read_data : pmem_read_data;
 
-  always @(*) begin
-    if ((state_current == READ || state_current == WRITE) && !in_pmem && !in_uart) begin
+  always @(posedge clk) begin
+    if (!rst && (state_current == READ || state_current == WRITE) && !in_pmem && !in_uart) begin
       $display("[axi_memory] ERROR: unmapped access, addr=0x%h", addr_aligned);
       $finish();
     end
