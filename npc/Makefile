@@ -135,6 +135,18 @@ sim:
 		gtkwave ./wave.vcd & \
 	fi
 
+VPI_CC ?= $(CC)
+IVERILOG ?= iverilog
+IVERILOG_BIN ?= $(shell command -v $(IVERILOG) 2>/dev/null)
+IVERILOG_ROOT ?= $(if $(IVERILOG_BIN),$(abspath $(dir $(IVERILOG_BIN))/..))
+IVERILOG_INCLUDE ?= $(if $(IVERILOG_ROOT),$(IVERILOG_ROOT)/include/iverilog)
+VVP_CMD ?= $(if $(IVERILOG_ROOT),$(IVERILOG_ROOT)/bin/vvp,vvp)
+VPI_CFLAGS ?= -fPIC -shared
+VVP_SRC = $(NPC_HOME)/csrc-extra/iverilog-npc-rtc.c
+VVP = $(NPC_HOME)/build/iverilog-npc-rtc.vpi
+VPI_MODULE = $(basename $(notdir $(VVP)))
+VPI_IVERILOG_FLAGS = -L$(dir $(VVP)) -m$(VPI_MODULE)
+VPI_VVP_FLAGS = -M$(dir $(VVP)) -m$(VPI_MODULE)
 VERILOG_OUT = $(NPC_HOME)/build/ysyx_24100007.v
 IVG_SIM_BIN = $(NPC_HOME)/build/npc_ivg
 IVG_TOP = $(NPC_HOME)/vsrc-extra/ivg_top.v
@@ -168,45 +180,48 @@ VERILOG_ORDER = \
 	vsrc/ysyx_24100007_core.v
 verilog: $(VERILOG_OUT)
 
+$(VVP): $(VVP_SRC)
+	@test -n "$(strip $(IVERILOG_INCLUDE))" || { echo "Unable to locate Icarus headers; set IVERILOG_INCLUDE" >&2; exit 1; }
+	$(VPI_CC) $(VPI_CFLAGS) -I"$(IVERILOG_INCLUDE)" -o "$@" "$<"
+
+vpi: $(VVP)
+
 $(VERILOG_OUT):
 	@mkdir -p $(dir $(VERILOG_OUT))
 	@echo + Merging vsrc/*.v into $(VERILOG_OUT)
 	@( for f in $(VERILOG_ORDER); do cat "$$f"; echo; done ) > $(VERILOG_OUT)
 
-ivg:
+ivg: $(VVP) $(VERILOG_OUT)
 	@if [ -n "$(IVG)" ]; then \
 		ln -sf "$(IVG)" "$(BIN_IVG)"; \
 	fi
-	iverilog -D__NPC__ $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
+	$(IVERILOG) $(VPI_IVERILOG_FLAGS) -D__NPC__ $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
 		$(VERILOG_OUT) \
 		$(IVG_TOP) \
 		$(NPC_WRAPPER_V)
-	vvp $(IVG_SIM_BIN)
+	$(VVP_CMD) $(VPI_VVP_FLAGS) $(IVG_SIM_BIN)
 
 $(BIN_IVG): $(IMG)
 	@if [ -z "$(IMG)" ]; then echo "Error: IMG=xxx.bin required"; exit 1; fi
 	@echo Converting $(IMG) to readmemh format
 	@(echo "@0"; xxd -p -c 0 $(IMG) | sed 's/\(..\)/\1 /g') > $(BIN_IVG)
 
-sim-iverilog: $(IMG) $(BIN_IVG) $(VERILOG_OUT)
-	iverilog -D__NPC__ $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
+sim-iverilog: $(IMG) $(BIN_IVG) $(VERILOG_OUT) $(VVP)
+	$(IVERILOG) $(VPI_IVERILOG_FLAGS) -D__NPC__ $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
 		$(VERILOG_OUT) \
 		$(IVG_TOP) \
 		$(NPC_WRAPPER_V)
-	vvp $(IVG_SIM_BIN)
+	$(VVP_CMD) $(VPI_VVP_FLAGS) $(IVG_SIM_BIN)
 
 CELLS_V = $(if $(CELLS),$(shell find $(CELLS) -name "*.v" 2>/dev/null),)
-sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST)
-	iverilog $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
+sim-iverilog-netlist: $(IMG) $(BIN_IVG) $(NETLIST) $(VVP)
+	$(IVERILOG) $(VPI_IVERILOG_FLAGS) $(IVG_BIN_DEFINE) -o $(IVG_SIM_BIN) -g2012 \
 		$(CELLS_V) \
 		$(NETLIST) \
 		$(IVG_TOP) \
 		$(NPC_WRAPPER_V)
-	vvp $(IVG_SIM_BIN)
+	$(VVP_CMD) $(VPI_VVP_FLAGS) $(IVG_SIM_BIN)
 
-# Verilator 网表仿真：使用 NETLIST 替代 RTL，npc 为顶层，无需 ivg_top
-# 用法: make sim-verilator-netlist NETLIST=path/to/ysyx_24100007.netlist.v.sim [CELLS=path/to/cells]
-# 可选 CELLS: 工艺库路径，用于门级网表
 BUILDDIR_NETLIST = ./build/netlist
 OBJDIR_NETLIST = $(BUILDDIR_NETLIST)/obj_dir
 BIN_NETLIST = $(BUILDDIR_NETLIST)/npc
@@ -239,4 +254,4 @@ check:
 perf:
 	python3 show-perf-table.py ./performance.txt
 
-.PHONY: run clean sim npc ysyxsocys yxsoc-nvboard check release sim-verilator-netlist sim-iverilog-netlist
+.PHONY: run clean sim vpi npc ysyxsocys yxsoc-nvboard check release sim-verilator-netlist sim-iverilog-netlist

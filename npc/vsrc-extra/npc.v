@@ -315,10 +315,10 @@ module axi_memory (
 
   state_t state_current;
   state_t state_next;
-  reg  [ 1:0] arburst_i;
-  reg  [ 7:0] arlen_i;
-  reg  [ 2:0] arsize_i;
-  reg  [31:0] current_addr;
+  reg [1:0] arburst_i;
+  reg [7:0] arlen_i;
+  reg [2:0] arsize_i;
+  reg [31:0] current_addr;
   reg read_done;
   reg write_done;
   wire [31:0] pmem_read_data_mux;
@@ -516,11 +516,16 @@ module axi_memory (
   localparam PMEM_END = PMEM_BASE + PMEM_SIZE;
 
   localparam SERIAL_BASE = 32'ha00003f8;
-  localparam SERIAL_SIZE = 32'd8;  // 8 bytes
+  localparam SERIAL_SIZE = 32'd8;
   localparam SERIAL_END = SERIAL_BASE + SERIAL_SIZE;
+
+  localparam RTC_BASE = 32'ha0000048;
+  localparam RTC_SIZE = 32'd8;
+  localparam RTC_END = RTC_BASE + RTC_SIZE;
 
   wire in_pmem = (addr_aligned >= PMEM_BASE) && (addr_aligned < PMEM_END);
   wire in_uart = (addr_aligned >= SERIAL_BASE) && (addr_aligned < SERIAL_END);
+  wire in_rtc = (addr_aligned >= RTC_BASE) && (addr_aligned < RTC_END);
   wire [28:0] pmem_offset = addr_aligned[28:0];
 
   // reg [7:0] pmem[536870911:0];
@@ -530,7 +535,7 @@ module axi_memory (
   end
 
   reg [31:0] data_i;
-  reg [3:0] wstrb_i;
+  reg [ 3:0] wstrb_i;
 
   always @(posedge clk) begin
     if (rst) begin
@@ -557,12 +562,15 @@ module axi_memory (
     (^pmem_b1 === 1'bx) ? 8'h0 : pmem_b1,
     (^pmem_b0 === 1'bx) ? 8'h0 : pmem_b0
   } : 32'h0;
-  wire [31:0] uart_read_data = 32'h0;  // UART 仅支持写，读返回 0
+  wire [31:0] uart_read_data = 32'h0;
+  wire [31:0] rtc_read_data = (addr_aligned[2] == 1'b0) ? $timel() : $timeh();
 
-  assign pmem_read_data_mux = in_uart ? uart_read_data : pmem_read_data;
+  assign pmem_read_data_mux = in_uart ? uart_read_data :
+                              in_rtc ? rtc_read_data : pmem_read_data;
 
   always @(posedge clk) begin
-    if (!rst && (state_current == READ || state_current == WRITE) && !in_pmem && !in_uart) begin
+    if (!rst && (state_current == READ || state_current == WRITE) &&
+        !in_pmem && !in_uart && !in_rtc) begin
       $display("[axi_memory] ERROR: unmapped access, addr=0x%h", addr_aligned);
       $finish();
     end
@@ -573,7 +581,7 @@ module axi_memory (
   // --------------------------
   always @(posedge clk) begin
     if (state_current == WRITE && in_pmem) begin
-      $display("[pmem write] addr=0x%h data=0x%h wstrb=%b", addr_aligned, data_i, wstrb_i);
+      // $display("[pmem write] addr=0x%h data=0x%h wstrb=%b", addr_aligned, data_i, wstrb_i);
       if (wstrb_i[0]) pmem[pmem_offset+32'd0] <= data_i[7:0];
       if (wstrb_i[1]) pmem[pmem_offset+32'd1] <= data_i[15:8];
       if (wstrb_i[2]) pmem[pmem_offset+32'd2] <= data_i[23:16];
@@ -870,7 +878,7 @@ module axi_memory (
     input int data
   );
   reg [31:0] data_i;
-  reg [3:0] wstrb_i;
+  reg [ 3:0] wstrb_i;
 
   always @(posedge clk) begin
     if (rst) begin

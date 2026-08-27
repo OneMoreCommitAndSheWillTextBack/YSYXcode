@@ -37,3 +37,6 @@ profile_exec.dat
 !compile_flags.txt
 !*.py
 !performance.txt
+
+!csrc-extra/
+!csrc-extra/iverilog-npc-rtc.c
