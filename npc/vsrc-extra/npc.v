@@ -485,7 +485,7 @@ module axi_memory (
   wire [31:0] mem_read_data = pmem_read_data_mux;
 
   always @(posedge clk) begin
-    if (state_current == READ) begin
+    if (state_current == READ & ~read_done) begin
       if (io_rready) begin
         data_output <= mem_read_data;
         if (read_burst_counter == trans_time - 1'b1) begin
@@ -565,8 +565,7 @@ module axi_memory (
   wire [31:0] uart_read_data = 32'h0;
   wire [31:0] rtc_read_data = (addr_aligned[2] == 1'b0) ? $timel() : $timeh();
 
-  assign pmem_read_data_mux = in_uart ? uart_read_data :
-                              in_rtc ? rtc_read_data : pmem_read_data;
+  assign pmem_read_data_mux = in_uart ? uart_read_data : in_rtc ? rtc_read_data : pmem_read_data;
 
   always @(posedge clk) begin
     if (!rst && (state_current == READ || state_current == WRITE) &&
