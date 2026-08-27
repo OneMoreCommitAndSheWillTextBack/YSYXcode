@@ -555,7 +555,6 @@ module axi_memory (
   wire [7:0] pmem_b2 = pmem[pmem_offset+32'd2];
   wire [7:0] pmem_b3 = pmem[pmem_offset+32'd3];
 
-  // 如果读到未初始化的内存(即含有 x)，将其转换为 0 避免 x 传播
   wire [31:0] pmem_read_data = in_pmem ? {
     (^pmem_b3 === 1'bx) ? 8'h0 : pmem_b3,
     (^pmem_b2 === 1'bx) ? 8'h0 : pmem_b2,
@@ -567,8 +566,9 @@ module axi_memory (
 
   assign pmem_read_data_mux = in_uart ? uart_read_data : in_rtc ? rtc_read_data : pmem_read_data;
 
+  // 这样有点堆史山,但是我没招了
   always @(posedge clk) begin
-    if (!rst && (state_current == READ || state_current == WRITE) &&
+    if (!rst && ((state_current == READ & ~read_done) || state_current == WRITE) &&
         !in_pmem && !in_uart && !in_rtc) begin
       $display("[axi_memory] ERROR: unmapped access, addr=0x%h", addr_aligned);
       $finish();
