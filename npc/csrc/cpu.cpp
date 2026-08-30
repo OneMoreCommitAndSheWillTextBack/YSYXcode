@@ -180,7 +180,7 @@ void trace_or_diff() {
 #endif
 }
 
-static void execute(unsigned int n) {
+static void execute(uint64_t n) {
   while (n--) {
     exe_once();
     trace_or_diff();
@@ -197,7 +197,7 @@ static void execute(unsigned int n) {
   }
 }
 
-void cpu_exec(int n) {
+void cpu_exec(uint64_t n) {
   switch (npc->state) {
   case STOP:
     npc->state = RUNNING;
@@ -211,7 +211,7 @@ void cpu_exec(int n) {
     npc->state = RUNNING;
   }
 
-  execute((unsigned int)n);
+  execute(n);
 
   switch (npc->state) {
   case RUNNING:

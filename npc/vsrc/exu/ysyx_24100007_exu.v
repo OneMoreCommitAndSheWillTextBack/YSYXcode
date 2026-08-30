@@ -20,6 +20,7 @@ module ysyx_24100007_exu (
     input auipcsig_in,
     input mretsig_in,
     input ecallsig_in,
+    input fence_i_in,
     input [31:0] mtvec_in,
     input [31:0] mepc_in,
 
@@ -33,12 +34,15 @@ module ysyx_24100007_exu (
     input csrrs_in,
     input [11:0] csr_addr_in,
     input wbu_write_csr,
+    input flush_in,
+    input fence_block_in,
 
     input [31:0] src1_in,
     input [31:0] src2_in,
 
     output [31:0] emit_out,
     output [31:0] npc,
+    output [31:0] pc_out,
     output [31:0] src2_out,   // src2 output to WBU
 
     output memew_out,
@@ -50,6 +54,7 @@ module ysyx_24100007_exu (
     output csrrs_out,
     output [11:0] csr_addr_out,
     output ecallsig_out,
+    output fence_i_out,
 
     output is_jmp,  // tell ifu flush the pipline
 
@@ -71,8 +76,10 @@ module ysyx_24100007_exu (
   wire exu_csr_delay;
   wire exu_wbu_handshake = exu_valid_sig & out_ready;
   wire avaliable;
+  wire fence_i_pipe;
+  wire current_fence = (exu_state_r == VALID) && fence_i_pipe;
   always @(posedge clk) begin
-    if (rst) begin
+    if (rst || flush_in) begin
       exu_state_r <= IDLE;
     end else begin
       case (exu_state_r)
@@ -92,15 +99,19 @@ module ysyx_24100007_exu (
     end
   end
 
-  assign exu_valid_sig = (exu_state_r == VALID) & !exu_csr_delay;
-  wire accept = ((exu_state_r == IDLE) || exu_wbu_handshake) && in_valid;
+  assign exu_valid_sig = (exu_state_r == VALID) & !exu_csr_delay &
+                         !flush_in & !fence_block_in;
+  // A fence already in EXU must leave before a younger instruction can
+  // replace it.  A fence in WBU blocks all new EXU input as well.
+  wire accept = ((exu_state_r == IDLE) || exu_wbu_handshake) && in_valid &&
+                !flush_in && !fence_block_in && !current_fence;
   wire idu_valid = in_valid & !is_jmp;
 
   assign out_valid = exu_valid_sig;
   assign in_ready  = accept;
 
   wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp);
-  wire flush = (exu_wbu_handshake & !idu_valid);
+  wire flush = (exu_wbu_handshake & !idu_valid) | flush_in;
 
   wire [2:0] func3;
   wire btypebranch;
@@ -140,6 +151,7 @@ module ysyx_24100007_exu (
       .auipcsig_in(auipcsig_in),
       .mretsig_in(mretsig_in),
       .ecallsig_in(ecallsig_in),
+      .fence_i_in(fence_i_in),
       .mtvec_in(mtvec_in),
       .mepc_in(mepc_in),
 
@@ -168,6 +180,7 @@ module ysyx_24100007_exu (
       .auipcsig_out(auipcsig),
       .mretsig_out(mretsig),
       .ecallsig_out(ecallsig),
+      .fence_i_out(fence_i_pipe),
       .mtvec_out(mtvec),
       .mepc_out(mepc),
       .muxsig_out(muxsig),
@@ -265,7 +278,7 @@ module ysyx_24100007_exu (
     end
   end
   assign is_jmp_r = is_jmp_r_1 & is_jmp_mask & !exu_csr_delay;
-  assign is_jmp = is_jmp_r;
+  assign is_jmp = is_jmp_r & !flush_in & !fence_block_in;
 
   assign res = (csrrw || csrrs) ? src1 : res_r;
   assign src2_out = src2;
@@ -280,6 +293,8 @@ module ysyx_24100007_exu (
   end
 
   assign emit_out = exu_emit;
+  assign pc_out = pc;
+  assign fence_i_out = current_fence && !flush_in;
 
   // EXU 向 IDU 转发的旁路信号
   assign exu_rd = rd_out;
@@ -321,6 +336,7 @@ module ysyx_24100007_exu_pipline_connect (
     input auipcsig_in,
     input mretsig_in,
     input ecallsig_in,
+    input fence_i_in,
     input [31:0] mtvec_in,
     input [31:0] mepc_in,
 
@@ -347,6 +363,7 @@ module ysyx_24100007_exu_pipline_connect (
     output auipcsig_out,
     output mretsig_out,
     output ecallsig_out,
+    output fence_i_out,
     output [31:0] mtvec_out,
     output [31:0] mepc_out,
 
@@ -392,6 +409,7 @@ module ysyx_24100007_exu_pipline_connect (
   reg auipcsig_r;
   reg mretsig_r;
   reg ecallsig_r;
+  reg fence_i_r;
   reg [31:0] mtvec_r;
   reg [31:0] mepc_r;
 
@@ -430,6 +448,7 @@ module ysyx_24100007_exu_pipline_connect (
       jalsig_r <= 1'b0;
       mretsig_r <= 1'b0;
       ecallsig_r <= 1'b0;
+      fence_i_r <= 1'b0;
       memew_r <= 1'b0;
       memer_r <= 1'b0;
       regew_control_r <= 1'b0;
@@ -441,6 +460,7 @@ module ysyx_24100007_exu_pipline_connect (
       jalsig_r <= jalsig_in;
       mretsig_r <= mretsig_in;
       ecallsig_r <= ecallsig_in;
+      fence_i_r <= fence_i_in;
       memew_r <= memew_in;
       memer_r <= memer_in;
       regew_control_r <= regew_control_in;
@@ -452,6 +472,7 @@ module ysyx_24100007_exu_pipline_connect (
       jalsig_r <= 1'b0;
       mretsig_r <= 1'b0;
       ecallsig_r <= 1'b0;
+      fence_i_r <= 1'b0;
       memew_r <= 1'b0;
       memer_r <= 1'b0;
       regew_control_r <= 1'b0;
@@ -475,6 +496,7 @@ module ysyx_24100007_exu_pipline_connect (
   assign auipcsig_out = auipcsig_r;
   assign mretsig_out = mretsig_r;
   assign ecallsig_out = ecallsig_r;
+  assign fence_i_out = fence_i_r;
   assign mtvec_out = mtvec_r;
   assign mepc_out = mepc_r;
   assign memew_out = memew_r;

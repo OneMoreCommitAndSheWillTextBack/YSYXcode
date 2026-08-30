@@ -116,7 +116,7 @@ void check_record_enable_when();
 #endif
 
 // cpu.cpp
-void cpu_exec(int n);
+void cpu_exec(uint64_t n);
 void set_npc_end();
 void set_npc_quit();
 void set_npc_stop();

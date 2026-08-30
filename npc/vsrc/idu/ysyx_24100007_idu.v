@@ -10,6 +10,8 @@ module ysyx_24100007_idu(
   input out_ready,
 
   input is_jmp,
+  input flush_in,
+  input fence_block_in,
 
   input [31:0] regout1,
   input [31:0] regout2,
@@ -55,6 +57,7 @@ module ysyx_24100007_idu(
   output [11:0] csr_addr,
   output [2:0] memmask,
   output memsextsig,
+  output fence_i,
   output [31:0] pc_out
 );
 
@@ -65,8 +68,10 @@ module ysyx_24100007_idu(
 
   wire avaliable;
   wire src_data_valid;
+  wire fence_i_dec;
+  wire current_fence = (idu_state_r == VALID) && fence_i_dec;
   always @(posedge clk) begin
-    if(rst) begin
+    if(rst || flush_in) begin
       idu_state_r <= IDLE;
     end else begin
       case(idu_state_r) 
@@ -90,8 +95,12 @@ module ysyx_24100007_idu(
     end
   end
 
-  wire accept = ((idu_state_r == IDLE) || (idu_state_r == VALID && out_ready)) && in_valid;
-  assign out_valid = (idu_state_r == VALID) & src_data_valid & !is_jmp;
+  // A fence already held by IDU may leave, but it must not be replaced by a
+  // younger instruction in the same cycle.
+  wire accept = ((idu_state_r == IDLE) || (idu_state_r == VALID && out_ready)) &&
+                in_valid && !flush_in && !fence_block_in && !current_fence;
+  assign out_valid = (idu_state_r == VALID) & src_data_valid & !is_jmp &
+                     !flush_in & !fence_block_in;
   assign in_ready = accept; 
 
   wire [31:0] inst;
@@ -113,22 +122,26 @@ module ysyx_24100007_idu(
   );
 
   assign pipline_valid = accept & !is_jmp;
-  assign flush = (idu_state_r == VALID & out_ready & !in_valid) | is_jmp;
+  assign flush = (idu_state_r == VALID & out_ready & !in_valid) |
+                 is_jmp | flush_in;
   
   wire ebreak, ecall, mret;
   wire [2:0] func3bridge;
   wire func7bridge;
   wire [6:0] opcode;
   wire [5:0] inst_type;  // 添加type信号
+  wire [4:0] src1_dec;
+  wire [4:0] src2_dec;
 
   ysyx_24100007_decoder decoder0(
     .inst(inst),
     .ebreaksig(ebreak),
     .mretsig(mret),
     .ecallsig(ecall),
+    .fenceisig(fence_i_dec),
     .imm(imm),
-    .src1(src1_addr),
-    .src2(src2_addr),
+    .src1(src1_dec),
+    .src2(src2_dec),
     .rd(rd),
     .opcode(opcode),
     .func3(func3bridge),
@@ -166,7 +179,12 @@ module ysyx_24100007_idu(
   assign ebreaksig = ebreak;
   assign func7 = func7bridge;
   assign func3 = func3bridge;
+  // FENCE.I does not consume register operands; ignore its reserved fields
+  // so forwarding/load-use logic cannot stall the serializing instruction.
+  assign src1_addr = fence_i_dec ? 5'b0 : src1_dec;
+  assign src2_addr = fence_i_dec ? 5'b0 : src2_dec;
   assign csr_addr = inst[31:20];  // Extract CSR address from instruction
+  assign fence_i = current_fence && !flush_in;
 
   ysyx_24100007_transmit transmit0(
     .clk(clk),

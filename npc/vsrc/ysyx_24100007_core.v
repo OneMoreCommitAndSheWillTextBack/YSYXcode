@@ -56,6 +56,13 @@ module ysyx_24100007_core #(
   wire [31:0] ifu_addr;
   wire [127:0] lsu_data_read;
   wire is_jmp;
+  wire fence_i_idu;
+  wire fence_i_exu;
+  wire fence_i_wbu;
+  wire fence_i_commit;
+  wire [31:0] fence_i_pc;
+  wire fence_active;
+  assign fence_active = fence_i_idu | fence_i_exu | fence_i_wbu;
   wire [31:0] regout1, regout2;
   wire [4:0] exu_rd_bypass;
   wire exu_regew_bypass;
@@ -83,6 +90,9 @@ module ysyx_24100007_core #(
     .inst(inst),
     .valid(ifu_to_idu_valid),
     .is_jmp(is_jmp),
+    .fence_active(fence_active),
+    .fence_commit(fence_i_commit),
+    .fence_next_pc(fence_i_pc + 32'd4),
 
     .ifu_read_req (ifu_read_req),
     .ifu_req_acp  (ifu_req_acp),
@@ -116,6 +126,8 @@ module ysyx_24100007_core #(
   .out_valid(idu_to_exu_valid),
   .out_ready(exu_to_idu_ready), // IDU to IFU ready
   .is_jmp(is_jmp),
+  .flush_in(fence_i_commit),
+  .fence_block_in(fence_i_exu | fence_i_wbu),
   .pc_in(ifu_pc),
 
   .regout1(regout1),              // 从寄存器堆读出的数据
@@ -159,6 +171,7 @@ module ysyx_24100007_core #(
   .csr_addr(csr_addr),
   .memmask(memmask),
   .memsextsig(memsextsig),
+  .fence_i(fence_i_idu),
   .pc_out(idu_pc)
 );
 
@@ -183,6 +196,7 @@ module ysyx_24100007_core #(
   ); 
   
   wire [31:0] exu_emit;
+  wire [31:0] exu_pc;
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
@@ -216,6 +230,7 @@ module ysyx_24100007_core #(
 
   .mretsig_in(mretsig),
   .ecallsig_in(ecallsig),
+  .fence_i_in(fence_i_idu),
   .mtvec_in(mtvec),
   .mepc_in(mepc),
 
@@ -228,12 +243,15 @@ module ysyx_24100007_core #(
   .csrrs_in(csrrs),
   .csr_addr_in(csr_addr),
   .wbu_write_csr(wbu_write_csr),
+  .flush_in(fence_i_commit),
+  .fence_block_in(fence_i_wbu),
 
   .src1_in(src1_data),         // 使用 IDU 经过旁路选择后的数据
   .src2_in(src2_data),         // 使用 IDU 经过旁路选择后的数据
 
   .emit_out(exu_emit),
   .npc(npc),
+  .pc_out(exu_pc),
   .src2_out(exu_src2_out),           // to WBU
   .is_jmp(is_jmp),
 
@@ -246,6 +264,7 @@ module ysyx_24100007_core #(
   .csrrs_out(exu_csrrs_out),            // to WBU
   .csr_addr_out(exu_csr_addr_out),      // to WBU
   .ecallsig_out(exu_ecallsig_out),      // to WBU
+  .fence_i_out(fence_i_exu),
 
   // EXU 向 IDU 转发的旁路信号
   .exu_rd(exu_rd_bypass),
@@ -276,6 +295,8 @@ module ysyx_24100007_core #(
   .csrrs_in(exu_csrrs_out),
   .csr_addr_in(exu_csr_addr_out),
   .ecallsig_in(exu_ecallsig_out),
+  .fence_i_in(fence_i_exu),
+  .pc_in(exu_pc),
 
   .regwrite_out(regwrite),
   .regew_out(regew),
@@ -284,6 +305,9 @@ module ysyx_24100007_core #(
   .csrrs_out(wbu_csrrs_out),
   .csr_addr_out(wbu_csr_addr_out),
   .ecallsig_out(wbu_ecallsig_out),
+  .fence_i_active(fence_i_wbu),
+  .fence_i_commit(fence_i_commit),
+  .fence_i_pc(fence_i_pc),
   .wbu_write_csr(wbu_write_csr),
 
   .in_valid(exu_to_wbu_valid),

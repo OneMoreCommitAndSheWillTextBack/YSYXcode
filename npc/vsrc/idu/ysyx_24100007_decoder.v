@@ -5,6 +5,7 @@ module ysyx_24100007_decoder(
   output ebreaksig,
   output ecallsig,
   output mretsig,
+  output fenceisig,
   output [31:0] imm,
   output [6:0] opcode,
   output [2:0] func3,
@@ -65,7 +66,9 @@ module ysyx_24100007_decoder(
   assign ebreaksig = (inst == 32'b00000000000100000000000001110011);
   assign ecallsig = (inst == 32'b00000000000000000000000001110011);
   assign mretsig = (inst == 32'b00110000001000000000000001110011);
+  // FENCE.I is a serializing instruction.  Keep it out of the generic
+  // arithmetic classes so it cannot acquire a register or memory side effect.
+  assign fenceisig = (opcode == 7'b0001111) && (func3 == 3'b001);
 
 endmodule
-
 
