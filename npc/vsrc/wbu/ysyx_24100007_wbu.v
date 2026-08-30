@@ -13,7 +13,6 @@ module ysyx_24100007_wbu (
     input [11:0] csr_addr_in,
     input ecallsig_in,
     input fence_i_in,
-    input [31:0] pc_in,
 
     output [31:0] regwrite_out,
     output regew_out,
@@ -24,7 +23,6 @@ module ysyx_24100007_wbu (
     output ecallsig_out,
     output fence_i_active,
     output fence_i_commit,
-    output [31:0] fence_i_pc,
     output wbu_write_csr,
 
     // wbu is the last model
@@ -85,7 +83,6 @@ module ysyx_24100007_wbu (
   wire [4:0] rd;
   wire ecallsig;
   wire fence_i;
-  wire [31:0] pc;
   wire csrrs, csrrw;
 
   ysyx_24100007_wbu_pipline_connect wbu_pipeline_u (
@@ -104,7 +101,6 @@ module ysyx_24100007_wbu (
       .csr_addr_in(csr_addr_in),
       .ecallsig_in(ecallsig_in),
       .fence_i_in(fence_i_in),
-      .pc_in(pc_in),
 
       .emit_out(emit),
       .regout2_out(regout2),
@@ -118,7 +114,6 @@ module ysyx_24100007_wbu (
       .csr_addr_out(csr_addr_out),
       .ecallsig_out(ecallsig),
       .fence_i_out(fence_i),
-      .pc_out(pc),
 
       .avaliable(avaliable),
       .pipline_valid(pipline_valid),
@@ -196,7 +191,6 @@ module ysyx_24100007_wbu (
   // reaching WRITE_BACK guarantees that all older stores have completed.
   assign fence_i_active = (wbu_state != WAIT_VALID) && fence_i;
   assign fence_i_commit = (wbu_state == WRITE_BACK) && fence_i;
-  assign fence_i_pc = pc;
 
   // Output connections
   assign regwrite_out = regwrite;
@@ -230,7 +224,6 @@ module ysyx_24100007_wbu_pipline_connect (
     input [11:0] csr_addr_in,
     input ecallsig_in,
     input fence_i_in,
-    input [31:0] pc_in,
 
     output [31:0] emit_out,
     output [31:0] regout2_out,
@@ -244,7 +237,6 @@ module ysyx_24100007_wbu_pipline_connect (
     output [11:0] csr_addr_out,
     output ecallsig_out,
     output fence_i_out,
-    output [31:0] pc_out,
 
     output avaliable,
     input  pipline_valid,
@@ -269,7 +261,6 @@ module ysyx_24100007_wbu_pipline_connect (
   // 寄存器存储所有输入信号
   reg [31:0] emit_r;
   reg [31:0] regout2_r;
-  reg [31:0] pc_r;
   reg memew_r;
   reg memer_r;
   reg [2:0] func3_r;
@@ -286,7 +277,6 @@ module ysyx_24100007_wbu_pipline_connect (
     if (pipline_valid) begin
       emit_r <= emit_in;
       regout2_r <= regout2_in;
-      pc_r <= pc_in;
       func3_r <= func3_in;
       rd_r <= rd_in;
       csr_addr_r <= csr_addr_in;
@@ -325,7 +315,6 @@ module ysyx_24100007_wbu_pipline_connect (
   // 输出连接到寄存器
   assign emit_out = emit_r;
   assign regout2_out = regout2_r;
-  assign pc_out = pc_r;
   assign memew_out = memew_r;
   assign memer_out = memer_r;
   assign func3_out = func3_r;

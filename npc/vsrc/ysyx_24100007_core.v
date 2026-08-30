@@ -60,7 +60,6 @@ module ysyx_24100007_core #(
   wire fence_i_exu;
   wire fence_i_wbu;
   wire fence_i_commit;
-  wire [31:0] fence_i_pc;
   wire fence_active;
   assign fence_active = fence_i_idu | fence_i_exu | fence_i_wbu;
   wire [31:0] regout1, regout2;
@@ -92,7 +91,6 @@ module ysyx_24100007_core #(
     .is_jmp(is_jmp),
     .fence_active(fence_active),
     .fence_commit(fence_i_commit),
-    .fence_next_pc(fence_i_pc + 32'd4),
 
     .ifu_read_req (ifu_read_req),
     .ifu_req_acp  (ifu_req_acp),
@@ -196,7 +194,6 @@ module ysyx_24100007_core #(
   ); 
   
   wire [31:0] exu_emit;
-  wire [31:0] exu_pc;
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
@@ -251,7 +248,6 @@ module ysyx_24100007_core #(
 
   .emit_out(exu_emit),
   .npc(npc),
-  .pc_out(exu_pc),
   .src2_out(exu_src2_out),           // to WBU
   .is_jmp(is_jmp),
 
@@ -296,7 +292,6 @@ module ysyx_24100007_core #(
   .csr_addr_in(exu_csr_addr_out),
   .ecallsig_in(exu_ecallsig_out),
   .fence_i_in(fence_i_exu),
-  .pc_in(exu_pc),
 
   .regwrite_out(regwrite),
   .regew_out(regew),
@@ -307,7 +302,6 @@ module ysyx_24100007_core #(
   .ecallsig_out(wbu_ecallsig_out),
   .fence_i_active(fence_i_wbu),
   .fence_i_commit(fence_i_commit),
-  .fence_i_pc(fence_i_pc),
   .wbu_write_csr(wbu_write_csr),
 
   .in_valid(exu_to_wbu_valid),

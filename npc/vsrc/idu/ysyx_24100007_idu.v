@@ -61,45 +61,16 @@ module ysyx_24100007_idu(
   output [31:0] pc_out
 );
 
-  typedef enum logic {
-    IDLE, VALID
-  } idu_state_t;
-  idu_state_t idu_state_r;
-
   wire avaliable;
   wire src_data_valid;
   wire fence_i_dec;
-  wire current_fence = (idu_state_r == VALID) && fence_i_dec;
-  always @(posedge clk) begin
-    if(rst || flush_in) begin
-      idu_state_r <= IDLE;
-    end else begin
-      case(idu_state_r) 
-        IDLE: begin
-          if(in_valid & in_ready & ! is_jmp) begin
-            idu_state_r <= VALID;
-          end
-        end
-
-        VALID: begin
-          if(is_jmp) begin
-            idu_state_r <= IDLE;
-          end else if(out_ready & out_valid) begin
-            if(in_valid) 
-              idu_state_r <= VALID;
-            else
-              idu_state_r <= IDLE;
-          end
-        end
-      endcase
-    end
-  end
+  wire current_fence = avaliable && fence_i_dec;
 
   // A fence already held by IDU may leave, but it must not be replaced by a
   // younger instruction in the same cycle.
-  wire accept = ((idu_state_r == IDLE) || (idu_state_r == VALID && out_ready)) &&
+  wire accept = ((!avaliable) || out_ready) &&
                 in_valid && !flush_in && !fence_block_in && !current_fence;
-  assign out_valid = (idu_state_r == VALID) & src_data_valid & !is_jmp &
+  assign out_valid = avaliable & src_data_valid & !is_jmp &
                      !flush_in & !fence_block_in;
   assign in_ready = accept; 
 
@@ -122,7 +93,7 @@ module ysyx_24100007_idu(
   );
 
   assign pipline_valid = accept & !is_jmp;
-  assign flush = (idu_state_r == VALID & out_ready & !in_valid) |
+  assign flush = (avaliable & out_ready & !in_valid) |
                  is_jmp | flush_in;
   
   wire ebreak, ecall, mret;
@@ -211,7 +182,7 @@ module ysyx_24100007_idu(
   `ifdef VERILATOR
   import "DPI-C" function void get_idu_state(int state);
   always @(posedge clk) begin 
-    get_idu_state({31'b0, idu_state_r == VALID});
+    get_idu_state({31'b0, avaliable});
   end
   `endif
   // synopsys translate_on

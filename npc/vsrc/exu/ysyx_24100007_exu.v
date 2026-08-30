@@ -42,7 +42,6 @@ module ysyx_24100007_exu (
 
     output [31:0] emit_out,
     output [31:0] npc,
-    output [31:0] pc_out,
     output [31:0] src2_out,   // src2 output to WBU
 
     output memew_out,
@@ -66,51 +65,25 @@ module ysyx_24100007_exu (
     output exu_memer_bypass  // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
 );
 
-  typedef enum logic {
-    IDLE,
-    VALID
-  } exu_state_t;
-  exu_state_t exu_state_r;
-
   wire exu_valid_sig;
   wire exu_csr_delay;
   wire exu_wbu_handshake = exu_valid_sig & out_ready;
   wire avaliable;
   wire fence_i_pipe;
-  wire current_fence = (exu_state_r == VALID) && fence_i_pipe;
-  always @(posedge clk) begin
-    if (rst || flush_in) begin
-      exu_state_r <= IDLE;
-    end else begin
-      case (exu_state_r)
-        IDLE: begin
-          if (in_valid & in_ready) begin
-            exu_state_r <= VALID;
-          end
-        end
+  wire current_fence = avaliable && fence_i_pipe;
 
-        VALID: begin
-          if (exu_wbu_handshake) begin
-            if (in_valid) exu_state_r <= VALID;
-            else exu_state_r <= IDLE;
-          end
-        end
-      endcase
-    end
-  end
-
-  assign exu_valid_sig = (exu_state_r == VALID) & !exu_csr_delay &
+  assign exu_valid_sig = avaliable & !exu_csr_delay &
                          !flush_in & !fence_block_in;
   // A fence already in EXU must leave before a younger instruction can
   // replace it.  A fence in WBU blocks all new EXU input as well.
-  wire accept = ((exu_state_r == IDLE) || exu_wbu_handshake) && in_valid &&
+  wire accept = ((!avaliable) || exu_wbu_handshake) && in_valid &&
                 !flush_in && !fence_block_in && !current_fence;
   wire idu_valid = in_valid & !is_jmp;
 
   assign out_valid = exu_valid_sig;
   assign in_ready  = accept;
 
-  wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp);
+  wire pipline_valid = accept & !(avaliable & is_jmp);
   wire flush = (exu_wbu_handshake & !idu_valid) | flush_in;
 
   wire [2:0] func3;
@@ -293,7 +266,6 @@ module ysyx_24100007_exu (
   end
 
   assign emit_out = exu_emit;
-  assign pc_out = pc;
   assign fence_i_out = current_fence && !flush_in;
 
   // EXU 向 IDU 转发的旁路信号
@@ -311,7 +283,7 @@ module ysyx_24100007_exu (
 `ifdef VERILATOR
   import "DPI-C" function void get_exu_state(int state);
   always @(posedge clk) begin
-    get_exu_state({31'b0, exu_state_r == VALID});
+    get_exu_state({31'b0, avaliable});
   end
 `endif
   // synopsys translate_on

@@ -507,7 +507,6 @@ module ysyx_24100007_exu (
 
     output [31:0] emit_out,
     output [31:0] npc,
-    output [31:0] pc_out,
     output [31:0] src2_out,   // src2 output to WBU
 
     output memew_out,
@@ -531,51 +530,25 @@ module ysyx_24100007_exu (
     output exu_memer_bypass  // EXU 阶段是否是 load 指令（用于处理 load-use 冲突）
 );
 
-  typedef enum logic {
-    IDLE,
-    VALID
-  } exu_state_t;
-  exu_state_t exu_state_r;
-
   wire exu_valid_sig;
   wire exu_csr_delay;
   wire exu_wbu_handshake = exu_valid_sig & out_ready;
   wire avaliable;
   wire fence_i_pipe;
-  wire current_fence = (exu_state_r == VALID) && fence_i_pipe;
-  always @(posedge clk) begin
-    if (rst || flush_in) begin
-      exu_state_r <= IDLE;
-    end else begin
-      case (exu_state_r)
-        IDLE: begin
-          if (in_valid & in_ready) begin
-            exu_state_r <= VALID;
-          end
-        end
+  wire current_fence = avaliable && fence_i_pipe;
 
-        VALID: begin
-          if (exu_wbu_handshake) begin
-            if (in_valid) exu_state_r <= VALID;
-            else exu_state_r <= IDLE;
-          end
-        end
-      endcase
-    end
-  end
-
-  assign exu_valid_sig = (exu_state_r == VALID) & !exu_csr_delay &
+  assign exu_valid_sig = avaliable & !exu_csr_delay &
                          !flush_in & !fence_block_in;
   // A fence already in EXU must leave before a younger instruction can
   // replace it.  A fence in WBU blocks all new EXU input as well.
-  wire accept = ((exu_state_r == IDLE) || exu_wbu_handshake) && in_valid &&
+  wire accept = ((!avaliable) || exu_wbu_handshake) && in_valid &&
                 !flush_in && !fence_block_in && !current_fence;
   wire idu_valid = in_valid & !is_jmp;
 
   assign out_valid = exu_valid_sig;
   assign in_ready  = accept;
 
-  wire pipline_valid = accept & !(exu_state_r == VALID & is_jmp);
+  wire pipline_valid = accept & !(avaliable & is_jmp);
   wire flush = (exu_wbu_handshake & !idu_valid) | flush_in;
 
   wire [2:0] func3;
@@ -758,7 +731,6 @@ module ysyx_24100007_exu (
   end
 
   assign emit_out = exu_emit;
-  assign pc_out = pc;
   assign fence_i_out = current_fence && !flush_in;
 
   // EXU 向 IDU 转发的旁路信号
@@ -776,7 +748,7 @@ module ysyx_24100007_exu (
 `ifdef VERILATOR
   import "DPI-C" function void get_exu_state(int state);
   always @(posedge clk) begin
-    get_exu_state({31'b0, exu_state_r == VALID});
+    get_exu_state({31'b0, avaliable});
   end
 `endif
   // synopsys translate_on
@@ -1201,45 +1173,16 @@ module ysyx_24100007_idu(
   output [31:0] pc_out
 );
 
-  typedef enum logic {
-    IDLE, VALID
-  } idu_state_t;
-  idu_state_t idu_state_r;
-
   wire avaliable;
   wire src_data_valid;
   wire fence_i_dec;
-  wire current_fence = (idu_state_r == VALID) && fence_i_dec;
-  always @(posedge clk) begin
-    if(rst || flush_in) begin
-      idu_state_r <= IDLE;
-    end else begin
-      case(idu_state_r) 
-        IDLE: begin
-          if(in_valid & in_ready & ! is_jmp) begin
-            idu_state_r <= VALID;
-          end
-        end
-
-        VALID: begin
-          if(is_jmp) begin
-            idu_state_r <= IDLE;
-          end else if(out_ready & out_valid) begin
-            if(in_valid) 
-              idu_state_r <= VALID;
-            else
-              idu_state_r <= IDLE;
-          end
-        end
-      endcase
-    end
-  end
+  wire current_fence = avaliable && fence_i_dec;
 
   // A fence already held by IDU may leave, but it must not be replaced by a
   // younger instruction in the same cycle.
-  wire accept = ((idu_state_r == IDLE) || (idu_state_r == VALID && out_ready)) &&
+  wire accept = ((!avaliable) || out_ready) &&
                 in_valid && !flush_in && !fence_block_in && !current_fence;
-  assign out_valid = (idu_state_r == VALID) & src_data_valid & !is_jmp &
+  assign out_valid = avaliable & src_data_valid & !is_jmp &
                      !flush_in & !fence_block_in;
   assign in_ready = accept; 
 
@@ -1262,7 +1205,7 @@ module ysyx_24100007_idu(
   );
 
   assign pipline_valid = accept & !is_jmp;
-  assign flush = (idu_state_r == VALID & out_ready & !in_valid) |
+  assign flush = (avaliable & out_ready & !in_valid) |
                  is_jmp | flush_in;
   
   wire ebreak, ecall, mret;
@@ -1351,7 +1294,7 @@ module ysyx_24100007_idu(
   `ifdef VERILATOR
   import "DPI-C" function void get_idu_state(int state);
   always @(posedge clk) begin 
-    get_idu_state({31'b0, idu_state_r == VALID});
+    get_idu_state({31'b0, avaliable});
   end
   `endif
   // synopsys translate_on
@@ -1604,7 +1547,6 @@ module ysyx_24100007_ifu(
   input is_jmp,
   input fence_active,
   input fence_commit,
-  input [31:0] fence_next_pc,
 
   // LSU handshake
   output        ifu_read_req,
@@ -1615,28 +1557,25 @@ module ysyx_24100007_ifu(
   input  [127:0] ifu_line_data
 );
 
-  localparam [3:0] INIT            = 4'd0;
-  localparam [3:0] VALID           = 4'd1;
-  localparam [3:0] CHECK_CACHE     = 4'd2;
-  localparam [3:0] BUS_HANDSHAKE   = 4'd3;
-  localparam [3:0] BUS_TRANSACTION = 4'd4;
-  localparam [3:0] UPDATE_CACHE    = 4'd5;
-  localparam [3:0] BUS_INVALID     = 4'd6;
-  localparam [3:0] UPDATE_PC       = 4'd7;
-  localparam [3:0] FENCE_WAIT      = 4'd8;
+  localparam [2:0] INIT            = 3'd0;
+  localparam [2:0] VALID           = 3'd1;
+  localparam [2:0] CHECK_CACHE     = 3'd2;
+  localparam [2:0] BUS_HANDSHAKE   = 3'd3;
+  localparam [2:0] BUS_TRANSACTION = 3'd4;
+  localparam [2:0] UPDATE_CACHE    = 3'd5;
+  localparam [2:0] BUS_INVALID     = 3'd6;
+  localparam [2:0] UPDATE_PC       = 3'd7;
 
-  reg [3:0] ifu_state;
+  reg [2:0] ifu_state;
   reg [31:0] inst_reg;
-  reg fence_bus_pending;
 
   wire [31:0] pcbridge;
   wire infetch_req = is_jmp | (ready & valid); // update pc
   // Keep the PC register clock-enabled during reset so a synthesized
   // clock-gate cannot block the synchronous reset value from loading.
-  wire pcreg_en = infetch_req | fence_commit | rst;
+  wire pcreg_en = infetch_req | rst;
   wire [31:0] pc_add_4 = pc + 32'd4;
-  wire [31:0] npc = fence_commit ? fence_next_pc :
-                    ((is_jmp) ? exu_npc : pc_add_4);
+  wire [31:0] npc = is_jmp ? exu_npc : pc_add_4;
 
   // PC register module
   ysyx_24100007_pcreg pcreg0(
@@ -1667,10 +1606,8 @@ module ysyx_24100007_ifu(
     .hit(cache_hit),
     .data_r(cache_rdata)
   );
-  wire hit = cache_hit && (ifu_state == CHECK_CACHE) &&
-             !fence_active && !fence_commit;
-  assign w_valid = (ifu_state == UPDATE_CACHE) &&
-                   !fence_active && !fence_commit;
+  wire hit = cache_hit && (ifu_state == CHECK_CACHE) && !fence_active;
+  assign w_valid = (ifu_state == UPDATE_CACHE) && !fence_active;
   assign set_invalid = fence_commit;
 
   // ------------------------------------
@@ -1722,14 +1659,16 @@ module ysyx_24100007_ifu(
   // ------------------------------------
   // IFU STATE MACHINE
   // ------------------------------------
+  // Accepting FENCE.I has already advanced PC to fence_pc + 4. Since this IFU
+  // has no prefetch queue, UPDATE_PC can also hold that PC until retirement.
   always @(posedge clk) begin
     if(rst) begin
       ifu_state <= INIT;
     end else begin
       case(ifu_state) 
         INIT: begin
-          if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else begin
             ifu_state <= BUS_HANDSHAKE;
           end
@@ -1738,8 +1677,8 @@ module ysyx_24100007_ifu(
         VALID: begin
           if(is_jmp) begin
             ifu_state <= UPDATE_PC;
-          end else if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          end else if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else if(ready) begin
             ifu_state <= CHECK_CACHE;
           end else begin
@@ -1750,8 +1689,8 @@ module ysyx_24100007_ifu(
         CHECK_CACHE: begin
           if(is_jmp) begin
             ifu_state <= UPDATE_PC;
-          end else if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          end else if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else if(hit)begin
             ifu_state <= VALID;
           end else begin
@@ -1766,8 +1705,8 @@ module ysyx_24100007_ifu(
             end else begin
               ifu_state <= UPDATE_PC;
             end
-          end else if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          end else if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else if(ifu_req_acp) begin
             ifu_state <= BUS_TRANSACTION;
           end else begin
@@ -1778,8 +1717,8 @@ module ysyx_24100007_ifu(
         BUS_TRANSACTION: begin
           if(is_jmp) begin
             ifu_state <= BUS_INVALID;
-          end else if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          end else if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else if(ifu_req_finish) begin
             ifu_state <= UPDATE_CACHE;
           end else begin
@@ -1790,8 +1729,8 @@ module ysyx_24100007_ifu(
         UPDATE_CACHE: begin
           if(is_jmp) begin
             ifu_state <= UPDATE_PC;
-          end else if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          end else if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else begin
             ifu_state <= CHECK_CACHE;
           end
@@ -1804,8 +1743,8 @@ module ysyx_24100007_ifu(
             end else begin
               ifu_state <= BUS_INVALID;
             end
-          end else if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          end else if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else if(ifu_req_ready & ifu_req_finish) begin
             ifu_state <= UPDATE_PC;
           end else begin
@@ -1816,31 +1755,10 @@ module ysyx_24100007_ifu(
         UPDATE_PC: begin
           if (is_jmp) begin
             ifu_state <= UPDATE_PC;
-          end else if (fence_active || fence_commit) begin
-            ifu_state <= FENCE_WAIT;
+          end else if (fence_active) begin
+            ifu_state <= UPDATE_PC;
           end else begin
             ifu_state <= CHECK_CACHE;
-          end
-        end
-
-        // Hold the front end while FENCE.I drains through WBU.  Responses
-        // accepted in this state are discarded rather than installed.
-        FENCE_WAIT: begin
-          // A redirect from an older instruction has priority over a younger
-          // fence that is still in flight.  Drain an outstanding IFU response
-          // first, then use the normal redirect PC update path.
-          if (is_jmp) begin
-            if (ifu_req_finish && ifu_req_ready) begin
-              ifu_state <= UPDATE_PC;
-            end else if (fence_bus_pending) begin
-              ifu_state <= BUS_INVALID;
-            end else begin
-              ifu_state <= UPDATE_PC;
-            end
-          end else if (!fence_active && !fence_commit && !fence_bus_pending) begin
-            ifu_state <= CHECK_CACHE;
-          end else begin
-            ifu_state <= FENCE_WAIT;
           end
         end
 
@@ -1856,10 +1774,9 @@ module ysyx_24100007_ifu(
 
   assign ifu_addr     = pcbridge;
   assign ifu_read_req = (ifu_state == BUS_HANDSHAKE) &&
-                        !fence_active && !fence_commit;
+                        !fence_active;
   assign ifu_req_ready = (ifu_state == UPDATE_CACHE) |
-                         (ifu_state == BUS_INVALID) |
-                         ((ifu_state == FENCE_WAIT) && fence_bus_pending);
+                         (ifu_state == BUS_INVALID);
 
   // ------------------------------------
   // INST UPDATE LOGIC
@@ -1869,7 +1786,7 @@ module ysyx_24100007_ifu(
     if(rst) begin
       inst_reg <= 32'b0;
     end else begin
-      if (fence_active || fence_commit) begin
+      if (fence_active) begin
         inst_reg <= 32'b0;
       end else if(icache_hit) begin
         inst_reg <= cache_rdata;
@@ -1882,27 +1799,7 @@ module ysyx_24100007_ifu(
   // Assign outputs
   assign pc = pcbridge;
   assign inst = inst_reg;
-  assign valid = (ifu_state == VALID) && !fence_active && !fence_commit;
-
-  // Remember an IFU request that was already in flight when the fence blocked
-  // the front end.  Its response is consumed in FENCE_WAIT but never refills
-  // the cache with pre-fence data.
-  always @(posedge clk) begin
-    if (rst) begin
-      fence_bus_pending <= 1'b0;
-    end else if (ifu_req_finish && ifu_req_ready) begin
-      fence_bus_pending <= 1'b0;
-    end else if ((fence_active || fence_commit) &&
-                 ((ifu_state == BUS_TRANSACTION) ||
-                  (ifu_state == BUS_INVALID) ||
-                  ((ifu_state == BUS_HANDSHAKE) && ifu_req_acp))) begin
-      fence_bus_pending <= 1'b1;
-    end else if (!fence_active && !fence_commit &&
-                 (ifu_state != FENCE_WAIT) &&
-                 (ifu_state != BUS_INVALID)) begin
-      fence_bus_pending <= 1'b0;
-    end
-  end
+  assign valid = (ifu_state == VALID) && !fence_active;
 endmodule
 
 module ysyx_24100007_pcreg (
@@ -2992,7 +2889,6 @@ module ysyx_24100007_wbu (
     input [11:0] csr_addr_in,
     input ecallsig_in,
     input fence_i_in,
-    input [31:0] pc_in,
 
     output [31:0] regwrite_out,
     output regew_out,
@@ -3003,7 +2899,6 @@ module ysyx_24100007_wbu (
     output ecallsig_out,
     output fence_i_active,
     output fence_i_commit,
-    output [31:0] fence_i_pc,
     output wbu_write_csr,
 
     // wbu is the last model
@@ -3064,7 +2959,6 @@ module ysyx_24100007_wbu (
   wire [4:0] rd;
   wire ecallsig;
   wire fence_i;
-  wire [31:0] pc;
   wire csrrs, csrrw;
 
   ysyx_24100007_wbu_pipline_connect wbu_pipeline_u (
@@ -3083,7 +2977,6 @@ module ysyx_24100007_wbu (
       .csr_addr_in(csr_addr_in),
       .ecallsig_in(ecallsig_in),
       .fence_i_in(fence_i_in),
-      .pc_in(pc_in),
 
       .emit_out(emit),
       .regout2_out(regout2),
@@ -3097,7 +2990,6 @@ module ysyx_24100007_wbu (
       .csr_addr_out(csr_addr_out),
       .ecallsig_out(ecallsig),
       .fence_i_out(fence_i),
-      .pc_out(pc),
 
       .avaliable(avaliable),
       .pipline_valid(pipline_valid),
@@ -3175,7 +3067,6 @@ module ysyx_24100007_wbu (
   // reaching WRITE_BACK guarantees that all older stores have completed.
   assign fence_i_active = (wbu_state != WAIT_VALID) && fence_i;
   assign fence_i_commit = (wbu_state == WRITE_BACK) && fence_i;
-  assign fence_i_pc = pc;
 
   // Output connections
   assign regwrite_out = regwrite;
@@ -3209,7 +3100,6 @@ module ysyx_24100007_wbu_pipline_connect (
     input [11:0] csr_addr_in,
     input ecallsig_in,
     input fence_i_in,
-    input [31:0] pc_in,
 
     output [31:0] emit_out,
     output [31:0] regout2_out,
@@ -3223,7 +3113,6 @@ module ysyx_24100007_wbu_pipline_connect (
     output [11:0] csr_addr_out,
     output ecallsig_out,
     output fence_i_out,
-    output [31:0] pc_out,
 
     output avaliable,
     input  pipline_valid,
@@ -3248,7 +3137,6 @@ module ysyx_24100007_wbu_pipline_connect (
   // 寄存器存储所有输入信号
   reg [31:0] emit_r;
   reg [31:0] regout2_r;
-  reg [31:0] pc_r;
   reg memew_r;
   reg memer_r;
   reg [2:0] func3_r;
@@ -3265,7 +3153,6 @@ module ysyx_24100007_wbu_pipline_connect (
     if (pipline_valid) begin
       emit_r <= emit_in;
       regout2_r <= regout2_in;
-      pc_r <= pc_in;
       func3_r <= func3_in;
       rd_r <= rd_in;
       csr_addr_r <= csr_addr_in;
@@ -3304,7 +3191,6 @@ module ysyx_24100007_wbu_pipline_connect (
   // 输出连接到寄存器
   assign emit_out = emit_r;
   assign regout2_out = regout2_r;
-  assign pc_out = pc_r;
   assign memew_out = memew_r;
   assign memer_out = memer_r;
   assign func3_out = func3_r;
@@ -3380,7 +3266,6 @@ module ysyx_24100007_core #(
   wire fence_i_exu;
   wire fence_i_wbu;
   wire fence_i_commit;
-  wire [31:0] fence_i_pc;
   wire fence_active;
   assign fence_active = fence_i_idu | fence_i_exu | fence_i_wbu;
   wire [31:0] regout1, regout2;
@@ -3412,7 +3297,6 @@ module ysyx_24100007_core #(
     .is_jmp(is_jmp),
     .fence_active(fence_active),
     .fence_commit(fence_i_commit),
-    .fence_next_pc(fence_i_pc + 32'd4),
 
     .ifu_read_req (ifu_read_req),
     .ifu_req_acp  (ifu_req_acp),
@@ -3516,7 +3400,6 @@ module ysyx_24100007_core #(
   ); 
   
   wire [31:0] exu_emit;
-  wire [31:0] exu_pc;
   wire [4:0] exu_rd;  // EXU 的 rd_out（用于 WBU）
 
   // Signals from EXU to WBU
@@ -3571,7 +3454,6 @@ module ysyx_24100007_core #(
 
   .emit_out(exu_emit),
   .npc(npc),
-  .pc_out(exu_pc),
   .src2_out(exu_src2_out),           // to WBU
   .is_jmp(is_jmp),
 
@@ -3616,7 +3498,6 @@ module ysyx_24100007_core #(
   .csr_addr_in(exu_csr_addr_out),
   .ecallsig_in(exu_ecallsig_out),
   .fence_i_in(fence_i_exu),
-  .pc_in(exu_pc),
 
   .regwrite_out(regwrite),
   .regew_out(regew),
@@ -3627,7 +3508,6 @@ module ysyx_24100007_core #(
   .ecallsig_out(wbu_ecallsig_out),
   .fence_i_active(fence_i_wbu),
   .fence_i_commit(fence_i_commit),
-  .fence_i_pc(fence_i_pc),
   .wbu_write_csr(wbu_write_csr),
 
   .in_valid(exu_to_wbu_valid),
