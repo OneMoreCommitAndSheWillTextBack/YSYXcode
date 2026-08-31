@@ -11,7 +11,9 @@ initial begin
     clock = 1;
     reset = 1;
 
-    #60 reset = 0;
+    #60;
+    @(negedge clock);
+    reset = 0;
     #60 $display("start to sim the design\n");
 end
 
