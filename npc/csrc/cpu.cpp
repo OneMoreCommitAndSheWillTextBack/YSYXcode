@@ -35,6 +35,9 @@ void tfpclose();
 
 void demp_wave() {
 #ifdef TRACE
+  if (trace == NULL) {
+    return;
+  }
   if (fork_interval_is_on()) {
     if (record_isenable()) {
       trace->context->timeInc(1);
@@ -237,6 +240,9 @@ void sigusr1_handler(int sig) { child_finished = 1; }
 // SIGUSR2 子进程开始记录信号 (父进程 -> 子进程)
 void tfpclose() {
 #ifdef TRACE
+  if (trace == NULL) {
+    return;
+  }
   if (fork_interval_is_on()) {
     if (record_isenable()) {
       fprintf(stderr, "close trace file\n");

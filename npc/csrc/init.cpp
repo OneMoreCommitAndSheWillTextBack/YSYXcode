@@ -187,6 +187,9 @@ void parse_args(int argc, char *argv[]) {
 
 void init_trace() {
 #ifdef TRACE
+  if (wave_out_file == NULL) {
+    return;
+  }
   Verilated::traceEverOn(true);
   trace = new Trace;
   trace->tfp = new VerilatedVcdC;

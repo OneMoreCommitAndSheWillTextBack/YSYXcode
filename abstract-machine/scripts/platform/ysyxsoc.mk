@@ -25,7 +25,6 @@ ARGS += -b
 ARGS += --diff=$(NPC_HOME)/../nemu/build/riscv32-nemu-interpreter-so
 # ARGS += --itrace-log=$(NPC_HOME)/../simulator/itrace-log.txt
 # ARGS += --mtrace-log=$(NPC_HOME)/../simulator/mtrace_log.txt
-ARGS += --wave=$(NPC_HOME)/wave.vcd
 ARGS += --perf-output=$(NPC_HOME)/performance.txt
 ARGS += -m
 # ARGS += -r 79517000
