@@ -171,6 +171,8 @@ module ysyx_24100007_lsu (
 
   wire is_read = (master == IFU) | (master == WBU_R);
   wire is_write = (master == WBU_W);
+  reg  aw_done;
+  reg  w_done;
 
   assign araddr  = (master == IFU) ? ifu_araddr : wbu_araddr;
   assign arlen   = (master == IFU) ? ifu_arlen : wbu_arlen;
@@ -186,23 +188,39 @@ module ysyx_24100007_lsu (
   assign wlast   = wvalid;
 
   assign arvalid = is_read & (state == WAIT_HANDSHAKE);
-  assign awvalid = is_write & (state == WAIT_HANDSHAKE);
-  assign wvalid  = is_write & (state == WAIT_HANDSHAKE);
+  assign awvalid = is_write & (state == WAIT_HANDSHAKE) & !aw_done;
+  assign wvalid  = is_write & (state == WAIT_HANDSHAKE) & !w_done;
   assign rready  = is_read & (state == WAIT_SLAVE);
   assign bready  = is_write & (state == WAIT_SLAVE);
+
+  wire aw_fire = awvalid & awready;
+  wire w_fire = wvalid & wready;
 
   always @(posedge clk) begin
     if (rst) begin
       state <= READY;
+      aw_done <= 1'b0;
+      w_done <= 1'b0;
     end else begin
       case (state)
         READY: begin
+          aw_done <= 1'b0;
+          w_done <= 1'b0;
           if (has_req) state <= WAIT_HANDSHAKE;
         end
 
         WAIT_HANDSHAKE: begin
-          if (is_write && awready && wready) state <= WAIT_SLAVE;
-          else if (is_read && arready) state <= WAIT_SLAVE;
+          if (is_write) begin
+            if (aw_fire) aw_done <= 1'b1;
+            if (w_fire) w_done <= 1'b1;
+            if ((aw_done || aw_fire) && (w_done || w_fire)) begin
+              state <= WAIT_SLAVE;
+              aw_done <= 1'b0;
+              w_done <= 1'b0;
+            end
+          end else if (is_read && arready) begin
+            state <= WAIT_SLAVE;
+          end
         end
 
         WAIT_SLAVE: begin
