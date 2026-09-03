@@ -262,7 +262,8 @@ module ysyx_24100007_lsu (
   wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
   wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
   wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
-  assign is_unalign = in_psram | in_sdram | in_sram;
+  wire in_flash = (mem_addr >= 32'h30000000) && (mem_addr <= 32'h3fffffff);
+  assign is_unalign = in_psram | in_sdram | in_sram | in_flash;
 
   wire [31:0] memread;
   ysyx_24100007_memreadlen memreadlen_u (
