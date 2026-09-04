@@ -480,15 +480,30 @@ module ysyx_24100007_pipline_tracer(
   end
 
   wire dead_cyc = (wbu_inst == 32'h0000006f);
+  `ifndef VERILATOR
+  reg finish_st;
+  reg [13:0] finish_cnt;
+
+  initial begin
+    finish_st = 1'b0;
+    finish_cnt = 14'd0;
+  end
+  `endif
+
   always @(posedge clk) begin
     `ifdef VERILATOR
     if(dead_cyc & wbu_commit) begin
       ret(0);
     end
     `else
-    if(dead_cyc & wbu_commit) begin
+    if(!finish_st && dead_cyc && wbu_commit) begin
+      finish_st <= 1'b1;
+      finish_cnt <= 14'd0;
+    end else if(finish_st && finish_cnt == 14'd9999) begin
       $display("HIT GOOD TRAP");
       $finish;
+    end else if(finish_st) begin
+      finish_cnt <= finish_cnt + 14'd1;
     end
     `endif
   end
