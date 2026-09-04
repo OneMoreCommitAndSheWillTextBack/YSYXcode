@@ -1,17 +1,13 @@
 /**
- * WBU AXI 配置模块
- * 将 load/store 请求转换为 AXI 通道参数
- * - 单 beat 传输
- * - arsize/awsize 由 mem_mask 决定
- * - awburst 由地址范围决定（UART 用 FIXED，其它用 INCR）
- * - 复用 memwritelen 逻辑处理 wstrb、awsize、wdata 对齐
+ * WBU AXI 配置模块。
+ * 所有 WBU 访问都是单 beat INCR 传输。Memory-like devices use an
+ * aligned 32-bit read; MMIO devices keep their original address and size.
  */
 module ysyx_24100007_wbucfg (
     input        mem_we,
     input [31:0] mem_addr,
     input [31:0] mem_wdata,
     input [ 2:0] mem_mask,
-    input        is_unalign,
 
     output [31:0] araddr,
     output [31:0] awaddr,
@@ -22,22 +18,27 @@ module ysyx_24100007_wbucfg (
     output [ 1:0] arburst,
     output [ 1:0] awburst,
     output [31:0] wdata,
-    output [ 3:0] wstrb
+    output [ 3:0] wstrb,
+    output        read_full_word
 );
 
-  wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
+  wire in_sram  = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
+  wire in_flash = (mem_addr >= 32'h30000000) && (mem_addr <= 32'h3fffffff);
   wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
   wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
+  assign read_full_word = in_sram | in_flash | in_psram | in_sdram;
 
-  assign araddr  = (is_unalign) ? {mem_addr[31:2], 2'b00} : mem_addr;
+  wire [2:0] access_size = (mem_mask == 3'b001) ? 3'b000 :
+                           (mem_mask == 3'b010) ? 3'b001 : 3'b010;
 
-  assign awaddr  = mem_addr;
-
+  assign araddr  = read_full_word ? {mem_addr[31:2], 2'b00} : mem_addr;
   assign arlen   = 8'd0;
   assign arburst = 2'b01;  // INCR
-  assign arsize  = (mem_mask == 3'b001) ? 3'b000 : (mem_mask == 3'b010) ? 3'b001 : 3'b010;
+  assign arsize  = read_full_word ? 3'b010 : access_size;
 
+  assign awaddr  = mem_addr;
   assign awlen   = 8'd0;
+  assign awburst = 2'b01;  // INCR
 
   wire [1:0] wdata_offset;
 
@@ -46,10 +47,9 @@ module ysyx_24100007_wbucfg (
       .wirtelen(mem_mask),
       .wstrb(wstrb),
       .awsize(awsize),
-      .wdata_offset(wdata_offset),
-      .awburst(awburst)
+      .wdata_offset(wdata_offset)
   );
 
-  assign wdata = mem_wdata << ({3'b0, wdata_offset} << 3);
+  assign wdata = mem_wdata << {wdata_offset, 3'b000};
 
 endmodule

@@ -69,7 +69,6 @@ module ysyx_24100007_lsu (
   master_t master;
   axi_state_t state;
   wire finish_acp;
-  wire is_unalign;
 
   wire has_req = ifu_read_req | wbu_read_req | wbu_write_req;
   wire has_ifu = ifu_read_req;
@@ -141,6 +140,7 @@ module ysyx_24100007_lsu (
   wire [1:0] wbu_arburst, wbu_awburst;
   wire [31:0] wbu_wdata;
   wire [ 3:0] wbu_wstrb;
+  wire        wbu_read_full_word;
 
   ysyx_24100007_ifucfg ifucfg_u (
       .addr   (ifu_addr),
@@ -155,7 +155,6 @@ module ysyx_24100007_lsu (
       .mem_addr (mem_addr),
       .mem_wdata(mem_wdata),
       .mem_mask (mem_mask),
-      .is_unalign(is_unalign),
 
       .araddr (wbu_araddr),
       .awaddr (wbu_awaddr),
@@ -166,7 +165,8 @@ module ysyx_24100007_lsu (
       .arburst(wbu_arburst),
       .awburst(wbu_awburst),
       .wdata  (wbu_wdata),
-      .wstrb  (wbu_wstrb)
+      .wstrb  (wbu_wstrb),
+      .read_full_word(wbu_read_full_word)
   );
 
   wire is_read = (master == IFU) | (master == WBU_R);
@@ -259,18 +259,12 @@ module ysyx_24100007_lsu (
     end
   end
 
-  wire in_sram = (mem_addr >= 32'h0f000000) && (mem_addr <= 32'h0fffffff);
-  wire in_psram = (mem_addr >= 32'h80000000) && (mem_addr <= 32'h9fffffff);
-  wire in_sdram = (mem_addr >= 32'ha0000000) && (mem_addr <= 32'hbfffffff);
-  wire in_flash = (mem_addr >= 32'h30000000) && (mem_addr <= 32'h3fffffff);
-  assign is_unalign = in_psram | in_sdram | in_sram | in_flash;
-
   wire [31:0] memread;
   ysyx_24100007_memreadlen memreadlen_u (
-      .is_unalign (is_unalign),
       .data       (rdata),
       .memmask    (mem_mask),
       .memsextsig (mem_sext),
+      .read_full_word(wbu_read_full_word),
       .addr_offset(mem_addr[1:0]),
       .read       (memread)
   );
