@@ -271,7 +271,9 @@ class DCache(
 
   private val freeMshrOH  = VecInit(mshrValid.map(!_)).asUInt
   private val hasFreeMshr = freeMshrOH.orR
-  private val freeMshrIdx = OHToUInt(freeMshrOH)
+  // freeMshrOH is multi-hot, so it must be reduced to a single way before decoding:
+  // OHToUInt over a multi-hot vector ORs index bits and can return a busy entry.
+  private val freeMshrIdx = OHToUInt(PriorityEncoderOH(freeMshrOH))
 
   private val respondingOH     = VecInit((0 until cfg.mshrEntries).map { entry =>
     mshrValid(entry) && mshrState(entry) === mshrResponding && mshrWaiterCount(entry) =/= 0.U

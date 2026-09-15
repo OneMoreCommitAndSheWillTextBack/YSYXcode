@@ -6,7 +6,7 @@
 
 class VerilatedContext;
 class VerilatedVcdC;
-class Vnpc;
+#include "Vsim_top.h"
 
 class NpcWave {
 public:
@@ -16,7 +16,7 @@ public:
   NpcWave(const NpcWave &) = delete;
   NpcWave &operator=(const NpcWave &) = delete;
 
-  void init(VerilatedContext *context, Vnpc *top, const char *path);
+  void init(VerilatedContext *context, Vsim_top *top, const char *path);
   void enable();
   void disable();
   void close();

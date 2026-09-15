@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 class VerilatedContext;
-class Vnpc;
+#include "Vsim_top.h"
 
 class NpcSim {
 public:
@@ -35,7 +35,7 @@ public:
 private:
   NpcHostBridge bridge_;
   std::unique_ptr<VerilatedContext> context_;
-  std::unique_ptr<Vnpc> top_;
+  std::unique_ptr<Vsim_top> top_;
   NpcWave wave_;
 };
 

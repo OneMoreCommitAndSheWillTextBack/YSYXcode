@@ -30,11 +30,16 @@ profile_exec.dat
 *.swo
 
 # 保持源代码
-!./vsrc/*.h
+!vsrc/**/*.h
 !*.v
-!./csrc/*.cpp
-!./include/*.h
+!csrc/**/*.cpp
+!include/**/*.h
+!constr/*
 !compile_flags.txt
 !*.py
 !*.nxdc
 !performance.txt
+
+# 生成物兜底（上面的白名单会放行它们，这里在末尾再排除一次）
+/build*/
+/constr/auto_bind.cpp

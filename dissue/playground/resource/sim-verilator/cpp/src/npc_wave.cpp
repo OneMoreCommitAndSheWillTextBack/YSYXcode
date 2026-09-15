@@ -1,6 +1,5 @@
 #include "npc_wave.h"
 
-#include "Vnpc.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
@@ -10,7 +9,7 @@ NpcWave::NpcWave() : trace_(nullptr) {}
 
 NpcWave::~NpcWave() { close(); }
 
-void NpcWave::init(VerilatedContext *context, Vnpc *top, const char *path) {
+void NpcWave::init(VerilatedContext *context, Vsim_top *top, const char *path) {
   if (context == nullptr || top == nullptr) {
     return;
   }

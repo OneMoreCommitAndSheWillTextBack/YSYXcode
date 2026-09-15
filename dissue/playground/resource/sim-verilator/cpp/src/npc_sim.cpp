@@ -2,12 +2,11 @@
 #include "cstdint"
 #include "npc_cpu.h"
 
-#include "Vnpc.h"
 #include "verilated.h"
 
 NpcSim::NpcSim(const NpcDpiCallbacks *callbacks)
     : bridge_(callbacks), context_(std::make_unique<VerilatedContext>()),
-      top_(std::make_unique<Vnpc>(context_.get(), "TOP")), wave_() {
+      top_(std::make_unique<Vsim_top>(context_.get(), "TOP")), wave_() {
   top_->clock = 0;
   top_->reset = 0;
 }

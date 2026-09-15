@@ -6,6 +6,8 @@
 !*.scala
 !*.[cSh]
 !*.v
+!*.sv
+!*.svh
 !*.cpp
 !*.cc
 !*.rs
@@ -17,6 +19,7 @@
 !.gitignore
 !.scalafmt.conf
 !README.md
+!*.md
 !doc/frontend-vnext-progress.md
 build/
 run/
@@ -30,3 +33,10 @@ out/
 .idea/
 .idea_modules/
 test_run_dir/
+
+# 生成物兜底：上面的白名单会放行 Verilator 的 V*.cpp/V*.h/V*.mk 和
+# 老 Chisel 输出的 *.v，这里在末尾再排除一次（.gitignore 后写的规则优先）。
+obj/
+obj_dir/
+/playground/resource/sim-verilator/verilog/
+*.log
