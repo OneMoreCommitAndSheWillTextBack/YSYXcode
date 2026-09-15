@@ -5,6 +5,7 @@
 //   * AW and W are accepted independently; W is back-pressured until AW arrives.
 //   * A write that errors still drains every W beat before raising B.
 //   * Out-of-range addresses answer DECERR without calling into the host.
+import vsoc_pkg::*;
 module axi4_ram_dpi #(
     parameter logic [ADDR_W-1:0] BASE_ADDR   = vsoc_pkg::PMEM_BASE,
     parameter logic [ADDR_W-1:0] REGION_SIZE = vsoc_pkg::PMEM_SIZE
@@ -13,7 +14,6 @@ module axi4_ram_dpi #(
     input logic rst,
     vsoc_axi_if.slave s_axi
 );
-  import vsoc_pkg::*;
 
   // Host bridge. Signatures are frozen; see doc/interfaces.md section 6.
   import "DPI-C" function void npc_pmem_read(input int addr, input int len, output int data);
@@ -33,7 +33,13 @@ module axi4_ram_dpi #(
 
   wire r_last = (r_beat_q == {1'b0, r_len_q}) || (r_resp_q != RESP_OKAY);
   wire ar_legal = burst_legal(s_axi.arsize, s_axi.arburst);
-  wire ar_mapped = burst_in_range(s_axi.araddr, s_axi.arsize, s_axi.arlen, BASE_ADDR, REGION_SIZE);
+  wire ar_mapped = burst_in_range(
+    s_axi.araddr,
+    s_axi.arsize,
+    s_axi.arlen,
+    BASE_ADDR,
+    REGION_SIZE
+  );
 
   assign s_axi.arready = ~r_active_q;
   assign s_axi.rvalid  = r_active_q;

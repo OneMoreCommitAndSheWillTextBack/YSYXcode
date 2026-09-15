@@ -1,5 +1,6 @@
 rtconfig.h
 files.mk
+run-nemu.sh
 
 build
 __pycache__
