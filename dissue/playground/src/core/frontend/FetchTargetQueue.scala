@@ -135,10 +135,19 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
     lookup.bits.prediction     := entry.prediction
   }
 
-  io.reserveToken.tag.index      := writePtr
-  io.reserveToken.tag.generation := generation(writePtr) +% 1.U
-  io.reserveToken.streamEpoch    := streamEpoch
-  io.reserve.ready               := !io.recovery.valid && !valid(writePtr)
+  // A recovery rewinds the pointers and may reserve the restarted stream's first entry in the same cycle, so the
+  // reserve port targets the post-rewind write pointer and the restarted stream's epoch.
+  val recoveryWritePtr   = WireDefault(writePtr)
+  // Set when the rewind invalidates the target slot, which is the common case: the restarted stream's first entry
+  // lands on a slot that already holds a killed successor of the anchor.
+  val recoveryReusesSlot = WireDefault(false.B)
+  val reservePtr         = Mux(io.recovery.valid, recoveryWritePtr, writePtr)
+  val reserveStreamEpoch = Mux(io.recovery.valid, streamEpoch +% 1.U, streamEpoch)
+  val reserveSlotBusy    = valid(reservePtr) && !(io.recovery.valid && recoveryReusesSlot)
+  io.reserveToken.tag.index      := reservePtr
+  io.reserveToken.tag.generation := generation(reservePtr) +% 1.U
+  io.reserveToken.streamEpoch    := reserveStreamEpoch
+  io.reserve.ready               := !reserveSlotBusy
 
   val fastIndex          = io.writeFast.bits.token.tag.index
   val fastHit            = valid(fastIndex) && tokenMatches(io.writeFast.bits.token, entries(fastIndex)) &&
@@ -154,12 +163,19 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
   io.staleFinalDrop := io.writeFinal.valid && !finalHit
 
   val fetchEntry = entries(fetchPtr)
+  // Hand the head to the cache on the very cycle its fast prediction lands. `fastHit` already pins the slot to
+  // `reserved` and matches the token, so this fires at most once per entry: the phase update driven by
+  // `io.fetchTarget.fire` turns it into `fetchIssued` in the same cycle.
+  val fetchTargetBypass = io.writeFast.valid && fastHit && fastIndex === fetchPtr
   io.fetchTarget.valid                  := !io.recovery.valid && valid(fetchPtr) &&
-    (fetchEntry.phase === FtqEntryPhase.fastReady || fetchEntry.phase === FtqEntryPhase.finalReady)
+    (fetchEntry.phase === FtqEntryPhase.fastReady || fetchEntry.phase === FtqEntryPhase.finalReady ||
+      fetchTargetBypass)
   io.fetchTarget.bits.token             := fetchEntry.token
   io.fetchTarget.bits.sequence          := fetchEntry.sequence
-  io.fetchTarget.bits.startPc           := fetchEntry.startPc
-  io.fetchTarget.bits.blockCount        := fetchEntry.blockCount
+  // Only the fields the cache request actually consumes are handed over; the response is claimed back through the
+  // token, and the remaining prediction fields keep their `fastReady` placeholders exactly as in the normal path.
+  io.fetchTarget.bits.startPc           := Mux(fetchTargetBypass, io.writeFast.bits.startPc, fetchEntry.startPc)
+  io.fetchTarget.bits.blockCount        := Mux(fetchTargetBypass, io.writeFast.bits.blockCount, fetchEntry.blockCount)
   io.fetchTarget.bits.fastNextPc        := fetchEntry.fastNextPc
   io.fetchTarget.bits.finalNextPc       := fetchEntry.finalNextPc
   io.fetchTarget.bits.fastBlockPred     := fetchEntry.fastBlockPred
@@ -267,9 +283,11 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
         valid(entry)         := false.B
         entries(entry).phase := FtqEntryPhase.free
       }
-      writePtr := 0.U
-      fetchPtr  := 0.U
-      commitPtr := 0.U
+      writePtr           := 0.U
+      fetchPtr           := 0.U
+      commitPtr          := 0.U
+      recoveryWritePtr   := 0.U
+      recoveryReusesSlot := true.B
     }.otherwise {
       assert(recoveryHit)
       val anchorSequence = entries(recoveryIndex).sequence
@@ -296,12 +314,21 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
         entries(recoveryIndex).phase := FtqEntryPhase.free
         writePtr                     := recoveryIndex
         fetchPtr                     := recoveryIndex
+        recoveryWritePtr             := recoveryIndex
+        recoveryReusesSlot           := true.B
       }.otherwise {
-        writePtr := nextAnchor
+        writePtr           := nextAnchor
+        recoveryWritePtr   := nextAnchor
+        recoveryReusesSlot := valid(nextAnchor) &&
+          sequenceYounger(entries(nextAnchor).sequence, anchorSequence)
         when(io.recovery.bits.kind === FrontendRecoveryKind.bpuOverride) {
           assert(io.writeFinal.valid && finalIndex === recoveryIndex && finalHit)
           val anchorWasUnissued     = entries(recoveryIndex).phase === FtqEntryPhase.fastReady
+          // Only an older entry that has not been handed to the cache yet pins the fetch pointer; it keeps the cache
+          // requests leaving in sequence order. An older entry that is already out (or already drained) does not: the
+          // pointer then names a stream position waiting to be recycled, not work still owed to the pipeline.
           val olderFetchPending     = valid(fetchPtr) &&
+            entries(fetchPtr).phase <= FtqEntryPhase.finalReady &&
             sequenceYounger(anchorSequence, entries(fetchPtr).sequence)
           val canReuseIssuedRequest = entries(recoveryIndex).phase =/= FtqEntryPhase.fastReady &&
             io.writeFinal.bits.blockCount <= entries(recoveryIndex).blockCount
@@ -317,8 +344,17 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
             when(!anchorWasUnissued || !olderFetchPending) {
               fetchPtr := recoveryIndex
             }
-          }.elsewhen(io.fetchComplete.valid && completeHit && completeIndex === recoveryIndex) {
-            entries(recoveryIndex).phase := FtqEntryPhase.dataReady
+          }.otherwise {
+            // The anchor's in-flight request is reused, so the restarted stream's first entry is the next thing to
+            // issue. The fast path can hand `fetchTarget` the successor one cycle before the phase register shows
+            // `fastReady`, which leaves the fetch pointer sitting on the successor this override is killing; pull it
+            // back or the restarted stream's first entry is skipped. Entries older than the anchor stay untouched.
+            when(!olderFetchPending) {
+              fetchPtr := nextAnchor
+            }
+            when(io.fetchComplete.valid && completeHit && completeIndex === recoveryIndex) {
+              entries(recoveryIndex).phase := FtqEntryPhase.dataReady
+            }
           }
         }.elsewhen(io.recovery.bits.kind === FrontendRecoveryKind.ifuCorrection) {
           // The correcting instruction group is held at IFU's registered boundary during recovery and is emitted
@@ -347,23 +383,6 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
       valid(commitPtr)         := false.B
       entries(commitPtr).phase := FtqEntryPhase.free
       commitPtr                := ptrNext(commitPtr)
-    }
-
-    when(io.reserve.fire) {
-      val token = io.reserveToken
-      valid(writePtr)              := true.B
-      generation(writePtr)         := token.tag.generation
-      entries(writePtr)            := 0.U.asTypeOf(new FetchTargetEntry(cfg))
-      entries(writePtr).token      := token
-      entries(writePtr).sequence   := nextSequence
-      entries(writePtr).phase      := FtqEntryPhase.reserved
-      entries(writePtr).startPc    := io.reserve.bits.startPc
-      entries(writePtr).blockCount := cfg.fetchGroupBlocks.U
-      writePtr                     := ptrNext(writePtr)
-      nextSequence                 := nextSequence +% 1.U
-      priorReserveValid            := true.B
-      priorReserveSequence         := nextSequence
-      priorReserveEpoch            := streamEpoch
     }
 
     when(io.writeFast.valid && fastHit) {
@@ -426,12 +445,35 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
     }
   }
 
+  // A restart reserves the restarted stream's first entry after the pointer rewind, so the reserve write sits outside
+  // the recovery/steady-state split and targets the post-rewind pointer in both cases.
+  when(io.reserve.fire) {
+    val token = io.reserveToken
+    valid(reservePtr)              := true.B
+    generation(reservePtr)         := token.tag.generation
+    entries(reservePtr)            := 0.U.asTypeOf(new FetchTargetEntry(cfg))
+    entries(reservePtr).token      := token
+    entries(reservePtr).sequence   := nextSequence
+    entries(reservePtr).phase      := FtqEntryPhase.reserved
+    entries(reservePtr).startPc    := io.reserve.bits.startPc
+    entries(reservePtr).blockCount := cfg.fetchGroupBlocks.U
+    writePtr                       := ptrNext(reservePtr)
+    nextSequence                   := nextSequence +% 1.U
+    priorReserveValid              := true.B
+    priorReserveSequence           := nextSequence
+    priorReserveEpoch              := reserveStreamEpoch
+  }
+
   // Retirement is not backpressured by frontend recovery. Account it even when a redirect owns the FTQ control update.
+  // It must stay off a slot the reserve port rewrites in the same cycle: that retire belongs to the entry the restart
+  // just killed, and its stale counters would otherwise be folded into the freshly reserved token. This collision is
+  // routine now that a restart reserves its first entry on the recovery cycle itself.
   for (entry <- 0 until depth) {
-    when(valid(entry) && retireCountByEntry(entry) =/= 0.U) {
+    val slotRewritten = io.reserve.fire && reservePtr === entry.U
+    when(valid(entry) && retireCountByEntry(entry) =/= 0.U && !slotRewritten) {
       entries(entry).retiredInsts := entries(entry).retiredInsts + retireCountByEntry(entry)
     }
-    when(valid(entry) && trapByEntry(entry)) {
+    when(valid(entry) && trapByEntry(entry) && !slotRewritten) {
       entries(entry).expectedRetireInsts := entries(entry).retiredInsts + retireCountByEntry(entry)
       entries(entry).emissionDone        := true.B
     }
@@ -439,10 +481,10 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
 
   assert(occupancy <= depth.U)
   when(io.reserve.fire) {
-    assert(!valid(writePtr))
-    assert(io.reserveToken.tag.generation =/= generation(writePtr))
-    assert(io.reserveToken.streamEpoch === streamEpoch)
-    when(priorReserveValid) {
+    assert(!reserveSlotBusy)
+    assert(io.reserveToken.tag.generation =/= generation(reservePtr))
+    assert(io.reserveToken.streamEpoch === reserveStreamEpoch)
+    when(priorReserveValid && !io.recovery.valid) {
       assert(priorReserveEpoch === streamEpoch)
       assert(nextSequence === priorReserveSequence +% 1.U)
     }
@@ -451,8 +493,21 @@ class FetchTargetQueue(cfg: FrontendConfig) extends Module {
     assert(valid(fetchPtr))
     assert(
       entries(fetchPtr).phase === FtqEntryPhase.fastReady ||
-        entries(fetchPtr).phase === FtqEntryPhase.finalReady
+        entries(fetchPtr).phase === FtqEntryPhase.finalReady ||
+        fetchTargetBypass
     )
+    // Cache requests leave in sequence order, so no live entry may still be waiting behind the one being handed over
+    // now. A restarted stream is reserved at the post-rewind slot while the fetch pointer can sit on the successor the
+    // recovery just killed, or on a slot the ring has yet to recycle; in both cases the restarted entry would be
+    // issued after its own successor and a whole fetch group would be dropped. Sequence order is what the backend
+    // sees, so it is checked here rather than by the pointer arithmetic that produces it.
+    val headSequence  = entries(fetchPtr).sequence
+    val olderUnissued = VecInit((0 until depth).map { entry =>
+      valid(entry) && entry.U =/= fetchPtr &&
+        entries(entry).phase <= FtqEntryPhase.finalReady &&
+        !sequenceYounger(entries(entry).sequence, headSequence)
+    }).asUInt.orR
+    assert(!olderUnissued)
   }
   when(io.recovery.valid && io.recovery.bits.tokenValid) {
     assert(recoveryHit)

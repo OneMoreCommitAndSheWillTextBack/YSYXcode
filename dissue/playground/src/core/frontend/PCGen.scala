@@ -23,14 +23,18 @@ class FetchAddressGenerator(resetVector: BigInt, cfg: FrontendConfig) extends Mo
   val inFlight  = RegInit(false.B)
 
   val offeredPc = Mux(io.fastResult.valid, io.fastResult.bits.predictedNextPc, nextPcReg)
-  io.addressReq.valid        := !io.recovery.valid && (pcReady || io.fastResult.valid)
-  io.addressReq.bits.startPc := offeredPc
+  // The recovery target is available combinationally, so the restart request does not wait for `nextPcReg`.
+  val requestPc = Mux(io.recovery.valid, io.recovery.bits.targetPc, offeredPc)
+  io.addressReq.valid        := io.recovery.valid || pcReady || io.fastResult.valid
+  io.addressReq.bits.startPc := requestPc
   io.currentPc               := offeredPc
 
   when(io.recovery.valid) {
+    // The BPU suppresses its fast result on the recovery cycle, so the recovery target always owns the request.
+    assert(!io.fastResult.valid)
     nextPcReg := io.recovery.bits.targetPc
-    pcReady   := true.B
-    inFlight  := false.B
+    pcReady   := !io.addressReq.fire || io.fastResult.valid
+    inFlight  := io.addressReq.fire
   }.otherwise {
     when(io.fastResult.valid) {
       nextPcReg := io.fastResult.bits.predictedNextPc
@@ -48,7 +52,9 @@ class FetchAddressGenerator(resetVector: BigInt, cfg: FrontendConfig) extends Mo
   when(io.fastResult.valid && !io.recovery.valid) {
     assert(inFlight)
   }
-  assert(!(io.addressReq.fire && io.recovery.valid))
+  when(io.addressReq.fire && io.recovery.valid) {
+    assert(io.addressReq.bits.startPc === io.recovery.bits.targetPc)
+  }
 }
 
 class PCGen(

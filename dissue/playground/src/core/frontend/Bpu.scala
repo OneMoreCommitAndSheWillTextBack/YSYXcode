@@ -666,48 +666,6 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
   io.finalResult.valid := s3Valid
   io.finalResult.bits  := s3Result
 
-  io.req.ready := !io.recover.valid
-  val checkpointHistory = Mux(s1Valid, fastHistoryAfter, speculativeHistory)
-  val checkpointPath    = Mux(s1Valid, fastPathAfter, speculativePath)
-  val checkpointRas     = Mux(s1Valid, fastRasAfter, speculativeRas)
-
-  when(io.recover.valid) {
-    s1Valid := false.B
-    s2Valid := false.B
-    s3Valid := false.B
-  }.otherwise {
-    s1Valid := io.req.fire
-    s2Valid := s1Valid
-    s3Valid := s2Valid
-
-    when(io.req.fire) {
-      s1Request := io.req.bits
-      s1History := checkpointHistory
-      s1Path    := checkpointPath
-      s1Ras     := checkpointRas
-    }
-    when(s1Valid) {
-      s2Fast              := io.fastResult.bits
-      s2NeedsContinuation := fastNeedsContinuation
-      s2NeedsSplit        := fastNeedsSplit
-    }
-    when(s2Valid) {
-      s3Result                  := 0.U.asTypeOf(new BpuFinalResult(frontendCfg))
-      s3Result.token            := s2Fast.token
-      s3Result.startPc          := s2Fast.startPc
-      s3Result.fastNextPc       := s2Fast.predictedNextPc
-      s3Result.finalNextPc      := finalNextPc
-      s3Result.blockCount       := finalBlockCount
-      s3Result.finalPrediction  := finalSummary
-      s3Result.overrideFastPath :=
-        finalNextPc =/= s2Fast.predictedNextPc || finalBlockCount > s2Fast.blockCount
-      s3Result.trainMeta        := finalTrainMeta
-      s3HistoryAfter            := finalHistoryAfter
-      s3PathAfter               := finalPathAfter
-      s3RasAfter                := finalRasAfter
-    }
-  }
-
   val recoveryRasUpdate  = applyRas(
     io.recover.bits.rasCheckpoint,
     Mux(
@@ -742,20 +700,81 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     io.recover.bits.recovery.token.tag.index === s3Result.token.tag.index &&
     io.recover.bits.recovery.token.tag.generation === s3Result.token.tag.generation
 
+  // A restart request is issued on the recovery cycle, while the speculative state is being restored. The S1 capture
+  // therefore reads the restored value instead of `speculative*`, which still holds the killed stream's state.
+  val recoveryHistory    = Mux(
+    matchingS3Override,
+    s3HistoryAfter,
+    Mux(io.recover.bits.checkpointValid, recoveredHistory, committedHistory)
+  )
+  val recoveryPath       = Mux(
+    matchingS3Override,
+    s3PathAfter,
+    Mux(io.recover.bits.checkpointValid, recoveredPath, committedPath)
+  )
+  val recoveryRas        = Mux(
+    matchingS3Override,
+    s3RasAfter,
+    Mux(io.recover.bits.checkpointValid, recoveryRasUpdate._1, committedRas)
+  )
+
+  // Recovery never backpressures the restart request: it drains S2/S3 and restarts S1 from the restored state.
+  io.req.ready := true.B
+  val checkpointHistory = Mux(
+    io.recover.valid,
+    recoveryHistory,
+    Mux(s1Valid, fastHistoryAfter, speculativeHistory)
+  )
+  val checkpointPath    = Mux(io.recover.valid, recoveryPath, Mux(s1Valid, fastPathAfter, speculativePath))
+  val checkpointRas     = Mux(io.recover.valid, recoveryRas, Mux(s1Valid, fastRasAfter, speculativeRas))
+
   when(io.recover.valid) {
-    when(matchingS3Override) {
-      speculativeHistory := s3HistoryAfter
-      speculativePath    := s3PathAfter
-      speculativeRas     := s3RasAfter
-    }.elsewhen(io.recover.bits.checkpointValid) {
-      speculativeHistory := recoveredHistory
-      speculativePath    := recoveredPath
-      speculativeRas     := recoveryRasUpdate._1
-    }.otherwise {
-      speculativeHistory := committedHistory
-      speculativePath    := committedPath
-      speculativeRas     := committedRas
+    s1Valid := io.req.fire
+    s2Valid := false.B
+    s3Valid := false.B
+    when(io.req.fire) {
+      s1Request := io.req.bits
+      s1History := recoveryHistory
+      s1Path    := recoveryPath
+      s1Ras     := recoveryRas
     }
+  }.otherwise {
+    s1Valid := io.req.fire
+    s2Valid := s1Valid
+    s3Valid := s2Valid
+
+    when(io.req.fire) {
+      s1Request := io.req.bits
+      s1History := checkpointHistory
+      s1Path    := checkpointPath
+      s1Ras     := checkpointRas
+    }
+    when(s1Valid) {
+      s2Fast              := io.fastResult.bits
+      s2NeedsContinuation := fastNeedsContinuation
+      s2NeedsSplit        := fastNeedsSplit
+    }
+    when(s2Valid) {
+      s3Result                  := 0.U.asTypeOf(new BpuFinalResult(frontendCfg))
+      s3Result.token            := s2Fast.token
+      s3Result.startPc          := s2Fast.startPc
+      s3Result.fastNextPc       := s2Fast.predictedNextPc
+      s3Result.finalNextPc      := finalNextPc
+      s3Result.blockCount       := finalBlockCount
+      s3Result.finalPrediction  := finalSummary
+      s3Result.overrideFastPath :=
+        finalNextPc =/= s2Fast.predictedNextPc || finalBlockCount > s2Fast.blockCount
+      s3Result.trainMeta        := finalTrainMeta
+      s3HistoryAfter            := finalHistoryAfter
+      s3PathAfter               := finalPathAfter
+      s3RasAfter                := finalRasAfter
+    }
+  }
+
+  when(io.recover.valid) {
+    speculativeHistory := recoveryHistory
+    speculativePath    := recoveryPath
+    speculativeRas     := recoveryRas
   }.elsewhen(s1Valid) {
     speculativeHistory := fastHistoryAfter
     speculativePath    := fastPathAfter

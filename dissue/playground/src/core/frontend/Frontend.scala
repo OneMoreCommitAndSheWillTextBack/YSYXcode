@@ -136,11 +136,13 @@ class Frontend(
   iCache.io.recovery       := dataRecovery
   iCache.io.invalidate     := io.icacheInvalidate
 
-  val s0JoinReady = ftq.io.reserve.ready && bpu.io.req.ready && !selectedRecovery.valid
+  // The restarted stream's first request is issued on the recovery cycle itself: the FTQ reserves at the post-rewind
+  // pointer and the BPU drains S2/S3 while latching S1 from the restored state.
+  val s0JoinReady = ftq.io.reserve.ready && bpu.io.req.ready
   addressGen.io.addressReq.ready := s0JoinReady
-  ftq.io.reserve.valid           := addressGen.io.addressReq.valid && bpu.io.req.ready && !selectedRecovery.valid
+  ftq.io.reserve.valid           := addressGen.io.addressReq.valid && bpu.io.req.ready
   ftq.io.reserve.bits.startPc    := addressGen.io.addressReq.bits.startPc
-  bpu.io.req.valid               := addressGen.io.addressReq.valid && ftq.io.reserve.ready && !selectedRecovery.valid
+  bpu.io.req.valid               := addressGen.io.addressReq.valid && ftq.io.reserve.ready
   bpu.io.req.bits.token          := ftq.io.reserveToken
   bpu.io.req.bits.startPc        := addressGen.io.addressReq.bits.startPc
 
@@ -251,8 +253,7 @@ class Frontend(
     frontendTrace.io.fetchQueueEnqueueReady    := fetchQueue.io.enq.ready
     frontendTrace.io.alignerOutputBackpressure := ifetch.io.alignerOutputBackpressure
     frontendTrace.io.blockBufferBackpressure   := ifetch.io.blockBufferBackpressure
-    frontendTrace.io.ftqReserveBackpressure    := addressGen.io.addressReq.valid &&
-      !ftq.io.reserve.ready && !selectedRecovery.valid
+    frontendTrace.io.ftqReserveBackpressure    := addressGen.io.addressReq.valid && !ftq.io.reserve.ready
     frontendTrace.io.refillPhysicalReqValid    := refillMmu.io.physReq.valid
     frontendTrace.io.refillPhysicalReqReady    := io.cacheRefillReq.ready
     frontendTrace.io.icacheReq                 := TraceTap.observe(iCache.io.req)
