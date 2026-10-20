@@ -1,21 +1,21 @@
-package top.core.trace
+package top.trace
 
 import chisel3._
 import chisel3.util.{Cat, Valid}
 import top.config.FrontendConfig
-import top.core.frontend.ifetch.FetchQueueEnqueue
+import top.core.monitor.FrontendMonitor
 
 /** Observes the exact point where instructions acquire FetchQueue lifetime. */
 class IfuTrace(cfg: FrontendConfig, enqueueWidth: Int) extends Module {
   val io = IO(new Bundle {
-    val enqueue = Input(new DecoupledTraceTap(new FetchQueueEnqueue(cfg, enqueueWidth)))
+    val monitor = Input(new FrontendMonitor(cfg))
     val events  = Output(Vec(enqueueWidth, Valid(new PipelineTraceEvent)))
   })
 
   for (lane <- 0 until enqueueWidth) {
-    val entry = io.enqueue.bits.insts(lane)
+    val entry = io.monitor.fetchQueueEnqueue.bits.insts(lane)
     io.events(lane)       := 0.U.asTypeOf(Valid(new PipelineTraceEvent))
-    io.events(lane).valid := io.enqueue.fire && entry.valid
+    io.events(lane).valid := io.monitor.fetchQueueEnqueue.fire && entry.valid
     io.events(lane).bits  := PipelineTraceEventBuilder.instruction(
       PipelineTraceKind.fetchQueueEnqueue,
       lane,

@@ -146,13 +146,6 @@ class LatePrediction(cfg: ICacheConfig) extends Bundle {
   val pathCheckpoint    = UInt(PredictorConstants.historyBits.W)
 }
 
-class TaggedPredictorPerf extends Bundle {
-  val provider          = Bool()
-  val alternateDisagree = Bool()
-  val allocation        = Bool()
-  val usefulnessAging   = Bool()
-}
-
 object CfiTarget {
   def branch(pc: UInt, inst: UInt): UInt = {
     val offset = Cat(Fill(19, inst(31)), inst(31), inst(7), inst(30, 25), inst(11, 8), 0.U(1.W))
@@ -163,22 +156,4 @@ object CfiTarget {
     val offset = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
     pc +% offset
   }
-}
-
-class RasPerf extends Bundle {
-  val push              = Bool()
-  val pop               = Bool()
-  val popThenPush       = Bool()
-  val use               = Bool()
-  val hit               = Bool()
-  val miss              = Bool()
-  val underflow         = Bool()
-  val overflow          = Bool()
-  val checkpointRestore = Bool()
-  val recoveryDiscard   = Bool()
-  val taggedProvider    = Bool()
-  val alternateDisagree = Bool()
-  val allocation        = Bool()
-  val usefulnessAging   = Bool()
-  val lateOverride      = Bool()
 }

@@ -4,14 +4,8 @@ import chisel3._
 import chisel3.util.{log2Ceil, Mux1H, MuxLookup, PriorityEncoderOH, Valid}
 import top.config.{BpuConfig, ICacheConfig}
 import top.core.bundle.CfiType
-import top.core.frontend.bundle.{
-  BpuUpdate,
-  LatePredictQuery,
-  LatePrediction,
-  PredictorConstants,
-  PredictorProvider,
-  TaggedPredictorPerf
-}
+import top.core.monitor.TaggedPredictorMonitor
+import top.core.frontend.bundle.{BpuUpdate, LatePredictQuery, LatePrediction, PredictorConstants, PredictorProvider}
 
 private object TaggedCounter {
   def increment(value: UInt): UInt =
@@ -37,7 +31,7 @@ private class TageSramEntry(cfg: BpuConfig, epochBits: Int) extends Bundle {
   * reads, so provider selection occurs entirely in BPU S2. Invalid bits remain resettable flops because generic SRAMs
   * do not provide a portable reset value; no tag/counter data is selected through those flops.
   */
-class Tage(cfg: BpuConfig, queryWidth: Int) extends Module {
+class Tage(cfg: BpuConfig, queryWidth: Int, enableMonitor: Boolean = false) extends Module {
   require(
     cfg.predictorHistoryBits == PredictorConstants.historyBits,
     "Prediction metadata and TAGE history widths must match"
@@ -54,7 +48,7 @@ class Tage(cfg: BpuConfig, queryWidth: Int) extends Module {
     val query      = Input(Vec(queryWidth, new LatePredictQuery(cacheCfg)))
     val prediction = Output(Vec(queryWidth, new LatePrediction(cacheCfg)))
     val update     = Input(Vec(PredictorConstants.commitUpdateWidth, Valid(new BpuUpdate(cfg))))
-    val perf       = Output(new TaggedPredictorPerf)
+    val monitor    = Output(new TaggedPredictorMonitor)
   })
 
   private def foldHistory(history: UInt, width: Int, length: Int): UInt = {
@@ -277,8 +271,11 @@ class Tage(cfg: BpuConfig, queryWidth: Int) extends Module {
     ageCounter := ageCounter + 1.U
   }
 
-  io.perf.provider          := taggedProvider.asUInt.orR
-  io.perf.alternateDisagree := alternateDiffers.asUInt.orR
-  io.perf.allocation        := allocationValid.asUInt.orR
-  io.perf.usefulnessAging   := ageNow
+  io.monitor := 0.U.asTypeOf(new TaggedPredictorMonitor)
+  if (enableMonitor) {
+    io.monitor.provider          := taggedProvider.asUInt.orR
+    io.monitor.alternateDisagree := alternateDiffers.asUInt.orR
+    io.monitor.allocation        := allocationValid.asUInt.orR
+    io.monitor.usefulnessAging   := ageNow
+  }
 }

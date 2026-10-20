@@ -6,10 +6,10 @@ import top.core.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, Store
 import top.core.backend.csr.CsrTrackerQuery
 import top.core.backend.decoder.FuType
 import top.core.bundle.{RobAge, RobRecovery}
-import top.core.trace.IssueQueuePerfTrace
+import top.core.monitor.IssueQueueMonitor
 import top.config.BackendConfig
 
-class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
+class IssueQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val enq                 = Vec(cfg.dispatchWidth, Flipped(Decoupled(new IssuePacket(cfg))))
     val wakeup              = Input(Vec(cfg.writebackWidth, new IssueWakeup(cfg)))
@@ -26,7 +26,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     val recover             = Input(new RobRecovery(cfg.robIdxWidth))
     val hold                = Input(Bool())
     val robDoneOperandCount = Input(UInt(32.W))
-    val perf                = Output(new IssueQueuePerfTrace)
+    val monitor             = Output(new IssueQueueMonitor)
   })
 
   private val entries    = Reg(Vec(cfg.issueQueueEntries, new IssuePacket(cfg)))
@@ -139,65 +139,68 @@ class IssueQueue(cfg: BackendConfig = BackendConfig()) extends Module {
     free(i)      := !valid(i) || issueFire(i)
   }
 
-  private val issueCountThisCycle       = PopCount(io.intIssue.map(_.fire) :+ io.memIssue.fire)
-  private val occupancy                 = PopCount(valid)
-  private val hasReadyEntry             = VecInit(
-    (0 until cfg.issueQueueEntries).map(i =>
-      valid(i) && entries(i).needsExecution && entries(i).src1.ready && entries(i).src2.ready
-    )
-  ).asUInt.orR
-  private val hasOperandBlocked         = VecInit(
-    (0 until cfg.issueQueueEntries).map(i =>
-      valid(i) && entries(i).needsExecution && (!entries(i).src1.ready || !entries(i).src2.ready)
-    )
-  ).asUInt.orR
-  private val noIssue                   = issueCountThisCycle === 0.U
-  private val blockReady                = noIssue && hasReadyEntry
-  private val blockOperand              = noIssue && !hasReadyEntry && hasOperandBlocked
-  private val selectedDownstreamBlocked =
-    io.intIssue.map(port => port.valid && !port.ready).reduce(_ || _) || (io.memIssue.valid && !io.memIssue.ready)
+  io.monitor := 0.U.asTypeOf(new IssueQueueMonitor)
+  if (enableMonitor) {
+    val issueCountThisCycle       = PopCount(io.intIssue.map(_.fire) :+ io.memIssue.fire)
+    val occupancy                 = PopCount(valid)
+    val hasReadyEntry             = VecInit(
+      (0 until cfg.issueQueueEntries).map(i =>
+        valid(i) && entries(i).needsExecution && entries(i).src1.ready && entries(i).src2.ready
+      )
+    ).asUInt.orR
+    val hasOperandBlocked         = VecInit(
+      (0 until cfg.issueQueueEntries).map(i =>
+        valid(i) && entries(i).needsExecution && (!entries(i).src1.ready || !entries(i).src2.ready)
+      )
+    ).asUInt.orR
+    val noIssue                   = issueCountThisCycle === 0.U
+    val blockReady                = noIssue && hasReadyEntry
+    val blockOperand              = noIssue && !hasReadyEntry && hasOperandBlocked
+    val selectedDownstreamBlocked =
+      io.intIssue.map(port => port.valid && !port.ready).reduce(_ || _) || (io.memIssue.valid && !io.memIssue.ready)
 
-  private val blockReasonNone           = 0.U(4.W)
-  private val blockReasonDownstream     = 1.U(4.W)
-  private val blockReasonOlderStore     = 2.U(4.W)
-  private val blockReasonAmoOrder       = 3.U(4.W)
-  private val blockReasonCsrOrder       = 4.U(4.W)
+    val blockReasonNone       = 0.U(4.W)
+    val blockReasonDownstream = 1.U(4.W)
+    val blockReasonOlderStore = 2.U(4.W)
+    val blockReasonAmoOrder   = 3.U(4.W)
+    val blockReasonCsrOrder   = 4.U(4.W)
 
-  private val blockReasonLsuUnavailable = 6.U(4.W)
-  private val blockReasonFuUnavailable  = 7.U(4.W)
-  private val blockReasonOther          = 8.U(4.W)
-  private val blockReason               = WireDefault(blockReasonNone)
+    val blockReasonLsuUnavailable = 6.U(4.W)
+    val blockReasonFuUnavailable  = 7.U(4.W)
+    val blockReasonOther          = 8.U(4.W)
+    val blockReason               = WireDefault(blockReasonNone)
 
-  when(blockReady) {
-    when(selectedDownstreamBlocked) {
-      blockReason := blockReasonDownstream
-    }.elsewhen(olderStoreBlockedEntry.asUInt.orR) {
-      blockReason := blockReasonOlderStore
-    }.elsewhen(amoBlockedEntry.asUInt.orR) {
-      blockReason := blockReasonAmoOrder
-    }.elsewhen(csrBlockedEntry.asUInt.orR) {
-      blockReason := blockReasonCsrOrder
-    }.elsewhen(lsuUnavailableEntry.asUInt.orR) {
-      blockReason := blockReasonLsuUnavailable
-    }.elsewhen(fuUnavailableEntry.asUInt.orR) {
-      blockReason := blockReasonFuUnavailable
-    }.otherwise {
-      blockReason := blockReasonOther
+    when(blockReady) {
+      when(selectedDownstreamBlocked) {
+        blockReason := blockReasonDownstream
+      }.elsewhen(olderStoreBlockedEntry.asUInt.orR) {
+        blockReason := blockReasonOlderStore
+      }.elsewhen(amoBlockedEntry.asUInt.orR) {
+        blockReason := blockReasonAmoOrder
+      }.elsewhen(csrBlockedEntry.asUInt.orR) {
+        blockReason := blockReasonCsrOrder
+      }.elsewhen(lsuUnavailableEntry.asUInt.orR) {
+        blockReason := blockReasonLsuUnavailable
+      }.elsewhen(fuUnavailableEntry.asUInt.orR) {
+        blockReason := blockReasonFuUnavailable
+      }.otherwise {
+        blockReason := blockReasonOther
+      }
     }
-  }
 
-  private val perfEnable = !reset.asBool && !io.flush && !io.recover.valid && !io.hold
-  when(perfEnable) {
-    assert(blockReady === (blockReason =/= blockReasonNone))
-  }
+    val perfEnable = !reset.asBool && !io.flush && !io.recover.valid && !io.hold
+    when(perfEnable) {
+      assert(blockReady === (blockReason =/= blockReasonNone))
+    }
 
-  io.perf.enable              := perfEnable
-  io.perf.issueCount          := issueCountThisCycle.pad(32)
-  io.perf.occupancy           := occupancy.pad(32)
-  io.perf.blockReady          := blockReady
-  io.perf.blockOperand        := blockOperand
-  io.perf.blockReason         := blockReason.pad(32)
-  io.perf.robDoneOperandCount := io.robDoneOperandCount
+    io.monitor.enable              := perfEnable
+    io.monitor.issueCount          := issueCountThisCycle.pad(32)
+    io.monitor.occupancy           := occupancy.pad(32)
+    io.monitor.blockReady          := blockReady
+    io.monitor.blockOperand        := blockOperand
+    io.monitor.blockReason         := blockReason.pad(32)
+    io.monitor.robDoneOperandCount := io.robDoneOperandCount
+  }
 
   private val freeCount = PopCount(free)
   for (enqIdx <- 0 until cfg.dispatchWidth) {

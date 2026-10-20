@@ -3,7 +3,7 @@ package top.core.backend.fu
 import chisel3._
 import chisel3.util.{is, log2Ceil, switch, Cat, Decoupled, Enum, Fill, Valid}
 import top.core.backend.decoder.{AluOp, FuOp}
-import top.core.trace.DivPerfTrace
+import top.core.monitor.DivMonitor
 
 class DivReq(dataWidth: Int = 32) extends Bundle {
   val src1 = UInt(dataWidth.W)
@@ -11,15 +11,15 @@ class DivReq(dataWidth: Int = 32) extends Bundle {
   val op   = UInt(FuOp.width.W)
 }
 
-class DIV(dataWidth: Int = 32) extends Module {
+class DIV(dataWidth: Int = 32, enableMonitor: Boolean = false) extends Module {
   require(dataWidth > 1, "DIV requires at least two data bits")
 
   val io = IO(new Bundle {
-    val in    = Flipped(Decoupled(new DivReq(dataWidth)))
-    val out   = Valid(UInt(dataWidth.W))
-    val flush = Input(Bool())
-    val busy  = Output(Bool())
-    val perf  = Output(new DivPerfTrace)
+    val in      = Flipped(Decoupled(new DivReq(dataWidth)))
+    val out     = Valid(UInt(dataWidth.W))
+    val flush   = Input(Bool())
+    val busy    = Output(Bool())
+    val monitor = Output(new DivMonitor)
   })
 
   private val countWidth = math.max(log2Ceil(dataWidth + 1), 1)
@@ -37,8 +37,6 @@ class DIV(dataWidth: Int = 32) extends Module {
   private val quotientNegative  = Reg(Bool())
   private val remainderNegative = Reg(Bool())
   private val selectRemainder   = Reg(Bool())
-  private val cycleCount        = RegInit(0.U(16.W))
-  private val specialResult     = RegInit(false.B)
 
   private def lowData(value: UInt): UInt =
     value(dataWidth - 1, 0)
@@ -83,9 +81,13 @@ class DIV(dataWidth: Int = 32) extends Module {
   io.out.bits  := result
   io.busy      := state =/= sIdle
 
-  io.perf.enable  := !reset.asBool && state === sDone && !io.flush
-  io.perf.cycles  := cycleCount.pad(32)
-  io.perf.special := specialResult
+  io.monitor := 0.U.asTypeOf(new DivMonitor)
+  if (enableMonitor) {
+    io.monitor.issue   := io.in.fire
+    io.monitor.busy    := state =/= sIdle
+    io.monitor.enable  := !reset.asBool && state === sDone && !io.flush
+    io.monitor.special := specialCase
+  }
 
   when(io.flush) {
     state := sIdle
@@ -93,9 +95,6 @@ class DIV(dataWidth: Int = 32) extends Module {
     switch(state) {
       is(sIdle) {
         when(io.in.fire) {
-          cycleCount    := 1.U
-          specialResult := specialCase
-
           when(specialCase) {
             result := Mux(reqDivByZero, divByZeroResult, overflowResult)
             state  := sDone
@@ -114,11 +113,10 @@ class DIV(dataWidth: Int = 32) extends Module {
       }
 
       is(sIterate) {
-        dividend   := nextDividend
-        quotient   := nextQuotient
-        remainder  := nextRemainder
-        remaining  := remaining - 1.U
-        cycleCount := cycleCount + 1.U
+        dividend  := nextDividend
+        quotient  := nextQuotient
+        remainder := nextRemainder
+        remaining := remaining - 1.U
 
         when(finalIteration) {
           result := Mux(selectRemainder, signedRemainder, signedQuotient)

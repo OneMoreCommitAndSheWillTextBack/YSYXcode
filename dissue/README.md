@@ -36,6 +36,17 @@ lane 3: XLAT -> DMQ-*
 
 追踪实现保持三层边界：RTL 的 `PipelineTrace.scala` 只产生不反压的语义事件；C++ 只转发固定 `NpcPipelineEvent`；Rust 的 `checker/kanata.rs` 集中负责同拍排序、ID 映射、lane、stage 和 Kanata 文本。修改显示策略只需要改 Rust writer，移动流水阶段通常只需要改一个 RTL 观察器；只有现有事件字段无法表达新语义时才扩展 DPI ABI。
 
+观测层与数据通路的分层：
+
+```text
+top.core            纯数据通路 + top.core.monitor 的中性 monitor bundle
+top.trace           语义 observer + trace/perf ABI
+top.sim             DPI bridge + DifftestMonitor
+top.dpi             DPI import 定义
+```
+
+`top.core` 不 import `top.trace` / `top.sim` / `top.dpi`。只有 `Core` 在 `enableTrace` 时实例化 `FrontendTrace`、`IfuTrace`、`BackendPipelineTrace` 和各个 perf bridge，在 `enableSimulation` 时实例化 `DifftestMonitor`。`View.Synth`（`--mode synth`）把这两个开关都置为 false：observer 不生成，monitor 端口没有消费者，firtool 直接裁掉；只有 sim view 才包含观测模块。数据通路里的 perf-only 状态只在 `enableMonitor=true` 时生成，DIV 的周期计数已移到 sim bridge。
+
 lane 3 的 `DMQ-*` 表示请求已经进入 LSU 的 recoverable outbound queue，不代表 DCache 内部 MSHR/refill 的完整状态。普通 store 在架构 retire 时结束原指令行，同时建立以 `sqIdx` 为身份的 thread-1 drain 行；该行用 `SQ-C -> SQ-I` 和 `DMQ-ST` 持续到 response，因此 ROB 槽复用不会把后续 store 事件关联到错误指令。串行 MMIO store 在 response 前不 retire，继续使用原指令行。
 
 ## 未来实现

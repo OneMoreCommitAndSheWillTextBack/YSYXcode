@@ -11,8 +11,15 @@ import top.core.mem.Mem
 import top.core.frontend.Frontend
 import top.core.frontend.ifetch.FetchWidth
 import top.core.frontend.bundle.RasAction
-import top.core.trace.{BackendPipelineTrace, PipelineTraceEvent}
-import top.sim.{BpuPerfBridge, FrontendPerfBridge, MemPerfBridge, PipelineTraceBridge}
+import top.trace.{BackendPipelineTrace, FrontendTrace, IfuTrace}
+import top.sim.{
+  BackendPerfBridge,
+  BpuPerfBridge,
+  DifftestMonitor,
+  FrontendPerfBridge,
+  MemPerfBridge,
+  PipelineTraceBridge
+}
 
 class Core(
   resetVector:      BigInt,
@@ -41,68 +48,88 @@ class Core(
   })
 
   val frontend = Module(new Frontend(resetVector, frontendCfg, backendCfg, enableTrace))
-  val backend  = Module(new Backend(resetVector, backendCfg, enableTrace, enableSimulation, enableSimulation))
-  val mem      = Module(new Mem(memCfg, backendCfg.robEntries))
+  val backend  = Module(new Backend(resetVector, backendCfg, enableTrace, enableSimulation))
+  val mem      = Module(new Mem(memCfg, backendCfg.robEntries, enableTrace))
 
-  // Observation layer: producers export plain trace bundles, sim bridges own
-  // every DPI call. All bridges are instantiated unconditionally; enableDpi =
-  // false turns them into empty shells so both views share this exact wiring.
-  private val monitor = backend.io.monitor
+  private val frontendTrace = Option.when(enableTrace)(Module(new FrontendTrace(frontendCfg)))
+  private val ifuTrace      = Option.when(enableTrace)(Module(new IfuTrace(frontendCfg, FetchWidth.frontend)))
+  private val backendTrace  = Option.when(enableTrace)(Module(new BackendPipelineTrace(backendCfg)))
 
-  private val backendTrace = Option.when(enableTrace)(Module(new BackendPipelineTrace(backendCfg)))
+  frontendTrace.foreach(_.io.monitor := frontend.io.monitor)
+  ifuTrace.foreach(_.io.monitor := frontend.io.monitor)
+
   backendTrace.foreach { trace =>
-    trace.io.frontendFire        := monitor.frontendFire
-    trace.io.frontend            := monitor.frontend
-    trace.io.dispatchFire        := monitor.dispatchFire
-    trace.io.dispatchDecode      := monitor.dispatchDecode
-    trace.io.dispatchIssue       := monitor.dispatchIssue
-    trace.io.intIssueFire        := monitor.intIssueFire
-    trace.io.intIssue            := monitor.intIssue
-    trace.io.memIssueFire        := monitor.memIssueFire
-    trace.io.memIssue            := monitor.memIssue
-    trace.io.writeback           := monitor.writeback
-    trace.io.retire              := monitor.retire
-    trace.io.storeReady          := monitor.storeReady
-    trace.io.storeCommit         := monitor.storeCommit
-    trace.io.storeRequest        := monitor.storeRequest
-    trace.io.storeResponse       := monitor.storeResponse
-    trace.io.memoryRequestFire   := monitor.memoryRequestFire
-    trace.io.memoryRequestRobIdx := monitor.memoryRequestRobIdx
-    trace.io.memoryRequestKind   := monitor.memoryRequestKind
-    trace.io.memoryRequestWrite  := monitor.memoryRequestWrite
-    trace.io.memoryRequestTxnId  := monitor.memoryRequestTxnId
-    trace.io.robHead             := monitor.robHead
-    trace.io.recover             := monitor.recover
-    trace.io.globalFlush         := monitor.globalFlush
+    trace.io.frontendFire        := backend.io.monitor.frontendFire
+    trace.io.frontend            := backend.io.monitor.frontend
+    trace.io.dispatchFire        := backend.io.monitor.dispatchFire
+    trace.io.dispatchDecode      := backend.io.monitor.dispatchDecode
+    trace.io.dispatchIssue       := backend.io.monitor.dispatchIssue
+    trace.io.intIssueFire        := backend.io.monitor.intIssueFire
+    trace.io.intIssue            := backend.io.monitor.intIssue
+    trace.io.memIssueFire        := backend.io.monitor.memIssueFire
+    trace.io.memIssue            := backend.io.monitor.memIssue
+    trace.io.writeback           := backend.io.monitor.writeback
+    trace.io.retire              := backend.io.monitor.retire
+    trace.io.storeReady          := backend.io.monitor.storeReady
+    trace.io.storeCommit         := backend.io.monitor.storeCommit
+    trace.io.storeRequest        := backend.io.monitor.storeRequest
+    trace.io.storeResponse       := backend.io.monitor.storeResponse
+    trace.io.memoryRequestFire   := backend.io.monitor.memoryRequestFire
+    trace.io.memoryRequestRobIdx := backend.io.monitor.memoryRequestRobIdx
+    trace.io.memoryRequestKind   := backend.io.monitor.memoryRequestKind
+    trace.io.memoryRequestWrite  := backend.io.monitor.memoryRequestWrite
+    trace.io.memoryRequestTxnId  := backend.io.monitor.memoryRequestTxnId
+    trace.io.robHead             := backend.io.monitor.robHead
+    trace.io.recover             := backend.io.monitor.recover
+    trace.io.globalFlush         := backend.io.monitor.globalFlush
   }
 
-  private val pipelineTraceEventCount = FetchWidth.frontend + BackendPipelineTrace.eventCount(backendCfg)
-  private val pipelineTrace           = Module(new PipelineTraceBridge(pipelineTraceEventCount, enableDpi = enableTrace))
-  for (lane <- 0 until FetchWidth.frontend) {
-    pipelineTrace.io.events(lane) := frontend.io.pipelineTrace(lane)
-  }
-  backendTrace match {
-    case Some(trace) =>
-      for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
-        pipelineTrace.io.events(FetchWidth.frontend + event) := trace.io.events(event)
-      }
-    case None        =>
-      for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
-        pipelineTrace.io.events(FetchWidth.frontend + event) := 0.U.asTypeOf(Valid(new PipelineTraceEvent))
-      }
+  private val pipelineTrace = Option.when(enableTrace) {
+    val eventCount = FetchWidth.frontend + BackendPipelineTrace.eventCount(backendCfg)
+    val bridge     = Module(new PipelineTraceBridge(eventCount))
+    for (lane  <- 0 until FetchWidth.frontend) {
+      bridge.io.events(lane) := ifuTrace.get.io.events(lane)
+    }
+    for (event <- 0 until BackendPipelineTrace.eventCount(backendCfg)) {
+      bridge.io.events(FetchWidth.frontend + event) := backendTrace.get.io.events(event)
+    }
+    bridge
   }
 
-  private val frontendPerf = Module(new FrontendPerfBridge(frontendCfg, enableDpi = enableTrace))
-  frontendPerf.io.trace <> frontend.io.perfTrace
+  private val frontendPerf = Option.when(enableTrace)(Module(new FrontendPerfBridge(frontendCfg)))
+  frontendPerf.foreach(_.io.trace := frontendTrace.get.io.sample)
 
-  for (lane <- 0 until backendCfg.commitWidth) {
-    val bpuPerf = Module(new BpuPerfBridge(enableDpi = enableTrace))
-    bpuPerf.io.sample <> monitor.bpuPerf(lane)
+  private val bpuPerf = Option.when(enableTrace) {
+    Seq.tabulate(backendCfg.commitWidth) { lane =>
+      val bridge = Module(new BpuPerfBridge)
+      bridge.io.sample := backend.io.monitor.bpuPerf(lane)
+      bridge
+    }
   }
 
-  private val memPerf = Module(new MemPerfBridge(memCfg.dcache, backendCfg, enableDpi = enableSimulation))
-  memPerf.io.memTrace <> mem.io.perf
-  memPerf.io.backendTrace <> backend.io.memPerf
+  private val backendPerf = Option.when(enableTrace)(Module(new BackendPerfBridge))
+  backendPerf.foreach { bridge =>
+    bridge.io.issueQueue := backend.io.perf.issueQueue
+    bridge.io.div        := backend.io.perf.div
+  }
+
+  private val memPerf = Option.when(enableTrace)(Module(new MemPerfBridge(memCfg.dcache, backendCfg)))
+  memPerf.foreach { bridge =>
+    bridge.io.memTrace     := mem.io.monitor
+    bridge.io.backendTrace := backend.io.memPerf
+  }
+
+  private val difftest = Option.when(enableSimulation)(Module(new DifftestMonitor(resetVector, backendCfg)))
+  difftest.foreach { monitor =>
+    monitor.io.retire    := backend.io.retire
+    monitor.io.regWrite  := backend.io.difftest.regWrite
+    monitor.io.csrCommit := backend.io.difftest.csrCommit
+    monitor.io.csrTrap   := backend.io.difftest.csrTrap
+    monitor.io.csrMret   := backend.io.difftest.csrMret
+    monitor.io.csrSret   := backend.io.difftest.csrSret
+    monitor.io.context   := backend.io.difftest.context
+    monitor.io.interrupt := io.interrupt
+  }
 
   frontend.io.csrStatus := backend.io.csrStatus
   backend.io.interrupt  := io.interrupt
@@ -168,9 +195,9 @@ class Core(
   mem.io.dmemReq.bits      := backend.io.dmemReq.bits
   backend.io.dmemReq.ready := mem.io.dmemReq.ready
 
-  mem.io.flush         := backend.io.globalFlush
-  mem.io.recover       := backend.io.recover
-  mem.io.robHead       := backend.io.robHead
+  mem.io.flush   := backend.io.globalFlush
+  mem.io.recover := backend.io.recover
+  mem.io.robHead := backend.io.robHead
 
   private val dmemCancel = Wire(Vec(backendCfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
   for (port <- 0 until backendCfg.recoveryCancelPorts) {

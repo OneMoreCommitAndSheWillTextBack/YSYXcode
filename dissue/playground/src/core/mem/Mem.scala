@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util.{Decoupled, Enum, MuxCase, Valid}
 import top.bus.axi.AxiPort
 import top.config.{DCacheConfig, MemConfig}
+import top.core.monitor.DCacheMonitor
 import top.core.bundle.{
   DataMemKind,
   DataMemOwner,
@@ -29,7 +30,7 @@ object Mem {
   * AXI accessors. The AXI master is deliberately single-outstanding, so response routing only needs one owner register
   * for reads and one for writes.
   */
-class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
+class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16, enableMonitor: Boolean = false) extends Module {
   private val readOwnerInst :: readOwnerDcache :: readOwnerBypass :: readOwnerPtw :: Nil = Enum(4)
   private val robIdxWidth                                                                = math.max(chisel3.util.log2Ceil(robEntries), 1)
   private val dcacheCancelPorts                                                          = DCache.cancelPorts(cfg.dcache)
@@ -52,7 +53,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
     val ptwResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
 
-    val perf = Output(new DCachePerf(cfg.dcache))
+    val monitor = Output(new DCacheMonitor(cfg.dcache))
 
     val axi = new AxiPort
   })
@@ -62,7 +63,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
       (io.recover.valid && RobAge.isYounger(owner.robIdx, io.recover.robIdx, io.robHead, robEntries, robIdxWidth)))
 
   val refill       = Module(new AxiReadRefill(cfg))
-  val dcache       = Module(new DCache(cfg.dcache, cfg, robEntries))
+  val dcache       = Module(new DCache(cfg.dcache, cfg, robEntries, enableMonitor))
   val bypassAccess = Module(new AxiDataAccess(cfg, allowDirectIncoming = false))
   val ptwAccess    = Module(new AxiDataAccess(cfg, allowDirectIncoming = false))
   val axiMaster    = Module(new AxiMaster(cfg))
@@ -150,19 +151,22 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   dcache.io.resp.ready       := io.dmemResp.ready && dcacheResponse
   bypassAccess.io.resp.ready := io.dmemResp.ready && !dcacheResponse
 
-  io.perf.access         := dcache.io.perf.access
-  io.perf.hit            := dcache.io.perf.hit
-  io.perf.miss           := dcache.io.perf.miss
-  io.perf.bypass         := io.dmemReq.fire && !routeToDcache
-  io.perf.mshrAlloc      := dcache.io.perf.mshrAlloc
-  io.perf.mshrMerge      := dcache.io.perf.mshrMerge
-  io.perf.mshrFullStall  := dcache.io.perf.mshrFullStall
-  io.perf.hitUnderMiss   := dcache.io.perf.hitUnderMiss
-  io.perf.queuedMiss     := dcache.io.perf.queuedMiss
-  io.perf.refillStart    := dcache.io.perf.refillStart
-  io.perf.refillComplete := dcache.io.perf.refillComplete
-  io.perf.refillFault    := dcache.io.perf.refillFault
-  io.perf.mshrOccupancy  := dcache.io.perf.mshrOccupancy
+  io.monitor := 0.U.asTypeOf(new DCacheMonitor(cfg.dcache))
+  if (enableMonitor) {
+    io.monitor.access         := dcache.io.monitor.access
+    io.monitor.hit            := dcache.io.monitor.hit
+    io.monitor.miss           := dcache.io.monitor.miss
+    io.monitor.bypass         := io.dmemReq.fire && !routeToDcache
+    io.monitor.mshrAlloc      := dcache.io.monitor.mshrAlloc
+    io.monitor.mshrMerge      := dcache.io.monitor.mshrMerge
+    io.monitor.mshrFullStall  := dcache.io.monitor.mshrFullStall
+    io.monitor.hitUnderMiss   := dcache.io.monitor.hitUnderMiss
+    io.monitor.queuedMiss     := dcache.io.monitor.queuedMiss
+    io.monitor.refillStart    := dcache.io.monitor.refillStart
+    io.monitor.refillComplete := dcache.io.monitor.refillComplete
+    io.monitor.refillFault    := dcache.io.monitor.refillFault
+    io.monitor.mshrOccupancy  := dcache.io.monitor.mshrOccupancy
+  }
 
   private val dcacheWriteSelected = dcache.io.axiWriteReq.valid
   private val bypassWriteSelected = !dcacheWriteSelected && bypassAccess.io.axiWriteReq.valid

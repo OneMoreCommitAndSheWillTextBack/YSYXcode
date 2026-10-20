@@ -5,15 +5,8 @@ import chisel3.util.{log2Ceil, Decoupled, Enum, PopCount, Valid}
 import top.core.bundle._
 import top.config.BackendConfig
 
-import top.core.backend.bundle.{
-  BackendMemPerf,
-  BackendMonitor,
-  DecodePacket,
-  IssuePortStatus,
-  IssueWakeup,
-  RetireGroup,
-  RobWritebackPacket
-}
+import top.core.backend.bundle.{DecodePacket, IssuePortStatus, IssueWakeup, RetireGroup, RobWritebackPacket}
+import top.core.monitor.{BackendMemPerf, BackendMonitor, BackendPerf, DifftestSample}
 import top.core.backend.csr.{CsrFile, CsrInterruptPending, CsrStatus, CsrTracker}
 import top.core.backend.decoder._
 import top.core.backend.dispatch.{Dispatch, Scoreboard}
@@ -24,14 +17,12 @@ import top.core.backend.lsu.LSU
 import top.core.backend.regfile._
 import top.core.backend.retire.RetireUnit
 import top.core.backend.rob.ROB
-import top.sim.{BackendPerfBridge, DifftestMonitor}
 
 class Backend(
   resetVector:    BigInt = BigInt("80000000", 16),
   cfg:            BackendConfig = BackendConfig(),
   enableMonitor:  Boolean = true,
-  enableDifftest: Boolean = true,
-  enablePerf:     Boolean = true)
+  enableDifftest: Boolean = true)
     extends Module {
   require(cfg.issueWidth > 0, "Backend requires at least one frontend slot")
   require(cfg.writebackWidth >= cfg.intIssueWidth + 1, "Backend reserves writeback ports for integer EXUs and LSU")
@@ -57,6 +48,8 @@ class Backend(
     val retire    = Output(new RetireGroup(cfg))
     val csrStatus = Output(new CsrStatus(cfg))
     val memPerf   = Output(new BackendMemPerf(cfg))
+    val perf      = Output(new BackendPerf)
+    val difftest  = Output(new DifftestSample(cfg))
     val interrupt = Input(new CsrInterruptPending)
     val mtime     = Input(UInt(64.W))
     val monitor   = Output(new BackendMonitor(cfg))
@@ -70,12 +63,12 @@ class Backend(
   val dispatch   = Module(new Dispatch(cfg))
   val scoreboard = Module(new Scoreboard(cfg))
   val rob        = Module(new ROB(cfg))
-  val issueQueue = Module(new IssueQueue(cfg))
-  val execute    = Module(new ExecuteBlock(cfg))
-  val lsu        = Module(new LSU(cfg))
+  val issueQueue = Module(new IssueQueue(cfg, enableMonitor))
+  val execute    = Module(new ExecuteBlock(cfg, enableMonitor))
+  val lsu        = Module(new LSU(cfg, enableMonitor))
   val csrFile    = Module(new CsrFile(resetVector, cfg))
   val csrTracker = Module(new CsrTracker(cfg))
-  val retire     = Module(new RetireUnit(cfg))
+  val retire     = Module(new RetireUnit(cfg, enableMonitor))
   val recovery   = Module(new RecoveryUnit(cfg))
 
   io.csrStatus := csrFile.io.status
@@ -275,22 +268,6 @@ class Backend(
   io.storesDrained                  := lsu.io.storesDrained
   io.memoryIdle                     := lsu.io.memoryIdle
 
-  val perfBridge = Module(new BackendPerfBridge(enablePerf))
-  perfBridge.io.issueQueue <> issueQueue.io.perf
-  perfBridge.io.div <> execute.io.divPerf
-
-  if (enableDifftest) {
-    val difftest = Module(new DifftestMonitor(resetVector, cfg, enableDpi = enableDifftest))
-    difftest.io.retire    := retire.io.retire
-    difftest.io.regWrite  := retire.io.regWrite
-    difftest.io.csrCommit := retire.io.csrCommit
-    difftest.io.csrTrap   := retire.io.csrTrap
-    difftest.io.csrMret   := retire.io.csrMret
-    difftest.io.csrSret   := retire.io.csrSret
-    difftest.io.interrupt := io.interrupt
-    difftest.io.context   := retire.io.context
-  }
-
   issueQueue.io.robHead       := rob.io.head
   issueQueue.io.unresolvedAmo := rob.io.unresolvedAmo
   for (port <- 0 until cfg.intIssueWidth) {
@@ -356,17 +333,35 @@ class Backend(
   io.dmemReq <> lsu.io.dmemReq
   lsu.io.dmemResp <> io.dmemResp
 
-  io.memPerf.sqAlloc                     := lsu.io.sqPerf.alloc
-  io.memPerf.sqFullStall                 := lsu.io.sqPerf.fullStall
-  io.memPerf.forwardFull                 := lsu.io.forwardFull
-  io.memPerf.forwardPartial              := lsu.io.forwardPartial
-  io.memPerf.forwardUnresolvedStoreStall := lsu.io.forwardUnresolvedStoreStall
-  io.memPerf.storeCommit                 := lsu.io.sqPerf.commit
-  io.memPerf.storeDrain                  := lsu.io.sqPerf.request
-  io.memPerf.storeResponse               := lsu.io.sqPerf.response
-  io.memPerf.loadTxnFullStall            := lsu.io.loadTxnFullStall
-  io.memPerf.sqOccupancy                 := lsu.io.sqPerf.occupancy
-  io.memPerf.loadTxnOccupancy            := lsu.io.loadTxnOccupancy
+  io.memPerf  := 0.U.asTypeOf(new BackendMemPerf(cfg))
+  io.perf     := 0.U.asTypeOf(new BackendPerf)
+  io.difftest := 0.U.asTypeOf(new DifftestSample(cfg))
+
+  if (enableMonitor) {
+    io.perf.issueQueue := issueQueue.io.monitor
+    io.perf.div        := execute.io.divMonitor
+
+    io.memPerf.sqAlloc                     := lsu.io.monitor.alloc
+    io.memPerf.sqFullStall                 := lsu.io.monitor.fullStall
+    io.memPerf.forwardFull                 := lsu.io.forwardFull
+    io.memPerf.forwardPartial              := lsu.io.forwardPartial
+    io.memPerf.forwardUnresolvedStoreStall := lsu.io.forwardUnresolvedStoreStall
+    io.memPerf.storeCommit                 := lsu.io.monitor.commit
+    io.memPerf.storeDrain                  := lsu.io.monitor.request
+    io.memPerf.storeResponse               := lsu.io.monitor.response
+    io.memPerf.loadTxnFullStall            := lsu.io.loadTxnFullStall
+    io.memPerf.sqOccupancy                 := lsu.io.monitor.occupancy
+    io.memPerf.loadTxnOccupancy            := lsu.io.loadTxnOccupancy
+  }
+
+  if (enableDifftest) {
+    io.difftest.regWrite  := retire.io.regWrite
+    io.difftest.csrCommit := retire.io.csrCommit
+    io.difftest.csrTrap   := retire.io.csrTrap
+    io.difftest.csrMret   := retire.io.csrMret
+    io.difftest.csrSret   := retire.io.csrSret
+    io.difftest.context   := retire.io.context
+  }
 
   io.monitor := 0.U.asTypeOf(new BackendMonitor(cfg))
   if (enableMonitor) {

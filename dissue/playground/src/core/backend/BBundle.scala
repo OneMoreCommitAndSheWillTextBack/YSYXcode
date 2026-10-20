@@ -123,29 +123,6 @@ class StoreResponseEvent(cfg: BackendConfig = BackendConfig()) extends StoreQueu
   val mmio  = Bool()
 }
 
-class StoreQueuePerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val alloc     = Bool()
-  val fullStall = Bool()
-  val commit    = Bool()
-  val request   = Bool()
-  val response  = Bool()
-  val occupancy = UInt(math.max(chisel3.util.log2Ceil(cfg.storeQueueEntries + 1), 1).W)
-}
-
-class BackendMemPerf(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val sqAlloc                     = Bool()
-  val sqFullStall                 = Bool()
-  val forwardFull                 = Bool()
-  val forwardPartial              = Bool()
-  val forwardUnresolvedStoreStall = Bool()
-  val storeCommit                 = Bool()
-  val storeDrain                  = Bool()
-  val storeResponse               = Bool()
-  val loadTxnFullStall            = Bool()
-  val sqOccupancy                 = UInt(math.max(chisel3.util.log2Ceil(cfg.storeQueueEntries + 1), 1).W)
-  val loadTxnOccupancy            = UInt(math.max(chisel3.util.log2Ceil(cfg.loadTxnEntries + 1), 1).W)
-}
-
 class StoreForwardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val valid          = Input(Bool())
   val robIdx         = Input(UInt(cfg.robIdxWidth.W))
@@ -203,16 +180,6 @@ class RetireGroup(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val validMask  = UInt(cfg.commitWidth.W)
   val finishMask = UInt(cfg.commitWidth.W)
   val finalPc    = UInt(cfg.addrWidth.W)
-}
-
-/** Passive retirement-side BPU accuracy sample. */
-class BpuPerfSample extends Bundle {
-  val valid       = Bool()
-  val cfiClass    = UInt(BpuCfiClass.width.W)
-  val predHit     = Bool()
-  val predTaken   = Bool()
-  val actualTaken = Bool()
-  val correct     = Bool()
 }
 
 class IssueOperand(cfg: BackendConfig = BackendConfig()) extends Bundle {
@@ -311,43 +278,6 @@ class BranchResolve(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val ftqInstOrdinal  = UInt(cfg.frontendPayload.ftqInstCountBits.W)
   val rasAction       = UInt(top.core.frontend.bundle.RasAction.width.W)
   val canonicalReturn = Bool()
-}
-
-/** Read-only semantic boundary used by composition-level observers.
-  *
-  * This port cannot influence backend ready, recovery, or state transitions. When monitoring is disabled at elaboration
-  * time the backend drives the whole bundle to zero so the associated observation cone is removed.
-  */
-class BackendMonitor(cfg: BackendConfig = BackendConfig()) extends Bundle {
-  val frontendFire = Bool()
-  val frontend     = new FrontendToBackend(cfg.issueWidth, cfg.frontendPayload)
-
-  val dispatchFire   = Vec(cfg.dispatchWidth, Bool())
-  val dispatchDecode = Vec(cfg.dispatchWidth, new DecodePacket(cfg))
-  val dispatchIssue  = Vec(cfg.dispatchWidth, new IssuePacket(cfg))
-
-  val intIssueFire = Vec(cfg.intIssueWidth, Bool())
-  val intIssue     = Vec(cfg.intIssueWidth, new IssuePacket(cfg))
-  val memIssueFire = Bool()
-  val memIssue     = new IssuePacket(cfg)
-
-  val writeback     = Vec(cfg.writebackWidth, Valid(new RobWritebackPacket(cfg)))
-  val retire        = new RetireGroup(cfg)
-  val bpuPerf       = Vec(cfg.commitWidth, new BpuPerfSample)
-  val storeReady    = Valid(new StoreQueueUpdate(cfg))
-  val storeCommit   = Vec(cfg.commitWidth, new StoreQueueCommit(cfg))
-  val storeRequest  = Valid(new StoreQueueEvent(cfg))
-  val storeResponse = Valid(new StoreResponseEvent(cfg))
-
-  val memoryRequestFire   = Bool()
-  val memoryRequestRobIdx = UInt(cfg.robIdxWidth.W)
-  val memoryRequestKind   = UInt(DataMemKind.width.W)
-  val memoryRequestWrite  = Bool()
-  val memoryRequestTxnId  = UInt(DataMemTxn.width.W)
-
-  val robHead     = UInt(cfg.robIdxWidth.W)
-  val recover     = new RobRecovery(cfg.robIdxWidth)
-  val globalFlush = Bool()
 }
 
 /** The portion of a ROB entry needed to reconstruct register dependencies after selective recovery. */

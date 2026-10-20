@@ -6,10 +6,10 @@ import top.core.backend.bundle.{IssuePortStatus, IssueWakeup, RobWritebackPacket
 import top.core.backend.csr.CsrReadPort
 import top.core.backend.bundle.BranchResolve
 import top.core.bundle.RobRecovery
-import top.core.trace.DivPerfTrace
+import top.core.monitor.DivMonitor
 import top.config.BackendConfig
 
-class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
+class ExecuteBlock(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val in      = Vec(cfg.intIssueWidth, Flipped(Decoupled(new ExuRequest(cfg))))
     val flush   = Input(Bool())
@@ -18,17 +18,17 @@ class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
     val status  = Output(Vec(cfg.intIssueWidth, new IssuePortStatus))
     val csrRead = new CsrReadPort(cfg)
 
-    val writeback = Output(Vec(cfg.intIssueWidth, Valid(new RobWritebackPacket(cfg))))
-    val wakeup    = Output(Vec(cfg.intIssueWidth, new IssueWakeup(cfg)))
-    val resolve   = Output(Vec(cfg.intIssueWidth, Valid(new BranchResolve(cfg))))
-    val divPerf   = Output(new DivPerfTrace)
+    val writeback  = Output(Vec(cfg.intIssueWidth, Valid(new RobWritebackPacket(cfg))))
+    val wakeup     = Output(Vec(cfg.intIssueWidth, new IssueWakeup(cfg)))
+    val resolve    = Output(Vec(cfg.intIssueWidth, Valid(new BranchResolve(cfg))))
+    val divMonitor = Output(new DivMonitor)
   })
 
   private val unitConfigs = (0 until cfg.intIssueWidth).map { port =>
     IntExeUnitConfig.defaultIssuePort(port, cfg.intIssueWidth)
   }
   private val units       = unitConfigs.map { unitConfig =>
-    Module(new IntExeUnit(cfg, unitConfig)).suggestName(unitConfig.name)
+    Module(new IntExeUnit(cfg, unitConfig, enableMonitor)).suggestName(unitConfig.name)
   }
 
   for (port <- 0 until cfg.intIssueWidth) {
@@ -55,9 +55,9 @@ class ExecuteBlock(cfg: BackendConfig = BackendConfig()) extends Module {
 
   private val divPerfSources = unitConfigs.zip(units).collect {
     case (unitConfig, unit) if unitConfig.supports(ExuFuKind.Div) =>
-      unit.io.divPerf
+      unit.io.divMonitor
   }
   require(divPerfSources.size <= 1, "ExecuteBlock expects at most one DIV-capable unit")
 
-  io.divPerf := (if (divPerfSources.isEmpty) 0.U.asTypeOf(new DivPerfTrace) else divPerfSources.head)
+  io.divMonitor := (if (divPerfSources.isEmpty) 0.U.asTypeOf(new DivMonitor) else divPerfSources.head)
 }

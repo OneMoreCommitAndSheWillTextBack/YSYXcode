@@ -1,4 +1,4 @@
-package top.core.trace
+package top.trace
 
 import chisel3._
 import chisel3.util.{Cat, MuxLookup, Valid}

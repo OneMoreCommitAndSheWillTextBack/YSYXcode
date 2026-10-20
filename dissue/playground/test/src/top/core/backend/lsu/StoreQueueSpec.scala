@@ -12,7 +12,7 @@ object StoreQueueSpec {
   )
 
   def main(args: Array[String]): Unit = {
-    simulate(new StoreQueue(cfg)) { dut =>
+    simulate(new StoreQueue(cfg, enableMonitor = true)) { dut =>
       def clearEvents(): Unit = {
         for (lane  <- 0 until cfg.dispatchWidth) {
           dut.io.alloc(lane).valid.poke(false)
@@ -105,7 +105,7 @@ object StoreQueueSpec {
       dut.io.alloc(0).valid.poke(true)
       dut.io.alloc(0).robIdx.poke(2)
       dut.io.allocReady(0).expect(false)
-      dut.io.perf.fullStall.expect(true)
+      dut.io.monitor.fullStall.expect(true)
       dut.clock.step()
       dut.io.alloc(0).valid.poke(false)
 

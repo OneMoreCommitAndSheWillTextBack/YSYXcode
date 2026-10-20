@@ -4,14 +4,8 @@ import chisel3._
 import chisel3.util.{log2Ceil, Mux1H, MuxLookup, PriorityEncoderOH, Valid}
 import top.config.{BpuConfig, ICacheConfig}
 import top.core.bundle.CfiType
-import top.core.frontend.bundle.{
-  BpuUpdate,
-  LatePredictQuery,
-  LatePrediction,
-  PredictorConstants,
-  PredictorProvider,
-  TaggedPredictorPerf
-}
+import top.core.monitor.TaggedPredictorMonitor
+import top.core.frontend.bundle.{BpuUpdate, LatePredictQuery, LatePrediction, PredictorConstants, PredictorProvider}
 
 private object IttageCounter {
   def increment(value: UInt): UInt =
@@ -30,7 +24,7 @@ private class IttageSramEntry(cfg: BpuConfig, epochBits: Int) extends Bundle {
 }
 
 /** ITTAGE target banks with a registered SRAM read stage aligned to BPU S2. */
-class Ittage(cfg: BpuConfig, queryWidth: Int) extends Module {
+class Ittage(cfg: BpuConfig, queryWidth: Int, enableMonitor: Boolean = false) extends Module {
   require(
     cfg.predictorHistoryBits == PredictorConstants.historyBits,
     "Prediction metadata and ITTAGE history widths must match"
@@ -52,7 +46,7 @@ class Ittage(cfg: BpuConfig, queryWidth: Int) extends Module {
     val query      = Input(Vec(queryWidth, new LatePredictQuery(cacheCfg)))
     val prediction = Output(Vec(queryWidth, new LatePrediction(cacheCfg)))
     val update     = Input(Vec(PredictorConstants.commitUpdateWidth, Valid(new BpuUpdate(cfg))))
-    val perf       = Output(new TaggedPredictorPerf)
+    val monitor    = Output(new TaggedPredictorMonitor)
   })
 
   private def foldPathHistory(history: UInt, width: Int, length: Int): UInt = {
@@ -308,8 +302,11 @@ class Ittage(cfg: BpuConfig, queryWidth: Int) extends Module {
     ageCounter := ageCounter + 1.U
   }
 
-  io.perf.provider          := taggedProvider.asUInt.orR
-  io.perf.alternateDisagree := alternateDiffers.asUInt.orR
-  io.perf.allocation        := allocationValid.asUInt.orR
-  io.perf.usefulnessAging   := ageNow
+  io.monitor := 0.U.asTypeOf(new TaggedPredictorMonitor)
+  if (enableMonitor) {
+    io.monitor.provider          := taggedProvider.asUInt.orR
+    io.monitor.alternateDisagree := alternateDiffers.asUInt.orR
+    io.monitor.allocation        := allocationValid.asUInt.orR
+    io.monitor.usefulnessAging   := ageNow
+  }
 }

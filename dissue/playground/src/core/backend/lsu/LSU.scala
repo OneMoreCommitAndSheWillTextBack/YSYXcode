@@ -10,23 +10,15 @@ import top.core.backend.bundle.{
   StoreQueueAlloc,
   StoreQueueCommit,
   StoreQueueEvent,
-  StoreQueuePerf,
   StoreQueueUpdate,
   StoreResponseEvent,
   StoreTrackerQuery
 }
+import top.core.monitor.StoreQueueMonitor
 import top.core.backend.csr.{CsrStatus, Mstatus, PrivMode}
 import top.core.backend.decoder.{LsuOp, MemSize}
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
-import top.core.bundle.{
-  DataMemKind,
-  DataMemReq,
-  DataMemResp,
-  DataMemTxn,
-  OwnedDataMemReq,
-  RobAge,
-  RobRecovery
-}
+import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, DataMemTxn, OwnedDataMemReq, RobAge, RobRecovery}
 import top.core.mem.{MemAddress, RecoverableDmemQueue}
 import top.core.mmu.{MmuAccessType, MmuTranslateReq, Sv32Translator}
 
@@ -36,7 +28,7 @@ import top.core.mmu.{MmuAccessType, MmuTranslateReq, Sv32Translator}
   * independently. The outbound recoverable FIFO is deliberately inside this module so cancellation and tag reuse are
   * decided by the same owner that routes responses.
   */
-class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
+class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) extends Module {
   private val dataBytes   = cfg.dataWidth / 8
   private val cancelPorts = cfg.dmemQueueEntries + cfg.recoveryCancelPorts
 
@@ -77,7 +69,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     val storeUpdate               = Output(Valid(new StoreQueueUpdate(cfg)))
     val storeRequest              = Output(Valid(new StoreQueueEvent(cfg)))
     val storeResponse             = Output(Valid(new StoreResponseEvent(cfg)))
-    val sqPerf                    = Output(new StoreQueuePerf(cfg))
+    val monitor                   = Output(new StoreQueueMonitor(cfg))
 
     val loadTxnOccupancy            = Output(UInt(math.max(chisel3.util.log2Ceil(cfg.loadTxnEntries + 1), 1).W))
     val loadTxnFullStall            = Output(Bool())
@@ -110,7 +102,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   private val reservationAddr  = Reg(UInt(cfg.addrWidth.W))
 
   private val translator = Module(new Sv32Translator(cfg))
-  private val storeQueue = Module(new StoreQueue(cfg))
+  private val storeQueue = Module(new StoreQueue(cfg, enableMonitor))
   private val loadTxns   = Module(new LoadTxnQueue(cfg))
   private val storeDrain = Module(new StoreDrainEngine(cfg))
   private val outbound   = Module(
@@ -143,7 +135,7 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   storeQueue.io.response := storeDrain.io.complete
   io.storeRequest        := storeDrain.io.issue
   io.storeResponse       := storeDrain.io.complete
-  io.sqPerf              := storeQueue.io.perf
+  io.monitor             := storeQueue.io.monitor
 
   private val serializedSuccessPending = RegInit(false.B)
   private val serializedSuccessSqIdx   = RegInit(0.U(cfg.sqIdxWidth.W))
@@ -698,12 +690,12 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   }.otherwise {
     when(state === sIdle) {
       when(pendingDeviceReissue) {
-        reqReg       := pendingDeviceReq(pendingDeviceIdx)
-        vaddrReg     := pendingDeviceVaddr(pendingDeviceIdx)
-        paddrReg     := pendingDevicePaddr(pendingDeviceIdx)
-        loadTxnIdReg := loadTxns.io.allocTxnId
+        reqReg                               := pendingDeviceReq(pendingDeviceIdx)
+        vaddrReg                             := pendingDeviceVaddr(pendingDeviceIdx)
+        paddrReg                             := pendingDevicePaddr(pendingDeviceIdx)
+        loadTxnIdReg                         := loadTxns.io.allocTxnId
         pendingDeviceValid(pendingDeviceIdx) := false.B
-        state        := sLoadReq
+        state                                := sLoadReq
       }.elsewhen(io.in.fire && inputNeedsTranslate) {
         reqReg   := io.in.bits
         vaddrReg := inputAddr

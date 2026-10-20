@@ -2,7 +2,8 @@ package top.sim
 
 import chisel3._
 import top.config.BackendConfig
-import top.core.backend.bundle.{BpuPerfSample, RetireGroup}
+import top.core.backend.bundle.RetireGroup
+import top.core.monitor.BpuPerfSample
 import top.core.backend.csr.CsrTrapCommit
 import top.core.bundle.BpuCfiClass
 import top.dpi.{NpcBpuPerf, NpcDifftestCommit, NpcDifftestContext}

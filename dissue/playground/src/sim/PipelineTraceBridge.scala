@@ -2,7 +2,7 @@ package top.sim
 
 import chisel3._
 import chisel3.util.Valid
-import top.core.trace.PipelineTraceEvent
+import top.trace.PipelineTraceEvent
 import top.dpi.NpcPipelineTrace
 
 /** Serializes independent semantic events into DPI calls without introducing backpressure.

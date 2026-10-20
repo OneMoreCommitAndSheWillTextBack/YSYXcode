@@ -10,13 +10,13 @@ import top.core.frontend.bundle._
 import top.core.frontend.icache._
 import top.core.frontend.ifetch.{FetchPacket, FetchQueue, FetchTargetQueue, FetchWidth, IFetch}
 import top.core.frontend.pcgen.FetchAddressGenerator
-import top.core.trace.{FrontendTrace, FrontendTraceSample, IfuTrace, PipelineTraceEvent, TraceTap}
+import top.core.monitor.{FrontendMonitor, MonitorTap}
 
 class Frontend(
-  resetVector: BigInt = BigInt("80000000", 16),
-  cfg:         FrontendConfig = FrontendConfig(),
-  backendCfg:  BackendConfig = BackendConfig(),
-  enableTrace: Boolean = true)
+  resetVector:   BigInt = BigInt("80000000", 16),
+  cfg:           FrontendConfig = FrontendConfig(),
+  backendCfg:    BackendConfig = BackendConfig(),
+  enableMonitor: Boolean = true)
     extends Module {
   require(backendCfg.addrWidth == cfg.addrWidth, "frontend and backend address widths must match")
   require(backendCfg.frontendPayload == cfg.payload, "frontend and backend payload widths must match")
@@ -44,12 +44,11 @@ class Frontend(
     val ptwResp          = Flipped(Decoupled(new DataMemResp(backendCfg.dataWidth)))
     val csrStatus        = Input(new CsrStatus(backendCfg))
     val icacheInvalidate = Input(Bool())
-    val pipelineTrace    = Output(Vec(FetchWidth.frontend, Valid(new PipelineTraceEvent)))
-    val perfTrace        = Output(new FrontendTraceSample(cfg))
+    val monitor          = Output(new FrontendMonitor(cfg))
   })
 
   val addressGen = Module(new FetchAddressGenerator(resetVector, cfg))
-  val bpu        = Module(new Bpu(cfg, backendCfg.commitWidth))
+  val bpu        = Module(new Bpu(cfg, backendCfg.commitWidth, enableMonitor))
   val ftq        = Module(new FetchTargetQueue(cfg))
   val iCache     = Module(new ICache(cfg))
   val ifetch     = Module(new IFetch(cfg))
@@ -231,44 +230,36 @@ class Frontend(
     assert(ftq.io.backendLookup.valid)
   }
 
-  io.pipelineTrace := 0.U.asTypeOf(io.pipelineTrace)
-  io.perfTrace     := 0.U.asTypeOf(new FrontendTraceSample(cfg))
-  if (enableTrace) {
-    val ifuTrace           = Module(new IfuTrace(cfg, FetchWidth.frontend))
-    val frontendTrace      = Module(new FrontendTrace(cfg))
+  io.monitor := 0.U.asTypeOf(new FrontendMonitor(cfg))
+  if (enableMonitor) {
     val selectedPcRedirect = Wire(new PcRedirect)
     selectedPcRedirect.valid := selectedRecovery.valid
     selectedPcRedirect.value := selectedRecovery.bits.targetPc
 
-    ifuTrace.io.enqueue := TraceTap.observe(fetchQueue.io.enq)
-    io.pipelineTrace    := ifuTrace.io.events
-
-    frontendTrace.io.backendRedirect           := redirect
-    frontendTrace.io.pcRedirect                := selectedPcRedirect
-    frontendTrace.io.invalidate                := io.icacheInvalidate
-    frontendTrace.io.recovery                  := selectedRecovery
-    frontendTrace.io.fetchValid                := io.fetch.valid
-    frontendTrace.io.fetchReady                := io.fetch.ready
-    frontendTrace.io.fetchQueueEnqueueValid    := fetchQueue.io.enq.valid
-    frontendTrace.io.fetchQueueEnqueueReady    := fetchQueue.io.enq.ready
-    frontendTrace.io.alignerOutputBackpressure := ifetch.io.alignerOutputBackpressure
-    frontendTrace.io.blockBufferBackpressure   := ifetch.io.blockBufferBackpressure
-    frontendTrace.io.ftqReserveBackpressure    := addressGen.io.addressReq.valid && !ftq.io.reserve.ready
-    frontendTrace.io.refillPhysicalReqValid    := refillMmu.io.physReq.valid
-    frontendTrace.io.refillPhysicalReqReady    := io.cacheRefillReq.ready
-    frontendTrace.io.icacheReq                 := TraceTap.observe(iCache.io.req)
-    frontendTrace.io.icacheResp                := TraceTap.observe(iCache.io.resp)
-    frontendTrace.io.icacheRefillReq           := TraceTap.observe(iCache.io.refillReq)
-    frontendTrace.io.icacheRefillResp          := TraceTap.observe(iCache.io.refillResp)
-    frontendTrace.io.icacheLookup              := iCache.io.lookup
-    frontendTrace.io.bpuMonitor                := bpu.io.perf
-    frontendTrace.io.ifuStaleDrop              := ifetch.io.staleResponseDrop || ftq.io.staleIfuDrop ||
+    io.monitor.backendRedirect           := redirect
+    io.monitor.pcRedirect                := selectedPcRedirect
+    io.monitor.invalidate                := io.icacheInvalidate
+    io.monitor.recovery                  := selectedRecovery
+    io.monitor.fetchValid                := io.fetch.valid
+    io.monitor.fetchReady                := io.fetch.ready
+    io.monitor.fetchQueueEnqueue         := MonitorTap.observe(fetchQueue.io.enq)
+    io.monitor.alignerOutputBackpressure := ifetch.io.alignerOutputBackpressure
+    io.monitor.blockBufferBackpressure   := ifetch.io.blockBufferBackpressure
+    io.monitor.ftqReserveBackpressure    := addressGen.io.addressReq.valid && !ftq.io.reserve.ready
+    io.monitor.refillPhysicalReqValid    := refillMmu.io.physReq.valid
+    io.monitor.refillPhysicalReqReady    := io.cacheRefillReq.ready
+    io.monitor.icacheReq                 := MonitorTap.observe(iCache.io.req)
+    io.monitor.icacheResp                := MonitorTap.observe(iCache.io.resp)
+    io.monitor.icacheRefillReq           := MonitorTap.observe(iCache.io.refillReq)
+    io.monitor.icacheRefillResp          := MonitorTap.observe(iCache.io.refillResp)
+    io.monitor.icacheLookup              := iCache.io.lookup
+    io.monitor.bpu                       := bpu.io.monitor
+    io.monitor.ifuStaleDrop              := ifetch.io.staleResponseDrop || ftq.io.staleIfuDrop ||
       ftq.io.staleFastDrop || ftq.io.staleFinalDrop || ftq.io.staleCompleteDrop || ftq.io.staleRetireDrop
-    frontendTrace.io.fetchQueueEmpty           := fetchQueue.io.empty
-    frontendTrace.io.fetchQueueFull            := fetchQueue.io.full
-    frontendTrace.io.fetchQueueOccupancy       := fetchQueue.io.count.pad(32)
-    frontendTrace.io.fetchQueueEnqueueWidth    := fetchQueue.io.enqueueWidth.pad(32)
-    frontendTrace.io.fetchQueueDequeueWidth    := fetchQueue.io.dequeueWidth.pad(32)
-    io.perfTrace                               := frontendTrace.io.sample
+    io.monitor.fetchQueueEmpty           := fetchQueue.io.empty
+    io.monitor.fetchQueueFull            := fetchQueue.io.full
+    io.monitor.fetchQueueOccupancy       := fetchQueue.io.count.pad(32)
+    io.monitor.fetchQueueEnqueueWidth    := fetchQueue.io.enqueueWidth.pad(32)
+    io.monitor.fetchQueueDequeueWidth    := fetchQueue.io.dequeueWidth.pad(32)
   }
 }

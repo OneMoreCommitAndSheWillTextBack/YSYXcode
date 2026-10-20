@@ -8,12 +8,13 @@ import top.core.backend.decoder.FuType
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
 import top.core.backend.fu.{ALU, BRU, CSR, DIV, JMP, MUL}
 import top.core.bundle.{CfiType, RobAge, RobRecovery}
-import top.core.trace.DivPerfTrace
+import top.core.monitor.DivMonitor
 import top.config.BackendConfig
 
 class IntExeUnit(
-  cfg:    BackendConfig = BackendConfig(),
-  params: IntExeUnitConfig = IntExeUnitConfig.aluBjuCsr)
+  cfg:           BackendConfig = BackendConfig(),
+  params:        IntExeUnitConfig = IntExeUnitConfig.aluBjuCsr,
+  enableMonitor: Boolean = false)
     extends Module {
   val io = IO(new Bundle {
     val in      = Flipped(Decoupled(new ExuRequest(cfg)))
@@ -23,10 +24,10 @@ class IntExeUnit(
     val status  = Output(new IssuePortStatus)
     val csrRead = new CsrReadPort(cfg)
 
-    val writeback = Valid(new RobWritebackPacket(cfg))
-    val wakeup    = Output(new IssueWakeup(cfg))
-    val resolve   = Output(Valid(new BranchResolve(cfg)))
-    val divPerf   = Output(new DivPerfTrace)
+    val writeback  = Valid(new RobWritebackPacket(cfg))
+    val wakeup     = Output(new IssueWakeup(cfg))
+    val resolve    = Output(Valid(new BranchResolve(cfg)))
+    val divMonitor = Output(new DivMonitor)
   })
 
   private def has(kind: ExuFuKind): Boolean =
@@ -39,7 +40,7 @@ class IntExeUnit(
 
   private val alu = Option.when(has(ExuFuKind.Alu))(Module(new ALU(cfg.dataWidth)))
   private val mul = Option.when(has(ExuFuKind.Mul))(Module(new MUL(cfg.dataWidth)))
-  private val div = Option.when(has(ExuFuKind.Div))(Module(new DIV(cfg.dataWidth)))
+  private val div = Option.when(has(ExuFuKind.Div))(Module(new DIV(cfg.dataWidth, enableMonitor)))
   private val bru = Option.when(has(ExuFuKind.Bru))(Module(new BRU(cfg.addrWidth, cfg.dataWidth)))
   private val jmp = Option.when(has(ExuFuKind.Jmp))(Module(new JMP(cfg.addrWidth, cfg.dataWidth)))
   private val csr = Option.when(has(ExuFuKind.Csr))(Module(new CSR(cfg)))
@@ -67,8 +68,8 @@ class IntExeUnit(
   private def killedByRecovery(robIdx: UInt): Bool =
     io.recover.valid && RobAge.isYounger(robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
 
-  io.divPerf := 0.U.asTypeOf(new DivPerfTrace)
-  div.foreach { unit => io.divPerf := unit.io.perf }
+  io.divMonitor := 0.U.asTypeOf(new DivMonitor)
+  div.foreach { unit => io.divMonitor := unit.io.monitor }
 
   io.status.alu := has(ExuFuKind.Alu).B && immediateFuReady
   io.status.mul := has(ExuFuKind.Mul).B && mulInReady

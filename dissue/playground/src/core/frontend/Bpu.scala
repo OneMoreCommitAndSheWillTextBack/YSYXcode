@@ -5,6 +5,7 @@ import chisel3.util._
 
 import top.core.frontend.bundle._
 import top.config._
+import top.core.monitor.BpuMonitor
 import top.core.bundle.CfiType
 
 class BtbResp(cfg: BpuConfig) extends Bundle {
@@ -186,7 +187,10 @@ class Bht(cfg: BpuConfig) extends Module {
   }
 }
 
-class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = PredictorConstants.commitUpdateWidth)
+class Bpu(
+  frontendCfg:   FrontendConfig = FrontendConfig(),
+  commitWidth:   Int = PredictorConstants.commitUpdateWidth,
+  enableMonitor: Boolean = false)
     extends Module {
   private val cfg      = frontendCfg.bpu
   private val cacheCfg = frontendCfg.icache
@@ -205,13 +209,13 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     val finalResult = Valid(new BpuFinalResult(frontendCfg))
     val recover     = Flipped(Valid(new BpuRecover(frontendCfg)))
     val train       = Input(Vec(commitWidth, Valid(new BpuUpdate(cfg))))
-    val perf        = Output(new RasPerf)
+    val monitor     = Output(new BpuMonitor)
   })
 
   val btb    = Module(new Btb(cfg))
   val bht    = Module(new Bht(cfg))
-  val tage   = Module(new Tage(cfg, blocks))
-  val ittage = Module(new Ittage(cfg, blocks))
+  val tage   = Module(new Tage(cfg, blocks, enableMonitor))
+  val ittage = Module(new Ittage(cfg, blocks, enableMonitor))
 
   private def blockBase(startPc: UInt, block: Int): UInt = {
     val first = Cat(startPc(cfg.addrWidth - 1, cfg.offsetBits), 0.U(cfg.offsetBits.W))
@@ -702,17 +706,17 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
 
   // A restart request is issued on the recovery cycle, while the speculative state is being restored. The S1 capture
   // therefore reads the restored value instead of `speculative*`, which still holds the killed stream's state.
-  val recoveryHistory    = Mux(
+  val recoveryHistory = Mux(
     matchingS3Override,
     s3HistoryAfter,
     Mux(io.recover.bits.checkpointValid, recoveredHistory, committedHistory)
   )
-  val recoveryPath       = Mux(
+  val recoveryPath    = Mux(
     matchingS3Override,
     s3PathAfter,
     Mux(io.recover.bits.checkpointValid, recoveredPath, committedPath)
   )
-  val recoveryRas        = Mux(
+  val recoveryRas     = Mux(
     matchingS3Override,
     s3RasAfter,
     Mux(io.recover.bits.checkpointValid, recoveryRasUpdate._1, committedRas)
@@ -781,34 +785,36 @@ class Bpu(frontendCfg: FrontendConfig = FrontendConfig(), commitWidth: Int = Pre
     speculativeRas     := fastRasAfter
   }
 
-  private val rasUse = VecInit((0 until commitWidth).map { lane =>
-    io.train(lane).valid && io.train(lane).bits.context.rasUsed
-  }).asUInt.orR
-  private val rasHit = VecInit((0 until commitWidth).map { lane =>
-    io.train(lane).valid && io.train(lane).bits.context.rasUsed &&
-    io.train(lane).bits.target === io.train(lane).bits.context.predictedTarget
-  }).asUInt.orR
-  private def committedAction(action: UInt): Bool =
-    VecInit((0 until commitWidth).map { lane =>
-      io.train(lane).valid && io.train(lane).bits.rasAction === action
+  io.monitor := 0.U.asTypeOf(new BpuMonitor)
+  if (enableMonitor) {
+    val rasUse = VecInit((0 until commitWidth).map { lane =>
+      io.train(lane).valid && io.train(lane).bits.context.rasUsed
     }).asUInt.orR
+    val rasHit = VecInit((0 until commitWidth).map { lane =>
+      io.train(lane).valid && io.train(lane).bits.context.rasUsed &&
+      io.train(lane).bits.target === io.train(lane).bits.context.predictedTarget
+    }).asUInt.orR
+    def committedAction(action: UInt): Bool =
+      VecInit((0 until commitWidth).map { lane =>
+        io.train(lane).valid && io.train(lane).bits.rasAction === action
+      }).asUInt.orR
 
-  io.perf                   := 0.U.asTypeOf(new RasPerf)
-  io.perf.push              := committedAction(RasAction.push)
-  io.perf.pop               := committedAction(RasAction.pop)
-  io.perf.popThenPush       := committedAction(RasAction.popThenPush)
-  io.perf.use               := rasUse
-  io.perf.hit               := rasHit
-  io.perf.miss              := rasUse && !rasHit
-  io.perf.underflow         := commitUnderflow.asUInt.orR || fastRasUnderflow.asUInt.orR || recoveryRasUpdate._2
-  io.perf.overflow          := commitOverflow.asUInt.orR || fastRasOverflow.asUInt.orR || recoveryRasUpdate._3
-  io.perf.checkpointRestore := io.recover.valid && io.recover.bits.checkpointValid
-  io.perf.recoveryDiscard   := io.recover.valid
-  io.perf.taggedProvider    := tage.io.perf.provider || ittage.io.perf.provider
-  io.perf.alternateDisagree := tage.io.perf.alternateDisagree || ittage.io.perf.alternateDisagree
-  io.perf.allocation        := tage.io.perf.allocation || ittage.io.perf.allocation
-  io.perf.usefulnessAging   := tage.io.perf.usefulnessAging || ittage.io.perf.usefulnessAging
-  io.perf.lateOverride      := io.finalResult.valid && io.finalResult.bits.overrideFastPath
+    io.monitor.push              := committedAction(RasAction.push)
+    io.monitor.pop               := committedAction(RasAction.pop)
+    io.monitor.popThenPush       := committedAction(RasAction.popThenPush)
+    io.monitor.use               := rasUse
+    io.monitor.hit               := rasHit
+    io.monitor.miss              := rasUse && !rasHit
+    io.monitor.underflow         := commitUnderflow.asUInt.orR || fastRasUnderflow.asUInt.orR || recoveryRasUpdate._2
+    io.monitor.overflow          := commitOverflow.asUInt.orR || fastRasOverflow.asUInt.orR || recoveryRasUpdate._3
+    io.monitor.checkpointRestore := io.recover.valid && io.recover.bits.checkpointValid
+    io.monitor.recoveryDiscard   := io.recover.valid
+    io.monitor.taggedProvider    := tage.io.monitor.provider || ittage.io.monitor.provider
+    io.monitor.alternateDisagree := tage.io.monitor.alternateDisagree || ittage.io.monitor.alternateDisagree
+    io.monitor.allocation        := tage.io.monitor.allocation || ittage.io.monitor.allocation
+    io.monitor.usefulnessAging   := tage.io.monitor.usefulnessAging || ittage.io.monitor.usefulnessAging
+    io.monitor.lateOverride      := io.finalResult.valid && io.finalResult.bits.overrideFastPath
+  }
 
   when(io.req.fire) {
     assert(io.req.bits.token.streamEpoch === s1Request.token.streamEpoch || !s1Valid || io.fastResult.valid)

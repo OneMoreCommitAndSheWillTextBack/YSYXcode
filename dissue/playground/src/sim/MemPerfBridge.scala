@@ -2,14 +2,14 @@ package top.sim
 
 import chisel3._
 import top.config.{BackendConfig, DCacheConfig}
-import top.core.backend.bundle.BackendMemPerf
-import top.core.bundle.MemPerfEvent
-import top.core.mem.DCachePerf
+import top.core.monitor.BackendMemPerf
+import top.trace.MemPerfEvent
+import top.core.monitor.DCacheMonitor
 import top.dpi.NpcMemPerf
 
 /** Aggregates memory-system events into one DPI sample per active cycle.
   *
-  * Event bit-packing lives here on purpose: the producers export plain named bundles (Mem's DCachePerf, Backend's
+  * Event bit-packing lives here on purpose: the producers export plain named bundles (Mem's DCacheMonitor, Backend's
   * BackendMemPerf) and the integration layer connects them with bulk-connect. With enableDpi = false the module
   * elaborates to an empty shell, so the synthesis view contains no DPI.
   */
@@ -19,7 +19,7 @@ class MemPerfBridge(
   enableDpi:  Boolean = true)
     extends Module {
   val io = IO(new Bundle {
-    val memTrace     = Input(new DCachePerf(dcacheCfg))
+    val memTrace     = Input(new DCacheMonitor(dcacheCfg))
     val backendTrace = Input(new BackendMemPerf(backendCfg))
   })
 

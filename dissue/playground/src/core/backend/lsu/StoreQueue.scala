@@ -9,11 +9,11 @@ import top.core.backend.bundle.{
   StoreQueueAlloc,
   StoreQueueCommit,
   StoreQueueEvent,
-  StoreQueuePerf,
   StoreQueueUpdate,
   StoreResponseEvent,
   StoreTrackerQuery
 }
+import top.core.monitor.StoreQueueMonitor
 import top.core.bundle.{RobAge, RobRecovery}
 
 object StoreQueueState {
@@ -31,7 +31,7 @@ object StoreQueueState {
   * `sqIdx` selects the durable entry. ROB indices remain metadata used only for speculative age checks and assertions;
   * they are never used to find a committed store after retirement.
   */
-class StoreQueue(cfg: BackendConfig = BackendConfig()) extends Module {
+class StoreQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) extends Module {
   private val entryCount = cfg.storeQueueEntries
   private val dataBytes  = cfg.dataWidth / 8
   private val countWidth = math.max(chisel3.util.log2Ceil(entryCount + 1), 1)
@@ -59,7 +59,7 @@ class StoreQueue(cfg: BackendConfig = BackendConfig()) extends Module {
 
     val occupancy        = Output(UInt(countWidth.W))
     val committedPending = Output(Bool())
-    val perf             = Output(new StoreQueuePerf(cfg))
+    val monitor          = Output(new StoreQueueMonitor(cfg))
   })
 
   private val state    = RegInit(VecInit(Seq.fill(entryCount)(StoreQueueState.free)))
@@ -343,14 +343,17 @@ class StoreQueue(cfg: BackendConfig = BackendConfig()) extends Module {
       entry
     ))
   }).asUInt.orR
-  io.perf.alloc       := allocFire.asUInt.orR
-  io.perf.fullStall   := VecInit(
-    (0 until cfg.dispatchWidth).map(lane => io.alloc(lane).valid && !io.allocReady(lane))
-  ).asUInt.orR
-  io.perf.commit      := commitHit.asUInt.orR
-  io.perf.request     := io.issue.valid
-  io.perf.response    := io.response.valid
-  io.perf.occupancy   := io.occupancy
+  io.monitor          := 0.U.asTypeOf(new StoreQueueMonitor(cfg))
+  if (enableMonitor) {
+    io.monitor.alloc     := allocFire.asUInt.orR
+    io.monitor.fullStall := VecInit(
+      (0 until cfg.dispatchWidth).map(lane => io.alloc(lane).valid && !io.allocReady(lane))
+    ).asUInt.orR
+    io.monitor.commit    := commitHit.asUInt.orR
+    io.monitor.request   := io.issue.valid
+    io.monitor.response  := io.response.valid
+    io.monitor.occupancy := io.occupancy
+  }
 
   for (left  <- 0 until cfg.dispatchWidth) {
     for (right <- left + 1 until cfg.dispatchWidth) {

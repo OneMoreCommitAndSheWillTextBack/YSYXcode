@@ -1,9 +1,9 @@
-package top.core.trace
+package top.trace
 
 import chisel3._
 import chisel3.util.{Cat, Valid}
 import top.config.FrontendConfig
-import top.core.bundle.FrontendPerfEvent
+import top.core.monitor.MonitorTap
 import top.core.frontend.bundle.{
   FetchToken,
   FrontendRecovery,
@@ -24,10 +24,10 @@ class ICacheSemanticSample(cfg: FrontendConfig) extends Bundle {
 
 class ICacheTrace(cfg: FrontendConfig) extends Module {
   val io = IO(new Bundle {
-    val req        = Input(new DecoupledTraceTap(new ICacheFetchReq(cfg)))
-    val resp       = Input(new DecoupledTraceTap(new ICacheFetchResp(cfg)))
-    val refillReq  = Input(new DecoupledTraceTap(new ICacheRefillReq(cfg.addrWidth)))
-    val refillResp = Input(new DecoupledTraceTap(new ICacheRefillResp(cfg.icacheLineBytes)))
+    val req        = Input(new MonitorTap(new ICacheFetchReq(cfg)))
+    val resp       = Input(new MonitorTap(new ICacheFetchResp(cfg)))
+    val refillReq  = Input(new MonitorTap(new ICacheRefillReq(cfg.addrWidth)))
+    val refillResp = Input(new MonitorTap(new ICacheRefillResp(cfg.icacheLineBytes)))
     val lookup     = Input(Valid(new ICacheLookupResult(cfg)))
     val recovery   = Input(Valid(new FrontendRecovery(cfg)))
     val invalidate = Input(Bool())

@@ -1,13 +1,12 @@
-package top.core.trace
+package top.trace
 
 import chisel3._
-import top.core.bundle.FrontendPerfEvent
-import top.core.frontend.bundle.RasPerf
+import top.core.monitor.BpuMonitor
 
 /** Converts passive predictor monitor pulses into the stable frontend performance ABI. */
 class BpuTrace extends Module {
   val io = IO(new Bundle {
-    val monitor = Input(new RasPerf)
+    val monitor = Input(new BpuMonitor)
     val events  = Output(UInt(FrontendPerfEvent.width.W))
   })
 

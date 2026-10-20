@@ -5,6 +5,7 @@ import chisel3.util.{Cat, Decoupled, Fill, Mux1H, OHToUInt, PopCount, PriorityEn
 import top.bus.axi.{AxiBurst, AxiResp}
 import top.config.{DCacheConfig, MemConfig}
 import top.core.bundle.{DataMemOwner, DataMemResp, DataMemTxn, OwnedDataMemReq, RobAge, RobRecovery}
+import top.core.monitor.DCacheMonitor
 import top.core.mem.bundle.{AxiMasterReadReq, AxiMasterReadResp, AxiMasterWriteReq, AxiMasterWriteResp}
 
 /** One request waiting on a cache-line refill.
@@ -28,22 +29,6 @@ class DCacheArray(cfg: DCacheConfig) extends Module {
   val io = IO(new Bundle {})
 }
 
-class DCachePerf(cfg: DCacheConfig) extends Bundle {
-  val access         = Bool()
-  val hit            = Bool()
-  val miss           = Bool()
-  val bypass         = Bool()
-  val mshrAlloc      = Bool()
-  val mshrMerge      = Bool()
-  val mshrFullStall  = Bool()
-  val hitUnderMiss   = Bool()
-  val queuedMiss     = Bool()
-  val refillStart    = Bool()
-  val refillComplete = Bool()
-  val refillFault    = Bool()
-  val mshrOccupancy  = UInt(math.max(chisel3.util.log2Ceil(cfg.mshrEntries + 1), 1).W)
-}
-
 object DCache {
   def cancelPorts(cfg: DCacheConfig): Int = 1 + cfg.mshrEntries * cfg.waitersPerMshr
 }
@@ -55,9 +40,10 @@ object DCache {
   * and must drain any AXI transaction it has started.
   */
 class DCache(
-  cfg:        DCacheConfig = DCacheConfig(),
-  memCfg:     MemConfig = MemConfig(),
-  robEntries: Int = 16)
+  cfg:           DCacheConfig = DCacheConfig(),
+  memCfg:        MemConfig = MemConfig(),
+  robEntries:    Int = 16,
+  enableMonitor: Boolean = false)
     extends Module {
   require(cfg.addrWidth == memCfg.addrWidth, "DCache and memory address widths must match")
   require(cfg.dataWidth == memCfg.axiDataWidth, "DCache and AXI data widths must match")
@@ -99,7 +85,7 @@ class DCache(
     val axiWriteReq  = Decoupled(new AxiMasterWriteReq(memCfg.addrWidth, memCfg.axiDataWidth, memCfg.axiIdWidth))
     val axiWriteResp = Flipped(Decoupled(new AxiMasterWriteResp(memCfg.axiIdWidth)))
 
-    val perf = Output(new DCachePerf(cfg))
+    val monitor = Output(new DCacheMonitor(cfg))
   })
 
   private def setIndex(addr: UInt): UInt = {
@@ -446,19 +432,22 @@ class DCache(
   }
   private val completedLine = completedBeats.asUInt
 
-  io.perf.access         := requestFire
-  io.perf.hit            := requestFire && hit
-  io.perf.miss           := requestFire && !hit
-  io.perf.bypass         := false.B
-  io.perf.mshrAlloc      := requestAllocate
-  io.perf.mshrMerge      := requestMerge
-  io.perf.mshrFullStall  := io.req.valid && !hit && !mshrMatch && !requestCanAllocate
-  io.perf.hitUnderMiss   := requestFire && hit && activeMshr
-  io.perf.queuedMiss     := requestAllocate && activeMshr
-  io.perf.refillStart    := io.axiReadReq.fire
-  io.perf.refillComplete := io.axiReadResp.fire && refillLast
-  io.perf.refillFault    := io.axiReadResp.fire && refillLast && refillFault
-  io.perf.mshrOccupancy  := PopCount(mshrValid)
+  io.monitor := 0.U.asTypeOf(new DCacheMonitor(cfg))
+  if (enableMonitor) {
+    io.monitor.access         := requestFire
+    io.monitor.hit            := requestFire && hit
+    io.monitor.miss           := requestFire && !hit
+    io.monitor.bypass         := false.B
+    io.monitor.mshrAlloc      := requestAllocate
+    io.monitor.mshrMerge      := requestMerge
+    io.monitor.mshrFullStall  := io.req.valid && !hit && !mshrMatch && !requestCanAllocate
+    io.monitor.hitUnderMiss   := requestFire && hit && activeMshr
+    io.monitor.queuedMiss     := requestAllocate && activeMshr
+    io.monitor.refillStart    := io.axiReadReq.fire
+    io.monitor.refillComplete := io.axiReadResp.fire && refillLast
+    io.monitor.refillFault    := io.axiReadResp.fire && refillLast && refillFault
+    io.monitor.mshrOccupancy  := PopCount(mshrValid)
+  }
 
   when(requestFire && hit) {
     hitRespValid  := true.B

@@ -3,7 +3,6 @@ package top.core.backend.retire
 import chisel3._
 import chisel3.util.{Decoupled, Enum, Mux1H, MuxLookup, PopCount, PriorityEncoderOH, Valid}
 import top.core.backend.bundle.{
-  BpuPerfSample,
   CommitRegWrite,
   RetireGroup,
   RobCommitPacket,
@@ -11,6 +10,7 @@ import top.core.backend.bundle.{
   StoreQueueCommit,
   StoreQueueEvent
 }
+import top.core.monitor.BpuPerfSample
 import top.core.backend.csr.{
   CsrAddr,
   CsrArch,
@@ -31,7 +31,7 @@ import top.core.frontend.bundle.RasAction
 import top.core.mem.MemAddress
 import top.config.BackendConfig
 
-class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
+class RetireUnit(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val rob = Vec(cfg.commitWidth, Flipped(Decoupled(new RobCommitPacket(cfg))))
 
@@ -171,13 +171,16 @@ class RetireUnit(cfg: BackendConfig = BackendConfig()) extends Module {
     normalCommit(i) := canRetire(i) && !trapRetire(i) && !mretRetire(i) && !sretRetire(i)
   }
 
-  for (i <- 0 until cfg.commitWidth) {
-    io.bpuPerf(i).valid       := !reset.asBool && normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
-    io.bpuPerf(i).cfiClass    := bpuCfiClass(io.rob(i).bits.cfi, io.rob(i).bits.fetch.inst)
-    io.bpuPerf(i).predHit     := io.rob(i).bits.fetch.predHit
-    io.bpuPerf(i).predTaken   := io.rob(i).bits.fetch.predTaken
-    io.bpuPerf(i).actualTaken := Mux(io.rob(i).bits.cfi === CfiType.branch, io.rob(i).bits.branchTaken, true.B)
-    io.bpuPerf(i).correct     := io.rob(i).bits.fetch.predNpc === nextPc(i)
+  io.bpuPerf := 0.U.asTypeOf(Vec(cfg.commitWidth, new BpuPerfSample))
+  if (enableMonitor) {
+    for (i <- 0 until cfg.commitWidth) {
+      io.bpuPerf(i).valid       := !reset.asBool && normalCommit(i) && (io.rob(i).bits.cfi =/= CfiType.none)
+      io.bpuPerf(i).cfiClass    := bpuCfiClass(io.rob(i).bits.cfi, io.rob(i).bits.fetch.inst)
+      io.bpuPerf(i).predHit     := io.rob(i).bits.fetch.predHit
+      io.bpuPerf(i).predTaken   := io.rob(i).bits.fetch.predTaken
+      io.bpuPerf(i).actualTaken := Mux(io.rob(i).bits.cfi === CfiType.branch, io.rob(i).bits.branchTaken, true.B)
+      io.bpuPerf(i).correct     := io.rob(i).bits.fetch.predNpc === nextPc(i)
+    }
   }
 
   private val barrierCommit = Wire(Vec(cfg.commitWidth, Bool()))

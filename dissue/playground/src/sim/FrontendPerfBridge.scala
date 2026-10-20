@@ -2,7 +2,7 @@ package top.sim
 
 import chisel3._
 import top.config.FrontendConfig
-import top.core.trace.FrontendTraceSample
+import top.trace.FrontendTraceSample
 import top.dpi.NpcFrontendPerf
 
 /** Translates the frontend trace sample into one DPI sample per active cycle.
