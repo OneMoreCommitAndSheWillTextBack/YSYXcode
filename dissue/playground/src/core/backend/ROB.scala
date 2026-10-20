@@ -62,9 +62,9 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     val recover = Input(new RobRecovery(cfg.robIdxWidth))
 
     val producerEntries = Output(Vec(cfg.robEntries, new RobProducerEntry(cfg)))
-    // A memory request may leave the core only after every older CFI has
-    // produced its execution result. The memory hierarchy compares this bitmap
-    // with the request owner using ROB-ring age ordering.
+    // MMU translation may block the single LSU on a page-table walk. Keep the
+    // conservative branch-ordering gate for translation-enabled memory ops;
+    // bare-mode accesses can execute speculatively.
     val unresolvedCfi   = Output(Vec(cfg.robEntries, Bool()))
     // Younger LSU operations must not pass an older AMO. The AMO bypasses the
     // DCache, so a cacheable load could otherwise observe the line before the

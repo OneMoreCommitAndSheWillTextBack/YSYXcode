@@ -579,3 +579,42 @@ defense, the instruction aligner emits a 32-bit instruction only when its high p
 (`RV32I` 70/70, `RV32IM` 15/15, `RV32IMA` 40/40), with headline IPC unchanged at 0.942740 in
 `run/ipc-log/profile-202608101829.txt`. The user's original command also completes all ten workloads with
 `MicroBench PASS`, `HIT GOOD TRAP`, 371,109 commits, and 712,938 cycles.
+
+## Post-acceptance: load/CFI serialization removal
+
+Date: 2026-10-20.
+
+The backend's two coarse serialization points were removed:
+
+- `IssueQueue.cfiBlocked` no longer forces CFI issue order. CFIs may co-issue and resolve out of order; `RecoveryUnit`
+  already selects the oldest mispredict and the FTQ anchor/checkpoint path resolves the redirect token.
+- `DataMemExternalization.hasOlderUnresolvedCfi` no longer gates bare-mode/cacheable memory issue. Cacheable loads
+  execute behind unresolved branches; DCache misses allocate an MSHR and launch their AXI refill. MMU-enabled accesses
+  keep a narrower LSU input gate because a page-table walk occupies the single translation state, and device loads are
+  parked until they reach the ROB head.
+- The DCache recovery path now keeps an MSHR alive when `axiReadReq.fire` coincides with a recovery that kills all of
+  its waiters. The original code freed the MSHR using the pre-edge `queued` state, leaving an irrevocable AXI read with
+  `rready=0`; dinic/qsort hit the AXI liveness checker. The refill now drains and is discarded with the waiter-less
+  MSHR.
+- The frontend's `cfiBlocked` issue ordering is gone; multi-CFI redirect/training remains covered by
+  `BackendCfiContractSpec`, `BpuPipelineSpec`, `FetchTargetQueueSpec`, and `FtqTrainingSpec`.
+
+Full regression after the change:
+
+```text
+RV32I:   70 passed, 0 failed
+RV32IM:  15 passed, 0 failed
+RV32IMA: 40 passed, 0 failed
+```
+
+Archbench (`--batch`, no difftest), before → after:
+
+| test | cycles before | cycles after | IPC before | IPC after | IPC change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dinic | 4,395,172 | 3,380,869 | 0.409 | 0.531 | +29.8% |
+| qsort | 3,542,990 | 3,188,161 | 0.531 | 0.591 | +11.3% |
+| queen | 7,245,095 | 6,546,029 | 0.940 | 1.040 | +10.6% |
+
+All three reach `HIT GOOD TRAP`. The `mem gated by older CFI` counter is 0. The new dominant block reason is
+`LSU unavailable` (dinic 732,267 cycles; queen 1,462,143 cycles), so AXI multi-outstanding/MSHR capacity is the next
+backend limit. Raw logs are in `run/perf/post-cfi-gate/`; the comparison baseline is `run/perf/diag/`.

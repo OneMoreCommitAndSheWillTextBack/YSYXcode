@@ -4,15 +4,7 @@ import chisel3._
 import chisel3.util.{Cat, Decoupled, Fill, Mux1H, OHToUInt, PopCount, PriorityEncoderOH, Valid}
 import top.bus.axi.{AxiBurst, AxiResp}
 import top.config.{DCacheConfig, MemConfig}
-import top.core.bundle.{
-  DataMemExternalization,
-  DataMemOwner,
-  DataMemResp,
-  DataMemTxn,
-  OwnedDataMemReq,
-  RobAge,
-  RobRecovery
-}
+import top.core.bundle.{DataMemOwner, DataMemResp, DataMemTxn, OwnedDataMemReq, RobAge, RobRecovery}
 import top.core.mem.bundle.{AxiMasterReadReq, AxiMasterReadResp, AxiMasterWriteReq, AxiMasterWriteResp}
 
 /** One request waiting on a cache-line refill.
@@ -90,11 +82,10 @@ class DCache(
     val req  = Flipped(Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, robIdxWidth)))
     val resp = Decoupled(new DataMemResp(cfg.dataWidth))
 
-    val flush         = Input(Bool())
-    val recover       = Input(new RobRecovery(robIdxWidth))
-    val robHead       = Input(UInt(robIdxWidth.W))
-    val unresolvedCfi = Input(Vec(robEntries, Bool()))
-    val cancel        = Output(Vec(DCache.cancelPorts(cfg), Valid(UInt(DataMemTxn.width.W))))
+    val flush   = Input(Bool())
+    val recover = Input(new RobRecovery(robIdxWidth))
+    val robHead = Input(UInt(robIdxWidth.W))
+    val cancel  = Output(Vec(DCache.cancelPorts(cfg), Valid(UInt(DataMemTxn.width.W))))
 
     /** Clean and invalidate one line before an uncached coherent access. */
     val cleanInvalidate = Flipped(Decoupled(UInt(cfg.addrWidth.W)))
@@ -144,17 +135,6 @@ class DCache(
     owner.squashable && (io.flush ||
       (io.recover.valid && RobAge.isYounger(owner.robIdx, io.recover.robIdx, io.robHead, robEntries, robIdxWidth)))
 
-  private def mayIssueAxi(owner: DataMemOwner): Bool =
-    DataMemExternalization.mayIssueAxi(
-      owner,
-      io.unresolvedCfi,
-      io.robHead,
-      robEntries,
-      robIdxWidth,
-      io.flush,
-      io.recover
-    )
-
   private val validArray = RegInit(VecInit(Seq.fill(cfg.sets)(VecInit(Seq.fill(cfg.ways)(false.B)))))
   private val dirtyArray = RegInit(VecInit(Seq.fill(cfg.sets)(VecInit(Seq.fill(cfg.ways)(false.B)))))
   private val tagArray   = Reg(Vec(cfg.sets, Vec(cfg.ways, UInt(cfg.tagBits.W))))
@@ -167,7 +147,6 @@ class DCache(
   private val mshrSet              = Reg(Vec(cfg.mshrEntries, UInt(cfg.setIdxBits.W)))
   private val mshrWay              = Reg(Vec(cfg.mshrEntries, UInt(cfg.wayIdxBits.W)))
   private val mshrOwner            = Reg(Vec(cfg.mshrEntries, new DataMemOwner(robIdxWidth)))
-  private val mshrAxiAuthorized    = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
   private val mshrBeatIndex        = Reg(Vec(cfg.mshrEntries, UInt(beatIdxWidth.W)))
   private val mshrFault            = RegInit(VecInit(Seq.fill(cfg.mshrEntries)(false.B)))
   private val mshrBeats            = Reg(Vec(cfg.mshrEntries, Vec(beats, UInt(cfg.dataWidth.W))))
@@ -330,7 +309,7 @@ class DCache(
   // A dirty-victim allocation would create a second evicting MSHR; the writeback path only
   // arbitrates one eviction at a time. Hits and merges into pending MSHRs still proceed during
   // an eviction, but a fresh miss allocation waits for the writeback to drain.
-  private val requestCanAllocate  = hasFreeMshr && hasVictim && mayIssueAxi(io.req.bits.owner) && !hasEvicting
+  private val requestCanAllocate  = hasFreeMshr && hasVictim && !hasEvicting
   private val requestReady        = Mux(hit, true.B, Mux(mshrMatch, matchWaiterSpace, requestCanAllocate))
 
   // The victim line is snapshotted into mshrEvictData at allocation and its way stays reserved
@@ -371,7 +350,7 @@ class DCache(
   }
 
   private val queuedOH  = VecInit((0 until cfg.mshrEntries).map { entry =>
-    mshrValid(entry) && mshrState(entry) === mshrQueued && mshrAxiAuthorized(entry) && mayIssueAxi(mshrOwner(entry))
+    mshrValid(entry) && mshrState(entry) === mshrQueued
   }).asUInt
   private val hasQueued = queuedOH.orR
   private val queuedIdx = OHToUInt(queuedOH)
@@ -396,7 +375,7 @@ class DCache(
   private val refillTurnover         = hasReceiving && io.axiReadResp.valid && refillLast
   private val evictionRefillTurnover = hasEvictAwait && io.axiWriteResp.fire &&
     mshrWriteBeat(evictAwaitIdx) === lastBeat && mshrWaiterCount(evictAwaitIdx) =/= 0.U &&
-    mshrAxiAuthorized(evictAwaitIdx) && mayIssueAxi(mshrOwner(evictAwaitIdx)) && !io.flush && !io.recover.valid
+    !io.flush && !io.recover.valid
   private val refillRequestAvailable = hasQueued || evictionRefillTurnover
   private val refillRequestIdx       = Mux(evictionRefillTurnover, evictAwaitIdx, queuedIdx)
 
@@ -506,7 +485,6 @@ class DCache(
     mshrSet(freeMshrIdx)              := reqSet
     mshrWay(freeMshrIdx)              := victimWay
     mshrOwner(freeMshrIdx)            := io.req.bits.owner
-    mshrAxiAuthorized(freeMshrIdx)    := mayIssueAxi(io.req.bits.owner)
     mshrBeatIndex(freeMshrIdx)        := 0.U
     mshrFault(freeMshrIdx)            := false.B
     mshrWaiterCount(freeMshrIdx)      := 1.U
@@ -709,9 +687,14 @@ class DCache(
         dataArray(mshrSet(entry))(mshrWay(entry))  := mshrEvictData(entry)
         mshrValid(entry)                           := false.B
       }
+      // A recovery can kill every waiter in the same cycle that a queued MSHR
+      // launches its AXI read. The read is already irrevocable at that point;
+      // keeping the MSHR alive lets the refill drain (and be discarded) instead
+      // of dropping rready while the SoC still owns an outstanding response.
+      val readIssuedThisCycle = io.axiReadReq.fire && refillRequestIdx === entry.U
       when(
         mshrValid(entry) && noRetainedWaiters &&
-          (mshrState(entry) === mshrQueued || mshrState(entry) === mshrResponding)
+          ((mshrState(entry) === mshrQueued && !readIssuedThisCycle) || mshrState(entry) === mshrResponding)
       ) {
         mshrValid(entry) := false.B
       }
@@ -725,7 +708,6 @@ class DCache(
   }
 
   when(io.axiReadReq.fire) {
-    assert(mshrAxiAuthorized(refillRequestIdx), "DCache refill must originate from an authorized request")
     when(hasReceiving) {
       assert(refillTurnover, "DCache may replace a receiving MSHR only on its final refill beat")
     }

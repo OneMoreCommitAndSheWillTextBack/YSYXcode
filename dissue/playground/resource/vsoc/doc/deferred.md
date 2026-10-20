@@ -75,8 +75,8 @@ D  ─────┘                   └──────
 | B2 | ICache 扩容（lineBytes 8→32、sets 64→128、ways 1→2） | `config.scala` `FrontendConfig` | **已验证收益，配置已回退** | 实测 dinic +5.4%、qsort +5.6%（IPC 0.370→0.390、0.481→0.508），queen 不变（0.908）；用户的决定是固定 cache 尺寸，改微架构效率，所以此项**暂缓重新启用** |
 | B3 | ROB 16 → 32 | `config.scala` `robEntries` | 未验证 | 需与恢复端口数（`recoveryCancelPorts = 16`）一起评估 |
 | B4 | IssueQueue 8 → 16 | `config.scala` `issueQueueEntries` | 未验证 | 观察 `block_reason` 中"操作数未就绪"与"队列满"的占比 |
-| B5 | CFI 按序执行串行点 | `core/backend/issue/IssueQueue.scala` `cfiBlocked` | 已定位 | 与总线改造无直接关系，但它是"只有一条分支在飞"的一半根因 |
-| B6 | 投机访存受未决 CFI 门控 | `core/bundle/CoreBundle.scala` `hasOlderUnresolvedCfi` | 已定位 | 另一半根因；解除需要"无主响应丢弃" + 多 outstanding |
+| B5 | CFI 按序执行串行点 | `core/backend/issue/IssueQueue.scala` `cfiBlocked` | **已解除** | 已删除 `cfiBlocked`；RecoveryUnit 的 oldest-first 仲裁承担多 CFI 同拍 resolve |
+| B6 | 投机访存受未决 CFI 门控 | `core/backend/lsu/LSU.scala` | **已部分解除** | bare/cacheable 访存直接投机；MMU 翻译态仍保留输入门控，因为 page-table walk 会占住单 LSU。设备 load 改为 parking，DCache refill 不再受 CFI 门控 |
 | B7 | AXI 单笔 outstanding、读写不并发 | `core/mem/AxiMaster.scala` `requestWindow` | 已定位 | 性能天花板；P4 的主要目标 |
 | B8 | store buffer / drain 策略 | `core/backend/lsu/StoreDrainEngine.scala` | 未评估 | 观察 store drain 期间的发射阻塞 |
 

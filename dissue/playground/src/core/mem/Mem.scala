@@ -5,7 +5,6 @@ import chisel3.util.{Decoupled, Enum, MuxCase, Valid}
 import top.bus.axi.AxiPort
 import top.config.{DCacheConfig, MemConfig}
 import top.core.bundle.{
-  DataMemExternalization,
   DataMemKind,
   DataMemOwner,
   DataMemReq,
@@ -45,11 +44,10 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     val dmemReq  = Flipped(Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.axiDataWidth, robIdxWidth)))
     val dmemResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
 
-    val flush         = Input(Bool())
-    val recover       = Input(new RobRecovery(robIdxWidth))
-    val robHead       = Input(UInt(robIdxWidth.W))
-    val unresolvedCfi = Input(Vec(robEntries, Bool()))
-    val dmemCancel    = Output(Vec(Mem.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
+    val flush      = Input(Bool())
+    val recover    = Input(new RobRecovery(robIdxWidth))
+    val robHead    = Input(UInt(robIdxWidth.W))
+    val dmemCancel = Output(Vec(Mem.cancelPorts(cfg.dcache), Valid(UInt(DataMemTxn.width.W))))
 
     val ptwReq  = Flipped(Decoupled(new DataMemReq(cfg.addrWidth, cfg.axiDataWidth)))
     val ptwResp = Decoupled(new DataMemResp(cfg.axiDataWidth))
@@ -58,17 +56,6 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
 
     val axi = new AxiPort
   })
-
-  private def mayIssueAxi(owner: DataMemOwner): Bool =
-    DataMemExternalization.mayIssueAxi(
-      owner,
-      io.unresolvedCfi,
-      io.robHead,
-      robEntries,
-      robIdxWidth,
-      io.flush,
-      io.recover
-    )
 
   private def ownerKilled(owner: DataMemOwner): Bool =
     owner.squashable && (io.flush ||
@@ -94,8 +81,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   private val isArchitecturallyVisibleBypass = MemAddress.isDevice(io.dmemReq.bits.request.addr, cfg.addrWidth) ||
     io.dmemReq.bits.request.kind === DataMemKind.atomic
   private val bypassAtRobHead                = !io.dmemReq.bits.owner.squashable || io.dmemReq.bits.owner.robIdx === io.robHead
-  private val bypassMayIssue                 = mayIssueAxi(io.dmemReq.bits.owner) &&
-    (!isArchitecturallyVisibleBypass || bypassAtRobHead)
+  private val bypassMayIssue                 = !isArchitecturallyVisibleBypass || bypassAtRobHead
   private val bypassNeedsCacheMaintenance    =
     io.dmemReq.bits.request.kind === DataMemKind.atomic || io.dmemReq.bits.request.kind === DataMemKind.ptw
   private val ptwNeedsCacheMaintenance       = !MemAddress.isDevice(io.ptwReq.bits.addr, cfg.addrWidth)
@@ -112,7 +98,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
     (ptwMaintenanceSelected && dcache.io.cleanInvalidate.ready)
 
   // MMIO and atomics can have side effects even for reads, so they wait for
-  // ROB-head ownership in addition to the branch-resolution permit.
+  // ROB-head ownership. Cacheable accesses use the DCache speculative path.
   bypassAccess.io.req.valid := io.dmemReq.valid && !routeToDcache && bypassCanAccept
   bypassAccess.io.req.bits  := io.dmemReq.bits.request
   io.dmemReq.ready          := Mux(
@@ -124,7 +110,6 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   dcache.io.flush                 := io.flush
   dcache.io.recover               := io.recover
   dcache.io.robHead               := io.robHead
-  dcache.io.unresolvedCfi         := io.unresolvedCfi
   dcache.io.cleanInvalidate.valid := ptwMaintenanceSelected || bypassMaintenanceSelected
   dcache.io.cleanInvalidate.bits  := Mux(
     ptwMaintenanceSelected,
@@ -143,7 +128,7 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16) extends Module {
   // A bypass request is still revocable until AxiDataAccess hands it to the
   // shared AXI master. Re-check its ROB owner there, not just on enqueue.
   bypassAccess.io.incomingIssuePermit := bypassMayIssue
-  bypassAccess.io.issuePermit         := !bypassOwner.squashable || mayIssueAxi(bypassOwner)
+  bypassAccess.io.issuePermit         := !bypassOwner.squashable || bypassOwner.robIdx === io.robHead
   bypassAccess.io.abort               := ownerKilled(bypassOwner)
 
   for (port <- 0 until dcacheCancelPorts) {

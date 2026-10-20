@@ -1,7 +1,7 @@
 package top.core.backend.lsu
 
 import chisel3._
-import chisel3.util.{Cat, Decoupled, Enum, Fill, MuxLookup, RegEnable, Valid}
+import chisel3.util.{Cat, Decoupled, Enum, Fill, MuxLookup, OHToUInt, PriorityEncoderOH, RegEnable, Valid}
 import top.config.BackendConfig
 import top.core.backend.bundle.{
   IssuePacket,
@@ -19,9 +19,7 @@ import top.core.backend.csr.{CsrStatus, Mstatus, PrivMode}
 import top.core.backend.decoder.{LsuOp, MemSize}
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
 import top.core.bundle.{
-  DataMemExternalization,
   DataMemKind,
-  DataMemOwner,
   DataMemReq,
   DataMemResp,
   DataMemTxn,
@@ -97,6 +95,16 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   private val paddrReg     = Reg(UInt(cfg.addrWidth.W))
   private val loadTxnIdReg = Reg(UInt(DataMemTxn.width.W))
   private val amoOldReg    = Reg(UInt(cfg.dataWidth.W))
+
+  // A device load behind an unresolved CFI cannot be translated and then held
+  // in sTranslate: that would block the single LSU input and can deadlock an
+  // older load needed to resolve the CFI. Park translated device loads here
+  // and re-inject the one that has reached the ROB head.
+  private val pendingDeviceSlots = 4
+  private val pendingDeviceValid = RegInit(VecInit(Seq.fill(pendingDeviceSlots)(false.B)))
+  private val pendingDeviceReq   = Reg(Vec(pendingDeviceSlots, new IssuePacket(cfg)))
+  private val pendingDeviceVaddr = Reg(Vec(pendingDeviceSlots, UInt(cfg.addrWidth.W)))
+  private val pendingDevicePaddr = Reg(Vec(pendingDeviceSlots, UInt(cfg.addrWidth.W)))
 
   private val reservationValid = RegInit(false.B)
   private val reservationAddr  = Reg(UInt(cfg.addrWidth.W))
@@ -249,29 +257,43 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
   private val inputNeedsTranslate = (inputIsLoad || inputIsStore || inputIsAtomic) && !inputMisaligned
   private val reqStoreMask        = maskFor(reqReg.memSize)
 
-  private val inputOwner = Wire(new DataMemOwner(cfg.robIdxWidth))
-  inputOwner.squashable := true.B
-  inputOwner.robIdx     := io.in.bits.robIdx
-  private val inputMayEnterMemoryQueue = !DataMemExternalization.hasOlderUnresolvedCfi(
-    inputOwner,
-    io.unresolvedCfi,
-    io.robHead,
-    cfg.robEntries,
-    cfg.robIdxWidth
-  )
-
   private val storesDrained     = Wire(Bool())
   private val serializedPending =
     io.serializedStore.valid || storeDrain.io.serializedOutstanding || serializedSuccessPending
   private val pipeIdle          = state === sIdle
   private val baseReady         = pipeIdle && !io.flush && !io.recover.valid && !serializedPending
 
-  io.loadReady   := baseReady && loadTxns.io.alloc.ready
-  io.storeReady  := baseReady
-  io.atomicReady := baseReady && loadTxns.io.empty && storesDrained && !ptwBusy && !atomicBusy
+  private def deviceLoadOrderingReadyFor(robIdx: UInt): Bool =
+    robIdx === io.robHead && storesDrained && loadTxns.io.empty &&
+      !ptwBusy && !atomicBusy && !serializedPending
+
+  private val pendingDeviceReadyOH = VecInit((0 until pendingDeviceSlots).map { slot =>
+    pendingDeviceValid(slot) && deviceLoadOrderingReadyFor(pendingDeviceReq(slot).robIdx)
+  }).asUInt
+  private val pendingDeviceReady   = pendingDeviceReadyOH.orR
+  private val pendingDeviceIdx     = OHToUInt(pendingDeviceReadyOH)
+  private val pendingDeviceReissue = state === sIdle && !io.flush && !io.recover.valid && pendingDeviceReady
+
+  io.loadReady   := baseReady && loadTxns.io.alloc.ready && !pendingDeviceReady
+  io.storeReady  := baseReady && !pendingDeviceReady
+  io.atomicReady := baseReady && loadTxns.io.empty && storesDrained && !ptwBusy && !atomicBusy &&
+    !pendingDeviceReady
+
+  // A page-table walk occupies the single LSU translation state. While the MMU
+  // is enabled, a younger memory op must not start a walk behind an unresolved
+  // branch: the walk can block an older load that the branch depends on.
+  // Bare-mode accesses do not walk and may execute speculatively.
+  private val translationEnabled = io.csrStatus.satp(31) && effectiveDataPriv =/= PrivMode.M
+  private def hasOlderUnresolvedCfi(robIdx: UInt): Bool =
+    VecInit((0 until cfg.robEntries).map { cfi =>
+      io.unresolvedCfi(cfi) &&
+      RobAge.isYounger(robIdx, cfi.U(cfg.robIdxWidth.W), io.robHead, cfg.robEntries, cfg.robIdxWidth)
+    }).asUInt.orR
+  private val inputOrderingBlocked =
+    io.in.valid && translationEnabled && hasOlderUnresolvedCfi(io.in.bits.robIdx)
 
   private val operationReady = Mux(inputIsAtomic, io.atomicReady, Mux(inputIsStore, io.storeReady, io.loadReady))
-  private val canAcceptInput = operationReady && inputMayEnterMemoryQueue
+  private val canAcceptInput = operationReady && !inputOrderingBlocked
 
   translator.io.flush            := io.flush || currentRequestKilled
   translator.io.req.valid        := canAcceptInput && io.in.valid && inputNeedsTranslate
@@ -299,24 +321,40 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     !(reservationValid && reservationAddr === translator.io.resp.bits.paddr)
   // Device reads can have side effects. They must neither consume SQ forwarding nor become visible below the LSU until
   // they are the precise ROB-head operation and all older stores have completed.
-  private val deviceLoadOrderingReady = reqReg.robIdx === io.robHead && storesDrained && loadTxns.io.empty &&
-    !ptwBusy && !atomicBusy && !serializedPending
+  private val deviceLoadOrderingReady = deviceLoadOrderingReadyFor(reqReg.robIdx)
+  private val pendingDeviceFull       = pendingDeviceValid.asUInt.andR
+  private val pendingDeviceFreeOH     = PriorityEncoderOH(~pendingDeviceValid.asUInt)
+  private val pendingDeviceFreeIdx    = OHToUInt(pendingDeviceFreeOH)
+  private val canParkDeviceLoad       = translateDeviceLoad && !deviceLoadOrderingReady && !pendingDeviceFull
   private val loadNeedsMemory         = translateLoad && (translateDeviceLoad || !storeQueue.io.query.fullForward)
 
-  loadTxns.io.alloc.valid            := currentRequestActive && state === sTranslate && translator.io.resp.valid &&
+  private val translateAllocBits = Wire(new LoadTxnAlloc(cfg))
+  translateAllocBits.robIdx      := reqReg.robIdx
+  translateAllocBits.vaddr       := vaddrReg
+  translateAllocBits.paddr       := translator.io.resp.bits.paddr
+  translateAllocBits.size        := reqReg.memSize
+  translateAllocBits.unsigned    := reqReg.memUnsigned
+  translateAllocBits.forwardMask := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardMask)
+  translateAllocBits.forwardData := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardData)
+
+  private val pendingAllocBits = Wire(new LoadTxnAlloc(cfg))
+  pendingAllocBits.robIdx      := pendingDeviceReq(pendingDeviceIdx).robIdx
+  pendingAllocBits.vaddr       := pendingDeviceVaddr(pendingDeviceIdx)
+  pendingAllocBits.paddr       := pendingDevicePaddr(pendingDeviceIdx)
+  pendingAllocBits.size        := pendingDeviceReq(pendingDeviceIdx).memSize
+  pendingAllocBits.unsigned    := pendingDeviceReq(pendingDeviceIdx).memUnsigned
+  pendingAllocBits.forwardMask := 0.U((cfg.dataWidth / 8).W)
+  pendingAllocBits.forwardData := 0.U(cfg.dataWidth.W)
+
+  private val normalLoadAlloc = currentRequestActive && state === sTranslate && translator.io.resp.valid &&
     !translateException && translateLoad && !storeQueue.io.query.unresolved && loadNeedsMemory &&
     (!translateDeviceLoad || deviceLoadOrderingReady)
-  loadTxns.io.alloc.bits.robIdx      := reqReg.robIdx
-  loadTxns.io.alloc.bits.vaddr       := vaddrReg
-  loadTxns.io.alloc.bits.paddr       := translator.io.resp.bits.paddr
-  loadTxns.io.alloc.bits.size        := reqReg.memSize
-  loadTxns.io.alloc.bits.unsigned    := reqReg.memUnsigned
-  loadTxns.io.alloc.bits.forwardMask := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardMask)
-  loadTxns.io.alloc.bits.forwardData := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardData)
+  loadTxns.io.alloc.valid := normalLoadAlloc || pendingDeviceReissue
+  loadTxns.io.alloc.bits  := Mux(pendingDeviceReissue, pendingAllocBits, translateAllocBits)
 
   private val loadCanComplete      = !storeQueue.io.query.unresolved &&
     (!loadNeedsMemory || (loadTxns.io.alloc.ready && (!translateDeviceLoad || deviceLoadOrderingReady)))
-  private val translateCanComplete = translateException || translateStore || translateSc ||
+  private val translateCanComplete = translateException || translateStore || translateSc || canParkDeviceLoad ||
     (!reqReg.isAmo && translateLoad && loadCanComplete) || (reqReg.isAmo && !translateSc)
   translator.io.resp.ready := state === sTranslate && translateCanComplete && currentRequestActive
 
@@ -659,7 +697,14 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     state := sIdle
   }.otherwise {
     when(state === sIdle) {
-      when(io.in.fire && inputNeedsTranslate) {
+      when(pendingDeviceReissue) {
+        reqReg       := pendingDeviceReq(pendingDeviceIdx)
+        vaddrReg     := pendingDeviceVaddr(pendingDeviceIdx)
+        paddrReg     := pendingDevicePaddr(pendingDeviceIdx)
+        loadTxnIdReg := loadTxns.io.allocTxnId
+        pendingDeviceValid(pendingDeviceIdx) := false.B
+        state        := sLoadReq
+      }.elsewhen(io.in.fire && inputNeedsTranslate) {
         reqReg   := io.in.bits
         vaddrReg := inputAddr
         state    := sTranslate
@@ -672,6 +717,12 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
             (translateLoad && !translateDeviceLoad && storeQueue.io.query.fullForward) || scWillFail
         ) {
           state := sIdle
+        }.elsewhen(translateLoad && canParkDeviceLoad) {
+          pendingDeviceValid(pendingDeviceFreeIdx) := true.B
+          pendingDeviceReq(pendingDeviceFreeIdx)   := reqReg
+          pendingDeviceVaddr(pendingDeviceFreeIdx) := vaddrReg
+          pendingDevicePaddr(pendingDeviceFreeIdx) := translator.io.resp.bits.paddr
+          state                                    := sIdle
         }.elsewhen(translateLoad) {
           loadTxnIdReg := loadTxns.io.allocTxnId
           state        := sLoadReq
@@ -709,6 +760,21 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     }
   }
 
+  for (slot <- 0 until pendingDeviceSlots) {
+    when(
+      pendingDeviceValid(slot) && (io.flush ||
+        (io.recover.valid && RobAge.isYounger(
+          pendingDeviceReq(slot).robIdx,
+          io.recover.robIdx,
+          io.robHead,
+          cfg.robEntries,
+          cfg.robIdxWidth
+        )))
+    ) {
+      pendingDeviceValid(slot) := false.B
+    }
+  }
+
   when(activeAtomicResponse && state === sAmoReadResp && !io.dmemResp.bits.fault && isLrOp(reqReg)) {
     reservationValid := true.B
     reservationAddr  := paddrReg
@@ -730,8 +796,8 @@ class LSU(cfg: BackendConfig = BackendConfig()) extends Module {
     (state === sIdle || youngerDeviceLoadHoldingTranslation) && loadTxns.io.empty && storesDrained && !ptwBusy &&
     !atomicBusy
 
-  io.memoryIdle       := state === sIdle && loadTxns.io.empty && storeDrain.io.idle && outbound.io.empty &&
-    !ptwBusy && !atomicBusy && !arbLocked && !serializedPending
+  io.memoryIdle       := state === sIdle && !pendingDeviceValid.asUInt.orR && loadTxns.io.empty &&
+    storeDrain.io.idle && outbound.io.empty && !ptwBusy && !atomicBusy && !arbLocked && !serializedPending
   io.busy             := state =/= sIdle || serializedPending
   io.loadTxnOccupancy := loadTxns.io.occupancy
   io.loadTxnFullStall := state === sIdle && !io.flush && !io.recover.valid && io.in.valid && inputIsLoad &&

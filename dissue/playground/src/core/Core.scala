@@ -171,7 +171,6 @@ class Core(
   mem.io.flush         := backend.io.globalFlush
   mem.io.recover       := backend.io.recover
   mem.io.robHead       := backend.io.robHead
-  mem.io.unresolvedCfi := backend.io.unresolvedCfi
 
   private val dmemCancel = Wire(Vec(backendCfg.recoveryCancelPorts, Valid(UInt(DataMemTxn.width.W))))
   for (port <- 0 until backendCfg.recoveryCancelPorts) {

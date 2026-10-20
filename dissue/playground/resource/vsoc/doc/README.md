@@ -40,6 +40,8 @@
 
 总线改造（本设计）是**解除这些限制的前置条件**，不是替代品：只要"响应可能永远不回来"或"错误无法表达"，核就没有办法安全地丢弃/取消一笔投机访存，所以只能靠"不许发"来保命。总线补上 DECERR + 可取消语义后，核侧才能把闸门放开。
 
+**实现状态（2026-10-20）**：P4/P5 已部分落地。`IssueQueue.cfiBlocked` 已删除；`hasOlderUnresolvedCfi` 不再门控 bare/cacheable 访存，DCache miss 可以直接分配 MSHR 并发 AXI refill。MMU 翻译态仍保留 LSU 输入门控：page-table walk 会占住唯一的翻译状态，必须避免年轻访存在未决分支后启动 walk。设备 load 改为 parking 后重注入（ROB head + stores drained + LTQ empty）。同时修复了 DCache 的 recovery/refill 同拍竞争：recovery 杀掉全部 waiter 的同一拍如果已经发出 AXI read，MSHR 必须保留到响应回来，否则 `rready` 会掉 0，SoC 响应悬空。AXI 仍是单 outstanding，多 outstanding/ID 路由仍属于 P4b。
+
 因此本文档的分期是：
 
 | 阶段 | 做什么 | 谁的问题 |

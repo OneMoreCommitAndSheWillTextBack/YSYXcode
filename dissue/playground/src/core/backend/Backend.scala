@@ -293,7 +293,6 @@ class Backend(
 
   issueQueue.io.robHead       := rob.io.head
   issueQueue.io.unresolvedAmo := rob.io.unresolvedAmo
-  issueQueue.io.unresolvedCfi := rob.io.unresolvedCfi
   for (port <- 0 until cfg.intIssueWidth) {
     issueQueue.io.intStatus(port) := execute.io.status(port)
   }

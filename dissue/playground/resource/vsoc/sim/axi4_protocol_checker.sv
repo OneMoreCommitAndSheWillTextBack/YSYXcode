@@ -28,9 +28,11 @@ module axi4_protocol_checker #(
   logic              w_last_q;
 
   // ------------------------------------------------------- transaction tracking
-  logic           rd_active_q;   // a read burst is in flight
-  logic [LEN_W:0] rd_beats_q;
-  logic [CW-1:0]  rd_wait_q;
+  logic              rd_active_q;   // a read burst is in flight
+  logic [LEN_W:0]    rd_beats_q;
+  logic [CW-1:0]     rd_wait_q;
+  logic [ADDR_W-1:0] rd_addr_q;
+  logic [LEN_W-1:0]  rd_len_q;
   logic           wr_active_q;   // a write transaction is in flight
   logic [LEN_W:0] wr_beats_q;
   logic [LEN_W-1:0] wr_len_q;
@@ -110,6 +112,8 @@ module axi4_protocol_checker #(
         rd_active_q <= 1'b1;
         rd_beats_q  <= '0;
         rd_wait_q   <= '0;
+        rd_addr_q   <= bus.araddr;
+        rd_len_q    <= bus.arlen;
       end
 
       // ================================================== address/AW protocol
@@ -173,7 +177,8 @@ module axi4_protocol_checker #(
 
       if (rd_active_q) begin
         if (rd_wait_q >= CW'(TIMEOUT))
-          $error("liveness: read did not complete within %0d cycles", TIMEOUT);
+          $error("liveness: read did not complete: addr=0x%08x len=%0d rvalid=%0d rready=%0d rlast=%0d",
+                 rd_addr_q, rd_len_q, bus.rvalid, bus.rready, bus.rlast);
         else
           rd_wait_q <= rd_wait_q + 1'b1;
       end

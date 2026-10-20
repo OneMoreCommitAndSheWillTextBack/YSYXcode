@@ -45,10 +45,12 @@ pub enum IssueQueueBlockReason {
     LsuUnavailable = 6,
     FuUnavailable = 7,
     Other = 8,
+    MemCfiGate = 9,
+    CfiOrderPortFree = 10,
 }
 
 impl IssueQueueBlockReason {
-    pub const COUNT: usize = 8;
+    pub const COUNT: usize = 10;
     #[cfg(test)]
     pub const ALL: [Self; Self::COUNT] = [
         Self::Downstream,
@@ -59,6 +61,8 @@ impl IssueQueueBlockReason {
         Self::LsuUnavailable,
         Self::FuUnavailable,
         Self::Other,
+        Self::MemCfiGate,
+        Self::CfiOrderPortFree,
     ];
 
     pub const fn label(self) -> &'static str {
@@ -71,6 +75,8 @@ impl IssueQueueBlockReason {
             Self::LsuUnavailable => "lsu-unavailable",
             Self::FuUnavailable => "fu-unavailable",
             Self::Other => "other",
+            Self::MemCfiGate => "memory-gated-by-older-unresolved-cfi",
+            Self::CfiOrderPortFree => "cfi-ordering-with-free-issue-port",
         }
     }
 
@@ -83,6 +89,8 @@ impl IssueQueueBlockReason {
             5 => Self::CfiOrder,
             6 => Self::LsuUnavailable,
             7 => Self::FuUnavailable,
+            9 => Self::MemCfiGate,
+            10 => Self::CfiOrderPortFree,
             _ => Self::Other,
         }
     }

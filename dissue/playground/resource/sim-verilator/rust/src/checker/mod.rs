@@ -692,14 +692,17 @@ impl Checker {
             self.perf.issue_queue_average_occupancy()
         );
         crate::Log!(
-            "IssueQueue ready-block breakdown (exclusive): downstream: {}, older store: {}, AMO order: {}, CSR order: {}, CFI order: {}, LSU unavailable: {}, FU unavailable: {}, other: {}",
+            "IssueQueue ready-block breakdown (exclusive): downstream: {}, older store: {}, AMO order: {}, CSR order: {}, CFI order: {} (of which free-port: {}), LSU unavailable: {}, FU unavailable: {}, mem gated by older CFI: {}, other: {}",
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::Downstream),
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::OlderStore),
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::AmoOrder),
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::CsrOrder),
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::CfiOrder),
+            self.perf
+                .issue_queue_block_reason_cycles(IssueQueueBlockReason::CfiOrderPortFree),
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::LsuUnavailable),
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::FuUnavailable),
+            self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::MemCfiGate),
             self.perf.issue_queue_block_reason_cycles(IssueQueueBlockReason::Other)
         );
         crate::Log!(

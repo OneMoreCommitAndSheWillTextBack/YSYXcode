@@ -60,9 +60,6 @@ object LSUDeviceLoadSpec {
     dut.io.recover.valid.poke(false)
     dut.io.recover.robIdx.poke(0)
     dut.io.robHead.poke(0)
-    for (cfi <- dut.io.unresolvedCfi) {
-      cfi.poke(false)
-    }
     dut.io.csrStatus.priv.mode.poke(PrivMode.M)
     dut.io.csrStatus.mstatus.poke(0)
     dut.io.csrStatus.satp.poke(0)
