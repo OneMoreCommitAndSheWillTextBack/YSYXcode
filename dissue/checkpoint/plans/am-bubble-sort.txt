@@ -1,0 +1,14 @@
+# A mid-program checkpoint on a small bare-metal guest.
+#
+# The guest is tiny on purpose: it runs to completion in a second, so a case
+# only has to prove that reset + trampoline + restorer lands exactly on the
+# checkpoint and that the remaining run is instruction for instruction the same
+# on both simulators. Linux plans will use the same machinery with longer
+# windows once the harness can stop a run at a commit boundary.
+
+# guest: ../../test/build/riscv32i/am-bubble-sort.bin
+# reserved: 0x9fff0000
+
+early    200
+middle  1500
+late    2700

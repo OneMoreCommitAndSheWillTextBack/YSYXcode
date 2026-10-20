@@ -12,6 +12,8 @@
 !*.cc
 !*.rs
 !scriptpy/*.py
+!checkpoint/plans/*.txt
+!checkpoint/runner/*.py
 !*.vh
 !*.ld
 !Cargo.toml

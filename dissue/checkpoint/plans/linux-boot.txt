@@ -1,0 +1,20 @@
+# Linux boot checkpoints.
+#
+# Disabled for now: two things have to land before it can be judged.
+#
+#   1. the device tree needs /memreserve/ for the reserved page, otherwise the
+#      kernel owns that page and pack's --reserve-check refuses the case;
+#   2. the run phase needs the harness to stop at a commit boundary (a window),
+#      because a Linux boot never "finishes" in a time we can afford.
+#
+# NEMU boots this guest today: the probe reached 45.9M instructions with the
+# MMU on before it aborted on a misaligned load at pc 0xc0014dec, so the early
+# points below are well within reach.
+
+# guest: /home/cinder/Code/project/opensbi/build/platform/dissue/firmware/fw_payload.bin
+# reserved: 0x9fff0000
+# enabled: false
+
+opensbi        2000000
+kernel-early   8000000
+kernel-mid    30000000
