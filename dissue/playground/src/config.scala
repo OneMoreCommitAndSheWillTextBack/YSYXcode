@@ -264,19 +264,24 @@ final case class FrontendConfig(
 }
 
 final case class BackendConfig(
-  issueWidth:          Int = 2,
-  commitWidth:         Int = 2,
-  addrWidth:           Int = 32,
-  dataWidth:           Int = 32,
-  robEntries:          Int = 16,
-  intIssueWidth:       Int = 2,
-  writebackWidth:      Int = 3,
-  issueQueueEntries:   Int = 8,
-  loadTxnEntries:      Int = 2,
-  storeQueueEntries:   Int = 16,
-  storeTxnEntries:     Int = 4,
-  dmemQueueEntries:    Int = 4,
-  recoveryCancelPorts: Int = 16,
+  issueWidth:               Int = 2,
+  commitWidth:              Int = 2,
+  addrWidth:                Int = 32,
+  dataWidth:                Int = 32,
+  robEntries:               Int = 16,
+  intIssueWidth:            Int = 2,
+  writebackWidth:           Int = 3,
+  issueQueueEntries:        Int = 8,
+  loadTxnEntries:           Int = 2,
+  storeQueueEntries:        Int = 16,
+  storeTxnEntries:          Int = 4,
+  dmemQueueEntries:         Int = 4,
+  dtlbEntries:              Int = 16,
+  translationQueueEntries:  Int = 4,
+  dtlbMissQueueEntries:     Int = 4,
+  translationReplayEntries: Int = 4,
+  translationIdWidth:       Int = 8,
+  recoveryCancelPorts:      Int = 16,
   frontendPayload: FrontendPayloadConfig = FrontendPayloadConfig()) {
   require(issueWidth > 0, "issueWidth must be positive")
   require(commitWidth > 0, "commitWidth must be positive")
@@ -291,17 +296,31 @@ final case class BackendConfig(
   require(storeQueueEntries > 0, "storeQueueEntries must be positive")
   require(storeTxnEntries > 0, "storeTxnEntries must be positive")
   require(dmemQueueEntries > 0, "dmemQueueEntries must be positive")
+  require(dtlbEntries > 0, "dtlbEntries must be positive")
+  require(translationQueueEntries > 0, "translationQueueEntries must be positive")
+  require(dtlbMissQueueEntries > 0, "dtlbMissQueueEntries must be positive")
+  require(translationReplayEntries > 0, "translationReplayEntries must be positive")
+  require(translationIdWidth > 0, "translationIdWidth must be positive")
+  require(dtlbEntries > dtlbMissQueueEntries, "each queued miss must be able to reserve a distinct victim")
   require(recoveryCancelPorts > 0, "recoveryCancelPorts must be positive")
   require(frontendPayload.addrWidth == addrWidth, "frontend payload address width must match backend addrWidth")
 
-  val dispatchWidth:      Int = issueWidth
-  val operandsPerInst:    Int = 2
-  val scoreboardQueries:  Int = dispatchWidth * operandsPerInst
-  val regfileReadPorts:   Int = scoreboardQueries
-  val regfileWritePorts:  Int = commitWidth
-  val robIdxWidth:        Int = math.max(log2Ceil(robEntries), 1)
-  val sqIdxWidth:         Int = math.max(log2Ceil(storeQueueEntries), 1)
-  val issueQueueIdxWidth: Int = math.max(log2Ceil(issueQueueEntries), 1)
+  val dispatchWidth:               Int = issueWidth
+  val operandsPerInst:             Int = 2
+  val scoreboardQueries:           Int = dispatchWidth * operandsPerInst
+  val regfileReadPorts:            Int = scoreboardQueries
+  val regfileWritePorts:           Int = commitWidth
+  val robIdxWidth:                 Int = math.max(log2Ceil(robEntries), 1)
+  val sqIdxWidth:                  Int = math.max(log2Ceil(storeQueueEntries), 1)
+  val dtlbIdxWidth:                Int = math.max(log2Ceil(dtlbEntries), 1)
+  val dtlbCountWidth:              Int = math.max(log2Ceil(dtlbEntries + 1), 1)
+  val translationQueueIdxWidth:    Int = math.max(log2Ceil(translationQueueEntries), 1)
+  val translationQueueCountWidth:  Int = math.max(log2Ceil(translationQueueEntries + 1), 1)
+  val dtlbMissQueueIdxWidth:       Int = math.max(log2Ceil(dtlbMissQueueEntries), 1)
+  val dtlbMissQueueCountWidth:     Int = math.max(log2Ceil(dtlbMissQueueEntries + 1), 1)
+  val translationReplayIdxWidth:   Int = math.max(log2Ceil(translationReplayEntries), 1)
+  val translationReplayCountWidth: Int = math.max(log2Ceil(translationReplayEntries + 1), 1)
+  val issueQueueIdxWidth:          Int = math.max(log2Ceil(issueQueueEntries), 1)
 }
 
 final case class MemConfig(

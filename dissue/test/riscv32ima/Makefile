@@ -31,6 +31,15 @@ NO_DIFF_TESTS := a-ext \
 	sv32-mprv-u-page-fault \
 	sv32-store-page-fault \
 	sv32-instr-page-fault \
-	sv32-mxr-xonly-load
+	sv32-mxr-xonly-load \
+	sv32-speculative-walk-liveness \
+	sv32-superpage-data \
+	sv32-dtlb-seq-4k \
+	sv32-dtlb-seq-4m \
+	sv32-dtlb-strided-4k \
+	sv32-dtlb-strided-4m \
+	sv32-dtlb-random-4k \
+	sv32-dtlb-random-4m \
+	sv32-dtlb-store-4k
 
 include ../mk/extension.mk

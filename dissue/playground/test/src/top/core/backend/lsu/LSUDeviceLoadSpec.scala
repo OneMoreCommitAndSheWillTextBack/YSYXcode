@@ -41,10 +41,6 @@ object LSUDeviceLoadSpec {
     dut.io.serializedStore.valid.poke(false)
     dut.io.serializedStore.bits.sqIdx.poke(0)
     dut.io.serializedStore.bits.robIdx.poke(0)
-    for (query <- dut.io.storeIssueQuery) {
-      query.valid.poke(false)
-      query.robIdx.poke(0)
-    }
 
     dut.io.dmemReq.ready.poke(true)
     dut.io.dmemResp.valid.poke(false)
@@ -88,6 +84,15 @@ object LSUDeviceLoadSpec {
     dut.io.in.valid.poke(false)
   }
 
+  private def waitUntil(dut: LSU, maxSteps: Int = 8)(cond: => Boolean): Unit = {
+    var steps = 0
+    while (!cond && steps < maxSteps) {
+      dut.clock.step()
+      steps += 1
+    }
+    require(cond, s"condition not met after $maxSteps cycles")
+  }
+
   def main(args: Array[String]): Unit = {
     simulate(new LSU(cfg)) { dut =>
       initialize(dut)
@@ -105,6 +110,7 @@ object LSUDeviceLoadSpec {
 
       val deviceAddr = DeviceConst.serialBase
       issueMemory(dut, robIdx = 0, sqIdx = storeSqIdx, op = LsuOp.store.litValue, addr = deviceAddr, data = 0x41)
+      waitUntil(dut)(dut.io.storeUpdate.valid.peek().litToBoolean)
       dut.io.storeUpdate.valid.expect(true)
       dut.io.storeUpdate.bits.mmio.expect(true)
       dut.clock.step()
@@ -138,15 +144,14 @@ object LSUDeviceLoadSpec {
       dut.io.dmemResp.valid.poke(false)
       dut.io.serializedStoreSuccess.expect(true)
 
-      // Model retirement of the completed store. Only now may the device load reserve a tag and externalize.
+      // Model retirement of the completed store. Only now may the device load
+      // leave the replay queue, dispatch through S3, and reserve a tag.
       dut.clock.step()
       dut.io.serializedStore.valid.poke(false)
       dut.io.robHead.poke(1)
-      dut.clock.step()
-      dut.io.loadTxnOccupancy.expect(1)
+      waitUntil(dut)(dut.io.loadTxnOccupancy.peek().litValue == 1)
       dut.io.writeback.valid.expect(false)
-      dut.clock.step()
-      dut.io.dmemReq.valid.expect(true)
+      waitUntil(dut)(dut.io.dmemReq.valid.peek().litToBoolean)
       dut.io.dmemReq.bits.request.addr.expect(deviceAddr)
       dut.io.dmemReq.bits.request.write.expect(false)
       dut.io.dmemReq.bits.request.cacheable.expect(false)

@@ -41,7 +41,6 @@ class Backend(
     val recover       = Output(new RobRecovery(cfg.robIdxWidth))
     val globalFlush   = Output(Bool())
     val robHead       = Output(UInt(cfg.robIdxWidth.W))
-    val unresolvedCfi = Output(Vec(cfg.robEntries, Bool()))
     val storesDrained = Output(Bool())
     val memoryIdle    = Output(Bool())
 
@@ -90,7 +89,6 @@ class Backend(
   io.recover                        := selectiveRecovery
   io.globalFlush                    := globalFlush
   io.robHead                        := rob.io.head
-  io.unresolvedCfi                  := rob.io.unresolvedCfi
   io.redirect                       := retire.io.redirect
   io.redirect.branchRedirect.valid  := retire.io.redirect.branchRedirect.valid || selectiveRecovery.valid
   io.redirect.branchRedirect.target := Mux(
@@ -262,9 +260,12 @@ class Backend(
   lsu.io.flush                      := globalFlush
   lsu.io.recover                    := selectiveRecovery
   lsu.io.robHead                    := rob.io.head
-  lsu.io.unresolvedCfi              := rob.io.unresolvedCfi
   lsu.io.dmemCancel                 := io.dmemCancel
   lsu.io.csrStatus                  := csrFile.io.status
+  lsu.io.sfence.valid               := retire.io.sfence
+  lsu.io.sfence.bits.useVaddr       := false.B
+  lsu.io.sfence.bits.useAsid        := false.B
+  lsu.io.sfence.bits.vaddr          := 0.U
   io.storesDrained                  := lsu.io.storesDrained
   io.memoryIdle                     := lsu.io.memoryIdle
 
@@ -278,7 +279,6 @@ class Backend(
   issueQueue.io.memStatus.load   := lsu.io.loadReady
   issueQueue.io.memStatus.store  := lsu.io.storeReady
   issueQueue.io.memStatus.atomic := lsu.io.atomicReady
-  issueQueue.io.storeQuery <> lsu.io.storeIssueQuery
   issueQueue.io.csrQuery <> csrTracker.io.query
 
   execute.io.flush   := globalFlush

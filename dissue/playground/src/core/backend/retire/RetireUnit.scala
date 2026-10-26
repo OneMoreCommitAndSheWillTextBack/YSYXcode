@@ -56,6 +56,9 @@ class RetireUnit(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
     val fenceIDone   = Input(Bool())
     val fenceIActive = Output(Bool())
 
+    /** One-cycle full SFENCE.VMA pulse at retire; V0 invalidates every DTLB entry. */
+    val sfence = Output(Bool())
+
     val context = Output(new CsrContextUpdate(cfg))
   })
 
@@ -296,6 +299,8 @@ class RetireUnit(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
     io.rob(i).bits.csrAddr === CsrAddr("satp")
   }).asUInt.orR
   private val privilegeTransition = io.redirect.trapRedirect.valid || io.csrMret.valid || io.csrSret.valid
+
+  io.sfence := sfenceCommit
 
   io.redirect.icacheInvalidate := fenceICommit || sfenceCommit || satpWriteCommit || privilegeTransition
 

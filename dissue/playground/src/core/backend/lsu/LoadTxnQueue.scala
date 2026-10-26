@@ -93,9 +93,14 @@ class LoadTxnQueue(cfg: BackendConfig = BackendConfig()) extends Module {
   // Unknown tags are consumed and asserted below. Killed-but-live tags are recognized stale responses.
   io.complete.ready := !responseValid || selectedKilled || io.allowComplete
   private val responseFire = io.complete.fire && responseValid
+  // A killed entry that never reached the outbound queue (still in the S3->S4
+  // skid) has no request in flight and therefore can never receive a response
+  // or a cancellation. Release it here; otherwise a trap/recovery flush leaks
+  // the slot and the queue stays full forever.
   private val release      = Wire(Vec(entryCount, Bool()))
   for (entry <- 0 until entryCount) {
-    release(entry) := (responseFire && responseIdx === entry.U) || cancelHit(entry) || abortHit(entry)
+    release(entry) := (responseFire && responseIdx === entry.U) || cancelHit(entry) || abortHit(entry) ||
+      (killedNow(entry) && !issued(entry))
   }
 
   private val freeEntryOH  = VecInit(active.map(!_)).asUInt

@@ -51,11 +51,12 @@ class StoreQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
     val serializedSelect  = Input(Valid(new StoreQueueEvent(cfg)))
     val serializedRequest = Output(Valid(new StoreDrainRequest(cfg)))
 
-    val issueQuery = Vec(cfg.issueQueueEntries, new StoreTrackerQuery(cfg))
-    val query      = new StoreForwardQuery(cfg)
-    val robHead    = Input(UInt(cfg.robIdxWidth.W))
-    val flush      = Input(Bool())
-    val recover    = Input(new RobRecovery(cfg.robIdxWidth))
+    val replayQuery = Vec(cfg.translationReplayEntries, new StoreTrackerQuery(cfg))
+    val lookupQuery = new StoreTrackerQuery(cfg)
+    val query       = new StoreForwardQuery(cfg)
+    val robHead     = Input(UInt(cfg.robIdxWidth.W))
+    val flush       = Input(Bool())
+    val recover     = Input(new RobRecovery(cfg.robIdxWidth))
 
     val occupancy        = Output(UInt(countWidth.W))
     val committedPending = Output(Bool())
@@ -135,7 +136,22 @@ class StoreQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
     allocFire(lane)     := io.alloc(lane).valid && io.allocReady(lane)
   }
 
-  for (query <- io.issueQuery) {
+  // Replay entries need the same age-only test before they are dispatched:
+  // waiting in S3 for an older untranslated store would let a younger load
+  // block the very store that has to resolve first.
+  for (query <- io.replayQuery) {
+    val loadAge                 = RobAge.fromHead(query.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+    val hasOlderUnresolvedStore = VecInit((0 until entryCount).map { entry =>
+      live(entry) && state(entry) === StoreQueueState.allocated &&
+      RobAge.fromHead(robIdx(entry), io.robHead, cfg.robEntries, cfg.robIdxWidth) < loadAge
+    }).asUInt.orR
+    query.hasOlderStore := query.valid && hasOlderUnresolvedStore
+  }
+
+  // The same test is also needed by the LSU hit fast path in the lookup
+  // response cycle, before the request has entered the replay queue.
+  {
+    val query                   = io.lookupQuery
     val loadAge                 = RobAge.fromHead(query.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
     val hasOlderUnresolvedStore = VecInit((0 until entryCount).map { entry =>
       live(entry) && state(entry) === StoreQueueState.allocated &&

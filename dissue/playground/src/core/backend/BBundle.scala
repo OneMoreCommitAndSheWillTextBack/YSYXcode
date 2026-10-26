@@ -135,6 +135,39 @@ class StoreForwardQuery(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val forwardData    = Output(UInt(cfg.dataWidth.W))
 }
 
+class TlbRefill(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val vaddr     = UInt(cfg.addrWidth.W)
+  val pte       = UInt(cfg.dataWidth.W)
+  val level     = UInt(1.W) // Sv32: 0=4KB, 1=4MB
+  val paddr     = UInt(cfg.addrWidth.W)
+  val fill      = Bool()    // true 才写 TLB
+  val exception = new ExceptionInfo(cfg)
+}
+
+class TlbSfence(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val useVaddr = Bool()
+  val useAsid  = Bool()
+  val vaddr    = UInt(cfg.addrWidth.W)
+  // val asid     = UInt(9.W) // Sv32 ASID
+}
+
+class DtlbEntry(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val valid = Bool()
+  val vpn   = UInt(20.W)
+  val ppn   = UInt(22.W)
+  val level = UInt(1.W) // 0=4KB, 1=4MB
+
+  val r = Bool()
+  val w = Bool()
+  val x = Bool()
+  val u = Bool()
+  val g = Bool()
+  val a = Bool()
+  val d = Bool()
+
+  // val asid = UInt(9.W) // 支持 ASID 时再加
+}
+
 class RetireException(cfg: BackendConfig = BackendConfig()) extends ExceptionInfo(cfg) {
   val blocksYounger = Bool()
 }

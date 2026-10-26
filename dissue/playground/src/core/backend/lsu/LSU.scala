@@ -12,7 +12,8 @@ import top.core.backend.bundle.{
   StoreQueueEvent,
   StoreQueueUpdate,
   StoreResponseEvent,
-  StoreTrackerQuery
+  StoreTrackerQuery,
+  TlbSfence
 }
 import top.core.monitor.StoreQueueMonitor
 import top.core.backend.csr.{CsrStatus, Mstatus, PrivMode}
@@ -20,13 +21,25 @@ import top.core.backend.decoder.{LsuOp, MemSize}
 import top.core.backend.exception.{ExceptionCause, ExceptionInfo}
 import top.core.bundle.{DataMemKind, DataMemReq, DataMemResp, DataMemTxn, OwnedDataMemReq, RobAge, RobRecovery}
 import top.core.mem.{MemAddress, RecoverableDmemQueue}
-import top.core.mmu.{MmuAccessType, MmuTranslateReq, Sv32Translator}
+import top.core.mmu.{MmuAccessType, MmuTranslateReq, MmuTranslateResp}
+
+/** One S3-dispatched memory request waiting for the S4 outbound stage. */
+class LsuS4Entry(cfg: BackendConfig = BackendConfig()) extends Bundle {
+  val packet    = new IssuePacket(cfg)
+  val vaddr     = UInt(cfg.addrWidth.W)
+  val paddr     = UInt(cfg.addrWidth.W)
+  val loadTxnId = UInt(DataMemTxn.width.W)
+}
 
 /** Complete backend load/store transaction owner.
   *
-  * Translation remains single-issue, while LTQ and store transaction slots allow accepted requests to live
-  * independently. The outbound recoverable FIFO is deliberately inside this module so cancellation and tag reuse are
-  * decided by the same owner that routes responses.
+  * P3 pipeline: S0 accept/AGU/CSR snapshot -> TranslationQueue -> S2 non-blocking DTLB -> TranslationReplayQueue -> S3
+  * dispatch -> S4 outbound/atomic -> WB.
+  *
+  * TQ lookups and S3 dispatch are fully decoupled. A DTLB miss is answered with `deferred`, enters the DTLB miss queue,
+  * and its completion is matched by `translationId` in the replay queue while younger lookups keep flowing. S3 picks
+  * the oldest *dispatchable* translated replay entry; a load is not dispatchable while any older store is still
+  * untranslated, which preserves store-to-load ordering without forcing program-order completion.
   */
 class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) extends Module {
   private val dataBytes   = cfg.dataWidth / 8
@@ -44,7 +57,6 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
     val storeCommit            = Input(Vec(cfg.commitWidth, new StoreQueueCommit(cfg)))
     val serializedStore        = Input(Valid(new StoreQueueEvent(cfg)))
     val serializedStoreSuccess = Output(Bool())
-    val storeIssueQuery        = Vec(cfg.issueQueueEntries, new StoreTrackerQuery(cfg))
 
     val dmemReq    = Decoupled(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
     val dmemResp   = Flipped(Decoupled(new DataMemResp(cfg.dataWidth)))
@@ -57,11 +69,11 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
     val storeReady  = Output(Bool())
     val atomicReady = Output(Bool())
 
-    val flush         = Input(Bool())
-    val recover       = Input(new RobRecovery(cfg.robIdxWidth))
-    val robHead       = Input(UInt(cfg.robIdxWidth.W))
-    val unresolvedCfi = Input(Vec(cfg.robEntries, Bool()))
-    val csrStatus     = Input(new CsrStatus(cfg))
+    val flush     = Input(Bool())
+    val recover   = Input(new RobRecovery(cfg.robIdxWidth))
+    val robHead   = Input(UInt(cfg.robIdxWidth.W))
+    val csrStatus = Input(new CsrStatus(cfg))
+    val sfence    = Input(Valid(new TlbSfence(cfg)))
 
     val storesDrained             = Output(Bool())
     val storesDrainedBeforeCommit = Output(Bool())
@@ -78,30 +90,40 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
     val forwardUnresolvedStoreStall = Output(Bool())
   })
 
-  private val sIdle :: sTranslate :: sLoadReq :: sAmoReadReq :: sAmoReadResp :: sAmoWriteReq :: sAmoWriteResp :: Nil =
-    Enum(7)
-  private val state                                                                                                  = RegInit(sIdle)
+  private val mIdle :: mLoadReq :: mAmoReadReq :: mAmoReadResp :: mAmoWriteReq :: mAmoWriteResp :: Nil =
+    Enum(6)
+  private val mState                                                                                   = RegInit(mIdle)
 
-  private val reqReg       = Reg(new IssuePacket(cfg))
-  private val vaddrReg     = Reg(UInt(cfg.addrWidth.W))
-  private val paddrReg     = Reg(UInt(cfg.addrWidth.W))
-  private val loadTxnIdReg = Reg(UInt(DataMemTxn.width.W))
-  private val amoOldReg    = Reg(UInt(cfg.dataWidth.W))
+  // S3 dispatch register: filled from a translated replay entry.
+  private val tReq   = Reg(new IssuePacket(cfg))
+  private val tVaddr = Reg(UInt(cfg.addrWidth.W))
+  private val tResp  = Reg(new MmuTranslateResp(cfg))
+  private val tValid = RegInit(false.B)
 
-  // A device load behind an unresolved CFI cannot be translated and then held
-  // in sTranslate: that would block the single LSU input and can deadlock an
-  // older load needed to resolve the CFI. Park translated device loads here
-  // and re-inject the one that has reached the ROB head.
-  private val pendingDeviceSlots = 4
-  private val pendingDeviceValid = RegInit(VecInit(Seq.fill(pendingDeviceSlots)(false.B)))
-  private val pendingDeviceReq   = Reg(Vec(pendingDeviceSlots, new IssuePacket(cfg)))
-  private val pendingDeviceVaddr = Reg(Vec(pendingDeviceSlots, UInt(cfg.addrWidth.W)))
-  private val pendingDevicePaddr = Reg(Vec(pendingDeviceSlots, UInt(cfg.addrWidth.W)))
+  // S2 lookup state. Only one lookup is in flight, but it is issued every cycle
+  // by accepting the response in the same cycle the next request fires.
+  private val nextTranslationId = RegInit(0.U(cfg.translationIdWidth.W))
+  private val lupPending        = RegInit(false.B)
+  private val lupReq            = Reg(new TranslationRequest(cfg))
+  private val hitFastPath       = WireDefault(false.B)
+
+  // S3 -> S4 queue.
+  private val s4Bits  = Reg(new LsuS4Entry(cfg))
+  private val s4Valid = RegInit(false.B)
+
+  // S4 memory/atomic state.
+  private val mReq       = Reg(new IssuePacket(cfg))
+  private val mVaddr     = Reg(UInt(cfg.addrWidth.W))
+  private val mPaddr     = Reg(UInt(cfg.addrWidth.W))
+  private val mLoadTxnId = Reg(UInt(DataMemTxn.width.W))
+  private val mAmoOld    = Reg(UInt(cfg.dataWidth.W))
 
   private val reservationValid = RegInit(false.B)
   private val reservationAddr  = Reg(UInt(cfg.addrWidth.W))
 
-  private val translator = Module(new Sv32Translator(cfg))
+  private val tq         = Module(new TranslationQueue(cfg))
+  private val mmu        = Module(new LsuMmu(cfg, enableMonitor))
+  private val replay     = Module(new TranslationReplayQueue(cfg))
   private val storeQueue = Module(new StoreQueue(cfg, enableMonitor))
   private val loadTxns   = Module(new LoadTxnQueue(cfg))
   private val storeDrain = Module(new StoreDrainEngine(cfg))
@@ -127,7 +149,6 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   storeQueue.io.flush   := io.flush
   storeQueue.io.recover := io.recover
   storeQueue.io.robHead := io.robHead
-  storeQueue.io.issueQuery <> io.storeIssueQuery
 
   storeDrain.io.normal <> storeQueue.io.normalDrain
   storeQueue.io.reserve  := storeDrain.io.reserve
@@ -154,10 +175,6 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   }.elsewhen(io.serializedStoreSuccess) {
     serializedSuccessPending := false.B
   }
-
-  private val currentRequestKilled = io.recover.valid && state =/= sIdle &&
-    RobAge.isYounger(reqReg.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
-  private val currentRequestActive = !io.flush && !currentRequestKilled
 
   private def asAddr(value: UInt): UInt =
     value.pad(cfg.addrWidth)(cfg.addrWidth - 1, 0)
@@ -190,18 +207,10 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
     )
   }
 
-  private def isLoadOp(packet: IssuePacket): Bool =
-    packet.fuOp === LsuOp.load
-
-  private def isStoreOp(packet: IssuePacket): Bool =
-    packet.fuOp === LsuOp.store
-
-  private def isLrOp(packet: IssuePacket): Bool =
-    packet.fuOp === LsuOp.lr
-
-  private def isScOp(packet: IssuePacket): Bool =
-    packet.fuOp === LsuOp.sc
-
+  private def isLoadOp(packet:  IssuePacket): Bool = packet.fuOp === LsuOp.load
+  private def isStoreOp(packet: IssuePacket): Bool = packet.fuOp === LsuOp.store
+  private def isLrOp(packet:    IssuePacket): Bool = packet.fuOp === LsuOp.lr
+  private def isScOp(packet:    IssuePacket): Bool = packet.fuOp === LsuOp.sc
   private def isAmoRmwOp(packet: IssuePacket): Bool =
     packet.isAmo && !isLrOp(packet) && !isScOp(packet)
 
@@ -236,6 +245,8 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
       )
     )
 
+  // ------------------------------------------------------------------ S0
+
   private val inputAddr           = asAddr(io.in.bits.src1.data + io.in.bits.imm)
   private val inputMisaligned     = MuxLookup(io.in.bits.memSize, false.B)(
     Seq(
@@ -247,136 +258,325 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   private val inputIsStore        = isStoreOp(io.in.bits)
   private val inputIsAtomic       = io.in.bits.isAmo
   private val inputNeedsTranslate = (inputIsLoad || inputIsStore || inputIsAtomic) && !inputMisaligned
-  private val reqStoreMask        = maskFor(reqReg.memSize)
 
-  private val storesDrained     = Wire(Bool())
-  private val serializedPending =
-    io.serializedStore.valid || storeDrain.io.serializedOutstanding || serializedSuccessPending
-  private val pipeIdle          = state === sIdle
-  private val baseReady         = pipeIdle && !io.flush && !io.recover.valid && !serializedPending
+  private val storesDrained      = Wire(Bool())
+  // `serializedPending` blocks younger memory operations and holds memoryIdle
+  // low; it deliberately includes the head store itself. The drain engine,
+  // however, must start for that very store, so its start condition only
+  // excludes an *already in-flight* serialized store.
+  private val serializedInFlight = storeDrain.io.serializedOutstanding || serializedSuccessPending
+  private val serializedPending  =
+    io.serializedStore.valid || serializedInFlight
 
   private def deviceLoadOrderingReadyFor(robIdx: UInt): Bool =
     robIdx === io.robHead && storesDrained && loadTxns.io.empty &&
       !ptwBusy && !atomicBusy && !serializedPending
 
-  private val pendingDeviceReadyOH = VecInit((0 until pendingDeviceSlots).map { slot =>
-    pendingDeviceValid(slot) && deviceLoadOrderingReadyFor(pendingDeviceReq(slot).robIdx)
-  }).asUInt
-  private val pendingDeviceReady   = pendingDeviceReadyOH.orR
-  private val pendingDeviceIdx     = OHToUInt(pendingDeviceReadyOH)
-  private val pendingDeviceReissue = state === sIdle && !io.flush && !io.recover.valid && pendingDeviceReady
+  private val baseS0 = !io.flush && !io.recover.valid && !serializedPending
 
-  io.loadReady   := baseReady && loadTxns.io.alloc.ready && !pendingDeviceReady
-  io.storeReady  := baseReady && !pendingDeviceReady
-  io.atomicReady := baseReady && loadTxns.io.empty && storesDrained && !ptwBusy && !atomicBusy &&
-    !pendingDeviceReady
+  tq.io.enq.valid              := io.in.valid && inputNeedsTranslate
+  tq.io.enq.bits.packet        := io.in.bits
+  tq.io.enq.bits.vaddr         := inputAddr
+  tq.io.enq.bits.access        := translateAccess(io.in.bits)
+  tq.io.enq.bits.priv          := effectiveDataPriv
+  tq.io.enq.bits.mstatus       := io.csrStatus.mstatus
+  tq.io.enq.bits.satp          := io.csrStatus.satp
+  tq.io.enq.bits.translationId := nextTranslationId
+  when(tq.io.enq.fire) {
+    nextTranslationId := nextTranslationId + 1.U
+  }
+  tq.io.flush                  := io.flush
+  tq.io.recover                := io.recover
+  tq.io.robHead                := io.robHead
 
-  // A page-table walk occupies the single LSU translation state. While the MMU
-  // is enabled, a younger memory op must not start a walk behind an unresolved
-  // branch: the walk can block an older load that the branch depends on.
-  // Bare-mode accesses do not walk and may execute speculatively.
-  private val translationEnabled = io.csrStatus.satp(31) && effectiveDataPriv =/= PrivMode.M
-  private def hasOlderUnresolvedCfi(robIdx: UInt): Bool =
-    VecInit((0 until cfg.robEntries).map { cfi =>
-      io.unresolvedCfi(cfi) &&
-      RobAge.isYounger(robIdx, cfi.U(cfg.robIdxWidth.W), io.robHead, cfg.robEntries, cfg.robIdxWidth)
-    }).asUInt.orR
-  private val inputOrderingBlocked =
-    io.in.valid && translationEnabled && hasOlderUnresolvedCfi(io.in.bits.robIdx)
+  io.in.ready := baseS0 && (inputMisaligned || tq.io.enq.ready)
 
-  private val operationReady = Mux(inputIsAtomic, io.atomicReady, Mux(inputIsStore, io.storeReady, io.loadReady))
-  private val canAcceptInput = operationReady && !inputOrderingBlocked
+  io.loadReady   := baseS0 && tq.io.enq.ready
+  io.storeReady  := baseS0 && tq.io.enq.ready
+  io.atomicReady := baseS0 && tq.io.empty && tq.io.enq.ready && replay.io.empty && !lupPending && !tValid &&
+    loadTxns.io.empty && storesDrained && !ptwBusy && !atomicBusy && mState === mIdle && !s4Valid
 
-  translator.io.flush            := io.flush || currentRequestKilled
-  translator.io.req.valid        := canAcceptInput && io.in.valid && inputNeedsTranslate
-  translator.io.req.bits         := 0.U.asTypeOf(new MmuTranslateReq(cfg))
-  translator.io.req.bits.vaddr   := inputAddr
-  translator.io.req.bits.access  := translateAccess(io.in.bits)
-  translator.io.req.bits.priv    := effectiveDataPriv
-  translator.io.req.bits.mstatus := io.csrStatus.mstatus
-  translator.io.req.bits.satp    := io.csrStatus.satp
-  io.in.ready                    := canAcceptInput && Mux(inputNeedsTranslate, translator.io.req.ready, true.B)
+  // S0 handles misalignment without entering the queue.
+  private val frontendWriteback = Wire(Valid(new RobWritebackPacket(cfg)))
+  frontendWriteback             := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))
+  frontendWriteback.valid       := !io.flush && !io.recover.valid && io.in.fire && inputMisaligned
+  frontendWriteback.bits.robIdx := io.in.bits.robIdx
+  when(inputIsLoad || isLrOp(io.in.bits)) {
+    frontendWriteback.bits.exception := ExceptionInfo.raise(ExceptionCause.loadAddrMisaligned, inputAddr, cfg)
+  }.otherwise {
+    frontendWriteback.bits.exception := ExceptionInfo.raise(ExceptionCause.storeAddrMisaligned, inputAddr, cfg)
+  }
 
-  storeQueue.io.query.valid  := currentRequestActive && state === sTranslate && translator.io.resp.valid &&
-    !translator.io.resp.bits.exception.valid && isLoadOp(reqReg)
-  storeQueue.io.query.robIdx := reqReg.robIdx
-  storeQueue.io.query.addr   := translator.io.resp.bits.paddr
+  // ------------------------------------------------------------- S2 / replay
+
+  mmu.io.flush   := io.flush
+  mmu.io.recover := io.recover
+  mmu.io.robHead := io.robHead
+  mmu.io.sfence  := io.sfence
+
+  // A lookup reserves a replay slot up front so a deferred response always has
+  // a home. The TQ head is popped when the lookup is accepted.
+  private val lupCanIssue = tq.io.headValid && replay.io.reserveReady && (!lupPending || mmu.io.resp.fire) &&
+    !io.flush && !io.recover.valid
+
+  mmu.io.req.valid        := lupCanIssue
+  mmu.io.req.bits         := 0.U.asTypeOf(new MmuTranslateReq(cfg))
+  mmu.io.req.bits.vaddr   := tq.io.head.vaddr
+  mmu.io.req.bits.access  := tq.io.head.access
+  mmu.io.req.bits.priv    := tq.io.head.priv
+  mmu.io.req.bits.mstatus := tq.io.head.mstatus
+  mmu.io.req.bits.satp    := tq.io.head.satp
+  mmu.io.req.bits.id      := tq.io.head.translationId
+  mmu.io.req.bits.robIdx  := tq.io.head.packet.robIdx
+
+  tq.io.pop               := mmu.io.req.fire
+  replay.io.reserve.valid := mmu.io.req.fire
+  replay.io.reserve.bits  := tq.io.head
+  when(mmu.io.req.fire) {
+    lupReq := tq.io.head
+  }
+
+  mmu.io.resp.ready := lupPending && !io.flush
+
+  when(io.flush) {
+    lupPending := false.B
+  }.elsewhen(mmu.io.resp.fire) {
+    lupPending := mmu.io.req.fire
+  }.elsewhen(mmu.io.req.fire) {
+    lupPending := true.B
+  }
+
+  replay.io.park.valid    := mmu.io.resp.fire && mmu.io.resp.bits.deferred
+  replay.io.park.bits     := mmu.io.resp.bits.id
+  replay.io.resolve.valid := mmu.io.resp.fire && !mmu.io.resp.bits.deferred && !hitFastPath
+  replay.io.resolve.bits  := mmu.io.resp.bits
+  replay.io.release.valid := hitFastPath
+  replay.io.release.bits  := mmu.io.resp.bits.id
+  replay.io.complete      := mmu.io.complete
+  replay.io.recover       := io.recover
+  replay.io.robHead       := io.robHead
+  replay.io.flush         := io.flush
+
+  // ------------------------------------------------------------- S3 dispatch
+
+  private val replayView = replay.io.view
+
+  private val translateKilled = io.recover.valid && tValid &&
+    RobAge.isYounger(tReq.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+
+  // Resource checks shared by eligibility and completion.
+  private val s4RecoverKill = io.recover.valid && s4Valid &&
+    RobAge.isYounger(s4Bits.packet.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+  private val s4DeqFire     = s4Valid && mState === mIdle && !s4RecoverKill
+  private val s4EnqReady    = !s4Valid || s4DeqFire || s4RecoverKill
+
+  // Shared by replay dispatch and the hit fast path. A request may only enter
+  // S3 when its ordering and downstream resources are already satisfied, so
+  // S3 never stalls behind a younger request waiting for an older one.
+  private def dispatchable(packet: IssuePacket, paddr: UInt, exception: Bool, olderStore: Bool): Bool = {
+    val isLoad          = isLoadOp(packet)
+    val isSc            = isScOp(packet)
+    val scFail          = isSc && !(reservationValid && reservationAddr === paddr)
+    val isDevice        = isLoad && !exception && MemAddress.isDevice(paddr, cfg.addrWidth)
+    val loadResources   = !olderStore && !serializedPending &&
+      loadTxns.io.alloc.ready && s4EnqReady &&
+      (!isDevice || deviceLoadOrderingReadyFor(packet.robIdx))
+    val atomicResources = packet.robIdx === io.robHead && tq.io.empty && loadTxns.io.empty && storesDrained &&
+      !ptwBusy && !atomicBusy && !serializedPending && mState === mIdle && !s4Valid
+    Mux(
+      packet.isAmo,
+      Mux(scFail, true.B, atomicResources),
+      Mux(isLoad, Mux(exception, true.B, loadResources), true.B)
+    )
+  }
+
+  for (entry <- 0 until cfg.translationReplayEntries) {
+    val view            = replayView(entry)
+    val packet          = view.req.packet
+    val exception       = view.resp.exception.valid
+    val olderStore      = storeQueue.io.replayQuery(entry).hasOlderStore
+    val killedByRecover = io.recover.valid &&
+      RobAge.isYounger(packet.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+
+    replay.io.eligible(entry) := view.translated && !killedByRecover && !io.flush &&
+      dispatchable(packet, view.resp.paddr, exception, olderStore)
+
+    storeQueue.io.replayQuery(entry).valid  := view.translated && isLoadOp(packet) && !exception
+    storeQueue.io.replayQuery(entry).robIdx := packet.robIdx
+  }
+
+  // ------------------------------------------------------------- S3 execute
+  private val reqStoreMask = maskFor(tReq.memSize)
+
+  storeQueue.io.query.valid  := tValid && !translateKilled && !tResp.exception.valid && isLoadOp(tReq)
+  storeQueue.io.query.robIdx := tReq.robIdx
+  storeQueue.io.query.addr   := tResp.paddr
   storeQueue.io.query.mask   := reqStoreMask
 
-  private val translateLoad           = isLoadOp(reqReg)
-  private val translateStore          = isStoreOp(reqReg)
-  private val translateSc             = isScOp(reqReg)
-  private val translateException      = translator.io.resp.bits.exception.valid
+  // Age-only probe for the current lookup, used by the hit fast path before
+  // the request enters the replay queue.
+  storeQueue.io.lookupQuery.valid  := lupPending
+  storeQueue.io.lookupQuery.robIdx := lupReq.packet.robIdx
+
+  private val translateLoad           = isLoadOp(tReq)
+  private val translateStore          = isStoreOp(tReq)
+  private val translateSc             = isScOp(tReq)
+  private val translateScFail         = translateSc &&
+    !(reservationValid && reservationAddr === tResp.paddr)
+  private val translateException      = tResp.exception.valid
   private val translateDeviceLoad     = translateLoad && !translateException &&
-    MemAddress.isDevice(translator.io.resp.bits.paddr, cfg.addrWidth)
-  private val scWillFail              = translateSc &&
-    !(reservationValid && reservationAddr === translator.io.resp.bits.paddr)
-  // Device reads can have side effects. They must neither consume SQ forwarding nor become visible below the LSU until
-  // they are the precise ROB-head operation and all older stores have completed.
-  private val deviceLoadOrderingReady = deviceLoadOrderingReadyFor(reqReg.robIdx)
-  private val pendingDeviceFull       = pendingDeviceValid.asUInt.andR
-  private val pendingDeviceFreeOH     = PriorityEncoderOH(~pendingDeviceValid.asUInt)
-  private val pendingDeviceFreeIdx    = OHToUInt(pendingDeviceFreeOH)
-  private val canParkDeviceLoad       = translateDeviceLoad && !deviceLoadOrderingReady && !pendingDeviceFull
+    MemAddress.isDevice(tResp.paddr, cfg.addrWidth)
+  private val deviceLoadOrderingReady = deviceLoadOrderingReadyFor(tReq.robIdx)
   private val loadNeedsMemory         = translateLoad && (translateDeviceLoad || !storeQueue.io.query.fullForward)
 
-  private val translateAllocBits = Wire(new LoadTxnAlloc(cfg))
-  translateAllocBits.robIdx      := reqReg.robIdx
-  translateAllocBits.vaddr       := vaddrReg
-  translateAllocBits.paddr       := translator.io.resp.bits.paddr
-  translateAllocBits.size        := reqReg.memSize
-  translateAllocBits.unsigned    := reqReg.memUnsigned
-  translateAllocBits.forwardMask := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardMask)
-  translateAllocBits.forwardData := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardData)
-
-  private val pendingAllocBits = Wire(new LoadTxnAlloc(cfg))
-  pendingAllocBits.robIdx      := pendingDeviceReq(pendingDeviceIdx).robIdx
-  pendingAllocBits.vaddr       := pendingDeviceVaddr(pendingDeviceIdx)
-  pendingAllocBits.paddr       := pendingDevicePaddr(pendingDeviceIdx)
-  pendingAllocBits.size        := pendingDeviceReq(pendingDeviceIdx).memSize
-  pendingAllocBits.unsigned    := pendingDeviceReq(pendingDeviceIdx).memUnsigned
-  pendingAllocBits.forwardMask := 0.U((cfg.dataWidth / 8).W)
-  pendingAllocBits.forwardData := 0.U(cfg.dataWidth.W)
-
-  private val normalLoadAlloc = currentRequestActive && state === sTranslate && translator.io.resp.valid &&
-    !translateException && translateLoad && !storeQueue.io.query.unresolved && loadNeedsMemory &&
-    (!translateDeviceLoad || deviceLoadOrderingReady)
-  loadTxns.io.alloc.valid := normalLoadAlloc || pendingDeviceReissue
-  loadTxns.io.alloc.bits  := Mux(pendingDeviceReissue, pendingAllocBits, translateAllocBits)
-
   private val loadCanComplete      = !storeQueue.io.query.unresolved &&
-    (!loadNeedsMemory || (loadTxns.io.alloc.ready && (!translateDeviceLoad || deviceLoadOrderingReady)))
-  private val translateCanComplete = translateException || translateStore || translateSc || canParkDeviceLoad ||
-    (!reqReg.isAmo && translateLoad && loadCanComplete) || (reqReg.isAmo && !translateSc)
-  translator.io.resp.ready := state === sTranslate && translateCanComplete && currentRequestActive
+    (!loadNeedsMemory ||
+      (loadTxns.io.alloc.ready && s4EnqReady && (!translateDeviceLoad || deviceLoadOrderingReady)))
+  private val translateCanComplete = translateException || translateStore || translateScFail ||
+    (!tReq.isAmo && translateLoad && loadCanComplete) ||
+    (tReq.isAmo && !translateScFail && s4EnqReady)
+  private val directWritebackType  = translateException || translateStore || translateScFail ||
+    (translateLoad && !translateDeviceLoad && storeQueue.io.query.fullForward)
+  private val s3CanComplete        = tValid && !translateKilled && !io.flush &&
+    translateCanComplete && (!directWritebackType || !frontendWriteback.valid)
 
-  io.forwardFull                 := state === sTranslate && translator.io.resp.fire && translateLoad &&
-    !translateDeviceLoad &&
+  private val s4Enq = Wire(Valid(new LsuS4Entry(cfg)))
+  s4Enq                := 0.U.asTypeOf(Valid(new LsuS4Entry(cfg)))
+  s4Enq.valid          := s3CanComplete && !translateException &&
+    ((translateLoad && loadNeedsMemory) || (tReq.isAmo && !translateScFail))
+  s4Enq.bits.packet    := tReq
+  s4Enq.bits.vaddr     := tVaddr
+  s4Enq.bits.paddr     := tResp.paddr
+  s4Enq.bits.loadTxnId := loadTxns.io.allocTxnId
+
+  private val normalLoadAlloc = s3CanComplete && !translateException && translateLoad &&
+    loadNeedsMemory && (!translateDeviceLoad || deviceLoadOrderingReady)
+  loadTxns.io.alloc.valid            := normalLoadAlloc
+  loadTxns.io.alloc.bits.robIdx      := tReq.robIdx
+  loadTxns.io.alloc.bits.vaddr       := tVaddr
+  loadTxns.io.alloc.bits.paddr       := tResp.paddr
+  loadTxns.io.alloc.bits.size        := tReq.memSize
+  loadTxns.io.alloc.bits.unsigned    := tReq.memUnsigned
+  loadTxns.io.alloc.bits.forwardMask := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardMask)
+  loadTxns.io.alloc.bits.forwardData := Mux(translateDeviceLoad, 0.U, storeQueue.io.query.forwardData)
+
+  private val s3Free        = !tValid || s3CanComplete
+  private val replayDeqFire = replay.io.deq.valid && s3Free && !io.flush
+  replay.io.deq.ready := replayDeqFire
+
+  // Hit fast path: if S3 is free and no older replay entry is ready, consume
+  // the hit response directly instead of paying the replay-queue round trip.
+  private val lookupKilled       = io.recover.valid &&
+    RobAge.isYounger(lupReq.packet.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+  private val lookupDispatchable = dispatchable(
+    lupReq.packet,
+    mmu.io.resp.bits.paddr,
+    mmu.io.resp.bits.exception.valid,
+    storeQueue.io.lookupQuery.hasOlderStore
+  )
+  hitFastPath := mmu.io.resp.fire && !mmu.io.resp.bits.deferred && !lookupKilled &&
+    s3Free && !replay.io.deq.valid && lookupDispatchable
+
+  when(io.flush || translateKilled) {
+    tValid := false.B
+  }.otherwise {
+    when(hitFastPath) {
+      tValid := true.B
+      tReq   := lupReq.packet
+      tVaddr := lupReq.vaddr
+      tResp  := mmu.io.resp.bits
+    }.elsewhen(replayDeqFire) {
+      tValid := true.B
+      tReq   := replay.io.deq.bits.req.packet
+      tVaddr := replay.io.deq.bits.req.vaddr
+      tResp  := replay.io.deq.bits.resp
+    }.elsewhen(s3CanComplete) {
+      tValid := false.B
+    }
+  }
+
+  io.forwardFull                 := tValid && s3CanComplete && translateLoad && !translateDeviceLoad &&
     storeQueue.io.query.fullForward
-  io.forwardPartial              := state === sTranslate && translator.io.resp.fire && translateLoad &&
-    !translateDeviceLoad &&
+  io.forwardPartial              := tValid && s3CanComplete && translateLoad && !translateDeviceLoad &&
     storeQueue.io.query.partialForward
-  io.forwardUnresolvedStoreStall := state === sTranslate && translator.io.resp.valid && translateLoad &&
-    storeQueue.io.query.unresolved && currentRequestActive
+  io.forwardUnresolvedStoreStall := VecInit((0 until cfg.translationReplayEntries).map { entry =>
+    replayView(entry).translated && isLoadOp(replayView(entry).req.packet) &&
+    !replayView(entry).resp.exception.valid && storeQueue.io.replayQuery(entry).hasOlderStore
+  }).asUInt.orR
+
+  // S3 direct writeback / store update.
+  private val pipeWriteback = Wire(Valid(new RobWritebackPacket(cfg)))
+  private val pipeWakeup    = Wire(new IssueWakeup(cfg))
+  private val storeUpdate   = Wire(Valid(new StoreQueueUpdate(cfg)))
+  pipeWriteback := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))
+  pipeWakeup    := 0.U.asTypeOf(new IssueWakeup(cfg))
+  storeUpdate   := 0.U.asTypeOf(Valid(new StoreQueueUpdate(cfg)))
+
+  when(s3CanComplete) {
+    when(translateException) {
+      pipeWriteback.valid          := true.B
+      pipeWriteback.bits.robIdx    := tReq.robIdx
+      pipeWriteback.bits.exception := tResp.exception
+    }.elsewhen(translateLoad && !translateDeviceLoad && storeQueue.io.query.fullForward) {
+      val result = extendLoad(storeQueue.io.query.forwardData, tReq.memSize, tReq.memUnsigned)
+      pipeWriteback.valid          := true.B
+      pipeWriteback.bits.robIdx    := tReq.robIdx
+      pipeWriteback.bits.result    := result
+      pipeWriteback.bits.storeAddr := tResp.paddr
+      pipeWakeup.valid             := true.B
+      pipeWakeup.robIdx            := tReq.robIdx
+      pipeWakeup.data              := result
+    }.elsewhen(translateStore) {
+      pipeWriteback.valid          := true.B
+      pipeWriteback.bits.robIdx    := tReq.robIdx
+      pipeWriteback.bits.storeAddr := tResp.paddr
+      pipeWriteback.bits.storeData := tReq.src2.data
+      pipeWriteback.bits.storeMask := reqStoreMask
+
+      storeUpdate.valid       := true.B
+      storeUpdate.bits.sqIdx  := tReq.sqIdx
+      storeUpdate.bits.robIdx := tReq.robIdx
+      storeUpdate.bits.vaddr  := tVaddr
+      storeUpdate.bits.addr   := tResp.paddr
+      storeUpdate.bits.data   := tReq.src2.data
+      storeUpdate.bits.mask   := reqStoreMask
+      storeUpdate.bits.size   := tReq.memSize
+      storeUpdate.bits.mmio   := MemAddress.isDevice(tResp.paddr, cfg.addrWidth)
+    }.elsewhen(translateScFail) {
+      pipeWriteback.valid          := true.B
+      pipeWriteback.bits.robIdx    := tReq.robIdx
+      pipeWriteback.bits.result    := 1.U
+      pipeWriteback.bits.storeAddr := tResp.paddr
+      pipeWakeup.valid             := true.B
+      pipeWakeup.robIdx            := tReq.robIdx
+      pipeWakeup.data              := 1.U
+    }
+  }
+
+  // --------------------------------------------------------------- S4
+
+  private val memKilled = io.recover.valid && mState =/= mIdle &&
+    RobAge.isYounger(mReq.robIdx, io.recover.robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+  private val memActive = !io.flush && !memKilled && mState =/= mIdle
 
   private val normalLoadReq = Wire(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
   normalLoadReq                   := 0.U.asTypeOf(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
-  normalLoadReq.request.addr      := paddrReg
+  normalLoadReq.request.addr      := mPaddr
   normalLoadReq.request.write     := false.B
-  normalLoadReq.request.size      := reqReg.memSize
-  normalLoadReq.request.unsigned  := reqReg.memUnsigned
-  normalLoadReq.request.txnId     := loadTxnIdReg
-  normalLoadReq.request.cacheable := !MemAddress.isDevice(paddrReg, cfg.addrWidth)
+  normalLoadReq.request.size      := mReq.memSize
+  normalLoadReq.request.unsigned  := mReq.memUnsigned
+  normalLoadReq.request.txnId     := mLoadTxnId
+  normalLoadReq.request.cacheable := !MemAddress.isDevice(mPaddr, cfg.addrWidth)
   normalLoadReq.request.kind      := DataMemKind.normal
   normalLoadReq.owner.squashable  := true.B
-  normalLoadReq.owner.robIdx      := reqReg.robIdx
+  normalLoadReq.owner.robIdx      := mReq.robIdx
 
   private val amoStoreData =
-    Mux(isScOp(reqReg), reqReg.src2.data, amoWriteData(amoOldReg, reqReg.src2.data, reqReg.fuOp))
+    Mux(isScOp(mReq), mReq.src2.data, amoWriteData(mAmoOld, mReq.src2.data, mReq.fuOp))
 
   private val amoReadReq = Wire(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
   amoReadReq                   := 0.U.asTypeOf(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
-  amoReadReq.request.addr      := paddrReg
+  amoReadReq.request.addr      := mPaddr
   amoReadReq.request.write     := false.B
   amoReadReq.request.size      := MemSize.word.U
   amoReadReq.request.unsigned  := true.B
@@ -384,11 +584,11 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   amoReadReq.request.cacheable := false.B
   amoReadReq.request.kind      := DataMemKind.atomic
   amoReadReq.owner.squashable  := true.B
-  amoReadReq.owner.robIdx      := reqReg.robIdx
+  amoReadReq.owner.robIdx      := mReq.robIdx
 
   private val amoWriteReq = Wire(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
   amoWriteReq                   := 0.U.asTypeOf(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
-  amoWriteReq.request.addr      := paddrReg
+  amoWriteReq.request.addr      := mPaddr
   amoWriteReq.request.write     := true.B
   amoWriteReq.request.size      := MemSize.word.U
   amoWriteReq.request.unsigned  := false.B
@@ -398,18 +598,18 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   amoWriteReq.request.cacheable := false.B
   amoWriteReq.request.kind      := DataMemKind.atomic
   amoWriteReq.owner.squashable  := true.B
-  amoWriteReq.owner.robIdx      := reqReg.robIdx
+  amoWriteReq.owner.robIdx      := mReq.robIdx
 
   private val pteOwnedReq = Wire(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
   pteOwnedReq                  := 0.U.asTypeOf(new OwnedDataMemReq(cfg.addrWidth, cfg.dataWidth, cfg.robIdxWidth))
-  pteOwnedReq.request          := translator.io.memReq.bits
+  pteOwnedReq.request          := mmu.io.ptwReq.bits
   pteOwnedReq.owner.squashable := true.B
-  pteOwnedReq.owner.robIdx     := reqReg.robIdx
+  pteOwnedReq.owner.robIdx     := mmu.io.ptwRobIdx
 
-  private val atomicCandidate      = currentRequestActive && !atomicBusy &&
-    (state === sAmoReadReq || state === sAmoWriteReq)
-  private val ptwCandidate         = currentRequestActive && state === sTranslate && translator.io.memReq.valid && !ptwBusy
-  private val loadCandidate        = currentRequestActive && state === sLoadReq
+  private val atomicCandidate      = !io.flush && !memKilled && !atomicBusy &&
+    (mState === mAmoReadReq || mState === mAmoWriteReq)
+  private val ptwCandidate         = !io.flush && !mmu.io.walkAbort && mmu.io.ptwReq.valid && !ptwBusy
+  private val loadCandidate        = !io.flush && !memKilled && mState === mLoadReq
   private val serializedCandidate  = storeDrain.io.request.valid && !storeDrain.io.request.bits.request.cacheable
   private val normalStoreCandidate = storeDrain.io.request.valid && storeDrain.io.request.bits.request.cacheable
 
@@ -443,7 +643,7 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   private val selectedValid = sourceValid(selectedSource)
   private val selectedBits  = MuxLookup(selectedSource, normalLoadReq)(
     Seq(
-      arbAtomic     -> Mux(state === sAmoReadReq, amoReadReq, amoWriteReq),
+      arbAtomic     -> Mux(mState === mAmoReadReq, amoReadReq, amoWriteReq),
       arbPtw        -> pteOwnedReq,
       arbSerialized -> storeDrain.io.request.bits,
       arbLoad       -> normalLoadReq,
@@ -453,7 +653,7 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
 
   outbound.io.enq.valid       := selectedValid
   outbound.io.enq.bits        := selectedBits
-  translator.io.memReq.ready  := selectedSource === arbPtw && selectedValid && outbound.io.enq.ready
+  mmu.io.ptwReq.ready         := selectedSource === arbPtw && selectedValid && outbound.io.enq.ready
   storeDrain.io.request.ready :=
     (selectedSource === arbSerialized || selectedSource === arbStore) && selectedValid && outbound.io.enq.ready
 
@@ -480,9 +680,9 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   }
 
   loadTxns.io.markIssued.valid := rawLoadFire
-  loadTxns.io.markIssued.bits  := loadTxnIdReg
-  loadTxns.io.abort.valid      := state === sLoadReq && (io.flush || currentRequestKilled)
-  loadTxns.io.abort.bits       := loadTxnIdReg
+  loadTxns.io.markIssued.bits  := mLoadTxnId
+  loadTxns.io.abort.valid      := mState === mLoadReq && (io.flush || memKilled)
+  loadTxns.io.abort.bits       := mLoadTxnId
 
   outbound.io.flush   := io.flush
   outbound.io.recover := io.recover
@@ -518,25 +718,20 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
 
   storeDrain.io.response.valid      := io.dmemResp.valid && responseIsStore
   storeDrain.io.response.bits       := io.dmemResp.bits
-  // A serialized store may coexist only with a held younger device-load translation and an empty LTQ, so its precise
-  // fault still owns the LSU writeback port.
-  storeDrain.io.allowFaultWriteback := true.B
+  storeDrain.io.allowFaultWriteback := !frontendWriteback.valid && !pipeWriteback.valid
 
   private val ptwResponseMatch = ptwBusy && io.dmemResp.bits.txnId === DataMemTxn.ptwTag
-  private val ptwResponseStale = ptwKilled || io.flush || currentRequestKilled
-  translator.io.memResp.valid := io.dmemResp.valid && responseIsPtw && ptwResponseMatch && !ptwResponseStale
-  translator.io.memResp.bits  := io.dmemResp.bits
-  private val ptwResponseReady = !ptwResponseMatch || ptwResponseStale || translator.io.memResp.ready
+  private val ptwResponseStale = ptwKilled || io.flush
+  mmu.io.ptwResp.valid := io.dmemResp.valid && responseIsPtw && ptwResponseMatch && !ptwResponseStale
+  mmu.io.ptwResp.bits  := io.dmemResp.bits
+  private val ptwResponseReady = !ptwResponseMatch || ptwResponseStale || mmu.io.ptwResp.ready
 
-  private val atomicResponseState = state === sAmoReadResp || state === sAmoWriteResp
+  private val atomicResponseState = mState === mAmoReadResp || mState === mAmoWriteResp
   private val atomicResponseMatch = atomicBusy && io.dmemResp.bits.txnId === DataMemTxn.atomicTag
-  private val atomicResponseStale = atomicKilled || io.flush || currentRequestKilled
+  private val atomicResponseStale = atomicKilled || io.flush || memKilled
   private val atomicResponseReady = !atomicResponseMatch || atomicResponseStale || atomicResponseState
 
-  io.dmemResp.ready := MuxLookup(
-    DataMemTxn.txnClass(io.dmemResp.bits.txnId),
-    true.B
-  )(
+  io.dmemResp.ready := MuxLookup(DataMemTxn.txnClass(io.dmemResp.bits.txnId), true.B)(
     Seq(
       0.U -> loadTxns.io.complete.ready,
       1.U -> storeDrain.io.response.ready,
@@ -559,10 +754,10 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
     atomicBusy   := true.B
     atomicKilled := false.B
   }
-  when((io.flush || currentRequestKilled) && ptwBusy) {
+  when((io.flush || mmu.io.walkAbort) && ptwBusy) {
     ptwKilled := true.B
   }
-  when((io.flush || currentRequestKilled) && atomicBusy) {
+  when((io.flush || memKilled) && atomicBusy) {
     atomicKilled := true.B
   }
   when(cancelPtw || ptwResponseFire) {
@@ -574,97 +769,39 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
     atomicKilled := false.B
   }
 
-  private val pipeWriteback = Wire(Valid(new RobWritebackPacket(cfg)))
-  private val pipeWakeup    = Wire(new IssueWakeup(cfg))
-  private val storeUpdate   = Wire(Valid(new StoreQueueUpdate(cfg)))
-  pipeWriteback := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))
-  pipeWakeup    := 0.U.asTypeOf(new IssueWakeup(cfg))
-  storeUpdate   := 0.U.asTypeOf(Valid(new StoreQueueUpdate(cfg)))
-
-  when(!io.flush && !io.recover.valid && state === sIdle && io.in.fire && inputMisaligned) {
-    pipeWriteback.valid       := true.B
-    pipeWriteback.bits.robIdx := io.in.bits.robIdx
-    when(inputIsLoad || isLrOp(io.in.bits)) {
-      pipeWriteback.bits.exception := ExceptionInfo.raise(ExceptionCause.loadAddrMisaligned, inputAddr, cfg)
-    }.otherwise {
-      pipeWriteback.bits.exception := ExceptionInfo.raise(ExceptionCause.storeAddrMisaligned, inputAddr, cfg)
-    }
-  }
-
-  when(currentRequestActive && state === sTranslate && translator.io.resp.fire) {
-    when(translateException) {
-      pipeWriteback.valid          := true.B
-      pipeWriteback.bits.robIdx    := reqReg.robIdx
-      pipeWriteback.bits.exception := translator.io.resp.bits.exception
-    }.elsewhen(translateLoad && !translateDeviceLoad && storeQueue.io.query.fullForward) {
-      val result = extendLoad(storeQueue.io.query.forwardData, reqReg.memSize, reqReg.memUnsigned)
-      pipeWriteback.valid          := true.B
-      pipeWriteback.bits.robIdx    := reqReg.robIdx
-      pipeWriteback.bits.result    := result
-      pipeWriteback.bits.storeAddr := translator.io.resp.bits.paddr
-      pipeWakeup.valid             := true.B
-      pipeWakeup.robIdx            := reqReg.robIdx
-      pipeWakeup.data              := result
-    }.elsewhen(translateStore) {
-      pipeWriteback.valid          := true.B
-      pipeWriteback.bits.robIdx    := reqReg.robIdx
-      pipeWriteback.bits.storeAddr := translator.io.resp.bits.paddr
-      pipeWriteback.bits.storeData := reqReg.src2.data
-      pipeWriteback.bits.storeMask := reqStoreMask
-
-      storeUpdate.valid       := true.B
-      storeUpdate.bits.sqIdx  := reqReg.sqIdx
-      storeUpdate.bits.robIdx := reqReg.robIdx
-      storeUpdate.bits.vaddr  := vaddrReg
-      storeUpdate.bits.addr   := translator.io.resp.bits.paddr
-      storeUpdate.bits.data   := reqReg.src2.data
-      storeUpdate.bits.mask   := reqStoreMask
-      storeUpdate.bits.size   := reqReg.memSize
-      storeUpdate.bits.mmio   := MemAddress.isDevice(translator.io.resp.bits.paddr, cfg.addrWidth)
-    }.elsewhen(scWillFail) {
-      pipeWriteback.valid          := true.B
-      pipeWriteback.bits.robIdx    := reqReg.robIdx
-      pipeWriteback.bits.result    := 1.U
-      pipeWriteback.bits.storeAddr := translator.io.resp.bits.paddr
-      pipeWakeup.valid             := true.B
-      pipeWakeup.robIdx            := reqReg.robIdx
-      pipeWakeup.data              := 1.U
-    }
-  }
-
-  when(activeAtomicResponseWanted && state === sAmoReadResp) {
+  when(activeAtomicResponseWanted && mState === mAmoReadResp) {
     when(io.dmemResp.bits.fault) {
       pipeWriteback.valid          := true.B
-      pipeWriteback.bits.robIdx    := reqReg.robIdx
-      pipeWriteback.bits.storeAddr := paddrReg
-      pipeWriteback.bits.exception := ExceptionInfo.raise(accessFaultCause(reqReg), vaddrReg, cfg)
-    }.elsewhen(isLrOp(reqReg)) {
+      pipeWriteback.bits.robIdx    := mReq.robIdx
+      pipeWriteback.bits.storeAddr := mPaddr
+      pipeWriteback.bits.exception := ExceptionInfo.raise(accessFaultCause(mReq), mVaddr, cfg)
+    }.elsewhen(isLrOp(mReq)) {
       pipeWriteback.valid          := true.B
-      pipeWriteback.bits.robIdx    := reqReg.robIdx
+      pipeWriteback.bits.robIdx    := mReq.robIdx
       pipeWriteback.bits.result    := io.dmemResp.bits.data
-      pipeWriteback.bits.storeAddr := paddrReg
+      pipeWriteback.bits.storeAddr := mPaddr
       pipeWakeup.valid             := true.B
-      pipeWakeup.robIdx            := reqReg.robIdx
+      pipeWakeup.robIdx            := mReq.robIdx
       pipeWakeup.data              := io.dmemResp.bits.data
     }
   }
 
-  when(activeAtomicResponseWanted && state === sAmoWriteResp) {
+  when(activeAtomicResponseWanted && mState === mAmoWriteResp) {
     pipeWriteback.valid          := true.B
-    pipeWriteback.bits.robIdx    := reqReg.robIdx
-    pipeWriteback.bits.result    := Mux(isScOp(reqReg), 0.U, amoOldReg)
-    pipeWriteback.bits.storeAddr := paddrReg
+    pipeWriteback.bits.robIdx    := mReq.robIdx
+    pipeWriteback.bits.result    := Mux(isScOp(mReq), 0.U, mAmoOld)
+    pipeWriteback.bits.storeAddr := mPaddr
     pipeWriteback.bits.storeData := amoStoreData
     pipeWriteback.bits.storeMask := ((1 << dataBytes) - 1).U(dataBytes.W)
     when(io.dmemResp.bits.fault) {
-      pipeWriteback.bits.exception := ExceptionInfo.raise(ExceptionCause.storeAccessFault, vaddrReg, cfg)
+      pipeWriteback.bits.exception := ExceptionInfo.raise(ExceptionCause.storeAccessFault, mVaddr, cfg)
     }
     pipeWakeup.valid             := !io.dmemResp.bits.fault
-    pipeWakeup.robIdx            := reqReg.robIdx
-    pipeWakeup.data              := Mux(isScOp(reqReg), 0.U, amoOldReg)
+    pipeWakeup.robIdx            := mReq.robIdx
+    pipeWakeup.data              := Mux(isScOp(mReq), 0.U, mAmoOld)
   }
 
-  loadTxns.io.allowComplete := !pipeWriteback.valid
+  loadTxns.io.allowComplete := !pipeWriteback.valid && !frontendWriteback.valid
 
   private val serializedFaultWriteback = Wire(Valid(new RobWritebackPacket(cfg)))
   serializedFaultWriteback                := 0.U.asTypeOf(Valid(new RobWritebackPacket(cfg)))
@@ -677,135 +814,128 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
     cfg
   )
 
-  private val directWriteback = Mux(pipeWriteback.valid, pipeWriteback, serializedFaultWriteback)
-  private val directWakeup    = Mux(pipeWriteback.valid, pipeWakeup, 0.U.asTypeOf(new IssueWakeup(cfg)))
+  private val directWriteback =
+    Mux(frontendWriteback.valid, frontendWriteback, Mux(pipeWriteback.valid, pipeWriteback, serializedFaultWriteback))
+  private val directWakeup    = Mux(
+    frontendWriteback.valid,
+    0.U.asTypeOf(new IssueWakeup(cfg)),
+    Mux(pipeWriteback.valid, pipeWakeup, 0.U.asTypeOf(new IssueWakeup(cfg)))
+  )
   io.writeback := Mux(directWriteback.valid, directWriteback, loadTxns.io.writeback)
   io.wakeup    := Mux(directWriteback.valid, directWakeup, loadTxns.io.wakeup)
 
   storeQueue.io.update := storeUpdate
   io.storeUpdate       := storeUpdate
 
-  when(io.flush || currentRequestKilled) {
-    state := sIdle
+  // --------------------------------------------------------- S4 queue/state
+
+  when(io.flush) {
+    s4Valid := false.B
+  }.elsewhen(s4RecoverKill) {
+    s4Valid := false.B
   }.otherwise {
-    when(state === sIdle) {
-      when(pendingDeviceReissue) {
-        reqReg                               := pendingDeviceReq(pendingDeviceIdx)
-        vaddrReg                             := pendingDeviceVaddr(pendingDeviceIdx)
-        paddrReg                             := pendingDevicePaddr(pendingDeviceIdx)
-        loadTxnIdReg                         := loadTxns.io.allocTxnId
-        pendingDeviceValid(pendingDeviceIdx) := false.B
-        state                                := sLoadReq
-      }.elsewhen(io.in.fire && inputNeedsTranslate) {
-        reqReg   := io.in.bits
-        vaddrReg := inputAddr
-        state    := sTranslate
+    when(s4DeqFire) {
+      s4Valid := false.B
+    }
+    when(s4Enq.valid && s4EnqReady) {
+      s4Bits  := s4Enq.bits
+      s4Valid := true.B
+    }
+  }
+
+  when(io.flush) {
+    mState := mIdle
+  }.elsewhen(memKilled) {
+    mState := mIdle
+  }.otherwise {
+    when(mState === mIdle) {
+      when(s4DeqFire) {
+        mReq       := s4Bits.packet
+        mVaddr     := s4Bits.vaddr
+        mPaddr     := s4Bits.paddr
+        mLoadTxnId := s4Bits.loadTxnId
+        mState     := Mux(
+          isLoadOp(s4Bits.packet),
+          mLoadReq,
+          Mux(isScOp(s4Bits.packet), mAmoWriteReq, mAmoReadReq)
+        )
       }
-    }.elsewhen(state === sTranslate) {
-      when(translator.io.resp.fire) {
-        paddrReg := translator.io.resp.bits.paddr
-        when(
-          translateException || translateStore ||
-            (translateLoad && !translateDeviceLoad && storeQueue.io.query.fullForward) || scWillFail
-        ) {
-          state := sIdle
-        }.elsewhen(translateLoad && canParkDeviceLoad) {
-          pendingDeviceValid(pendingDeviceFreeIdx) := true.B
-          pendingDeviceReq(pendingDeviceFreeIdx)   := reqReg
-          pendingDeviceVaddr(pendingDeviceFreeIdx) := vaddrReg
-          pendingDevicePaddr(pendingDeviceFreeIdx) := translator.io.resp.bits.paddr
-          state                                    := sIdle
-        }.elsewhen(translateLoad) {
-          loadTxnIdReg := loadTxns.io.allocTxnId
-          state        := sLoadReq
-        }.elsewhen(isScOp(reqReg)) {
-          state := sAmoWriteReq
-        }.otherwise {
-          state := sAmoReadReq
-        }
-      }
-    }.elsewhen(state === sLoadReq) {
+    }.elsewhen(mState === mLoadReq) {
       when(rawLoadFire) {
-        state := sIdle
+        mState := mIdle
       }
-    }.elsewhen(state === sAmoReadReq) {
+    }.elsewhen(mState === mAmoReadReq) {
       when(rawAtomicFire) {
-        state := sAmoReadResp
+        mState := mAmoReadResp
       }
-    }.elsewhen(state === sAmoReadResp) {
+    }.elsewhen(mState === mAmoReadResp) {
       when(activeAtomicResponse) {
-        when(io.dmemResp.bits.fault || isLrOp(reqReg)) {
-          state := sIdle
+        when(io.dmemResp.bits.fault || isLrOp(mReq)) {
+          mState := mIdle
         }.otherwise {
-          amoOldReg := io.dmemResp.bits.data
-          state     := sAmoWriteReq
+          mAmoOld := io.dmemResp.bits.data
+          mState  := mAmoWriteReq
         }
       }
-    }.elsewhen(state === sAmoWriteReq) {
+    }.elsewhen(mState === mAmoWriteReq) {
       when(rawAtomicFire) {
-        state := sAmoWriteResp
+        mState := mAmoWriteResp
       }
     }.otherwise {
       when(activeAtomicResponse) {
-        state := sIdle
+        mState := mIdle
       }
     }
   }
 
-  for (slot <- 0 until pendingDeviceSlots) {
-    when(
-      pendingDeviceValid(slot) && (io.flush ||
-        (io.recover.valid && RobAge.isYounger(
-          pendingDeviceReq(slot).robIdx,
-          io.recover.robIdx,
-          io.robHead,
-          cfg.robEntries,
-          cfg.robIdxWidth
-        )))
-    ) {
-      pendingDeviceValid(slot) := false.B
-    }
-  }
-
-  when(activeAtomicResponse && state === sAmoReadResp && !io.dmemResp.bits.fault && isLrOp(reqReg)) {
+  when(activeAtomicResponse && mState === mAmoReadResp && !io.dmemResp.bits.fault && isLrOp(mReq)) {
     reservationValid := true.B
-    reservationAddr  := paddrReg
+    reservationAddr  := mPaddr
   }
   private val committedStore = io.storeCommit.map(_.valid).reduce(_ || _)
   when(
     io.flush || committedStore || storeDrain.io.serializedSuccess ||
-      (translator.io.resp.fire && scWillFail) || (rawAtomicFire && state === sAmoWriteReq)
+      (s3CanComplete && translateScFail) || (rawAtomicFire && mState === mAmoWriteReq)
   ) {
     reservationValid := false.B
   }
 
-  storesDrained                := !storeQueue.io.committedPending && !storeDrain.io.normalOutstanding
-  io.storesDrainedBeforeCommit := storesDrained
-  io.storesDrained             := storesDrained && !committedStore
-  private val youngerDeviceLoadHoldingTranslation = currentRequestActive && state === sTranslate &&
-    translator.io.resp.valid && translateDeviceLoad && reqReg.robIdx =/= io.robHead
-  storeDrain.io.serializedCanStart := io.serializedStore.valid &&
-    (state === sIdle || youngerDeviceLoadHoldingTranslation) && loadTxns.io.empty && storesDrained && !ptwBusy &&
-    !atomicBusy
+  storesDrained                    := !storeQueue.io.committedPending && !storeDrain.io.normalOutstanding
+  io.storesDrainedBeforeCommit     := storesDrained
+  io.storesDrained                 := storesDrained && !committedStore
+  storeDrain.io.serializedCanStart := io.serializedStore.valid && !serializedInFlight &&
+    mState === mIdle && !s4Valid && loadTxns.io.empty &&
+    storesDrained && !ptwBusy && !atomicBusy
 
-  io.memoryIdle       := state === sIdle && !pendingDeviceValid.asUInt.orR && loadTxns.io.empty &&
-    storeDrain.io.idle && outbound.io.empty && !ptwBusy && !atomicBusy && !arbLocked && !serializedPending
-  io.busy             := state =/= sIdle || serializedPending
+  io.memoryIdle       := tq.io.empty && replay.io.empty && !lupPending && !tValid && mmu.io.idle &&
+    mState === mIdle && !s4Valid && loadTxns.io.empty && storeDrain.io.idle && outbound.io.empty &&
+    !ptwBusy && !atomicBusy && !arbLocked && !serializedPending
+  io.busy             := !tq.io.empty || !replay.io.empty || lupPending || !mmu.io.idle || tValid ||
+    mState =/= mIdle || s4Valid || serializedPending
   io.loadTxnOccupancy := loadTxns.io.occupancy
-  io.loadTxnFullStall := state === sIdle && !io.flush && !io.recover.valid && io.in.valid && inputIsLoad &&
-    !loadTxns.io.alloc.ready
+  io.loadTxnFullStall := VecInit((0 until cfg.translationReplayEntries).map { entry =>
+    replayView(entry).translated && isLoadOp(replayView(entry).req.packet) &&
+    !replayView(entry).resp.exception.valid &&
+    !(loadTxns.io.alloc.ready && s4EnqReady)
+  }).asUInt.orR
 
   when(io.in.fire && inputIsAtomic) {
     assert(io.in.bits.robIdx === io.robHead, "atomic operations must start at the ROB head")
     assert(loadTxns.io.empty && storesDrained, "atomic operations require drained older memory state")
   }
+  when(s4Enq.valid) {
+    assert(!translateException, "translated exceptions must not enter S4")
+    when(translateLoad) {
+      assert(loadTxns.io.alloc.fire, "an S4 load must own a newly allocated load transaction")
+    }
+  }
   when(loadTxns.io.alloc.fire && translateDeviceLoad) {
-    assert(reqReg.robIdx === io.robHead, "device loads may allocate a transaction only at the ROB head")
+    assert(tReq.robIdx === io.robHead, "device loads may allocate a transaction only at the ROB head")
     assert(storesDrained && loadTxns.io.empty, "device loads require drained older stores and loads")
     assert(loadTxns.io.alloc.bits.forwardMask === 0.U, "device loads must not consume store-queue forwarding")
   }
   when(rawLoadFire && MemAddress.isDevice(normalLoadReq.request.addr, cfg.addrWidth)) {
-    assert(reqReg.robIdx === io.robHead, "device loads may externalize only at the ROB head")
+    assert(mReq.robIdx === io.robHead, "device loads may externalize only at the ROB head")
     assert(storesDrained && !normalLoadReq.request.cacheable, "device loads must use the drained uncached path")
   }
   when(io.dmemResp.fire && responseIsPtw) {
@@ -819,6 +949,12 @@ class LSU(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = false) 
   }
   when(serializedSuccessPending && io.serializedStore.valid) {
     assert(serializedSuccessMatch, "serialized store completion must match the waiting ROB-head store")
+  }
+  when(mmu.io.req.fire) {
+    assert(replay.io.reserveReady, "translation lookup without a replay slot")
+  }
+  when(mmu.io.complete.valid) {
+    assert(replay.io.completeMatched, "translation completion must match a pending replay entry")
   }
 
   private val stalledExternalRequest  = RegNext(io.dmemReq.valid && !io.dmemReq.ready, false.B)

@@ -2,7 +2,7 @@ package top.core.backend.issue
 
 import chisel3._
 import chisel3.util.{Decoupled, Mux1H, MuxLookup, PopCount}
-import top.core.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup, StoreTrackerQuery}
+import top.core.backend.bundle.{IssuePacket, IssuePortStatus, IssueWakeup}
 import top.core.backend.csr.CsrTrackerQuery
 import top.core.backend.decoder.FuType
 import top.core.bundle.{RobAge, RobRecovery}
@@ -18,7 +18,6 @@ class IssueQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
     val memStatus           = Input(new IssuePortStatus)
     val robHead             = Input(UInt(cfg.robIdxWidth.W))
     val unresolvedAmo       = Input(Vec(cfg.robEntries, Bool()))
-    val storeQuery          = Vec(cfg.issueQueueEntries, Flipped(new StoreTrackerQuery(cfg)))
     val csrQuery            = Vec(cfg.issueQueueEntries, Flipped(new CsrTrackerQuery(cfg)))
     val intIssue            = Vec(cfg.intIssueWidth, Decoupled(new IssuePacket(cfg)))
     val memIssue            = Decoupled(new IssuePacket(cfg))
@@ -35,12 +34,21 @@ class IssueQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
   private val memSelect  = Module(new IssueSelect(cfg))
   private val allWakeups = io.wakeup ++ io.commitWakeup
 
-  private val readyEntry             = Wire(Vec(cfg.issueQueueEntries, Bool()))
-  private val olderStoreBlockedEntry = Wire(Vec(cfg.issueQueueEntries, Bool()))
-  private val amoBlockedEntry        = Wire(Vec(cfg.issueQueueEntries, Bool()))
-  private val csrBlockedEntry        = Wire(Vec(cfg.issueQueueEntries, Bool()))
-  private val lsuUnavailableEntry    = Wire(Vec(cfg.issueQueueEntries, Bool()))
-  private val fuUnavailableEntry     = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val readyEntry          = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val amoBlockedEntry     = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val csrBlockedEntry     = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val lsuUnavailableEntry = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val fuUnavailableEntry  = Wire(Vec(cfg.issueQueueEntries, Bool()))
+
+  // Program-order issue keeps the translation queue ordered. Store-to-load ordering is checked later by the LSU's
+  // replay and S3 gates, so an older unresolved store outside this queue does not block a younger load's translation.
+  // Age is measured from `robHead`, matching `IssueSelect`.
+  private val memEntry = Wire(Vec(cfg.issueQueueEntries, Bool()))
+  private val memAge   = Wire(Vec(cfg.issueQueueEntries, UInt((cfg.robIdxWidth + 1).W)))
+  for (i <- 0 until cfg.issueQueueEntries) {
+    memEntry(i) := valid(i) && entries(i).needsExecution && entries(i).fuType === FuType.lsu
+    memAge(i)   := RobAge.fromHead(entries(i).robIdx, io.robHead, cfg.robEntries, cfg.robIdxWidth)
+  }
 
   intSelect.foreach(_.io.robHead := io.robHead)
   memSelect.io.robHead := io.robHead
@@ -76,27 +84,27 @@ class IssueQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
       io.memStatus.atomic,
       Mux(entries(i).isStore, io.memStatus.store, io.memStatus.load)
     )
-    val loadBlocked           = entries(i).isLoad && io.storeQuery(i).hasOlderStore
+    val hasOlderMem           = VecInit(
+      (0 until cfg.issueQueueEntries).map(j => memEntry(j) && memAge(j) < memAge(i))
+    ).asUInt.orR
+    val oldestMemEntry        = memEntry(i) && !hasOlderMem
     val amoOrderBlocked       = memPipe && hasOlderUnresolvedAmo
     val amoBlocked            = entries(i).isAmo && entries(i).robIdx =/= io.robHead
     val csrBlocked            = entries(i).isCsr && io.csrQuery(i).hasOlderSameAddrWriter
     val request               = valid(i) && entries(
       i
-    ).needsExecution && ready && !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked &&
+    ).needsExecution && ready && !amoOrderBlocked && !amoBlocked && !csrBlocked &&
       !io.flush && !io.recover.valid && !io.hold
-    val orderingClear         = !loadBlocked && !amoOrderBlocked && !amoBlocked && !csrBlocked
+    val orderingClear         = !amoOrderBlocked && !amoBlocked && !csrBlocked
     val anyIntFuAvailable     = VecInit(io.intStatus.map(status => fuAvailable(status, entries(i).fuType))).asUInt.orR
 
-    readyEntry(i)             := valid(i) && entries(i).needsExecution && ready
-    olderStoreBlockedEntry(i) := readyEntry(i) && loadBlocked
-    amoBlockedEntry(i)        := readyEntry(i) && !loadBlocked && (amoOrderBlocked || amoBlocked)
-    csrBlockedEntry(i)        := readyEntry(i) && !loadBlocked && !amoOrderBlocked && !amoBlocked && csrBlocked
-    lsuUnavailableEntry(i)    := readyEntry(i) && orderingClear && memPipe &&
+    readyEntry(i)          := valid(i) && entries(i).needsExecution && ready
+    amoBlockedEntry(i)     := readyEntry(i) && (amoOrderBlocked || amoBlocked)
+    csrBlockedEntry(i)     := readyEntry(i) && !amoOrderBlocked && !amoBlocked && csrBlocked
+    lsuUnavailableEntry(i) := readyEntry(i) && orderingClear && memPipe &&
       (!fuAvailable(io.memStatus, entries(i).fuType) || !memOperationAvailable)
-    fuUnavailableEntry(i)     := readyEntry(i) && orderingClear && !memPipe && !anyIntFuAvailable
+    fuUnavailableEntry(i)  := readyEntry(i) && orderingClear && !memPipe && !anyIntFuAvailable
 
-    io.storeQuery(i).valid  := valid(i) && entries(i).needsExecution && entries(i).isLoad
-    io.storeQuery(i).robIdx := entries(i).robIdx
     io.csrQuery(i).valid    := valid(i) && entries(i).needsExecution && entries(i).isCsr
     io.csrQuery(i).robIdx   := entries(i).robIdx
     io.csrQuery(i).addr     := entries(i).csrAddr
@@ -113,7 +121,7 @@ class IssueQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
     }
 
     memSelect.io.request(i) := request && memPipe && fuAvailable(io.memStatus, entries(i).fuType) &&
-      memOperationAvailable
+      memOperationAvailable && oldestMemEntry
     memSelect.io.robIdx(i)  := entries(i).robIdx
   }
 
@@ -161,7 +169,6 @@ class IssueQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
 
     val blockReasonNone       = 0.U(4.W)
     val blockReasonDownstream = 1.U(4.W)
-    val blockReasonOlderStore = 2.U(4.W)
     val blockReasonAmoOrder   = 3.U(4.W)
     val blockReasonCsrOrder   = 4.U(4.W)
 
@@ -173,8 +180,6 @@ class IssueQueue(cfg: BackendConfig = BackendConfig(), enableMonitor: Boolean = 
     when(blockReady) {
       when(selectedDownstreamBlocked) {
         blockReason := blockReasonDownstream
-      }.elsewhen(olderStoreBlockedEntry.asUInt.orR) {
-        blockReason := blockReasonOlderStore
       }.elsewhen(amoBlockedEntry.asUInt.orR) {
         blockReason := blockReasonAmoOrder
       }.elsewhen(csrBlockedEntry.asUInt.orR) {

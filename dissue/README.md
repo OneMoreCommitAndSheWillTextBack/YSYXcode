@@ -281,14 +281,18 @@ writeback broadcast 到达时，如果源操作数等待该 `robIdx`，entry 填
 
 ```text
 每个 int issue port 每周期最多发 1 条
-mem issue port 每周期最多发 1 条
+mem issue port 每周期最多发 1 条，且只发射最老的 memory entry
 同一条 entry 只能被一个 port grant
-load 在存在 older unresolved store 时阻塞
+load 可以先进入 LSU 翻译，在 replay/S3 前等待 older unresolved store
 ```
 
 ### LSU 和内存副作用
 
 load 可以在 execute 阶段发 dmem read，resp 返回后写 ROB result 并 wakeup 依赖者。
+
+页表 walk 的 PTW 读是 speculative 的：`Mem` 只对 device/atomic 这类架构可见的 bypass 请求做 ROB-head 门控；PTW 在 owner 尚未到 ROB head 时即可发出，recover/flush 时由 `abort`/`ptwKilled` 丢弃。LSU 入口不再用 older unresolved CFI 串行化 memory op；memory issue 保持程序序，load 可以提前翻译，store-to-load 顺序由 replay/hit-fast-path 的 age-only gate 和 S3 forwarding query 共同保证。
+
+LSU 通过 `LsuMmu` 使用 `Sv32Translator` 和 L1 DTLB：翻译在进入 SQ/LTQ 更新和 outbound 之前完成；`sfence` 全刷 DTLB entry，`flush` 只杀在途请求，M/bare 模式绕过 DTLB。
 
 store 不能在 execute 阶段直接写内存。store 的 execute 结果只写入 ROB：
 

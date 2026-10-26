@@ -109,8 +109,8 @@ s_mode_entry:
   sw t3, 0(t0)
 4:
   # Keep a younger store ready while an older load waits on a division result.
-  # The following branch depends on that load, so the store must not occupy the
-  # single LSU and block its own speculative page-table walk behind the branch.
+  # This exercises single-LSU liveness: the younger store may enter the LSU
+  # first, but its speculative page-table walk must not deadlock the older load.
   la a0, s_mode_done
   li a1, 12288
   li a2, 3

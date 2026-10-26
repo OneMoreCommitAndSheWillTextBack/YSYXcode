@@ -20,11 +20,30 @@ class MmuTranslateReq(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val priv    = UInt(top.core.backend.csr.PrivMode.width.W)
   val mstatus = UInt(cfg.dataWidth.W)
   val satp    = UInt(cfg.dataWidth.W)
+  // Translation window identity. The LSU allocates this for every queued
+  // request; async miss completions echo it back so they can be matched after
+  // younger lookups have overtaken the original request.
+  val id      = UInt(cfg.translationIdWidth.W)
+  val robIdx  = UInt(cfg.robIdxWidth.W)
 }
 
 class MmuTranslateResp(cfg: BackendConfig = BackendConfig()) extends Bundle {
   val paddr     = UInt(cfg.addrWidth.W)
   val exception = new ExceptionInfo(cfg)
+
+  // Walker-to-DTLB refill information. `fill` is false for faults and for
+  // translation-disabled responses; the DTLB bypasses the latter before lookup.
+  val vaddr = UInt(cfg.addrWidth.W)
+  val pte   = UInt(cfg.dataWidth.W)
+  val level = UInt(1.W)
+  val fill  = Bool()
+
+  // Echo of the request identity plus the lookup result class. `deferred`
+  // means the translation was enqueued in the DTLB miss queue and the final
+  // result will arrive on the completion port.
+  val id       = UInt(cfg.translationIdWidth.W)
+  val robIdx   = UInt(cfg.robIdxWidth.W)
+  val deferred = Bool()
 }
 
 object MmuMemReq {

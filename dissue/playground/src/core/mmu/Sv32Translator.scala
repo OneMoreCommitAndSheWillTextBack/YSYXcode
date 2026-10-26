@@ -126,6 +126,13 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
   private val terminalResponse = Wire(new MmuTranslateResp(cfg))
   terminalResponse.paddr     := reqReg.vaddr
   terminalResponse.exception := ExceptionInfo.none(cfg)
+  terminalResponse.vaddr     := reqReg.vaddr
+  terminalResponse.pte       := responsePte
+  terminalResponse.level     := 0.U
+  terminalResponse.fill      := false.B
+  terminalResponse.id        := reqReg.id
+  terminalResponse.robIdx    := reqReg.robIdx
+  terminalResponse.deferred  := false.B
   when(state === sPte1Resp) {
     when(io.memResp.bits.fault) {
       terminalResponse.exception := ExceptionInfo.raise(accessFaultCause(reqReg.access), reqReg.vaddr, cfg)
@@ -136,6 +143,8 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
         terminalResponse.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
       }.otherwise {
         terminalResponse.paddr := pagePaddr(responsePte, true.B, reqReg.vaddr)
+        terminalResponse.level := 1.U
+        terminalResponse.fill  := true.B
       }
     }.elsewhen(invalidNonLeafPte(responsePte)) {
       terminalResponse.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
@@ -150,6 +159,7 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
       terminalResponse.exception := ExceptionInfo.raise(pageFaultCause(reqReg.access), reqReg.vaddr, cfg)
     }.otherwise {
       terminalResponse.paddr := pagePaddr(responsePte, false.B, reqReg.vaddr)
+      terminalResponse.fill  := true.B
     }
   }
 
@@ -183,6 +193,13 @@ class Sv32Translator(cfg: BackendConfig = BackendConfig()) extends Module {
   private def acceptTranslationRequest(): Unit = {
     reqReg            := io.req.bits
     respReg.paddr     := io.req.bits.vaddr
+    respReg.vaddr     := io.req.bits.vaddr
+    respReg.pte       := 0.U
+    respReg.level     := 0.U
+    respReg.fill      := false.B
+    respReg.id        := io.req.bits.id
+    respReg.robIdx    := io.req.bits.robIdx
+    respReg.deferred  := false.B
     respReg.exception := ExceptionInfo.none(cfg)
     when(translateDisabled) {
       state := sDone

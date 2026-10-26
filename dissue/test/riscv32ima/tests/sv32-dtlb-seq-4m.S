@@ -1,0 +1,4 @@
+#define BENCH_MODE 0
+#define SUPERPAGE 1
+#define BENCH_N ARRAY_WORDS
+#include "dtlb_bench.h"

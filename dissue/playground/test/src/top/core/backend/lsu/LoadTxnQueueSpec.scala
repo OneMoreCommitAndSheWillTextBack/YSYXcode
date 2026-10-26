@@ -135,6 +135,25 @@ object LoadTxnQueueSpec {
       dut.io.occupancy.expect(0)
       dut.io.allocTxnId.expect(0)
 
+      // An allocation killed before it reaches the outbound queue owns no
+      // request, so no response or cancellation can ever release it. Flush must
+      // reclaim the slot directly.
+      val unissuedFlushTag = allocate(robIdx = 6, vaddr = 0x9000, paddr = 0xa000)
+      assert(unissuedFlushTag == 0)
+      dut.io.flush.poke(true)
+      dut.clock.step()
+      dut.io.flush.poke(false)
+      dut.io.occupancy.expect(0)
+
+      // The same holds for a selectively recovered unissued tag.
+      val unissuedRecoverTag = allocate(robIdx = 7, vaddr = 0xb000, paddr = 0xc000)
+      assert(unissuedRecoverTag == 0)
+      dut.io.recover.valid.poke(true)
+      dut.io.recover.robIdx.poke(6)
+      dut.clock.step()
+      dut.io.recover.valid.poke(false)
+      dut.io.occupancy.expect(0)
+
       // A live response waits when another direct completion owns the LSU writeback port.
       val stalledTag = allocate(robIdx = 5, vaddr = 0x7000, paddr = 0x8000)
       markIssued(stalledTag)

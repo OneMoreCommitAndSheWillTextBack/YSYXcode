@@ -62,10 +62,6 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     val recover = Input(new RobRecovery(cfg.robIdxWidth))
 
     val producerEntries = Output(Vec(cfg.robEntries, new RobProducerEntry(cfg)))
-    // MMU translation may block the single LSU on a page-table walk. Keep the
-    // conservative branch-ordering gate for translation-enabled memory ops;
-    // bare-mode accesses can execute speculatively.
-    val unresolvedCfi   = Output(Vec(cfg.robEntries, Bool()))
     // Younger LSU operations must not pass an older AMO. The AMO bypasses the
     // DCache, so a cacheable load could otherwise observe the line before the
     // AMO write has reached memory.
@@ -163,7 +159,6 @@ class ROB(cfg: BackendConfig = BackendConfig()) extends Module {
     io.producerEntries(index).rd     := entries(index).rd
     io.producerEntries(index).rfWen  := entries(index).rfWen
     io.producerEntries(index).result := entries(index).result
-    io.unresolvedCfi(index)          := entries(index).valid && entries(index).cfi =/= CfiType.none && !entries(index).done
     io.unresolvedAmo(index)          := entries(index).valid && entries(index).isAmo && !entries(index).done
   }
 

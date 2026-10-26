@@ -50,10 +50,12 @@ object StoreQueueSpec {
         dut.io.query.robIdx.poke(0)
         dut.io.query.addr.poke(0)
         dut.io.query.mask.poke(0)
-        for (query <- 0 until cfg.issueQueueEntries) {
-          dut.io.issueQuery(query).valid.poke(false)
-          dut.io.issueQuery(query).robIdx.poke(0)
+        for (query <- dut.io.replayQuery) {
+          query.valid.poke(false)
+          query.robIdx.poke(0)
         }
+        dut.io.lookupQuery.valid.poke(false)
+        dut.io.lookupQuery.robIdx.poke(0)
         dut.io.normalDrain.ready.poke(false)
         dut.io.robHead.poke(0)
         dut.io.flush.poke(false)
@@ -101,6 +103,13 @@ object StoreQueueSpec {
       dut.io.alloc(1).valid.poke(false)
       dut.io.occupancy.expect(2)
 
+      dut.io.replayQuery(0).valid.poke(true)
+      dut.io.replayQuery(0).robIdx.poke(2)
+      dut.io.lookupQuery.valid.poke(true)
+      dut.io.lookupQuery.robIdx.poke(2)
+      dut.io.replayQuery(0).hasOlderStore.expect(true)
+      dut.io.lookupQuery.hasOlderStore.expect(true)
+
       // A third store is explicitly backpressured while the two-entry SQ is full.
       dut.io.alloc(0).valid.poke(true)
       dut.io.alloc(0).robIdx.poke(2)
@@ -111,6 +120,10 @@ object StoreQueueSpec {
 
       update(sqIdx = 0, robIdx = 0, addr = 0x1000, data = 0x11223344, mask = 0xf)
       update(sqIdx = 1, robIdx = 1, addr = 0x1001, data = 0xaa, mask = 0x1)
+      dut.io.replayQuery(0).hasOlderStore.expect(false)
+      dut.io.lookupQuery.hasOlderStore.expect(false)
+      dut.io.replayQuery(0).valid.poke(false)
+      dut.io.lookupQuery.valid.poke(false)
 
       // The younger byte store overrides only byte one of the older word store.
       dut.io.query.valid.poke(true)

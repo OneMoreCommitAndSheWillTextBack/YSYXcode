@@ -68,7 +68,13 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16, enableMonitor: Boo
   val ptwAccess    = Module(new AxiDataAccess(cfg, allowDirectIncoming = false))
   val axiMaster    = Module(new AxiMaster(cfg))
 
-  private val bypassOwner = RegInit(0.U.asTypeOf(new DataMemOwner(robIdxWidth)))
+  private val bypassOwner          = RegInit(0.U.asTypeOf(new DataMemOwner(robIdxWidth)))
+  // Device and atomic bypass requests are architecturally visible and must not become
+  // irreversible before their ROB owner is at the head. Page-table walks are read-only:
+  // they may issue speculatively and are dropped on recovery/flush, so they must not
+  // inherit the head gate (doing so lets a younger walk block the LSU and deadlock an
+  // older load that still needs to execute).
+  private val bypassOwnerHeadGated = RegInit(false.B)
 
   refill.io.req <> io.imemReq
   io.imemResp <> refill.io.resp
@@ -123,13 +129,17 @@ class Mem(cfg: MemConfig = MemConfig(), robEntries: Int = 16, enableMonitor: Boo
   io.fenceIDone                   := dcache.io.cleanAllDone
 
   when(bypassAccess.io.req.fire) {
-    bypassOwner := io.dmemReq.bits.owner
+    bypassOwner          := io.dmemReq.bits.owner
+    bypassOwnerHeadGated := isArchitecturallyVisibleBypass
   }
 
   // A bypass request is still revocable until AxiDataAccess hands it to the
   // shared AXI master. Re-check its ROB owner there, not just on enqueue.
+  // Only architecturally visible bypass classes (device/atomic) require the owner
+  // to be at the ROB head; a speculative page-table walk is dropped on recovery.
   bypassAccess.io.incomingIssuePermit := bypassMayIssue
-  bypassAccess.io.issuePermit         := !bypassOwner.squashable || bypassOwner.robIdx === io.robHead
+  bypassAccess.io.issuePermit         := !bypassOwnerHeadGated ||
+    !bypassOwner.squashable || bypassOwner.robIdx === io.robHead
   bypassAccess.io.abort               := ownerKilled(bypassOwner)
 
   for (port <- 0 until dcacheCancelPorts) {
